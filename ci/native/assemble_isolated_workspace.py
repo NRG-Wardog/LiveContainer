@@ -18,7 +18,7 @@ import subprocess
 
 BASELINE = "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee"
 OWNERS = {
-    "LiveContainer": ("b226f9903a3c96acdb76fe32033569388e1e48cf", "30076d28fe5dc99d98fee842be56b340cb17a45c", "LiveContainer"),
+    "LiveContainer": ("33dd0ff070441fcfa79f3375cf898a6ec33e72ad", "f9d8560f6f35c26a66feeeb99e6ac0091d79a98b", "LiveContainer"),
     "SideStore": ("c4eb2705ed8dfd0dcb585cd41d21d54e4287f03e", "aee5909c3813560fea82e678d96c12bed34d0fc5", "SideStore"),
     "AnisetteKit": ("0d0b777d4d4308387fb5361bd70ce667ecbd7fe4", "77bfbe938fa967b2531305ddb9264f939c90dfd6", "AnisetteKit"),
     "SideSign": ("c196183e22f1f551cf35c07f176e5aa0bad04751", "788b3adbcff935450845d57f31a33a92a497a71c", "SideStore/Dependencies/SideSign"),

@@ -97,7 +97,7 @@ class ReferenceApprovalTests(FixtureCase):
 
     def test_reviewed_assembler_copy_is_exact(self):
         inputs.approved_file(HERE / "assemble_isolated_workspace.py",
-            "a8e114a5fc0a4e18aff0df27b9b8f163eb15da9fea4f332658197dc348e3b657")
+            "1a09214f0d6967deb1db64f5edefce8aba82e1fd595a1753bab911040f56c85d")
 
 
 class CheckoutGuardTests(FixtureCase):

@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 import unittest
 
-EXPECTED = {"LiveContainer": 40, "SideStore": 46, "AnisetteKit": 5}
+EXPECTED = {"LiveContainer": 41, "SideStore": 46, "AnisetteKit": 5}
 
 
 def main():
