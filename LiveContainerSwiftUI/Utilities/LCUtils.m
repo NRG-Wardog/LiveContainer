@@ -162,6 +162,15 @@
                                                       pass:LCSharedUtils.certificatePassword completionHandler:completionHandler];
 }
 
+// V3_CANONICAL_CERTIFICATE_FACTS_V1: no secret material leaves the native parser.
++ (NSDictionary<NSString *, NSString *> *)certificateFactsWithKeyData:(NSData *)keyData password:(NSString *)password {
+    NSError *error = nil;
+    [self loadStoreFrameworksWithError2:&error];
+    Class signer = NSClassFromString(@"ZSigner");
+    if (error || !signer || ![signer respondsToSelector:@selector(certificateFactsWithCert:pass:)]) return nil;
+    return [signer certificateFactsWithCert:keyData pass:password];
+}
+
 + (NSString*)getCertTeamIdWithKeyData:(NSData*)keyData password:(NSString*)password {
     NSError *error;
     [self loadStoreFrameworksWithError2:&error];
@@ -172,15 +181,22 @@
     return ans;
 }
 
+// V3_CANONICAL_CERTIFICATE_VALIDATION_CALLBACK_V1
 + (int)validateCertificateWithCompletionHandler:(void(^)(int status, NSDate *expirationDate, NSString *organizationalUnitName, NSString *error))completionHandler {
-    NSError *error;
+    NSError *error = nil;
     NSData *certData = [LCUtils certificateData];
-    if (error) {
+    NSString *password = [LCSharedUtils certificatePassword];
+    if (![certData isKindOfClass:[NSData class]] || ![password isKindOfClass:[NSString class]]) {
+        completionHandler(2, nil, nil, @"LiveContainer's certificate data or password is unavailable.");
         return -6;
     }
     [self loadStoreFrameworksWithError2:&error];
-    int ans = [NSClassFromString(@"ZSigner") checkCert:certData pass:[LCSharedUtils certificatePassword] completionHandler:completionHandler];
-    return ans;
+    Class signer = NSClassFromString(@"ZSigner");
+    if (error || !signer || ![signer respondsToSelector:@selector(checkCert:pass:completionHandler:)]) {
+        completionHandler(2, nil, nil, @"LiveContainer's certificate validator is unavailable.");
+        return -6;
+    }
+    return [signer checkCert:certData pass:password completionHandler:completionHandler];
 }
 
 #pragma mark JIT

@@ -13,6 +13,7 @@
 + (NSProgress*)signMachOPathArr:(NSArray<NSString*>*)machoPathArr bundleId:(NSString *)bundleId cert:(NSData *)key
                            pass:(NSString *)pass completionHandler:(void(^)(BOOL success, NSError *error))completionHandler;
 // this method is used to get teamId for ADP/Enterprise certs ,don't use it in normal jitless
++ (NSDictionary<NSString *, NSString *> * _Nullable)certificateFactsWithCert:(NSData *)cert pass:(NSString *)pass;
 + (NSString*)getTeamIdWithCert:(NSData *)cert pass:(NSString *)pass;
 + (int)checkCert:(NSData *)cert pass:(NSString *)pass completionHandler:(void(^)(int status, NSDate* expirationDate, NSString* organizationalUnitName, NSString *error))completionHandler;
 @end

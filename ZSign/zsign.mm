@@ -305,6 +305,32 @@ int checkCert(NSData *key,
 }
 
 // this method is used to get teamId for ADP/Enterprise certs ,don't use it in normal jitless
+// V3_CANONICAL_CERTIFICATE_FACTS_V1: observation only; use LC's native parser.
++ (NSDictionary<NSString *, NSString *> *)certificateFactsWithCert:(NSData *)cert pass:(NSString *)pass {
+    if (![cert isKindOfClass:[NSData class]] || ![pass isKindOfClass:[NSString class]] || cert.length == 0 || cert.length > 2147483647U) return nil;
+    ZSignAsset asset;
+    struct Cleanup {
+        ZSignAsset &asset;
+        ~Cleanup() {
+            X509_free((X509 *)asset.m_x509Cert);
+            EVP_PKEY_free((EVP_PKEY *)asset.m_evpPKey);
+            asset.m_x509Cert = nullptr;
+            asset.m_evpPKey = nullptr;
+        }
+    } cleanup{asset};
+    const char *passwordBytes = pass.UTF8String;
+    if (!passwordBytes || !asset.InitSimple(cert.bytes, (int)cert.length, nil, 0, string(passwordBytes)) ||
+        !asset.m_x509Cert || asset.m_strTeamId.empty()) return nil;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int length = 0;
+    if (X509_digest((X509 *)asset.m_x509Cert, EVP_sha256(), digest, &length) != 1 || length != 32) return nil;
+    NSMutableString *fingerprint = [NSMutableString stringWithCapacity:64];
+    for (unsigned int i = 0; i < length; ++i) [fingerprint appendFormat:@"%02x", digest[i]];
+    NSString *team = [NSString stringWithUTF8String:asset.m_strTeamId.c_str()];
+    if (!team) return nil;
+    return @{@"teamIdentifier": team, @"identitySHA256": fingerprint};
+}
+
 + (NSString*)getTeamIdWithCert:(NSData *)cert pass:(NSString *)pass {
     string strPassword;
 

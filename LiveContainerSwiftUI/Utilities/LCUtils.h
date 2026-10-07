@@ -34,6 +34,7 @@ uint32_t dyld_get_sdk_version(const struct mach_header* mh);
 
 + (NSProgress *)signAppBundleWithZSign:(NSURL *)path completionHandler:(void (^)(BOOL success, NSError *error))completionHandler;
 + (NSProgress *)signFilesWithZSignWithURLs:(NSArray<NSURL*>*)urls completionHandler:(void (^)(BOOL success, NSError *error))completionHandler;
++ (NSDictionary<NSString *, NSString *> * _Nullable)certificateFactsWithKeyData:(NSData *)keyData password:(NSString *)password NS_SWIFT_NAME(certificateFacts(withKeyData:password:));
 + (NSString*)getCertTeamIdWithKeyData:(NSData*)keyData password:(NSString*)password;
 + (int)validateCertificateWithCompletionHandler:(void(^)(int status, NSDate *expirationDate, NSString *organizationalUnitName, NSString *error))completionHandler;
 
