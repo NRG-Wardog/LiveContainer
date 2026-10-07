@@ -15,11 +15,11 @@ jobs:
   production-graph:
     if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/production-dependencies-141776ba'
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 150
     env:
-      # Phase 2 and its 150-minute envelope require a separate reviewed commit.
-      PRODUCTION_PHASE: sidesign
-      APPROVED_PRODUCTION_INPUTS_SHA256: d55a0dc5179b6bfed4e62c491c161b506a0f224068257a5d3695db7ba2bcf0e1
+      # Exact published Phase 2 tuples and this digest were independently reviewed.
+      PRODUCTION_PHASE: sidestore
+      APPROVED_PRODUCTION_INPUTS_SHA256: a75b040498bcc02d8857c013a974db3dd769c71fc3312e6f0389f2086739d370
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
@@ -45,7 +45,7 @@ jobs:
             --approved-sha256 "$APPROVED_PRODUCTION_INPUTS_SHA256" \
             2>&1 | tee artifacts/logs/production-inputs.log
       - name: Capture the actual remote dependency graph
-        timeout-minutes: 55
+        timeout-minutes: 145
         run: |
           set -euo pipefail
           bash validation/ci/production/run-production.sh "$PRODUCTION_PHASE" \

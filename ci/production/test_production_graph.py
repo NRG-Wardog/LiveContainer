@@ -228,15 +228,26 @@ class SwiftPMMirrorOriginTests(unittest.TestCase):
 
 
 class InputGateTests(unittest.TestCase):
-    def test_published_phase_one_tuple_and_unpublished_phase_two_gate(self):
+    def test_exact_published_phase_tuples_and_missing_phase_two_rejection(self):
         path = Path(__file__).with_name("inputs-sidesign.json")
         # This test checks the proposed input bytes, not workflow approval.
         doc = proof.load_inputs(path, "d55a0dc5179b6bfed4e62c491c161b506a0f224068257a5d3695db7ba2bcf0e1", "sidesign")
         self.assertEqual(doc["owners"]["SideSign"]["source_commit"], "0d451a6eca73358be8dfed6a89c4e227752d0083")
         self.assertEqual(doc["owners"]["SideSign"]["source_tree"], "702559ec7158d567de4b0cb383dc9d9f4bc20bf7")
         path = Path(__file__).with_name("inputs-sidestore.json")
-        with self.assertRaises(ValueError):
-            proof.load_inputs(path, hashlib.sha256(path.read_bytes()).hexdigest(), "sidestore")
+        doc = proof.load_inputs(path, "a75b040498bcc02d8857c013a974db3dd769c71fc3312e6f0389f2086739d370", "sidestore")
+        self.assertEqual(doc["owners"]["SideSign"]["source_commit"], "5ce52d12f1846e1a08fad30ed27c4cbadd176529")
+        self.assertEqual(doc["owners"]["SideStore"]["source_commit"], "f6e9e0ed6c3f4d02e99a0dcff0660faa0e5372b8")
+        self.assertTrue(doc["sidesign_lock_metadata_reviewed"])
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory) / "inputs.json"
+            for mutation in ("missing_owner", "unreviewed_metadata"):
+                candidate = copy.deepcopy(doc)
+                if mutation == "missing_owner": candidate["owners"]["SideStore"]["source_commit"] = None
+                else: candidate["sidesign_lock_metadata_reviewed"] = False
+                fixture.write_text(json.dumps(candidate))
+                with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                    proof.load_inputs(fixture, hashlib.sha256(fixture.read_bytes()).hexdigest(), "sidestore")
 
     def test_missing_independent_digest_is_rejected(self):
         path = Path(__file__).with_name("inputs-sidesign.json")

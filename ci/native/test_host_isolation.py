@@ -70,8 +70,10 @@ class HostIsolationTests(unittest.TestCase):
         self.assertEqual(workflow["permissions"], {"contents": "read"})
         job = workflow["jobs"]["production-graph"]
         self.assertEqual(job["if"], "github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/" + PRODUCTION_BRANCH + "'")
-        self.assertEqual(job["env"]["PRODUCTION_PHASE"], "sidesign")
-        self.assertEqual(job["env"]["APPROVED_PRODUCTION_INPUTS_SHA256"], "d55a0dc5179b6bfed4e62c491c161b506a0f224068257a5d3695db7ba2bcf0e1")
+        self.assertEqual(job["env"]["PRODUCTION_PHASE"], "sidestore")
+        self.assertEqual(job["timeout-minutes"], "150")
+        self.assertEqual(job["steps"][2]["timeout-minutes"], "145")
+        self.assertEqual(job["env"]["APPROVED_PRODUCTION_INPUTS_SHA256"], "a75b040498bcc02d8857c013a974db3dd769c71fc3312e6f0389f2086739d370")
         self.assertEqual(job["steps"][0]["with"]["persist-credentials"], "false")
         self.assertEqual(job["steps"][0]["with"]["set-safe-directory"], "false")
         self.assertEqual(job["env"]["GIT_CONFIG_GLOBAL"], "/dev/null")

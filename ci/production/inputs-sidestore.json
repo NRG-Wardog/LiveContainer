@@ -2,7 +2,7 @@
   "schema_version": 1,
   "baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
   "phase": "sidestore",
-  "sidesign_lock_metadata_reviewed": false,
+  "sidesign_lock_metadata_reviewed": true,
   "owners": {
     "LiveContainer": {
       "repository": "NRG-Wardog/LiveContainer",
@@ -11,8 +11,8 @@
     },
     "SideStore": {
       "repository": "NRG-Wardog/SideStore",
-      "source_commit": null,
-      "source_tree": null
+      "source_commit": "f6e9e0ed6c3f4d02e99a0dcff0660faa0e5372b8",
+      "source_tree": "2f33f7caed7f6ef13522421446ade4d79d8f901e"
     },
     "AnisetteKit": {
       "repository": "NRG-Wardog/AnisetteKit",
@@ -21,8 +21,8 @@
     },
     "SideSign": {
       "repository": "NRG-Wardog/SideSign",
-      "source_commit": null,
-      "source_tree": null
+      "source_commit": "5ce52d12f1846e1a08fad30ed27c4cbadd176529",
+      "source_tree": "352e92723c34a47bcfef5e0a984ba9828bade33b"
     },
     "minimuxer": {
       "repository": "NRG-Wardog/minimuxer",
