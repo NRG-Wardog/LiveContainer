@@ -1,3 +1,4 @@
+#import "LCContainerStorage.h"
 #import "FoundationPrivate.h"
 #import "LCMachOUtils.h"
 #import "LCSharedUtils.h"
@@ -475,10 +476,8 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     // which if symlinked, the new tmp cannot be recreated (#1040, #1125) or the app may camplain about the tmp folder being a symlimk (#884)
 
     // Setup directories
-    NSArray *dirList = @[@"Library/Caches", @"Library/Cookies", @"Documents", @"SystemData"];
-    for (NSString *dir in dirList) {
-        NSString *dirPath = [newHomePath stringByAppendingPathComponent:dir];
-        [fm createDirectoryAtPath:dirPath withIntermediateDirectories:YES attributes:nil error:nil];
+    if (!LCPrepareContainerDirectories(newHomePath, &error)) {
+        return @"The application container directories could not be prepared. Existing data was preserved.";
     }
     
     NSString* containerInfoPath = [newHomePath stringByAppendingPathComponent:@"LCContainerInfo.plist"];
@@ -609,12 +608,27 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         dlopen([lcMainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/TweakLoader.dylib"].UTF8String, RTLD_LAZY|RTLD_GLOBAL);
     }
     
+    void *sideStoreSupportHandle = NULL;
     if(sideStoreExist) {
         if (!isLiveProcess && (isSideStore || ![guestAppInfo[@"dontInjectTweakLoader"] boolValue])) {
-            dlopen([lcMainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/SideStoreSupport.framework/SideStoreSupport"].UTF8String, RTLD_LAZY);
+            sideStoreSupportHandle = dlopen([lcMainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/SideStoreSupport.framework/SideStoreSupport"].UTF8String, RTLD_LAZY);
         } else if (isLiveProcess && isSideStore) {
-            dlopen([lcMainBundle.bundlePath stringByAppendingPathComponent:@"../../Frameworks/SideStoreSupport.framework/SideStoreSupport"].UTF8String, RTLD_LAZY);
+            sideStoreSupportHandle = dlopen([lcMainBundle.bundlePath stringByAppendingPathComponent:@"../../Frameworks/SideStoreSupport.framework/SideStoreSupport"].UTF8String, RTLD_LAZY);
         }
+    }
+
+    // EMBEDDED_SIDESTORE_STARTUP_FIX_V1: SideStoreSupport can load before
+    // isSideStore is known. Install after SideStore's classes are present.
+    if (isSideStore) {
+        if (!sideStoreSupportHandle) {
+            return @"Unable to load SideStoreSupport before embedded SideStore startup.";
+        }
+        void (*installHooks)(void) = dlsym(sideStoreSupportHandle, "installSideStoreHooks");
+        if (!installHooks) {
+            return @"Unable to locate SideStore identity hooks before embedded SideStore startup.";
+        }
+        installHooks();
+        NSLog(@"[SIDESTORE_STARTUP] EMBEDDED_SIDESTORE_STARTUP_FIX_V1 hooks_requested main_bundle=%@ host_bundle=%@", NSBundle.mainBundle.bundleIdentifier, lcMainBundle.bundleIdentifier);
     }
     
     // Fix dynamic properties of some apps
