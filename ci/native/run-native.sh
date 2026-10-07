@@ -101,15 +101,8 @@ PHASE=acquire-exact-owners
 log_run owner-fetch python3 -B "$CI_DIR/validate_inputs.py" fetch "${INPUT_ARGS[@]}" \
   --root "$SOURCES" --report "$EVIDENCE/provenance/remote-owner-proof.json"
 PHASE=pristine-native-suites
-for owner in LiveContainer SideStore AnisetteKit; do
-  log_run "pristine-$owner" offline python3 -B "$CI_DIR/run_fork_suite.py" "$owner" \
-    "$SOURCES/$owner" "$EVIDENCE/provenance/pristine-$owner-tests.json"
-done
-for owner in minimuxer idevice jktcp; do
-  log_run "pristine-$owner" offline python3 -B "$SOURCES/$owner/.ci/source-parity.py"
-done
-python3 -B "$CI_DIR/validate_inputs.py" verify-pristine "${INPUT_ARGS[@]}" \
-  --root "$SOURCES" --report "$EVIDENCE/provenance/pristine-after-tests.json"
+log_run pristine-gate python3 -B "$CI_DIR/run_pristine_gate.py" \
+  --source-root "$SOURCES" --evidence "$EVIDENCE" "${INPUT_ARGS[@]}"
 PHASE=assemble
 log_run assembly python3 -B "$ASSEMBLER" assemble --source-root "$SOURCES" --out "$W" "${MAP_ARGS[@]}"
 verify_inputs
