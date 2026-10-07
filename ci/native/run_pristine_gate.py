@@ -19,6 +19,13 @@ SUITES = ("LiveContainer", "SideStore", "AnisetteKit", "SideSign", "minimuxer", 
 HERE = Path(__file__).resolve().parent
 SANDBOX = ["/usr/bin/sandbox-exec", "-p", "(version 1) (allow default) (deny network*)"]
 SUITE_TIMEOUT_SECONDS = 900
+SIDESIGN_SOURCE_CHECKPOINT = "aaa4375a59075a7b0a446cf4c2dc8193c247a875"
+SIDESIGN_TEST_ONLY_CHANGES = [{
+    "path": "Tests/SideSignTests/SideSignTests.swift",
+    "change": "add explicit Foundation import",
+    "frozen_sha256": "064d2f8852eb5de2aff47a6a781a74f84c408b2e84d88a5c3842733940100c20",
+    "new_sha256": "511c3fe77e5b4e5e8903ada85e8b2ee4b17f08016cf6ac8db90446158bcd0ad6",
+}]
 
 
 class Interrupted(BaseException):
@@ -83,8 +90,20 @@ def valid_suite(row):
                 and result.get("skipped") == [] and result.get("failures") == 0
                 and result.get("errors") == 0)
     count = result.get("product_files_verified")
+    if owner == "SideSign":
+        # This one reviewed test import is separate from the frozen runtime
+        # proof. Do not turn its status into a generic test-drift exception.
+        return (result.get("owner") == owner
+                and result.get("status") == "exact_frozen_runtime_with_test_import_pass"
+                and result.get("source_checkpoint") == SIDESIGN_SOURCE_CHECKPOINT
+                and result.get("test_only_changes") == SIDESIGN_TEST_ONLY_CHANGES
+                and type(count) is int and count == 61
+                and type(result.get("migrated_files")) is int and result["migrated_files"] == 4
+                and result.get("behavior_changes") == []
+                and result.get("fork_commit") == row.get("expected_commit"))
     return (result.get("owner") == owner and result.get("status") == "exact_frozen_source_pass"
             and type(count) is int and count > 0 and result.get("behavior_changes") == []
+            and "test_only_changes" not in result
             and result.get("fork_commit") == row.get("expected_commit"))
 
 

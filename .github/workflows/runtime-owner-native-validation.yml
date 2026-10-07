@@ -23,8 +23,8 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       # Independent reviewed literals. Never compute these from candidate files
       # at runtime, read them from a generated manifest, or accept dispatch input.
-      APPROVED_OWNER_REFERENCE_MAP_SHA256: e8f8ff60cafa78db7f6b1cd95b08d39c7d7cab964899784135382f919da762d4
-      APPROVED_ASSEMBLER_SHA256: 1a06fbd858ebb6b1eaf2f49426528391b1f5325d05aa481a5ce9ed187bb8476b
+      APPROVED_OWNER_REFERENCE_MAP_SHA256: dba88b5d3c6f1137192b49c1b2b057672fd7b1ba70997c48ee7b8054cee4d4f0
+      APPROVED_ASSEMBLER_SHA256: 3753bf5f45cca07c6ae2b08d29b1e0f3027bfb79274e061d5a8441383b0cebaf
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
       GIT_CONFIG_NOSYSTEM: '1'

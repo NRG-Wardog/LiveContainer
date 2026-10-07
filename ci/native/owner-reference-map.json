@@ -18,9 +18,9 @@
       "source_commit": "62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d"
     },
     "SideSign": {
-      "original_source_commit": "c196183e22f1f551cf35c07f176e5aa0bad04751",
-      "source_tree": "788b3adbcff935450845d57f31a33a92a497a71c",
-      "source_commit": "aaa4375a59075a7b0a446cf4c2dc8193c247a875"
+      "original_source_commit": "d6bfbb4c800ebdd8e231f5f592e853755f2f8724",
+      "source_tree": "d5d34cb72538f4070832b7150b69bacaf248dcdc",
+      "source_commit": "ed30d3989ea0f80bcb91466d6d5ca043f4366df0"
     },
     "minimuxer": {
       "original_source_commit": "712310158c3f8e795a6a2bb2bd32c42464eea6d2",

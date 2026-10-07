@@ -15,6 +15,18 @@ from unittest.mock import patch
 import run_pristine_gate as gate
 
 ROOT = Path(__file__).resolve().parents[2]
+SIDESIGN_PROOF = {
+    "owner": "SideSign", "status": "exact_frozen_runtime_with_test_import_pass",
+    "source_checkpoint": "aaa4375a59075a7b0a446cf4c2dc8193c247a875",
+    "product_files_verified": 61, "migrated_files": 4, "behavior_changes": [],
+    "fork_commit": "a" * 40,
+    "test_only_changes": [{
+        "path": "Tests/SideSignTests/SideSignTests.swift",
+        "change": "add explicit Foundation import",
+        "frozen_sha256": "064d2f8852eb5de2aff47a6a781a74f84c408b2e84d88a5c3842733940100c20",
+        "new_sha256": "511c3fe77e5b4e5e8903ada85e8b2ee4b17f08016cf6ac8db90446158bcd0ad6",
+    }],
+}
 
 
 class Harness:
@@ -44,6 +56,8 @@ class Harness:
         else:
             result = {"owner": owner, "status": "exact_frozen_source_pass", "product_files_verified": 5,
                       "behavior_changes": [], "fork_commit": "a" * 40}
+            if owner == "SideSign":
+                result = copy.deepcopy(SIDESIGN_PROOF)
             result.update(self.results.get(owner, {}))
             log.write_text(json.dumps(result))
         return code
@@ -177,6 +191,61 @@ class AggregateGateTests(unittest.TestCase):
         for changed in ({"product_files_verified": 0}, {"owner": "wrong"}, {"fork_commit": "b" * 40}):
             self.h.results["jktcp"] = changed
             self.assertEqual(self.h.run()[0], 1)
+
+    def test_sidesign_exact_import_retains_complete_aggregate_and_runtime_proof(self):
+        code, report = self.h.run()
+        self.assertEqual(code, 0)
+        result = next(row for row in report["suites"] if row["owner"] == "SideSign")
+        self.assertEqual(result["result"], SIDESIGN_PROOF)
+        self.assertEqual(result["executed_count"], 1)
+        self.assertEqual(result["count_kind"], "source-parity-check")
+        self.assertEqual(self.h.calls, list(gate.SUITES))
+        self.assertEqual(self.h.checked, list(gate.OWNERS))
+
+    def test_sidesign_missing_duplicate_or_additional_test_delta_blocks_assembly(self):
+        proof = copy.deepcopy(SIDESIGN_PROOF)
+        delta = proof["test_only_changes"][0]
+        for changes in (None, [], {}, delta, [delta, delta], [delta, {"path": "Tests/extra.swift"}]):
+            with self.subTest(changes=changes):
+                self.h.results["SideSign"] = {"test_only_changes": changes}
+                code, report = self.h.run()
+                self.assertEqual(code, 1)
+                self.assertFalse(report["assembly_allowed"])
+        del proof["test_only_changes"]
+        self.assertFalse(gate.valid_suite({"owner": "SideSign", "state": "FINISHED", "returncode": 0,
+                                          "result": proof, "expected_commit": "a" * 40}))
+
+    def test_sidesign_changed_or_incomplete_test_delta_blocks_assembly(self):
+        original = SIDESIGN_PROOF["test_only_changes"][0]
+        variants = [{**original, key: "unreviewed"} for key in original]
+        variants += [{k: v for k, v in original.items() if k != omitted} for omitted in original]
+        variants.append({**original, "extra": "unreviewed"})
+        for delta in variants:
+            with self.subTest(delta=delta):
+                self.h.results["SideSign"] = {"test_only_changes": [delta]}
+                self.assertEqual(self.h.run()[0], 1)
+
+    def test_sidesign_status_checkpoint_counts_and_behavior_cannot_drift(self):
+        variants = ({"status": "exact_frozen_source_pass"}, {"status": "PASS"},
+                    {"source_checkpoint": "b" * 40}, {"source_checkpoint": None},
+                    {"product_files_verified": 60}, {"product_files_verified": 62},
+                    {"product_files_verified": 61.0}, {"migrated_files": 3},
+                    {"migrated_files": 5}, {"migrated_files": 4.0},
+                    {"behavior_changes": ["runtime change"]}, {"fork_commit": "b" * 40})
+        for changed in variants:
+            with self.subTest(changed=changed):
+                self.h.results["SideSign"] = changed
+                self.assertEqual(self.h.run()[0], 1)
+
+    def test_test_import_status_or_delta_cannot_be_used_by_another_owner(self):
+        for owner in set(gate.SUITES) - {"SideSign"}:
+            with self.subTest(owner=owner):
+                self.h.results = {owner: {**copy.deepcopy(SIDESIGN_PROOF), "owner": owner}}
+                self.assertEqual(self.h.run()[0], 1)
+        for owner in set(gate.SUITES) - set(gate.EXPECTED) - {"SideSign"}:
+            with self.subTest(owner=owner, status="original"):
+                self.h.results = {owner: {"test_only_changes": copy.deepcopy(SIDESIGN_PROOF["test_only_changes"])}}
+                self.assertEqual(self.h.run()[0], 1)
 
     def test_real_process_exit_codes_are_preserved(self):
         for expected in (0, 1, 130, 143):
