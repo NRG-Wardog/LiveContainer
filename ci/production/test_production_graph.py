@@ -341,6 +341,33 @@ class CompilerProvenanceTests(unittest.TestCase):
         self.file_list.write_text("\n".join(str(alias / path.relative_to(self.root)) for path in self.swift))
         self.assertEqual(len(self.verify()["owners"]), 5)
 
+    def test_unobserved_generated_source_report_cannot_whitelist_a_path(self):
+        generated = self.results / "sidestore-derived/DerivedSources/resource_bundle_accessor.swift"
+        generated.parent.mkdir(parents=True, exist_ok=True)
+        generated.write_text("let unreviewed = true")
+        (self.evidence / "generated-xcode-sources.json").write_text(json.dumps({"sources": {str(generated): {
+            "owner": "SideStore", "kind": "invented", "target": "SideStore", "file_list": str(self.file_list)}}}))
+        with self.assertRaisesRegex(ValueError, "Unreviewed or incomplete generated"):
+            self.verify()
+
+    def test_generated_sources_alone_cannot_supply_runtime_owner_coverage(self):
+        known = proof.expected_sources({"SideStore": self.root / "SideStore", "LiveContainer": self.root / "LiveContainer"}, self.results)
+        listings = {}
+        for path, row in known.items():
+            source = Path(path)
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("// synthetic generated source")
+            listings.setdefault(Path(row["file_list"]), []).append(source)
+        for file, sources in listings.items():
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text("\n".join(map(str, sources)))
+        for path, row in known.items():
+            row.update(sha256=proof.sha(Path(path)), file_list_sha256=proof.sha(Path(row["file_list"])))
+        (self.evidence / "generated-xcode-sources.json").write_text(json.dumps({"sources": known}))
+        self.file_list.write_text("\n".join(map(str, self.swift[1:-1])))
+        with self.assertRaisesRegex(ValueError, "Compiler input evidence missing for SideStore, LiveContainer"):
+            self.verify()
+
     def test_registry_sourced_rust_owner_fails(self):
         self.metadata["packages"][0]["source"] = "registry+https://example.invalid"
         self.metadata_path.write_text(json.dumps(self.metadata))

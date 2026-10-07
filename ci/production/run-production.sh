@@ -181,6 +181,7 @@ verify_submodules(Path(sys.argv[2]),Path(sys.argv[3]))
 VERIFY_SUBMODULES
   diff -qr "$ROOT/idevice/swift/IDevice.xcframework" "$M/DeviceGateway/LocalBinary/IDevice.xcframework"
   prove build-products --archive "$LIB" --report "$EVIDENCE/provenance/local-framework-after-build.json"
+  prove generated-sources --results "$R" --report "$EVIDENCE/provenance/generated-sources-proof.json"
 fi
 cmp "$LOCK" "$EVIDENCE/provenance/Package.resolved.after"
 prove snapshot --report "$EVIDENCE/provenance/files-after-build.json"

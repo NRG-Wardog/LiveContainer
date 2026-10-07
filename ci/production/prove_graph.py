@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "native"))
 from validate_inputs import git as acquisition_git, require, approved_file
 from assemble_isolated_workspace import verify_worktree_bytes
 from collect_provenance import rust_link_inputs
+from generated_xcode_sources import verify_generated_sources, expected_sources
 
 BASELINE = "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee"
 ALL_OWNERS = {"LiveContainer", "SideStore", "SideSign", "AnisetteKit", "minimuxer", "idevice", "jktcp"}
@@ -326,6 +327,15 @@ def capture_compiler_inputs(root, results, destination, resolution, phase):
     owners.setdefault("AnisetteKit", Path(resolution["dependencies"]["anisettekit"]["path"]))
     owned = {path.resolve(strict=True): tree_entries(path, "HEAD") for path in owners.values()}
     records = {owner: [] for owner in expected}
+    generated = {}
+    if phase == "sidestore":
+        asset_report = destination.parent / "generated-xcode-sources.json"
+        if asset_report.exists():
+            generated = json.loads(asset_report.read_text())["sources"]
+            known = expected_sources({name: owner_path(root, name, phase) for name in ("SideStore", "LiveContainer")}, results)
+            require(set(generated) == set(known), "Unreviewed or incomplete generated-source evidence")
+            for path, spec in known.items():
+                require(all(generated[path].get(key) == value for key, value in spec.items()), "Generated source target/classification drift")
     destination.mkdir(parents=True, exist_ok=True)
     for file in sorted(set(results.rglob("*.SwiftFileList")) | set(results.rglob("sources"))):
         require(not file.is_symlink() and file.resolve().is_relative_to(results.resolve()), "Compiler list escaped results")
@@ -341,12 +351,21 @@ def capture_compiler_inputs(root, results, destination, resolution, phase):
             paths.append(Path(tokens[0]))
         matched = [owner for owner, prefix in expected.items()
                    if any(path.resolve().is_relative_to(prefix.resolve()) for path in paths)]
+        generated_here = [str(path.resolve()) for path in paths if str(path.resolve()) in generated]
+        for path in generated_here:
+            if generated[path]["owner"] not in matched: matched.append(generated[path]["owner"])
         if not matched:
             continue
         inputs = []
         for path in paths:
             require(path.is_absolute() and path.is_file() and not path.is_symlink(), "Compiler input does not exist as a regular source file: " + str(path))
             path = path.resolve(strict=True)
+            if str(path) in generated:
+                evidence = generated[str(path)]
+                require(evidence["file_list"] == str(file.resolve()) and evidence["file_list_sha256"] == sha(file)
+                        and evidence["sha256"] == sha(path), "Generated asset evidence does not bind this compiler input")
+                inputs.append({"path": str(path), "sha256": sha(path), "generated": evidence})
+                continue
             candidates = [owner for owner in owned if path.is_relative_to(owner)]
             require(candidates, "Compiler input is outside proven owner sources: " + str(path))
             owner = max(candidates, key=lambda value: len(value.parts))
@@ -359,6 +378,7 @@ def capture_compiler_inputs(root, results, destination, resolution, phase):
         # Match parsed canonical inputs too: strings inside comments never count.
         matched = [owner for owner, prefix in expected.items()
                    if any(Path(item["path"]).is_relative_to(prefix.resolve()) for item in inputs)]
+        # Generated Swift is accepted, but never supplies committed runtime coverage.
         label = hashlib.sha256(str(file).encode()).hexdigest()[:16] + ".txt"
         (destination / label).write_text("Compiler input list: " + str(file) + "\n" + text)
         for owner in matched:
@@ -374,7 +394,7 @@ def capture_compiler_inputs(root, results, destination, resolution, phase):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("action", choices=("inputs", "fetch", "sources", "resolution", "snapshot", "compiler-inputs", "build-products"))
+    p.add_argument("action", choices=("inputs", "fetch", "sources", "resolution", "snapshot", "compiler-inputs", "build-products", "generated-sources"))
     p.add_argument("--phase", choices=("sidesign", "sidestore"), required=True)
     p.add_argument("--inputs", type=Path, required=True)
     p.add_argument("--approved-sha256", required=True)
@@ -429,6 +449,14 @@ def main():
     elif a.action == "build-products":
         require(a.phase == "sidestore" and a.archive is not None, "Only the staged production iOS build has local products")
         result["products"] = verify_build_products({owner: owner_path(a.root, owner, a.phase) for owner in refs["owners"]}, a.archive)
+    elif a.action == "generated-sources":
+        require(a.phase == "sidestore", "Generated asset proof applies only to SideStore phase")
+        owners = {name: owner_path(a.root, name, a.phase) for name in ("SideStore", "LiveContainer")}
+        records = {}
+        for name, owner in owners.items():
+            verify_source(owner, name, refs["owners"][name], APP_LOCK if name == "SideStore" else None, True)
+            records[name] = tree_entries(owner, refs["owners"][name]["source_commit"])
+        result["generated_sources"] = verify_generated_sources(owners, a.results, a.report.parent, records)
     elif a.action == "compiler-inputs":
         resolution = verify_resolution(a.root, a.state, a.phase, refs)
         result["compiler_inputs"] = capture_compiler_inputs(a.root, a.results,
