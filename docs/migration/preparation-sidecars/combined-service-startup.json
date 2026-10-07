@@ -1,0 +1,72 @@
+{
+  "templates": {
+    "combined_container_storage.h": "f732b42eca5e3f20cf407338837aceefeef61c5243b493d84e6d709e3efbfbcf",
+    "combined_failure.swift": "91eb30bdefee35c0dc9b36ae7d64257a6b8c99dd7c7943997ad6a4c520a78287",
+    "combined_refresh_handler.swift": "3e71a474bd7dffa0527fc38a1af2f557cd43f73659ce1fd749f4b476a7be71d7",
+    "combined_service_connection.swift": "033b796ffa4b228417b2fa6d7f62c6bfed6820806ea4e2a77aa5ba687908abbe",
+    "v3_shared_app_group.swift": "5df142bd417b4c8065d688ef5ab49f58c6670ce858e91fee03bd4ac81b1e71cf",
+    "patch_combined_service_startup.py": "15cb5ac671b5efe867f0ca0fa9de493cfbe5a7b64c742019ef19bfd7962852d6"
+  },
+  "product": "v3",
+  "pins": [
+    "12377cf3b91d51739a33f14a302e5f522b238593",
+    "ff25922e5c13ccfafd83bda5092910d848ebd409"
+  ],
+  "files": [
+    [
+      0,
+      "SideStoreSupport/SideStore.swift",
+      "aff80bf38077e7872606d4a0088ca4c79740466e24320b29eba8b8185aca165e"
+    ],
+    [
+      0,
+      "LiveContainer/LCContainerStorage.h",
+      "f732b42eca5e3f20cf407338837aceefeef61c5243b493d84e6d709e3efbfbcf"
+    ],
+    [
+      0,
+      "LiveContainer/LCBootstrap.m",
+      "19f1a15fffa162e56eedf7059fc3c756fcc3a002a0d94143ce8f7d15ac37498d"
+    ],
+    [
+      0,
+      "SideStoreSupport/XPCServer.h",
+      "5f435a16457cd31c6179ed77c70c698c4ce2498cbd848dcfa2e5e532d34df544"
+    ],
+    [
+      0,
+      "SideStoreSupport/XPCServer.m",
+      "cf8111951e6bd079efc43778cea20051d6099765795a94ba64f2b716525f34dd"
+    ],
+    [
+      0,
+      "SideStoreSupport/SideStoreClient.swift",
+      "9e03646c42531af98b150c7866a6b1bb8297b5d8cb285b7a5da739dce985aed5"
+    ],
+    [
+      1,
+      "AltStore/AppDelegate.swift",
+      "814a7bc654f611cc6c56f686eb1578bd381b9d8e7d372cd9e59589c187f85a2e"
+    ],
+    [
+      1,
+      "SideStore/Core/Operations/PipelineExecutor.swift",
+      "e9753d0053d6c96a7bbb38b714d690e0486ba730d712c74076818abbbfaf8d08"
+    ],
+    [
+      1,
+      "SideStore/Core/Operations/PipelineRunner.swift",
+      "9447a307b1b9e904d7612436832a0332b68cd03a1dadc8a3b33bdf7fe6c69a99"
+    ],
+    [
+      1,
+      "SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift",
+      "27fdc85ca84d1b5cc6a7dbe9443ac86ee8f4a5c3dfd2860140c1e4f163e444e0"
+    ],
+    [
+      0,
+      "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift",
+      "3ffc638e9b4a143c319efdd6c6d702692f440973f7aafae6db91d381eef1f6a8"
+    ]
+  ]
+}

@@ -1,0 +1,205 @@
+{
+  "schema_version": 1,
+  "integration_baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "purpose": "Read-only exact component boundaries. These are historical provenance names, never build inputs. Source is maintained directly.",
+  "components": [
+    {
+      "historical_template": "scripts/templates/livecontainer_app_layout_style.swift",
+      "source": "LiveContainerSwiftUI/Models/AppLayoutStyle.swift",
+      "byte_offset": 0,
+      "byte_length": 2050,
+      "sha256": "fd076c15a4827bf235558a85ad8515849ff5cc824c7b2f30d3f9633eada7e45b",
+      "first_line": 1,
+      "last_line": 82
+    },
+    {
+      "historical_template": "scripts/templates/livecontainer_grid_app_cell.swift",
+      "source": "LiveContainerSwiftUI/Views/AppList/LCGridAppCell.swift",
+      "byte_offset": 0,
+      "byte_length": 10666,
+      "sha256": "c7984d420f525e4aea6879d69474d0ac8f4cf96b1eff7566a368d7d4c7f3a910",
+      "first_line": 1,
+      "last_line": 202
+    },
+    {
+      "historical_template": "scripts/templates/cf_bundle_scan.h",
+      "source": "LiveContainer/LCBootstrap.m",
+      "byte_offset": 14597,
+      "byte_length": 2056,
+      "sha256": "95ed66eeff66b1b514a01100a242576caba4ba7e4fc8471500752d67e633fab6",
+      "first_line": 333,
+      "last_line": 374
+    },
+    {
+      "historical_template": "scripts/templates/combined_failure.swift",
+      "source": "SideStoreSupport/SideStore.swift",
+      "byte_offset": 3721,
+      "byte_length": 146967,
+      "sha256": "91eb30bdefee35c0dc9b36ae7d64257a6b8c99dd7c7943997ad6a4c520a78287",
+      "first_line": 97,
+      "last_line": 2629
+    },
+    {
+      "historical_template": "scripts/templates/combined_service_connection.swift",
+      "source": "SideStoreSupport/SideStore.swift",
+      "byte_offset": 162199,
+      "byte_length": 6854,
+      "sha256": "033b796ffa4b228417b2fa6d7f62c6bfed6820806ea4e2a77aa5ba687908abbe",
+      "first_line": 2848,
+      "last_line": 2980
+    },
+    {
+      "historical_template": "scripts/templates/v3_shared_app_group.swift",
+      "source": "SideStoreSupport/SideStore.swift",
+      "byte_offset": 150688,
+      "byte_length": 11511,
+      "sha256": "5df142bd417b4c8065d688ef5ab49f58c6670ce858e91fee03bd4ac81b1e71cf",
+      "first_line": 2630,
+      "last_line": 2847
+    },
+    {
+      "historical_template": "scripts/templates/combined_container_storage.h",
+      "source": "LiveContainer/LCContainerStorage.h",
+      "byte_offset": 0,
+      "byte_length": 951,
+      "sha256": "f732b42eca5e3f20cf407338837aceefeef61c5243b493d84e6d709e3efbfbcf",
+      "first_line": 1,
+      "last_line": 18
+    },
+    {
+      "historical_template": "scripts/templates/livecontainer_refresh_policy.swift",
+      "source": "LiveContainerSwiftUI/App/AppDelegate.swift",
+      "byte_offset": 4978,
+      "byte_length": 5184,
+      "sha256": "318af7263f22723e7d6b6b832c545b873f1fd4b41ff76e7f89b7ba94f999da69",
+      "first_line": 89,
+      "last_line": 194
+    },
+    {
+      "historical_template": "scripts/templates/livecontainer_network_preflight.swift",
+      "source": "LiveContainerSwiftUI/App/AppDelegate.swift",
+      "byte_offset": 10163,
+      "byte_length": 11241,
+      "sha256": "9dc65dfd13625eac23d8fd0f6d77c7dde8988fd8341bdfc0375d06b3400d43df",
+      "first_line": 196,
+      "last_line": 456
+    },
+    {
+      "historical_template": "scripts/templates/livecontainer_refresh_alarm.swift",
+      "source": "LiveContainerSwiftUI/App/LiveContainerAutoRefreshAlarm.swift",
+      "byte_offset": 0,
+      "byte_length": 5876,
+      "sha256": "e67daa3dfcf257cb0256bf4f3dd6f69407c9d72368ba699e672b158eda75f004",
+      "first_line": 1,
+      "last_line": 111
+    },
+    {
+      "historical_template": "scripts/templates/v3_shared_app_group.swift",
+      "source": "LiveContainerSwiftUI/Utilities/V3SharedAppGroup.swift",
+      "byte_offset": 0,
+      "byte_length": 11511,
+      "sha256": "5df142bd417b4c8065d688ef5ab49f58c6670ce858e91fee03bd4ac81b1e71cf",
+      "first_line": 1,
+      "last_line": 218
+    },
+    {
+      "historical_template": "scripts/templates/multitask_dock_session_state.swift",
+      "source": "MultitaskSupport/MultitaskDockView.swift",
+      "byte_offset": 153,
+      "byte_length": 4396,
+      "sha256": "22563574218bd586d7bf7056fcb742c8aaa0509ffd3f23803eb903c4bef0d1e8",
+      "first_line": 13,
+      "last_line": 126
+    },
+    {
+      "historical_template": "scripts/templates/v3_wire_contract.swift",
+      "source": "SideStoreSupport/SideStore.swift",
+      "byte_offset": 210758,
+      "byte_length": 38054,
+      "sha256": "9c87ac15b2289e59e88ef5569cfdbfbc3ef7460cbab64ea1e88640e8cd125a7d",
+      "first_line": 3732,
+      "last_line": 4413
+    },
+    {
+      "historical_template": "scripts/templates/v3_behavioral_primitives.swift",
+      "source": "SideStoreSupport/SideStore.swift",
+      "byte_offset": 248812,
+      "byte_length": 257799,
+      "sha256": "3c1ee7d9f7daa6a783d1e0ddd217ec94437054a16b06b5bc0e5a38426300263a",
+      "first_line": 4414,
+      "last_line": 10102
+    },
+    {
+      "historical_template": "scripts/templates/v3_service_bridge.swift",
+      "source": "SideStoreSupport/SideStore.swift",
+      "byte_offset": 506611,
+      "byte_length": 70553,
+      "sha256": "4f26a78b0deb71f10c42661bc9b796263620c48b8275f1304684d376c53a67ab",
+      "first_line": 10103,
+      "last_line": 11323
+    },
+    {
+      "historical_template": "scripts/templates/LCAppGroupSelectionPolicy.h",
+      "source": "LiveContainer/LCAppGroupSelectionPolicy.h",
+      "byte_offset": 0,
+      "byte_length": 3583,
+      "sha256": "1fe76564b89bd431924628249aa36484b86e47943aca4f754fa0fd66d6b91a96",
+      "first_line": 1,
+      "last_line": 72
+    },
+    {
+      "historical_template": "scripts/templates/LCAppGroupIdentityRules.h",
+      "source": "LiveContainer/LCAppGroupIdentityRules.h",
+      "byte_offset": 0,
+      "byte_length": 8667,
+      "sha256": "6e21323f11e5aaa11b22e376cb5f62cebe02f89babaac9a5fd2086f4a988c724",
+      "first_line": 1,
+      "last_line": 204
+    },
+    {
+      "historical_template": "scripts/templates/v3_behavioral_primitives.swift",
+      "source": "LiveContainerSwiftUI/Views/V3UnifiedShell.swift",
+      "byte_offset": 0,
+      "byte_length": 257799,
+      "sha256": "3c1ee7d9f7daa6a783d1e0ddd217ec94437054a16b06b5bc0e5a38426300263a",
+      "first_line": 1,
+      "last_line": 5689
+    },
+    {
+      "historical_template": "scripts/templates/v3_secret_handoff.swift",
+      "source": "LiveContainerSwiftUI/Views/V3UnifiedShell.swift",
+      "byte_offset": 257800,
+      "byte_length": 50069,
+      "sha256": "773035e80e5721307792f8067681f9f834e4f61c44a33eb47b5070cd385d8391",
+      "first_line": 5691,
+      "last_line": 6641
+    },
+    {
+      "historical_template": "scripts/templates/v3_ipa_staging.swift",
+      "source": "LiveContainerSwiftUI/Views/V3UnifiedShell.swift",
+      "byte_offset": 307870,
+      "byte_length": 19384,
+      "sha256": "c43da49d70d9debf1642a65a45e4c495293a81c1f1773c3e1a57558e3384c288",
+      "first_line": 6643,
+      "last_line": 7012
+    },
+    {
+      "historical_template": "scripts/templates/v3_unified_shell.swift",
+      "source": "LiveContainerSwiftUI/Views/V3UnifiedShell.swift",
+      "byte_offset": 327255,
+      "byte_length": 542789,
+      "sha256": "2be4781b6f29fded06e736540e8723d803452c2b51e002a6a155e7c9905b68f4",
+      "first_line": 7014,
+      "last_line": 17397
+    },
+    {
+      "historical_template": "scripts/templates/v3_setup_intent.swift",
+      "source": "LiveContainerSwiftUI/App/V3SetupAssistantIntent.swift",
+      "byte_offset": 0,
+      "byte_length": 782,
+      "sha256": "b167b6e19d1fbf5ce5faed56a26337cf6435e9c917148c3fa281a77738230f02",
+      "first_line": 1,
+      "last_line": 22
+    }
+  ]
+}

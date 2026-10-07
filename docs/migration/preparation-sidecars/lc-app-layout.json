@@ -1,0 +1,18 @@
+{
+  "files": {
+    "LiveContainerSwiftUI/Models/AppLayoutStyle.swift": "fd076c15a4827bf235558a85ad8515849ff5cc824c7b2f30d3f9633eada7e45b",
+    "LiveContainerSwiftUI/Views/AppList/LCAppBanner/LCAppBanner.swift": "e9852b8c875b17a94926eaefc56fd8c70f2762bb70fb43570d75a0ec30686c1f",
+    "LiveContainerSwiftUI/Views/AppList/LCAppBanner/LCAppBannerView.swift": "c1b7de64bff406131ecf1c90e356d2b88e6a02a8d8c3fe4f755f219412870da8",
+    "LiveContainerSwiftUI/Views/AppList/LCAppBanner/LCAppBannerViewController.swift": "03ea5b3cc3e93609fd98358cbb7d83a0a6dc383969b4c2b2a85c44269c0163b5",
+    "LiveContainerSwiftUI/Views/AppList/LCAppListView.swift": "2b1673bdc28e4baf361ef11ca2c0b93c8b1e01470ec74b09d5d5917a451bd088",
+    "LiveContainerSwiftUI/Views/AppList/LCGridAppCell.swift": "c7984d420f525e4aea6879d69474d0ac8f4cf96b1eff7566a368d7d4c7f3a910",
+    "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift": "f1f3b8c2874377d562b04d1d4d3fe358324ec9b89be1f594891b6ee4778de493"
+  },
+  "patch": "7461f7f2f0625aed6a5fcf59017b32be36915ee9f90dda937d727148cdba60f5",
+  "revision": "12377cf3b91d51739a33f14a302e5f522b238593",
+  "templates": {
+    "livecontainer_app_layout_style.swift": "fd076c15a4827bf235558a85ad8515849ff5cc824c7b2f30d3f9633eada7e45b",
+    "livecontainer_grid_app_cell.swift": "c7984d420f525e4aea6879d69474d0ac8f4cf96b1eff7566a368d7d4c7f3a910"
+  },
+  "v3_grid": true
+}
