@@ -15,9 +15,24 @@
 @property(nonatomic) CGRect originalFrame;
 @property(nonatomic) UIBarButtonItem *maximizeButton;
 @property(nonatomic) bool isAppTerminationRequested;
+@property(nonatomic) BOOL lcLaunchSettled;
 @end
 
 @implementation DecoratedAppSceneViewController
+
+// LC_VIRTUAL_LAUNCH_COMPLETION_V1: main-queue terminal ownership.
+- (void)lcCompleteLaunch:(AppSceneViewController *)controller error:(NSError *)error {
+    NSAssert(NSThread.isMainThread, @"Guest launch completion must run on main");
+    if (self.lcLaunchSettled) return;
+    self.lcLaunchSettled = YES;
+    void (^completion)(NSNumber *, NSError *) = self.pidAvailableHandler;
+    self.pidAvailableHandler = nil;
+    // Cleanup releases container ownership before a caller can relaunch.
+    // It may call appSceneVCAppDidExit synchronously; the callback is consumed.
+    if (error) [controller appTerminationCleanUp];
+    if (completion) completion(error ? nil : @(controller.pid), error);
+}
+
 - (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID rootVC:(UIViewController*)rootVC {
     self = [super initWithNibName:nil bundle:nil];
     self.view = [[UIStackView alloc] initWithFrame:self.view.frame];
@@ -244,7 +259,12 @@
     if([_appSceneVC isAppRunning]) {
         [_appSceneVC terminate];
     } else {
-        [self appSceneVCAppDidExit:self.appSceneVC];
+        if (self.appSceneVC && !self.appSceneVC.isAppTerminationCleanUpCalled) {
+            [self.appSceneVC appTerminationCleanUp]; // Retire a pending launch before its PID arrives.
+        } else {
+            // Keep explicit Close working for a retained terminated view or failed initializer.
+            [self appSceneVCAppDidExit:self.appSceneVC];
+        }
     }
 }
 
@@ -296,6 +316,7 @@
             [self.view layoutIfNeeded];
         } completion:^(BOOL finished) {
             self.isMaximized = NO;
+            [self.appSceneVC.view setNeedsLayout];
             UIImage *maximizeImage = [UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right.circle"];
             UIImageConfiguration *maximizeConfig = [UIImageSymbolConfiguration configurationWithPointSize:16.0 weight:UIImageSymbolWeightMedium];
             self.maximizeButton.image = [maximizeImage imageWithConfiguration:maximizeConfig];
@@ -307,6 +328,7 @@
         [self updateOriginalFrame];
         [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
             self.isMaximized = YES;
+            [self.appSceneVC.view setNeedsLayout];
             [self updateVerticalConstraints];
             
             self.view.layer.borderWidth = 0;
@@ -350,24 +372,43 @@
         label.textAlignment = NSTextAlignmentCenter;
         [self.view insertSubview:label atIndex:0];
     }
+    [self lcCompleteLaunch:vc error:vc.lcLaunchError ?: [NSError errorWithDomain:@"LiveContainerReturn" code:410
+        userInfo:@{NSLocalizedDescriptionKey: @"The guest exited before its launch completed."}]];
 }
 
 - (void)appSceneVC:(AppSceneViewController*)vc didInitializeWithError:(NSError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if(error) {
-            [vc appTerminationCleanUp];
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"lc.common.error".loc message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
+        if (self.lcLaunchSettled) return;
+        NSError *launchError = error;
+        if (!launchError && (self.isAppTerminationRequested || !vc.isAppRunning)) {
+            launchError = vc.lcLaunchError ?: [NSError errorWithDomain:@"LiveContainerReturn" code:410
+                userInfo:@{NSLocalizedDescriptionKey: @"The guest exited before its launch completed."}];
+        }
+        if (launchError) {
+            [self lcCompleteLaunch:vc error:launchError];
+            // V3_GUEST_SAFE_DIAGNOSTIC_ID_V1: never display or copy provider text.
+            BOOL knownExit = [launchError.domain isEqualToString:@"LiveContainerReturn"] && launchError.code == 410;
+            NSString *diagnosticID = knownExit ? @"SS-GUEST-EXIT" : @"SS-GUEST-UNKNOWN";
+            NSString *safeMessage = knownExit ? @"The guest exited before its launch completed." : @"The guest could not be launched. The underlying cause is unknown.";
+            NSString *display = [NSString stringWithFormat:@"%@\nError ID: %@", safeMessage, diagnosticID];
+            NSSet *safeDomains = [NSSet setWithArray:@[@"LiveContainerReturn", NSCocoaErrorDomain, NSPOSIXErrorDomain, NSOSStatusErrorDomain, @"NSExtensionErrorDomain"]];
+            BOOL safeNative = [safeDomains containsObject:launchError.domain];
+            NSString *domain = safeNative ? launchError.domain : @"redacted";
+            NSString *code = safeNative ? [NSString stringWithFormat:@"%ld", (long)launchError.code] : @"unknown";
+            id builderValue = [NSBundle.mainBundle objectForInfoDictionaryKey:@"LCBuilderCommit"];
+            NSString *builder = [builderValue isKindOfClass:NSString.class] && [(NSString *)builderValue length] == 40 &&
+                [builderValue rangeOfString:@"^[0-9a-fA-F]{40}$" options:NSRegularExpressionSearch].location != NSNotFound ? [builderValue lowercaseString] : @"unknown";
+            NSString *details = [NSString stringWithFormat:@"%@\ndiagnostic_code=%@ stage=guestLaunch underlying_domain=%@ underlying_code=%@ correlation=%@ builder_commit=%@", display, diagnosticID, domain, code, NSUUID.UUID.UUIDString, builder];
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"lc.common.error".loc message:display preferredStyle:UIAlertControllerStyleAlert];
             [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.ok".loc style:UIAlertActionStyleCancel handler:nil]];
             [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.copy".loc style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-                UIPasteboard.generalPasteboard.string = error.localizedDescription;
+                UIPasteboard.generalPasteboard.string = details;
             }]];
             [self presentViewController:alert animated:YES completion:nil];
         } else {
             self.pid = vc.pid;
             [self updateOriginalFrame];
-            if (self.pidAvailableHandler) {
-                self.pidAvailableHandler(@(self.pid), nil);
-            }
+            [self lcCompleteLaunch:vc error:nil];
         }
     });
 }

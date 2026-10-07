@@ -10,6 +10,122 @@ import SwiftUI
 import UIKit
 import Combine
 
+import Foundation
+
+enum LCMultitaskDockRenderedMode: Equatable {
+    case expandedDockView
+    case collapsedDockView
+}
+
+// A reused UIHostingController may evaluate its old root before a new virtual
+// window session is assembled. Keep the dock branch unavailable until that
+// session's persisted preference has selected its first visible mode.
+struct LCMultitaskDockPresentationState {
+    private(set) var sessionID: String?
+    private(set) var firstPresentedMode: LCMultitaskDockRenderedMode?
+    private(set) var firstPresentedHiddenState: Bool?
+    private(set) var firstBodyEvaluationMode: LCMultitaskDockRenderedMode?
+
+    var isReady: Bool { sessionID != nil && firstPresentedMode != nil }
+
+    mutating func begin(sessionID: String) {
+        self.sessionID = sessionID
+        firstPresentedMode = nil
+        firstPresentedHiddenState = nil
+        firstBodyEvaluationMode = nil
+    }
+
+    @discardableResult
+    mutating func markReady(sessionID: String, isCollapsed: Bool,
+                            isDockHidden: Bool = false) -> LCMultitaskDockRenderedMode? {
+        guard self.sessionID == sessionID, firstPresentedMode == nil else { return nil }
+        let mode = LCMultitaskDockSessionState.renderedMode(isCollapsed: isCollapsed)
+        firstPresentedMode = mode
+        firstPresentedHiddenState = isDockHidden
+        return mode
+    }
+
+    @discardableResult
+    mutating func recordFirstBodyEvaluation(sessionID: String, isCollapsed: Bool) -> LCMultitaskDockRenderedMode? {
+        guard self.sessionID == sessionID, isReady, firstBodyEvaluationMode == nil else { return nil }
+        let mode = LCMultitaskDockSessionState.renderedMode(isCollapsed: isCollapsed)
+        firstBodyEvaluationMode = mode
+        return mode
+    }
+
+    mutating func end(sessionID: String?) {
+        guard sessionID != nil, self.sessionID == sessionID else { return }
+        self.sessionID = nil
+        firstPresentedMode = nil
+        firstBodyEvaluationMode = nil
+    }
+}
+
+// The dock singleton outlives multitasking sessions. This model owns the
+// one-time first-frame preference and the user override for each fresh session.
+struct LCMultitaskDockSessionState {
+    private(set) var sessionID: String?
+    private var storedPreference = false
+    private var storedTuckedPreference = false
+    private var initialPreferenceApplied = false
+    private var initialTuckedPreferenceApplied = false
+    private(set) var manuallyOverridden = false
+    private(set) var wasPresented = false
+
+    var isActiveSession: Bool { sessionID != nil }
+
+    static func renderedMode(isCollapsed: Bool) -> LCMultitaskDockRenderedMode {
+        isCollapsed ? .collapsedDockView : .expandedDockView
+    }
+
+    mutating func begin(storedPreference: Bool, storedTuckedPreference: Bool = false) -> String {
+        let id = UUID().uuidString
+        sessionID = id
+        self.storedPreference = storedPreference
+        self.storedTuckedPreference = storedTuckedPreference
+        initialPreferenceApplied = false
+        initialTuckedPreferenceApplied = false
+        manuallyOverridden = false
+        wasPresented = false
+        return id
+    }
+
+    mutating func markPresented(sessionID id: String) -> Bool {
+        guard sessionID == id, initialPreferenceApplied, !wasPresented else { return false }
+        wasPresented = true
+        return true
+    }
+
+    mutating func applyBeforeFirstFrame(sessionID id: String) -> Bool? {
+        guard sessionID == id, !initialPreferenceApplied else { return nil }
+        initialPreferenceApplied = true
+        return manuallyOverridden ? nil : storedPreference
+    }
+
+    // The edge-tuck setting is independent of collapsed rendering. It is read
+    // once with the session and never re-applied during layout or rotation.
+    mutating func applyTuckedBeforeFirstFrame(sessionID id: String) -> Bool? {
+        guard sessionID == id, !initialTuckedPreferenceApplied else { return nil }
+        initialTuckedPreferenceApplied = true
+        return storedTuckedPreference
+    }
+
+    mutating func userDidToggle() {
+        guard sessionID != nil else { return }
+        manuallyOverridden = true
+    }
+
+    mutating func end() {
+        sessionID = nil
+        initialPreferenceApplied = false
+        initialTuckedPreferenceApplied = false
+        storedTuckedPreference = false
+        manuallyOverridden = false
+        wasPresented = false
+    }
+}
+
+
 // MARK: - App Info Provider
 class AppInfoProvider {
     
@@ -133,8 +249,47 @@ class AppInfoProvider {
     @Published var apps: [DockAppModel] = []
     @Published var isVisible: Bool = false
     @Published @objc var isCollapsed: Bool = false
+    private var v3CollapseObserver: AnyCancellable?
     @Published var isDockHidden: Bool = false
     @Published var settingsChanged: Bool = false
+    // MULTITASK_DOCK_SESSION_APPLY_V2: session identity survives singleton reuse.
+    // MULTITASK_DOCK_PRESENTATION_GATE_V1: do not expose a reused root branch before session preference is committed.
+    @Published private(set) var v3DockPresentationState = LCMultitaskDockPresentationState()
+    private var collapseStartState = LCMultitaskDockSessionState()
+    var renderedDockMode: LCMultitaskDockRenderedMode {
+        LCMultitaskDockSessionState.renderedMode(isCollapsed: isCollapsed)
+    }
+    private var firstRenderedDockSessionID: String?
+    private var firstBodyEvaluationSessionID: String?
+    private var firstPresentedBodySessionID: String?
+    private var didLogPreSessionBodyEvaluation = false
+    func v3RecordFirstDockBodyEvaluation() -> EmptyView {
+        guard let sessionID = v3DockPresentationState.sessionID else {
+            if !didLogPreSessionBodyEvaluation {
+                didLogPreSessionBodyEvaluation = true
+                // MULTITASK_DOCK_BODY_EVALUATION_V1: records the real host-root body evaluation before any multitask session exists.
+                NSLog("[LC_DOCK] BODY_EVALUATION_FIRST manager=%@ session=none stored_preference=%d suite=%@ apps_count=%ld isCollapsed=%d branch=suppressed_no_session ready=0", String(describing: ObjectIdentifier(self)), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, (LCSharedUtils.appGroupID() ?? "unavailable"), apps.count, isCollapsed ? 1 : 0)
+            }
+            return EmptyView()
+        }
+        if firstBodyEvaluationSessionID != sessionID {
+            firstBodyEvaluationSessionID = sessionID
+            // MULTITASK_DOCK_BODY_EVALUATION_V1: emitted synchronously during the concrete host-root body evaluation.
+            NSLog("[LC_DOCK] BODY_EVALUATION_FIRST manager=%@ session=%@ stored_preference=%d stored_tucked=%d suite=%@ apps_count=%ld isCollapsed=%d isDockHidden=%d branch=%@ ready=%d", String(describing: ObjectIdentifier(self)), sessionID, LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsTuckedToEdge") ? 1 : 0, (LCSharedUtils.appGroupID() ?? "unavailable"), apps.count, isCollapsed ? 1 : 0, isDockHidden ? 1 : 0, v3DockPresentationState.isReady ? (isCollapsed ? "CollapsedDockView" : "ExpandedDockView") : "suppressed_waiting_for_session", v3DockPresentationState.isReady ? 1 : 0)
+        }
+        if v3DockPresentationState.isReady, firstPresentedBodySessionID != sessionID,
+           let mode = v3DockPresentationState.recordFirstBodyEvaluation(sessionID: sessionID, isCollapsed: isCollapsed) {
+            firstPresentedBodySessionID = sessionID
+            NSLog("[LC_DOCK] BODY_BRANCH_SELECTED_FIRST manager=%@ session=%@ apps_count=%ld isCollapsed=%d branch=%@", String(describing: ObjectIdentifier(self)), sessionID, apps.count, isCollapsed ? 1 : 0, mode == .collapsedDockView ? "CollapsedDockView" : "ExpandedDockView")
+        }
+        return EmptyView()
+    }
+    func v3RecordFirstRenderedDockView(_ mode: LCMultitaskDockRenderedMode) {
+        guard let sessionID = collapseStartState.sessionID, firstRenderedDockSessionID != sessionID else { return }
+        firstRenderedDockSessionID = sessionID
+        // MULTITASK_DOCK_BODY_FIRST_RENDER_V1: emitted from the concrete SwiftUI branch on first appearance.
+        NSLog("[LC_DOCK] BODY_FIRST_RENDER manager=%@ session=%@ apps_count=%ld isCollapsed=%d branch=%@", String(describing: ObjectIdentifier(self)), sessionID, apps.count, isCollapsed ? 1 : 0, mode == .collapsedDockView ? "CollapsedDockView" : "ExpandedDockView")
+    }
 
     @objc public var windowHostingView = VirtualWindowsHostView()
     internal var hostingController: UIHostingController<AnyView>?
@@ -286,7 +441,17 @@ class AppInfoProvider {
     
     override init() {
         super.init()
+        // MULTITASK_DOCK_START_COLLAPSED_V3: initialize before setupDockView can create its first SwiftUI root.
+        let stored = LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed")
+        self.isCollapsed = stored
+        // MULTITASK_DOCK_COLLAPSE_OBSERVER_V1: capture every later mutation, including reset/reuse paths.
+        self.v3CollapseObserver = self.$isCollapsed.dropFirst().sink { [weak self] value in
+            guard let self else { return }
+            NSLog("[LC_DOCK] IS_COLLAPSED_PUBLISHED manager=%@ session=%@ stored_preference=%d suite=%@ apps_count=%ld value=%d ready=%d", String(describing: ObjectIdentifier(self)), self.collapseStartState.sessionID ?? "none", LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, (LCSharedUtils.appGroupID() ?? "unavailable"), self.apps.count, value ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0)
+        }
+        NSLog("[LC_DOCK] INIT manager=%@ suite=%@ stored_preference=%d apps_count=%ld isCollapsed=%d", String(describing: ObjectIdentifier(self)), (LCSharedUtils.appGroupID() ?? "unavailable"), stored ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0)
         keyWindow!.rootViewController!.view.subviews.first!.addSubview(self.windowHostingView)
+        NSLog("[LC_DOCK] BEFORE_SETUP_DOCK_VIEW manager=%@ suite=%@ stored_preference=%d apps_count=%ld isCollapsed=%d session=%@", String(describing: ObjectIdentifier(self)), (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.collapseStartState.sessionID ?? "none")
         setupDockView()
         NotificationCenter.default.addObserver(
             self,
@@ -325,13 +490,18 @@ class AppInfoProvider {
     }
     
     private func setupDockView() {
+        NSLog("[LC_DOCK] SETUP_DOCK_VIEW manager=%@ suite=%@ stored_preference=%d apps_count=%ld isCollapsed=%d session=%@", String(describing: ObjectIdentifier(self)), (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.collapseStartState.sessionID ?? "none")
         DispatchQueue.main.async {
+            NSLog("[LC_DOCK] SETUP_ROOT_CREATE manager=%@ suite=%@ stored_preference=%d session=%@ apps_count=%ld isCollapsed=%d ready=%d", String(describing: ObjectIdentifier(self)), (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, self.collapseStartState.sessionID ?? "none", self.apps.count, self.isCollapsed ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0)
             let dockView = AnyView(MultitaskDockSwiftView()
                 .environmentObject(self))
             
             self.hostingController = UIHostingController(rootView: dockView)
             self.hostingController?.view.autoresizingMask = [.flexibleTopMargin, .flexibleLeftMargin, .flexibleRightMargin, .flexibleBottomMargin]
             self.hostingController?.view.backgroundColor = .clear
+            NSLog("[LC_DOCK] HOSTING_ROOT_CREATED manager=%@ host=%@ suite=%@ stored_preference=%d session=%@ apps_count=%ld isCollapsed=%d ready=%d", String(describing: ObjectIdentifier(self)), self.hostingController.map { String(describing: ObjectIdentifier($0)) } ?? "none", (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, self.collapseStartState.sessionID ?? "none", self.apps.count, self.isCollapsed ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0)
+            // MULTITASK_DOCK_SETUP_PRESENT_V1: the app-add queue can beat host-controller creation.
+            if !self.apps.isEmpty { self.showDock() }
         }
     }
 
@@ -433,26 +603,51 @@ class AppInfoProvider {
     }
     
     @objc public func removeRunningApp(_ appUUID: String) {
-        guard isDockEnabled() else { return }
-        
-        DispatchQueue.main.async {
-            self.apps.removeAll { $0.appUUID == appUUID }
-            
-            if self.apps.isEmpty {
-                self.hideDock()
-            } else if self.isVisible {
-                self.updateDockFrame()
-            }
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.removeRunningApp(appUUID) }
+            return
         }
+        self.apps.removeAll { $0.appUUID == appUUID }
+        if self.apps.isEmpty {
+            // MULTITASK_DOCK_SESSION_APPLY_V2: a later session re-reads the preference.
+            NSLog("[LC_DOCK] SESSION_END manager=%@ id=%@ apps_count=%ld isCollapsed=%d", String(describing: ObjectIdentifier(self)), self.collapseStartState.sessionID ?? "none", self.apps.count, self.isCollapsed ? 1 : 0)
+            self.v3DockPresentationState.end(sessionID: self.collapseStartState.sessionID)
+            self.collapseStartState.end()
+            self.hideDock()
+        }
+        else if self.isVisible { self.updateDockFrame() }
     }
-    
+
     @objc public func showDock() {
+        NSLog("[LC_DOCK] BEFORE_SHOW_BLOCK manager=%@ session=%@ stored_preference=%d apps_count=%ld isCollapsed=%d ready=%d", String(describing: ObjectIdentifier(self)), self.collapseStartState.sessionID ?? "none", LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0)
         guard isDockEnabled() else { return }
         guard !isVisible, let hostingController = hostingController else { return }
         
         guard let keyWindow = self.keyWindow else { return }
         
         DispatchQueue.main.async {
+            // MULTITASK_DOCK_PREF_BEFORE_MOUNT_V1: re-read/apply before the host's first visible mount.
+            NSLog("[LC_DOCK] SHOW_BLOCK_ENTER manager=%@ session=%@ host=%@ suite=%@ stored_preference=%d stored_tucked=%d apps_count=%ld isCollapsed=%d isDockHidden=%d ready=%d", String(describing: ObjectIdentifier(self)), self.collapseStartState.sessionID ?? "none", String(describing: ObjectIdentifier(hostingController)), (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsTuckedToEdge") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.isDockHidden ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0)
+            if !self.collapseStartState.isActiveSession {
+                let stored = LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed")
+                let storedTucked = LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsTuckedToEdge")
+                let sessionID = self.collapseStartState.begin(storedPreference: stored, storedTuckedPreference: storedTucked)
+                self.v3DockPresentationState.begin(sessionID: sessionID)
+                NSLog("[LC_DOCK] SESSION_BEGIN_IN_SHOW manager=%@ session=%@ suite=%@ stored_preference=%d stored_tucked=%d apps_count=%ld isCollapsed=%d isDockHidden=%d", String(describing: ObjectIdentifier(self)), sessionID, (LCSharedUtils.appGroupID() ?? "unavailable"), stored ? 1 : 0, storedTucked ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.isDockHidden ? 1 : 0)
+                if let initialHidden = self.collapseStartState.applyTuckedBeforeFirstFrame(sessionID: sessionID) { self.isDockHidden = initialHidden }
+            }
+            if let sessionID = self.collapseStartState.sessionID, !self.collapseStartState.wasPresented {
+                if let initial = self.collapseStartState.applyBeforeFirstFrame(sessionID: sessionID) { self.isCollapsed = initial }
+                if let initialHidden = self.collapseStartState.applyTuckedBeforeFirstFrame(sessionID: sessionID) { self.isDockHidden = initialHidden }
+                let firstMode = self.v3DockPresentationState.markReady(sessionID: sessionID, isCollapsed: self.isCollapsed, isDockHidden: self.isDockHidden)
+                NSLog("[LC_DOCK] FIRST_PRESENTED_VIEW manager=%@ session=%@ first=%d stored_preference=%d stored_tucked=%d apps_count=%ld isCollapsed=%d isDockHidden=%d branch=%@", String(describing: ObjectIdentifier(self)), sessionID, firstMode == nil ? 0 : 1, LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsTuckedToEdge") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.isDockHidden ? 1 : 0, firstMode == .collapsedDockView ? "CollapsedDockView" : "ExpandedDockView")
+                // MULTITASK_DOCK_PRESENTATION_GATE_V1: the blank branch stays selected until the preference has been committed.
+                hostingController.rootView = AnyView(MultitaskDockSwiftView().environmentObject(self).id(sessionID))
+                NSLog("[LC_DOCK] ROOT_REUSED_FOR_SESSION manager=%@ host=%@ session=%@ suite=%@ stored_preference=%d apps_count=%ld isCollapsed=%d ready=%d", String(describing: ObjectIdentifier(self)), String(describing: ObjectIdentifier(hostingController)), sessionID, (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0)
+                let firstPresentation = self.collapseStartState.markPresented(sessionID: sessionID)
+                NSLog("[LC_DOCK] FIRST_FRAME_ARMED manager=%@ session=%@ first=%d ready=%d isCollapsed=%d", String(describing: ObjectIdentifier(self)), sessionID, firstPresentation ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0, self.isCollapsed ? 1 : 0)
+            }
+            NSLog("[LC_DOCK] SHOW_BLOCK_EXECUTED manager=%@ session=%@ host=%@ suite=%@ stored_preference=%d stored_tucked=%d apps_count=%ld isCollapsed=%d isDockHidden=%d branch=%@ ready=%d", String(describing: ObjectIdentifier(self)), self.collapseStartState.sessionID ?? "none", String(describing: ObjectIdentifier(hostingController)), (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsTuckedToEdge") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.isDockHidden ? 1 : 0, self.renderedDockMode == .collapsedDockView ? "CollapsedDockView" : "ExpandedDockView", self.v3DockPresentationState.isReady ? 1 : 0)
             self.isVisible = true
             
             let screenBounds = keyWindow.bounds
@@ -470,6 +665,7 @@ class AppInfoProvider {
                 )
             }
             
+            NSLog("[LC_DOCK] BEFORE_FIRST_FRAME manager=%@ session=%@ suite=%@ stored_preference=%d stored_tucked=%d apps_count=%ld isCollapsed=%d isDockHidden=%d branch=%@ ready=%d", String(describing: ObjectIdentifier(self)), self.collapseStartState.sessionID ?? "none", (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsTuckedToEdge") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.isDockHidden ? 1 : 0, self.renderedDockMode == .collapsedDockView ? "CollapsedDockView" : "ExpandedDockView", self.v3DockPresentationState.isReady ? 1 : 0)
             self.updateDockFrame(animated: false) 
             
             self.setupEdgeGestureRecognizers()
@@ -514,6 +710,8 @@ class AppInfoProvider {
             } completion: { _ in
                 self.isVisible = false
                 hostingController.view.transform = .identity
+                // MULTITASK_DOCK_RESHOW_AFTER_TRANSITION_V1: preserve a new session arriving during hide.
+                if !self.apps.isEmpty { self.showDock() }
             }
         }
     }
@@ -588,21 +786,31 @@ class AppInfoProvider {
     }
     
     // Find and bring corresponding multitask view to front
+
     func bringMultitaskViewToFront(uuid: String, from center: CGPoint? = nil) -> Bool {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+        guard let targetView = apps.first(where: { $0.appUUID == uuid })?.view,
+              let controller = targetView._viewDelegate() as? DecoratedAppSceneViewController else { return false }
+        if !controller.appSceneVC.isAppRunning && controller.appSceneVC.pid > 0 {
+            controller.appSceneVC.appTerminationCleanUp()
+            // Upstream may intentionally retain the terminated-screen row.
+            // Remove that exact old row before registering its replacement.
+            removeRunningApp(uuid)
+            controller.willMove(toParent: nil)
+            targetView.removeFromSuperview()
+            controller.removeFromParent()
+            print("[LC_RETURN] STALE_GUEST_CLEANED")
             return false
         }
-
-        for window in windowScene.windows {
-            if let targetView = findMultitaskView(in: window, withUUID: uuid) {
-                passURLSchemeToView(targetView)
-                animateViewAppearance(targetView, from: center, in: window)
-                return true
-            }
+        guard let window = targetView.window else {
+            print("[LC_RETURN] RETURN_FAILED reason=retained_view_has_no_window")
+            return false
         }
-        
-        return false
+        passURLSchemeToView(targetView)
+        animateViewAppearance(targetView, from: center, in: window)
+        print(controller.appSceneVC.pid > 0 ? "[LC_RETURN] GUEST_RESUMED_EXISTING" : "[LC_RETURN] GUEST_LAUNCH_PENDING")
+        return true
     }
+
 
     private func passURLSchemeToView(_ view: UIView) {
         if let launchUrl = UserDefaults.standard.string(forKey: "launchAppUrlScheme") {
@@ -708,7 +916,27 @@ class AppInfoProvider {
         DispatchQueue.main.async {
             self.apps.append(appModel)
             
-            if self.apps.count == 1 {
+            // MULTITASK_DOCK_SESSION_RECOVERY_V1: recover if a prior session lost its final removal callback.
+            if self.collapseStartState.wasPresented && !self.isVisible {
+                NSLog("[LC_DOCK] STALE_SESSION_RESET manager=%@ id=%@ apps_count=%ld isCollapsed=%d", String(describing: ObjectIdentifier(self)), self.collapseStartState.sessionID ?? "none", self.apps.count, self.isCollapsed ? 1 : 0)
+                self.apps = [appModel]
+                self.v3DockPresentationState.end(sessionID: self.collapseStartState.sessionID)
+                self.collapseStartState.end()
+            }
+            if !self.collapseStartState.isActiveSession {
+                // MULTITASK_DOCK_SESSION_APPLY_V2: snapshot the preference before the first view is selected.
+                let stored = LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed")
+                let storedTucked = LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsTuckedToEdge")
+                let sessionID = self.collapseStartState.begin(storedPreference: stored, storedTuckedPreference: storedTucked)
+                self.v3DockPresentationState.begin(sessionID: sessionID)
+                NSLog("[LC_DOCK] SESSION_BEGIN manager=%@ id=%@ suite=%@ stored_preference=%d stored_tucked=%d apps_count=%ld isCollapsed_before_setup=%d isDockHidden_before_setup=%d", String(describing: ObjectIdentifier(self)), sessionID, (LCSharedUtils.appGroupID() ?? "unavailable"), stored ? 1 : 0, storedTucked ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.isDockHidden ? 1 : 0)
+                if let initial = self.collapseStartState.applyBeforeFirstFrame(sessionID: sessionID) { self.isCollapsed = initial }
+                if let initialHidden = self.collapseStartState.applyTuckedBeforeFirstFrame(sessionID: sessionID) { self.isDockHidden = initialHidden }
+                if let hostingController = self.hostingController {
+                    hostingController.rootView = AnyView(MultitaskDockSwiftView().environmentObject(self).id(sessionID))
+                }
+                // MULTITASK_DOCK_PRESENTATION_GATE_V1: keep the reused host root blank until showDock commits the first branch.
+                NSLog("[LC_DOCK] SESSION_PREPARED manager=%@ session=%@ host=%@ stored_preference=%d stored_tucked=%d apps_count=%ld isCollapsed=%d isDockHidden=%d ready=%d", String(describing: ObjectIdentifier(self)), sessionID, self.hostingController.map { String(describing: ObjectIdentifier($0)) } ?? "not_created", stored ? 1 : 0, storedTucked ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.isDockHidden ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0)
                 self.showDock()
             } else if self.isVisible {
                 self.updateDockFrame()
@@ -730,6 +958,8 @@ class AppInfoProvider {
     
     @objc public func toggleDockCollapse() {
         DispatchQueue.main.async {
+            self.collapseStartState.userDidToggle()
+            NSLog("[LC_DOCK] MANUAL_TOGGLE session=%@ apps_count=%ld collapsed_before=%d", self.collapseStartState.sessionID ?? "none", self.apps.count, self.isCollapsed ? 1 : 0)
             self.isCollapsed.toggle()
             self.updateDockFrame()
             self.notifyDockCollapseChanged()
@@ -828,8 +1058,12 @@ public struct MultitaskDockSwiftView: View {
     public var body: some View {
         GeometryReader { g in
             VStack(spacing: 8) {
-                if dockManager.isCollapsed {
+                dockManager.v3RecordFirstDockBodyEvaluation()
+                // MULTITASK_DOCK_PRESENTATION_GATE_V1: no expanded/collapsed branch is exposed before session readiness.
+                if dockManager.v3DockPresentationState.isReady {
+                    if dockManager.isCollapsed {
                     CollapsedDockView(isHidden: dockManager.isDockHidden)
+                        .onAppear { dockManager.v3RecordFirstRenderedDockView(.collapsedDockView) }
                         .onTapGesture {
                             dockManager.toggleDockCollapse()
                         }
@@ -849,6 +1083,10 @@ public struct MultitaskDockSwiftView: View {
                             AppIconView(app: app)
                         }
                     }
+                    .onAppear { dockManager.v3RecordFirstRenderedDockView(.expandedDockView) }
+                }
+                } else {
+                    Color.clear
                 }
             }
             .padding(dynamicPadding)

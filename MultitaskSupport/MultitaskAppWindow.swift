@@ -11,6 +11,10 @@ struct MultitaskAppInfo {
     var displayName: String
     var dataUUID: String
     var bundleId: String
+    let windowID = UUID().uuidString
+    var pid: Int32 = 0
+    weak var controller: AppSceneViewController?
+    var launchCallback: ((NSNumber, Error?) -> Void)?
     
     init(displayName: String, dataUUID: String, bundleId: String) {
         self.displayName = displayName
@@ -24,26 +28,103 @@ struct MultitaskAppInfo {
     @Environment(\.openWindow) static var openWindow
     static var appDict: [String: MultitaskAppInfo] = [:]
     
-    @objc class func openAppWindow(displayName: String, dataUUID: String, bundleId: String, pidCallback: ((NSNumber, Error?) -> Void)?) {
-        DataManager.shared.model.enableMultipleWindow = true
-        DataManager.shared.model.pidCallback = pidCallback
-        appDict[dataUUID] = MultitaskAppInfo(displayName: displayName, dataUUID: dataUUID, bundleId: bundleId)
-        openWindow(id: "appView", value: dataUUID)
-    }
-    
-    @objc class func openExistingAppWindow(dataUUID: String) -> Bool {
-        for a in appDict {
-            if a.value.dataUUID == dataUUID {
-                openWindow(id: "appView", value: a.key)
-                return true
+
+    // LC_GUEST_RETURN_V2: all registry mutations occur on the main queue.
+    static var mainSceneSession: UISceneSession?
+
+    static func activateMainScene(create: () -> Void) {
+        if let session = mainSceneSession,
+           UIApplication.shared.openSessions.contains(where: { $0.persistentIdentifier == session.persistentIdentifier }) {
+            UIApplication.shared.requestSceneSessionActivation(session, userActivity: nil, options: nil) { error in
+                print("[LC_RETURN] RETURN_FAILED reason=host_activation error=\(error.localizedDescription)")
             }
+        } else {
+            mainSceneSession = nil
+            create()
+        }
+        // A request is not proof of a foreground transition.
+        print("[LC_RETURN] HOST_ACTIVATION_REQUESTED mode=LIVEPROCESS_PRESERVED_RETURN")
+    }
+
+    @objc class func openAppWindow(displayName: String, dataUUID: String, bundleId: String, pidCallback: ((NSNumber, Error?) -> Void)?) {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { openAppWindow(displayName: displayName, dataUUID: dataUUID, bundleId: bundleId, pidCallback: pidCallback) }
+            return
+        }
+        guard !appDict.values.contains(where: { $0.dataUUID == dataUUID }) else {
+            pidCallback?(NSNumber(value: -1), NSError(domain: "LiveContainerReturn", code: 409,
+                userInfo: [NSLocalizedDescriptionKey: "This guest container already has a window or a pending launch. Reopen it instead."]))
+            return
+        }
+        DataManager.shared.model.enableMultipleWindow = true
+        var entry = MultitaskAppInfo(displayName: displayName, dataUUID: dataUUID, bundleId: bundleId)
+        entry.launchCallback = pidCallback
+        appDict[entry.windowID] = entry
+        openWindow(id: "appView", value: entry.windowID)
+    }
+
+    static func bind(_ controller: AppSceneViewController, windowID: String) {
+        guard appDict[windowID] != nil else { return }
+        appDict[windowID]?.controller = controller
+    }
+
+    static func initialized(_ controller: AppSceneViewController, windowID: String, error: Error?) {
+        guard var entry = appDict[windowID] else { return }
+        entry.controller = controller
+        entry.pid = controller.pid
+        let callback = entry.launchCallback
+        entry.launchCallback = nil // Consume before calling re-entrant client code.
+        appDict[windowID] = entry
+        if error != nil {
+            controller.appTerminationCleanUp()
+            appDict.removeValue(forKey: windowID)
+        }
+        callback?(NSNumber(value: controller.pid), error)
+    }
+
+    static func exited(_ controller: AppSceneViewController, windowID: String) {
+        guard let entry = appDict[windowID], entry.controller === controller else { return }
+        appDict.removeValue(forKey: windowID)
+        entry.launchCallback?(NSNumber(value: -1), NSError(domain: "LiveContainerReturn", code: 410,
+            userInfo: [NSLocalizedDescriptionKey: "The guest exited before its launch completed."]))
+        print("[LC_RETURN] STALE_GUEST_CLEANED");
+    }
+
+    @objc class func openExistingAppWindow(dataUUID: String) -> Bool {
+        if !Thread.isMainThread {
+            return DispatchQueue.main.sync { openExistingAppWindow(dataUUID: dataUUID) }
+        }
+        for (key, entry) in Array(appDict) where entry.dataUUID == dataUUID {
+            if let controller = entry.controller {
+                if !controller.isAppRunning && controller.pid > 0 {
+                    // Cleanup on main completes before another launch can register.
+                    controller.appTerminationCleanUp()
+                    appDict.removeValue(forKey: key)
+                    print("[LC_RETURN] STALE_GUEST_CLEANED")
+                    continue
+                }
+            } else if entry.pid > 0 {
+                // Missing scene ownership is not a verified resume. Do not touch
+                // container registration; the model's in-use check prevents duplicates.
+                appDict.removeValue(forKey: key)
+                print("[LC_RETURN] RETURN_FAILED reason=retained_controller_missing")
+                continue
+            }
+            openWindow(id: "appView", value: key)
+            print(entry.pid > 0 ? "[LC_RETURN] GUEST_RESUMED_EXISTING" : "[LC_RETURN] GUEST_LAUNCH_PENDING")
+            return true
         }
         return false
     }
+
+
+
 }
 
 @available(iOS 16.1, *)
 struct AppSceneViewSwiftUI: UIViewControllerRepresentable {
+    @Environment(\.openWindow) private var returnOpenWindow
+    let windowID: String
     @Binding var show: Bool
     let bundleId: String
     let dataUUID: String
@@ -51,14 +132,17 @@ struct AppSceneViewSwiftUI: UIViewControllerRepresentable {
     let onAppInitialize: (Int32, Error?) -> Void
     
     class Coordinator: NSObject, AppSceneViewControllerDelegate {
+        let windowID: String
         let onExit: () -> Void
         let onAppInitialize: (Int32, Error?) -> Void
-        init(onAppInitialize: @escaping (Int32, Error?) -> Void, onExit: @escaping () -> Void) {
+        init(windowID: String, onAppInitialize: @escaping (Int32, Error?) -> Void, onExit: @escaping () -> Void) {
+            self.windowID = windowID
             self.onAppInitialize = onAppInitialize
             self.onExit = onExit
         }
         
-        func appSceneVCAppDidExit(_: AppSceneViewController!) {
+        func appSceneVCAppDidExit(_ vc: AppSceneViewController!) {
+            MultitaskWindowManager.exited(vc, windowID: windowID)
             onExit()
         }
         
@@ -66,7 +150,10 @@ struct AppSceneViewSwiftUI: UIViewControllerRepresentable {
             DispatchQueue.main.async {
                 (vc.view.window?.windowScene?.statusBarManager as? LCStatusBarManager)?.nativeWindowViewController = vc
             }
-            onAppInitialize(vc.pid, error)
+            DispatchQueue.main.async {
+                MultitaskWindowManager.initialized(vc, windowID: self.windowID, error: error)
+                self.onAppInitialize(vc.pid, error)
+            }
         }
         
         func appSceneVCWillActivateScene(_ vc: AppSceneViewController!) {
@@ -100,13 +187,21 @@ struct AppSceneViewSwiftUI: UIViewControllerRepresentable {
     }
     
     func makeCoordinator() -> Coordinator {
-        Coordinator(onAppInitialize: onAppInitialize, onExit: {
+        Coordinator(windowID: windowID, onAppInitialize: onAppInitialize, onExit: {
             show = false
         })
     }
     
     func makeUIViewController(context: Context) -> UIViewController {
-        return AppSceneViewController(bundleId: bundleId, dataUUID: dataUUID, delegate: context.coordinator)
+        guard let controller = AppSceneViewController(bundleId: bundleId, dataUUID: dataUUID, delegate: context.coordinator) else {
+            print("[LC_RETURN] RETURN_FAILED reason=guest_controller_initialization_failed")
+            return UIViewController()
+        }
+        MultitaskWindowManager.bind(controller, windowID: windowID)
+        controller.lcActivateHost = {
+            MultitaskWindowManager.activateMainScene(create: { returnOpenWindow(id: "Main") })
+        }
+        return controller
     }
     
     func updateUIViewController(_ vc: UIViewController, context _: Context) {
@@ -142,7 +237,7 @@ struct MultitaskAppWindow: View {
         let isVirtualWindowMode = multitaskMode == .virtualWindow
         if show, let appInfo {
             GeometryReader { geometry in
-                AppSceneViewSwiftUI(show: $show, bundleId: appInfo.bundleId, dataUUID: appInfo.dataUUID, initSize: geometry.size,
+                AppSceneViewSwiftUI(windowID: appInfo.windowID, show: $show, bundleId: appInfo.bundleId, dataUUID: appInfo.dataUUID, initSize: geometry.size,
                                     onAppInitialize: { pid, error in
                     DispatchQueue.main.async {
                         if error == nil {
@@ -150,8 +245,6 @@ struct MultitaskAppWindow: View {
                         } else {
                             self.errorMessage = error?.localizedDescription
                         }
-                        DataManager.shared.model.pidCallback?(NSNumber(value: pid), error)
-                        DataManager.shared.model.pidCallback = nil
                     }
                 })
                 .background(.black)

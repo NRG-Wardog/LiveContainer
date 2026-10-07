@@ -19,6 +19,229 @@
 #import "Tweaks/Tweaks.h"
 #include <mach-o/ldsyms.h>
 
+#include <math.h>
+
+static double LCReturnAxisCenter(double origin, double length, double position) {
+    if (!isfinite(origin) || !isfinite(length) || length < 0) return 0;
+    if (!isfinite(position)) position = 0.5;
+    position = fmin(1.0, fmax(0.0, position));
+    double inset = fmin(30.0, length / 2.0);
+    return origin + inset + position * fmax(0.0, length - 2.0 * inset);
+}
+static int LCReturnShouldHide(int running, int decorated, int maximized) {
+    return !running || (decorated && !maximized);
+}
+
+// LC_GUEST_RETURN_V3: the control owns no guest process or scene.
+static UIColor *LCGuestReturnColor(NSString *key, NSUInteger fallbackRGB) {
+    id saved = [NSUserDefaults.lcSharedDefaults objectForKey:key];
+    double value = [saved isKindOfClass:NSNumber.class] ? [saved doubleValue] : fallbackRGB;
+    if (!isfinite(value) || value < 0 || value > 0xFFFFFF || floor(value) != value) value = fallbackRGB;
+    NSUInteger rgb = (NSUInteger)value;
+    return [UIColor colorWithRed:((rgb >> 16) & 0xFF) / 255.0
+                           green:((rgb >> 8) & 0xFF) / 255.0
+                            blue:(rgb & 0xFF) / 255.0 alpha:1.0];
+}
+
+@interface LCDirectReturnControl : UIView
+@property(nonatomic, strong) UIButton *button;
+@property(nonatomic, copy) void (^action)(void);
+@property(nonatomic) CGPoint position;
+@property(nonatomic) CGRect keyboardFrame;
+@property(nonatomic) BOOL collapsed;
+@property(nonatomic, copy) NSString *expandedHint;
+- (void)collapse;
+@end
+@implementation LCDirectReturnControl
+- (instancetype)initWithFrame:(CGRect)frame {
+    if (!(self = [super initWithFrame:frame])) return nil;
+    self.backgroundColor = UIColor.clearColor;
+    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    NSArray *saved = [NSUserDefaults.lcSharedDefaults arrayForKey:@"LCDirectReturnControlPosition"];
+    self.position = CGPointMake(0.95, 0.25);
+    if (saved.count == 2 && [saved[0] isKindOfClass:NSNumber.class] && [saved[1] isKindOfClass:NSNumber.class]) {
+        double x = [saved[0] doubleValue], y = [saved[1] doubleValue];
+        if (isfinite(x) && isfinite(y) && x >= 0 && x <= 1 && y >= 0 && y <= 1) self.position = CGPointMake(x, y);
+    }
+    if ([NSUserDefaults.lcSharedDefaults boolForKey:@"LCGuestReturnStartsCollapsed"]) [self collapse];
+    self.button = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.button.backgroundColor = UIColor.secondarySystemBackgroundColor;
+    self.button.layer.cornerRadius = 22;
+    [self.button setImage:[UIImage systemImageNamed:@"arrow.uturn.backward.circle.fill"] forState:UIControlStateNormal];
+    self.button.accessibilityLabel = @"Return to LiveContainer";
+    self.button.accessibilityHint = @"Restarts LiveContainer and closes this guest";
+    self.expandedHint = self.button.accessibilityHint;
+    __weak typeof(self) weakControl = self;
+    self.button.menu = [UIMenu menuWithTitle:@"" children:@[
+        [UIAction actionWithTitle:@"Collapse Return Button" image:[UIImage systemImageNamed:@"sidebar.right"] identifier:nil handler:^(__kindof UIAction *action) {
+            [weakControl collapse];
+        }]
+    ]];
+    [self.button addTarget:self action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.button addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(drag:)]];
+    [self addSubview:self.button];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboard:) name:UIKeyboardWillChangeFrameNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboard:) name:UIKeyboardWillHideNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:NSUserDefaultsDidChangeNotification object:NSUserDefaults.lcSharedDefaults];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:UIApplicationDidBecomeActiveNotification object:nil];
+    NSLog(@"[LC_RETURN] CONTROL_SHOWN");
+    return self;
+}
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
+- (void)collapse {
+    self.collapsed = YES;
+    self.position = CGPointMake(self.position.x < 0.5 ? 0 : 1, self.position.y);
+    [self setNeedsLayout];
+    NSLog(@"[LC_RETURN] CONTROL_COLLAPSED");
+}
+- (void)preferencesChanged:(NSNotification *)note {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self preferencesChanged:note]; });
+        return;
+    }
+    // Appearance can change while a guest is retained. Never reset a user's
+    // expanded/collapsed state during layout, keyboard changes, or activation.
+    [self setNeedsLayout];
+}
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    return hit == self ? nil : hit;
+}
+- (CGRect)availableRect {
+    CGRect rect = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    if (self.window) {
+        CGRect windowSafe = UIEdgeInsetsInsetRect(self.window.bounds, self.window.safeAreaInsets);
+        CGRect intersection = CGRectIntersection(rect, [self convertRect:windowSafe fromView:self.window]);
+        if (!CGRectIsNull(intersection)) rect = intersection;
+    }
+    if (!CGRectIsEmpty(self.keyboardFrame) && self.window) {
+        CGRect keyboard = [self convertRect:self.keyboardFrame fromCoordinateSpace:self.window.screen.coordinateSpace];
+        if (CGRectIntersectsRect(rect, keyboard) && CGRectGetMaxY(keyboard) >= CGRectGetMaxY(rect)) {
+            rect.size.height = MAX(0, CGRectGetMinY(keyboard) - CGRectGetMinY(rect));
+        }
+    }
+    return rect;
+}
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    CGRect rect = [self availableRect];
+    // A 44-point target must not be placed outside a tiny resized window.
+    self.button.hidden = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCHideReturnControl"] || CGRectIsNull(rect) || rect.size.width < 44 || rect.size.height < 44;
+    if (self.button.hidden) return;
+    self.button.accessibilityLabel = self.collapsed ? @"Show Return to LiveContainer" : @"Return to LiveContainer";
+    self.button.accessibilityHint = self.collapsed ? @"Restores the Return button" : self.expandedHint;
+    BOOL customColors = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCGuestReturnCustomColors"];
+    // nil restores the inherited system tint when custom colors are disabled.
+    self.button.tintColor = customColors ? LCGuestReturnColor(@"LCGuestReturnTintRGB", 0x007AFF) : nil;
+    UIColor *background = customColors ? LCGuestReturnColor(@"LCGuestReturnBackgroundRGB", 0xF2F2F7) : UIColor.secondarySystemBackgroundColor;
+    self.button.backgroundColor = self.collapsed ? UIColor.clearColor : background;
+    [self.button setImage:[UIImage systemImageNamed:self.collapsed ? (self.position.x < 0.5 ? @"chevron.compact.right" : @"chevron.compact.left") : @"arrow.uturn.backward.circle.fill"] forState:UIControlStateNormal];
+    self.button.bounds = CGRectMake(0, 0, 44, 44);
+    self.button.center = CGPointMake(LCReturnAxisCenter(rect.origin.x, rect.size.width, self.position.x),
+                                    LCReturnAxisCenter(rect.origin.y, rect.size.height, self.position.y));
+}
+- (void)keyboard:(NSNotification *)note {
+    self.keyboardFrame = [note.name isEqualToString:UIKeyboardWillHideNotification] ? CGRectZero : [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    [self setNeedsLayout];
+}
+- (void)drag:(UIPanGestureRecognizer *)gesture {
+    CGRect rect = [self availableRect];
+    CGPoint delta = [gesture translationInView:self];
+    CGPoint center = self.button.center;
+    double minX = LCReturnAxisCenter(rect.origin.x, rect.size.width, 0);
+    double minY = LCReturnAxisCenter(rect.origin.y, rect.size.height, 0);
+    double spanX = LCReturnAxisCenter(rect.origin.x, rect.size.width, 1) - minX;
+    double spanY = LCReturnAxisCenter(rect.origin.y, rect.size.height, 1) - minY;
+    self.position = CGPointMake(spanX > 0 ? MIN(1, MAX(0, (center.x + delta.x - minX) / spanX)) : 0.5,
+                                spanY > 0 ? MIN(1, MAX(0, (center.y + delta.y - minY) / spanY)) : 0.5);
+    if (self.collapsed) self.position = CGPointMake(self.position.x < 0.5 ? 0 : 1, self.position.y);
+    [gesture setTranslation:CGPointZero inView:self];
+    [self setNeedsLayout];
+    [self layoutIfNeeded];
+    if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled) {
+        [NSUserDefaults.lcSharedDefaults setObject:@[@(self.position.x), @(self.position.y)] forKey:@"LCDirectReturnControlPosition"];
+        NSLog(@"[LC_RETURN] CONTROL_MOVED");
+    }
+}
+- (void)tapped {
+    if (self.collapsed) {
+        self.collapsed = NO;
+        [self setNeedsLayout];
+        NSLog(@"[LC_RETURN] CONTROL_RESTORED");
+        return;
+    }
+    if (self.action) {
+        // A retained guest should reopen as a tab when Start Collapsed is on.
+        if ([NSUserDefaults.lcSharedDefaults boolForKey:@"LCGuestReturnStartsCollapsed"]) [self collapse];
+        self.action();
+    }
+}
+@end
+
+// LC_DIRECT_RETURN_V1: direct guests share the host process, not the dock registry.
+@interface LCDirectReturnWindow : UIWindow
+@end
+@implementation LCDirectReturnWindow
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    return (hit == self || hit == self.rootViewController.view) ? nil : hit;
+}
+@end
+
+@interface LCDirectReturnPresenter : NSObject
+@property(nonatomic, strong) NSMutableDictionary<NSString *, LCDirectReturnWindow *> *windows;
+@end
+@implementation LCDirectReturnPresenter
+- (instancetype)init {
+    if (!(self = [super init])) return nil;
+    self.windows = [NSMutableDictionary new];
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    [center addObserver:self selector:@selector(show:) name:UIWindowDidBecomeVisibleNotification object:nil];
+    [center addObserver:self selector:@selector(show:) name:UISceneDidActivateNotification object:nil];
+    [center addObserver:self selector:@selector(disconnect:) name:UISceneDidDisconnectNotification object:nil];
+    return self;
+}
+- (void)show:(NSNotification *)notification {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self show:notification]; });
+        return;
+    }
+    UIWindowScene *scene = nil;
+    if ([notification.object isKindOfClass:UIWindow.class]) {
+        UIWindow *source = notification.object;
+        if ([source isKindOfClass:LCDirectReturnWindow.class] || source.windowLevel != UIWindowLevelNormal) return;
+        scene = source.windowScene;
+    } else if ([notification.object isKindOfClass:UIWindowScene.class]) {
+        scene = notification.object;
+    }
+    if (!scene || ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) return;
+    NSString *identity = scene.session.persistentIdentifier;
+    if (self.windows[identity]) return;
+    LCDirectReturnWindow *window = [[LCDirectReturnWindow alloc] initWithWindowScene:scene];
+    UIViewController *controller = [UIViewController new];
+    window.rootViewController = controller;
+    window.backgroundColor = UIColor.clearColor;
+    window.windowLevel = UIWindowLevelAlert + 1;
+    LCDirectReturnControl *control = [[LCDirectReturnControl alloc] initWithFrame:window.bounds];
+    controller.view = control;
+    control.action = ^{
+        NSLog(@"[LC_RETURN] RETURN_REQUESTED mode=DIRECT_PROCESS_RESTART_RETURN");
+        // Match the upstream SideStore escape path. Never used by LiveProcess.
+        [LCSharedUtils launchToGuestAppWithClassicMode:0];
+    };
+    self.windows[identity] = window;
+    window.hidden = NO; // Do not steal key-window status from the guest or its keyboard.
+    NSLog(@"[LC_RETURN] MODE_DIRECT mode=DIRECT_PROCESS_RESTART_RETURN pid=%d", getpid());
+}
+- (void)disconnect:(NSNotification *)notification {
+    if ([notification.object isKindOfClass:UIWindowScene.class]) {
+        UIWindowScene *scene = notification.object;
+        [self.windows removeObjectForKey:scene.session.persistentIdentifier];
+    }
+}
+@end
+static LCDirectReturnPresenter *lcDirectReturnPresenter;
+
 extern char **environ;
 static int (*appMain)(int, char**, char**);
 NSUserDefaults *lcUserDefaults;
@@ -652,6 +875,10 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         return appError;
     }
 
+    // Install before guest UIApplication/scene creation, never inside LiveProcess.
+    if (!isLiveProcess && !isSideStore) {
+        lcDirectReturnPresenter = [LCDirectReturnPresenter new];
+    }
     // Go!
     NSLog(@"[LCBootstrap] jumping to main %p", appMain);
     int ret;

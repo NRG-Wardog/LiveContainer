@@ -18,6 +18,8 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCMaxOneAppOnStage", store: LCUtils.appGroupUserDefault) var onlyOneAppOnStage = false
     @AppStorage("LCDockWidth", store: LCUtils.appGroupUserDefault) var dockWidth: Double = 80
     @AppStorage("LCHideCollapsedDock", store: LCUtils.appGroupUserDefault) var hideCollapsedDock: Bool = false
+    @AppStorage("LCMultitaskDockStartsCollapsed", store: LCUtils.appGroupUserDefault) var dockStartsCollapsed = false
+    @AppStorage("LCMultitaskDockStartsTuckedToEdge", store: LCUtils.appGroupUserDefault) var dockStartsTuckedToEdge = false
     @AppStorage("LCRedirectURLToHost", store: LCUtils.appGroupUserDefault) var redirectURLToHost = false
     
     var body: some View {
@@ -81,9 +83,17 @@ struct LCMultitaskSettingView: View {
                     .tint(.accentColor)
                 }
                 .padding(.vertical, 4)
+                Toggle(isOn: $dockStartsCollapsed) {
+                    Text("Start Dock Collapsed")
+                }
+                Toggle(isOn: $dockStartsTuckedToEdge) {
+                    Text("Start Dock Tucked To Edge")
+                }
                 Toggle(isOn: $hideCollapsedDock) {
                     Text("lc.settings.hideCollapsedDock".loc)
                 }
+            } footer: {
+                Text("Start Dock Collapsed chooses the first expanded or collapsed dock view. Start Dock Tucked To Edge begins that fresh session in the existing hidden-to-side state; the edge control can bring it back. Both choices apply once per fresh session, so your later dock actions remain in effect through rotation. Hide Collapsed Dock controls visibility of an already-tucked collapsed dock.")
             }
         }
         .navigationTitle("lc.appBanner.multitask".loc)

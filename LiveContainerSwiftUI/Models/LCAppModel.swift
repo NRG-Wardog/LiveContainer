@@ -240,6 +240,10 @@ class LCAppModel: ObservableObject, Hashable {
             if await bringExistingMultitaskWindowIfNeeded(dataUUID: currentDataFolder, urlScheme: urlStr) {
                 return
             }
+            // LC_RETURN_CONTAINER_GUARD: failed scene lookup must not duplicate a live container.
+            if await MainActor.run(body: { MultitaskManager.isUsing(container: currentDataFolder) }) {
+                throw "lc.container.inUse".loc + "\nA retained guest still owns this container. Close its existing window before relaunching."
+            }
             
         }
         
@@ -518,6 +522,7 @@ class LCAppModel: ObservableObject, Hashable {
     }
     
     private func bringExistingMultitaskWindowIfNeeded(dataUUID: String, urlScheme: String?) async -> Bool {
+        print("[LC_RETURN] GUEST_RESUME_REQUESTED")
         guard #available(iOS 16.0, *) else { return false }
         return await MainActor.run {
             if let urlScheme {
@@ -533,6 +538,7 @@ class LCAppModel: ObservableObject, Hashable {
             if let urlScheme, !found  {
                 UserDefaults.standard.removeObject(forKey: "launchAppUrlScheme")
             }
+            if !found { print("[LC_RETURN] GUEST_COLD_LAUNCH_REQUIRED") }
             return found
         }
     }

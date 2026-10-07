@@ -16,9 +16,24 @@
 #include <dlfcn.h>
 @import Foundation;
 
+// DEAD10CC_TRANSITION_GATE_V1
+// DEAD10CC_TRANSITION_GATE_BEGIN
+typedef struct { int handled; } LCDead10ccTransitionGate;
+static int LCDead10ccClaimBackgroundTransition(LCDead10ccTransitionGate *gate) {
+    return __atomic_exchange_n(&gate->handled, 1, __ATOMIC_ACQ_REL) == 0;
+}
+static void LCDead10ccResetBackgroundTransition(LCDead10ccTransitionGate *gate) {
+    __atomic_store_n(&gate->handled, 0, __ATOMIC_RELEASE);
+}
+// DEAD10CC_TRANSITION_GATE_END
+
 //extern int _sqlite3_lockstate(const char *path, int pid);
 
-@interface Dead10ccFix : NSObject
+@interface Dead10ccFix : NSObject {
+@private
+    LCDead10ccTransitionGate _backgroundTransitionGate;
+}
+- (void)handleAppWillEnterForeground:(NSNotification *)notification;
 @property(nonatomic) BOOL methodInited;
 @property(nonatomic) int deboundeToken;
 - (void)handleAppDidEnterBackground:(NSNotification *)notification;
@@ -34,13 +49,15 @@ Dead10ccFix* fix = nil;
 
 void initDead10ccFix(void) {
 
-    if(NSUserDefaults.isLiveProcess) {
-        fix = [[Dead10ccFix alloc] init];
-        [NSNotificationCenter.defaultCenter addObserver:fix selector:@selector(handleAppDidEnterBackground:) name:NSExtensionHostDidEnterBackgroundNotification object:nil];
-    } else if (NSUserDefaults.isSharedApp){
-        fix = [[Dead10ccFix alloc] init];
-        [NSNotificationCenter.defaultCenter addObserver:fix selector:@selector(handleAppDidEnterBackground:) name:@"UIApplicationDidEnterBackgroundNotification" object:nil];
-    }
+    // DEAD10CC_FIX_E98699A: retain the original guest-only scope while
+    // registering both notifications because either may report one transition.
+    if (!NSUserDefaults.isLiveProcess && !NSUserDefaults.isSharedApp) return;
+    fix = [[Dead10ccFix alloc] init];
+    [NSNotificationCenter.defaultCenter addObserver:fix selector:@selector(handleAppDidEnterBackground:) name:NSExtensionHostDidEnterBackgroundNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:fix selector:@selector(handleAppDidEnterBackground:) name:@"UIApplicationDidEnterBackgroundNotification" object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:fix selector:@selector(handleAppWillEnterForeground:) name:@"UIApplicationWillEnterForegroundNotification" object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:fix selector:@selector(handleAppWillEnterForeground:) name:@"NSExtensionHostDidBecomeActiveNotification" object:nil];
+    NSLog(@"[LC_GUEST_LIFECYCLE] DEAD10CC_FIX_E98699A registered both observers in guest process");
 }
 
 
@@ -49,6 +66,7 @@ void initDead10ccFix(void) {
 @implementation Dead10ccFix
 
 - (void)handleAppDidEnterBackgroundReal {
+    NSLog(@"[LC_GUEST_LIFECYCLE] BACKGROUND source=%@", @"extension_host_or_uiapp");
     NSSet* locks = [self _lock_lockedFilePathsIgnoring:[NSMutableSet set]];
     for(NSString* path in locks) {
         unsigned char value = 0x01;
@@ -66,7 +84,9 @@ void initDead10ccFix(void) {
         return nil;
     }
 
+    // DEAD10CC_RESOURCE_LIFETIME_V1
     void *pidinfo = malloc(pidinfo_size);
+    if (pidinfo == NULL) return nil;
     pidinfo_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, pidinfo, pidinfo_size);
 
     NSMutableSet *openFilePaths = [NSMutableSet set];
@@ -105,6 +125,7 @@ void initDead10ccFix(void) {
             fdinfo++;
         }
     }
+    free(pidinfo);
 
     NSMutableSet *lockedFilePaths = [NSMutableSet set];
 
@@ -161,7 +182,7 @@ void initDead10ccFix(void) {
             
         } else {
             int fd = open(path_c, O_RDONLY | O_NOCTTY);
-            if (fd <= 1) {
+            if (fd < 0) {
                 continue;
             }
 
@@ -171,6 +192,7 @@ void initDead10ccFix(void) {
             fl.l_pid = pid;
 
             int lock = fcntl(fd, F_GETLKPID, &fl);
+            close(fd);
             if (lock == -1) {
                 continue;
             }
@@ -186,7 +208,18 @@ void initDead10ccFix(void) {
     return lockedFilePaths;
 }
 
+- (void)handleAppWillEnterForeground:(NSNotification *)notification {
+    LCDead10ccResetBackgroundTransition(&_backgroundTransitionGate);
+    NSLog(@"[LC_GUEST_LIFECYCLE] FOREGROUND_RESET source=%@", notification.name);
+}
+
 - (void)handleAppDidEnterBackground:(NSNotification *)notification {
+    NSString* src = [notification.name isEqualToString:NSExtensionHostDidEnterBackgroundNotification] ? @"extension_host" : @"uiapplication";
+    NSLog(@"[LC_GUEST_LIFECYCLE] BACKGROUND source=%@", src);
+    if (!LCDead10ccClaimBackgroundTransition(&_backgroundTransitionGate)) {
+        NSLog(@"[LC_GUEST_LIFECYCLE] BACKGROUND_DUPLICATE source=%@", src);
+        return;
+    }
     if(!_methodInited) {
         _methodInited = YES;
         // hack: steal -[UIApplication _handleTaskCompletionAndTerminate:]
@@ -201,6 +234,7 @@ void initDead10ccFix(void) {
 
 - (void)_terminateWithStatus:(int)status {
     // Fake implementation from UIApplication
+    NSLog(@"[LC_GUEST_LIFECYCLE] DEAD10CC_PREPARATION pid=%d", getpid());
     NSLog(@"[LC] _handleTaskCompletionAndTerminate");
     [self handleAppDidEnterBackgroundReal];
     //    NSLog(@"Backtrace: %@", [NSThread performSelector:@selector(ams_symbolicatedCallStackSymbols)]);

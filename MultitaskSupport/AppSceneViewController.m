@@ -11,10 +11,171 @@
 #import "PiPManager.h"
 #import "Localization.h"
 #import "LCSharedUtils.h"
+#import "../LiveContainer/LCAppGroupSelectionPolicy.h"
 #import "utils.h"
 #import "UIKitPrivate+MultitaskSupport.h"
+#include <math.h>
+
+static double LCReturnAxisCenter(double origin, double length, double position) {
+    if (!isfinite(origin) || !isfinite(length) || length < 0) return 0;
+    if (!isfinite(position)) position = 0.5;
+    position = fmin(1.0, fmax(0.0, position));
+    double inset = fmin(30.0, length / 2.0);
+    return origin + inset + position * fmax(0.0, length - 2.0 * inset);
+}
+static int LCReturnShouldHide(int running, int decorated, int maximized) {
+    return !running || (decorated && !maximized);
+}
+
+// LC_GUEST_RETURN_V3: the control owns no guest process or scene.
+static UIColor *LCGuestReturnColor(NSString *key, NSUInteger fallbackRGB) {
+    id saved = [NSUserDefaults.lcSharedDefaults objectForKey:key];
+    double value = [saved isKindOfClass:NSNumber.class] ? [saved doubleValue] : fallbackRGB;
+    if (!isfinite(value) || value < 0 || value > 0xFFFFFF || floor(value) != value) value = fallbackRGB;
+    NSUInteger rgb = (NSUInteger)value;
+    return [UIColor colorWithRed:((rgb >> 16) & 0xFF) / 255.0
+                           green:((rgb >> 8) & 0xFF) / 255.0
+                            blue:(rgb & 0xFF) / 255.0 alpha:1.0];
+}
+
+@interface LCReturnControl : UIView
+@property(nonatomic, strong) UIButton *button;
+@property(nonatomic, copy) void (^action)(void);
+@property(nonatomic) CGPoint position;
+@property(nonatomic) CGRect keyboardFrame;
+@property(nonatomic) BOOL collapsed;
+@property(nonatomic, copy) NSString *expandedHint;
+- (void)collapse;
+@end
+@implementation LCReturnControl
+- (instancetype)initWithFrame:(CGRect)frame {
+    if (!(self = [super initWithFrame:frame])) return nil;
+    self.backgroundColor = UIColor.clearColor;
+    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    NSArray *saved = [NSUserDefaults.lcSharedDefaults arrayForKey:@"LCReturnControlPosition"];
+    self.position = CGPointMake(0.95, 0.25);
+    if (saved.count == 2 && [saved[0] isKindOfClass:NSNumber.class] && [saved[1] isKindOfClass:NSNumber.class]) {
+        double x = [saved[0] doubleValue], y = [saved[1] doubleValue];
+        if (isfinite(x) && isfinite(y) && x >= 0 && x <= 1 && y >= 0 && y <= 1) self.position = CGPointMake(x, y);
+    }
+    if ([NSUserDefaults.lcSharedDefaults boolForKey:@"LCGuestReturnStartsCollapsed"]) [self collapse];
+    self.button = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.button.backgroundColor = UIColor.secondarySystemBackgroundColor;
+    self.button.layer.cornerRadius = 22;
+    [self.button setImage:[UIImage systemImageNamed:@"arrow.uturn.backward.circle.fill"] forState:UIControlStateNormal];
+    self.button.accessibilityLabel = @"Return to LiveContainer";
+    self.button.accessibilityHint = @"Minimizes this guest without closing it";
+    self.expandedHint = self.button.accessibilityHint;
+    __weak typeof(self) weakControl = self;
+    self.button.menu = [UIMenu menuWithTitle:@"" children:@[
+        [UIAction actionWithTitle:@"Collapse Return Button" image:[UIImage systemImageNamed:@"sidebar.right"] identifier:nil handler:^(__kindof UIAction *action) {
+            [weakControl collapse];
+        }]
+    ]];
+    [self.button addTarget:self action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.button addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(drag:)]];
+    [self addSubview:self.button];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboard:) name:UIKeyboardWillChangeFrameNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboard:) name:UIKeyboardWillHideNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:NSUserDefaultsDidChangeNotification object:NSUserDefaults.lcSharedDefaults];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:UIApplicationDidBecomeActiveNotification object:nil];
+    NSLog(@"[LC_RETURN] CONTROL_SHOWN");
+    return self;
+}
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
+- (void)collapse {
+    self.collapsed = YES;
+    self.position = CGPointMake(self.position.x < 0.5 ? 0 : 1, self.position.y);
+    [self setNeedsLayout];
+    NSLog(@"[LC_RETURN] CONTROL_COLLAPSED");
+}
+- (void)preferencesChanged:(NSNotification *)note {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self preferencesChanged:note]; });
+        return;
+    }
+    // Appearance can change while a guest is retained. Never reset a user's
+    // expanded/collapsed state during layout, keyboard changes, or activation.
+    [self setNeedsLayout];
+}
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    return hit == self ? nil : hit;
+}
+- (CGRect)availableRect {
+    CGRect rect = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    if (self.window) {
+        CGRect windowSafe = UIEdgeInsetsInsetRect(self.window.bounds, self.window.safeAreaInsets);
+        CGRect intersection = CGRectIntersection(rect, [self convertRect:windowSafe fromView:self.window]);
+        if (!CGRectIsNull(intersection)) rect = intersection;
+    }
+    if (!CGRectIsEmpty(self.keyboardFrame) && self.window) {
+        CGRect keyboard = [self convertRect:self.keyboardFrame fromCoordinateSpace:self.window.screen.coordinateSpace];
+        if (CGRectIntersectsRect(rect, keyboard) && CGRectGetMaxY(keyboard) >= CGRectGetMaxY(rect)) {
+            rect.size.height = MAX(0, CGRectGetMinY(keyboard) - CGRectGetMinY(rect));
+        }
+    }
+    return rect;
+}
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    CGRect rect = [self availableRect];
+    // A 44-point target must not be placed outside a tiny resized window.
+    self.button.hidden = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCHideReturnControl"] || CGRectIsNull(rect) || rect.size.width < 44 || rect.size.height < 44;
+    if (self.button.hidden) return;
+    self.button.accessibilityLabel = self.collapsed ? @"Show Return to LiveContainer" : @"Return to LiveContainer";
+    self.button.accessibilityHint = self.collapsed ? @"Restores the Return button" : self.expandedHint;
+    BOOL customColors = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCGuestReturnCustomColors"];
+    // nil restores the inherited system tint when custom colors are disabled.
+    self.button.tintColor = customColors ? LCGuestReturnColor(@"LCGuestReturnTintRGB", 0x007AFF) : nil;
+    UIColor *background = customColors ? LCGuestReturnColor(@"LCGuestReturnBackgroundRGB", 0xF2F2F7) : UIColor.secondarySystemBackgroundColor;
+    self.button.backgroundColor = self.collapsed ? UIColor.clearColor : background;
+    [self.button setImage:[UIImage systemImageNamed:self.collapsed ? (self.position.x < 0.5 ? @"chevron.compact.right" : @"chevron.compact.left") : @"arrow.uturn.backward.circle.fill"] forState:UIControlStateNormal];
+    self.button.bounds = CGRectMake(0, 0, 44, 44);
+    self.button.center = CGPointMake(LCReturnAxisCenter(rect.origin.x, rect.size.width, self.position.x),
+                                    LCReturnAxisCenter(rect.origin.y, rect.size.height, self.position.y));
+}
+- (void)keyboard:(NSNotification *)note {
+    self.keyboardFrame = [note.name isEqualToString:UIKeyboardWillHideNotification] ? CGRectZero : [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    [self setNeedsLayout];
+}
+- (void)drag:(UIPanGestureRecognizer *)gesture {
+    CGRect rect = [self availableRect];
+    CGPoint delta = [gesture translationInView:self];
+    CGPoint center = self.button.center;
+    double minX = LCReturnAxisCenter(rect.origin.x, rect.size.width, 0);
+    double minY = LCReturnAxisCenter(rect.origin.y, rect.size.height, 0);
+    double spanX = LCReturnAxisCenter(rect.origin.x, rect.size.width, 1) - minX;
+    double spanY = LCReturnAxisCenter(rect.origin.y, rect.size.height, 1) - minY;
+    self.position = CGPointMake(spanX > 0 ? MIN(1, MAX(0, (center.x + delta.x - minX) / spanX)) : 0.5,
+                                spanY > 0 ? MIN(1, MAX(0, (center.y + delta.y - minY) / spanY)) : 0.5);
+    if (self.collapsed) self.position = CGPointMake(self.position.x < 0.5 ? 0 : 1, self.position.y);
+    [gesture setTranslation:CGPointZero inView:self];
+    [self setNeedsLayout];
+    [self layoutIfNeeded];
+    if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled) {
+        [NSUserDefaults.lcSharedDefaults setObject:@[@(self.position.x), @(self.position.y)] forKey:@"LCReturnControlPosition"];
+        NSLog(@"[LC_RETURN] CONTROL_MOVED");
+    }
+}
+- (void)tapped {
+    if (self.collapsed) {
+        self.collapsed = NO;
+        [self setNeedsLayout];
+        NSLog(@"[LC_RETURN] CONTROL_RESTORED");
+        return;
+    }
+    if (self.action) {
+        // A retained guest should reopen as a tab when Start Collapsed is on.
+        if ([NSUserDefaults.lcSharedDefaults boolForKey:@"LCGuestReturnStartsCollapsed"]) [self collapse];
+        self.action();
+    }
+}
+@end
+
 
 @interface AppSceneViewController()
+@property(nonatomic, strong) LCReturnControl *lcReturnControl;
 @property int resizeDebounceToken;
 @property CFTimeInterval lastResizeRequestTime;
 @property CGPoint normalizedOrigin;
@@ -29,7 +190,58 @@
 @property(nonatomic) bool isAppTerminationCleanUpCalled;
 @end
 
+// Both guest and service scenes share one swizzle installation for the host process.
+static void V3InitializeUIKitFixes(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{ UIKitFixesInit(); });
+}
+
 @implementation AppSceneViewController
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    if (self.isAppTerminationCleanUpCalled) {
+        [self.lcReturnControl removeFromSuperview];
+        return;
+    }
+    if (!self.lcReturnControl) {
+        self.lcReturnControl = [[LCReturnControl alloc] initWithFrame:self.view.bounds];
+        __weak typeof(self) weakSelf = self;
+        self.lcReturnControl.action = ^{ [weakSelf lcReturnToHost]; };
+    }
+    // Virtual-window chrome overlays the guest controller. Keep the control
+    // above those input views, not inside the remotely hosted content layer.
+    UIView *overlayHost = [self.delegate isKindOfClass:DecoratedAppSceneViewController.class]
+        ? [(DecoratedAppSceneViewController *)self.delegate view] : self.view;
+    if (self.lcReturnControl.superview != overlayHost) {
+        [self.lcReturnControl removeFromSuperview];
+        [overlayHost addSubview:self.lcReturnControl];
+        NSLog(@"[LC_RETURN] CONTROL_ATTACHED layer=%@", overlayHost == self.view ? @"native" : @"virtual_window_chrome");
+    }
+    self.lcReturnControl.frame = [self.view convertRect:self.view.bounds toView:overlayHost];
+    BOOL decorated = [self.delegate isKindOfClass:DecoratedAppSceneViewController.class];
+    BOOL maximized = decorated && [(DecoratedAppSceneViewController *)self.delegate isMaximized];
+    self.lcReturnControl.hidden = LCReturnShouldHide(self.isAppRunning, decorated, maximized);
+    [overlayHost bringSubviewToFront:self.lcReturnControl];
+}
+- (void)lcReturnToHost {
+    NSLog(@"[LC_RETURN] RETURN_REQUESTED pid=%d", self.pid);
+    NSLog(@"[LC_RETURN] MODE_LIVEPROCESS");
+    if (!self.isAppRunning) {
+        NSLog(@"[LC_RETURN] RETURN_FAILED reason=guest_exited");
+        [self appTerminationCleanUp];
+        return;
+    }
+    if ([self.delegate isKindOfClass:DecoratedAppSceneViewController.class]) {
+        [(DecoratedAppSceneViewController *)self.delegate minimizeWindow];
+        NSLog(@"[LC_RETURN] GUEST_MINIMIZE_REQUESTED mode=LIVEPROCESS_PRESERVED_RETURN pid=%d", self.pid);
+    } else if (self.lcActivateHost) {
+        self.lcActivateHost();
+    } else {
+        NSLog(@"[LC_RETURN] RETURN_FAILED reason=host_activation_unavailable");
+    }
+}
+
 
 
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate {
@@ -43,7 +255,7 @@
     
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        UIKitFixesInit();
+        V3InitializeUIKitFixes();
     });
     
     // init extension
@@ -64,6 +276,10 @@
         @"bookmarks": bookmarks,
         @"lcHomePath": NSHomeDirectory(),
     }.mutableCopy;
+    NSString *hostGroupID = LCValidatedAppGroupID([LCSharedUtils appGroupID], ^BOOL(NSString *groupID) {
+        return [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:groupID] != nil;
+    });
+    if (hostGroupID) [userInfo setObject:hostGroupID forKey:@"lcAppGroupID"];
     
     NSString* launchAppUrlScheme = [NSUserDefaults.standardUserDefaults stringForKey:@"launchAppUrlScheme"];
     [NSUserDefaults.lcUserDefaults removeObjectForKey:@"launchAppUrlScheme"];
@@ -94,13 +310,21 @@
     
     __weak typeof(self) weakSelf = self;
     [_extension setRequestCancellationBlock:^(NSUUID *uuid, NSError *error) {
-        [weakSelf appTerminationCleanUp];
-        [weakSelf.delegate appSceneVC:weakSelf didInitializeWithError:error];
+        NSLog(@"[LC_GUEST_LIFECYCLE] PROCESS_CANCELLED pid=%d source=extension_request", weakSelf.pid);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            // Preserve the original extension error before cleanup settles a pending launch.
+            weakSelf.lcLaunchError = error;
+            [weakSelf appTerminationCleanUp];
+            [weakSelf.delegate appSceneVC:weakSelf didInitializeWithError:error];
+        });
     }];
     [_extension setRequestInterruptionBlock:^(NSUUID *uuid) {
+        NSLog(@"[LC_GUEST_LIFECYCLE] PROCESS_INTERRUPTED pid=%d source=extension_request", weakSelf.pid);
         [weakSelf appTerminationCleanUp];
     }];
     [_extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.isAppTerminationCleanUpCalled) return;
         if(identifier) {
             [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
             self.identifier = identifier;
@@ -113,12 +337,32 @@
             NSError* error = [NSError errorWithDomain:@"LiveProcess" code:2 userInfo:@{NSLocalizedDescriptionKey: @"Failed to start app. Child process has unexpectedly crashed"}];
             [delegate appSceneVC:self didInitializeWithError:error];
         }
+        });
     }];
     
     return self;
 }
 
+// V3_COMMAND_PATCH_V1: the service owns process lifetime; this owns presentation only.
+- (instancetype)initWithServicePID:(int)pid delegate:(id<AppSceneViewControllerDelegate>)delegate {
+    self = [super initWithNibName:nil bundle:nil];
+    if (self) {
+        self.delegate = delegate;
+        self.pid = pid;
+        self.bundleId = @"builtinSideStore";
+        self.dataUUID = @"v3-service";
+        self.scaleRatio = 1.0;
+        V3InitializeUIKitFixes();
+        dispatch_async(dispatch_get_main_queue(), ^{ [self setUpAppPresenter]; });
+    }
+    return self;
+}
+
 - (void)setUpAppPresenter {
+    if (_isAppTerminationCleanUpCalled || !self.isAppRunning) {
+        [self appTerminationCleanUp];
+        return;
+    }
     RBSProcessPredicate* predicate = [PrivClass(RBSProcessPredicate) predicateMatchingIdentifier:@(self.pid)];
     FBProcessManager *manager = [PrivClass(FBProcessManager) sharedInstance];
     // At this point, the process is spawned and we're ready to create a scene to render in our app
@@ -195,10 +439,10 @@
         
         // For new API, let FBSSceneObserver send host scene events instead of NSExtensionContext
         NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
-        [center removeObserver:self.extension name:UIApplicationDidBecomeActiveNotification object:UIApp];
-        [center removeObserver:self.extension name:UIApplicationWillResignActiveNotification object:UIApp];
-        [center removeObserver:self.extension name:UIApplicationDidEnterBackgroundNotification object:UIApp];
-        [center removeObserver:self.extension name:UIApplicationWillEnterForegroundNotification object:UIApp];
+        if (self.extension) [center removeObserver:self.extension name:UIApplicationDidBecomeActiveNotification object:UIApp];
+        if (self.extension) [center removeObserver:self.extension name:UIApplicationWillResignActiveNotification object:UIApp];
+        if (self.extension) [center removeObserver:self.extension name:UIApplicationDidEnterBackgroundNotification object:UIApp];
+        if (self.extension) [center removeObserver:self.extension name:UIApplicationWillEnterForegroundNotification object:UIApp];
     } else {
         self.sceneID = [NSString stringWithFormat:@"sceneID:%@-%@", @"LiveProcess", self.dataUUID];
         FBSMutableSceneDefinition *definition = [PrivClass(FBSMutableSceneDefinition) definition];
@@ -220,6 +464,7 @@
         [self.contentView addSubview:self.presenter.presentationView];
     }
     [self.view addSubview:_contentView];
+    [self.view setNeedsLayout]; // Re-show control after asynchronous guest initialization.
     
     // If we have a staging URL scheme, pass it now
     NSString *launchUrl = [NSUserDefaults.standardUserDefaults stringForKey:@"launchAppUrlScheme"];
@@ -230,6 +475,7 @@
     
     __weak typeof(self) weakSelf = self;
     [self.extension setRequestInterruptionBlock:^(NSUUID *uuid) {
+        NSLog(@"[LC_GUEST_LIFECYCLE] PROCESS_INTERRUPTED pid=%d source=extension_request", weakSelf.pid);
         [weakSelf appTerminationCleanUp];
     }];
     self.contentView.layer.anchorPoint = CGPointMake(0, 0);
@@ -335,34 +581,38 @@
 }
 
 - (BOOL)isAppRunning {
-    return _pid > 0 && getpgid(_pid) > 0;
+    return !_isAppTerminationCleanUpCalled && _pid > 0 && getpgid(_pid) > 0;
 }
 
+
 - (void)appTerminationCleanUp {
-    if(_isAppTerminationCleanUpCalled) {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self appTerminationCleanUp]; });
         return;
     }
+    if (_isAppTerminationCleanUpCalled) return;
     _isAppTerminationCleanUpCalled = true;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if(self.sceneID) {
-            [[PrivClass(FBSceneManager) sharedInstance] destroyScene:self.sceneID withTransitionContext:nil];
+    self.lcReturnControl.hidden = YES;
+    [self.lcReturnControl removeFromSuperview];
+    if (self.sceneID) {
+        [[PrivClass(FBSceneManager) sharedInstance] destroyScene:self.sceneID withTransitionContext:nil];
+    }
+    if (self.usesHostingControllerAPI) {
+        if (@available(iOS 17.0, *)) {
+            [self.hostingController invalidate];
+            [self.hostingController.sceneViewController removeFromParentViewController];
+            self.hostingController = nil;
         }
-        if(self.usesHostingControllerAPI) {
-            if(@available(iOS 17.0, *)) {
-                [self.hostingController invalidate];
-                [self.hostingController.sceneViewController removeFromParentViewController];
-                self.hostingController = nil;
-            }
-        } else if(self.presenter){
-            [self.presenter deactivate];
-            [self.presenter invalidate];
-        }
-        self.presenter = nil;
-        
-        [self.delegate appSceneVCAppDidExit:self];
-        [MultitaskManager unregisterMultitaskContainerWithContainer:self.dataUUID];
-    });
+    } else if (self.presenter) {
+        [self.presenter deactivate];
+        [self.presenter invalidate];
+    }
+    self.presenter = nil;
+    // Release the old registration BEFORE notifying code that may relaunch.
+    [MultitaskManager unregisterMultitaskContainerWithContainer:self.dataUUID];
+    [self.delegate appSceneVCAppDidExit:self];
 }
+
 
 - (void)setBackgroundNotificationEnabled:(bool)enabled {
     if(self.usesHostingControllerAPI) {
@@ -381,8 +631,8 @@
         [center addObserver:self.extension selector:@selector(_hostWillResignActiveNote:) name:UIApplicationWillResignActiveNotification object:UIApp];
     } else {
         // Remove UIApplicationDidEnterBackgroundNotification so apps like YouTube can continue playing video
-        [center removeObserver:self.extension name:UIApplicationDidEnterBackgroundNotification object:UIApp];
-        [center removeObserver:self.extension name:UIApplicationWillResignActiveNotification object:UIApp];
+        if (self.extension) [center removeObserver:self.extension name:UIApplicationDidEnterBackgroundNotification object:UIApp];
+        if (self.extension) [center removeObserver:self.extension name:UIApplicationWillResignActiveNotification object:UIApp];
     }
 }
 
