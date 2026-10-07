@@ -11,8 +11,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 BASE = "fb5a23f256b7c687fcd0149ac968d18830034463"
 BRANCH = "validation/runtime-source-141776ba"
+PRODUCTION_BRANCH = "validation/production-dependencies-141776ba"
 GUARD = ("github.ref != 'refs/heads/" + BRANCH + "' && github.head_ref != '" + BRANCH +
          "' && github.base_ref != '" + BRANCH + "'")
+
+GUARD += (" && github.ref != 'refs/heads/" + PRODUCTION_BRANCH + "' && github.head_ref != '" + PRODUCTION_BRANCH +
+          "' && github.base_ref != '" + PRODUCTION_BRANCH + "'")
 
 
 def baseline(relative):
@@ -33,7 +37,7 @@ class HostIsolationTests(unittest.TestCase):
         self.current = yaml.load((ROOT / self.path).read_text(), Loader=yaml.BaseLoader)
 
     def test_validation_push_is_excluded_and_tag_behavior_preserved(self):
-        self.assertEqual(self.current["on"]["push"], {"branches-ignore": [BRANCH], "tags": ["**"]})
+        self.assertEqual(self.current["on"]["push"], {"branches-ignore": [BRANCH, PRODUCTION_BRANCH], "tags": ["**"]})
 
     def test_all_legacy_jobs_explicitly_exclude_validation_dispatch_and_pr(self):
         self.assertEqual(self.current["jobs"]["build"]["if"], GUARD)
@@ -59,6 +63,19 @@ class HostIsolationTests(unittest.TestCase):
         self.assertEqual(workflow["permissions"], {"contents": "read"})
         self.assertEqual(workflow["jobs"]["native-validation"]["if"],
                          "github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/" + BRANCH + "'")
+
+    def test_production_workflow_is_separate_read_only_and_fail_closed(self):
+        workflow = yaml.load((ROOT / ".github/workflows/production-dependency-validation.yml").read_text(), Loader=yaml.BaseLoader)
+        self.assertEqual(workflow["on"], {"push": {"branches": [PRODUCTION_BRANCH]}})
+        self.assertEqual(workflow["permissions"], {"contents": "read"})
+        job = workflow["jobs"]["production-graph"]
+        self.assertEqual(job["if"], "github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/" + PRODUCTION_BRANCH + "'")
+        self.assertEqual(job["env"]["PRODUCTION_PHASE"], "sidesign")
+        self.assertEqual(job["env"]["APPROVED_PRODUCTION_INPUTS_SHA256"], "MISSING_INDEPENDENTLY_REVIEWED_SHA256")
+        self.assertEqual(job["steps"][0]["with"]["persist-credentials"], "false")
+        self.assertEqual(job["steps"][0]["with"]["set-safe-directory"], "false")
+        self.assertEqual(job["env"]["GIT_CONFIG_GLOBAL"], "/dev/null")
+        self.assertEqual(job["steps"][-1]["with"]["path"].splitlines(), ["artifacts/logs/**", "artifacts/provenance/**"])
 
     def test_map_approval_is_a_literal_or_explicit_review_placeholder(self):
         workflow = yaml.load((ROOT / ".github/workflows/runtime-owner-native-validation.yml").read_text(), Loader=yaml.BaseLoader)

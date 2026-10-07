@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "phase": "sidesign",
+  "owners": {
+    "SideSign": {
+      "repository": "NRG-Wardog/SideSign",
+      "source_commit": null,
+      "source_tree": null
+    },
+    "AnisetteKit": {
+      "repository": "NRG-Wardog/AnisetteKit",
+      "source_commit": "62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d",
+      "source_tree": "77bfbe938fa967b2531305ddb9264f939c90dfd6"
+    }
+  }
+}

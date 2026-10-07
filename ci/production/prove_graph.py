@@ -1,0 +1,367 @@
+#!/usr/bin/env python3
+"""Prove the actual committed production graph; never transform package sources."""
+import argparse
+import hashlib
+import json
+import os
+import plistlib
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "native"))
+from validate_inputs import git as acquisition_git, require, approved_file
+from assemble_isolated_workspace import verify_worktree_bytes
+
+BASELINE = "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee"
+ALL_OWNERS = {"LiveContainer", "SideStore", "SideSign", "AnisetteKit", "minimuxer", "idevice", "jktcp"}
+ANISETTE = {"identity": "anisettekit", "kind": "remoteSourceControl",
+    "location": "https://github.com/NRG-Wardog/AnisetteKit.git",
+    "state": {"revision": "62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d"}}
+APP_LOCK = "AltStore.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+
+
+# Git binding and one-hop origin proof match reviewed integration b783a64b.
+def git_bytes(root, *arguments, bare=False):
+    root = Path(root).resolve(strict=True)
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env.update(GIT_NO_REPLACE_OBJECTS="1", GIT_GRAFT_FILE=os.devnull,
+               GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull,
+               GIT_OPTIONAL_LOCKS="0", GIT_TERMINAL_PROMPT="0", GIT_NO_LAZY_FETCH="1")
+    location = ["--git-dir=" + str(root)] if bare else ["--git-dir=" + str(root / ".git"), "--work-tree=" + str(root)]
+    return subprocess.check_output(["git", "--no-replace-objects", "-C", str(root), *location,
+        "-c", "core.hooksPath=" + os.devnull, "-c", "core.fsmonitor=false",
+        "-c", "core.untrackedCache=false", *arguments], env=env, stderr=subprocess.PIPE)
+
+
+def verify_origin(root, expected_url, commit, resolver_root=None):
+    """Verify direct origins, or SwiftPM's bounded checkout -> bare mirror chain.
+
+    Noneditable SwiftPM checkouts use `clone --shared --no-checkout`, retaining
+    the local canonical repository as origin. Never rewrite it to appear remote.
+    """
+    root = Path(root).resolve(strict=True)
+    require(git_bytes(root, "rev-parse", "HEAD").decode().strip() == commit, "origin proof checkout commit mismatch")
+    origin = git_bytes(root, "remote", "get-url", "origin").decode().strip()
+    if resolver_root is not None:
+        resolver_root = Path(resolver_root).resolve(strict=True)
+        checkouts = resolver_root / "checkouts"
+        require(not checkouts.is_symlink() and root.parent == checkouts,
+                "resolver checkout escaped approved storage")
+    if origin.removesuffix(".git") == expected_url.removesuffix(".git"):
+        return {"kind": "direct", "repository": expected_url}
+    require(resolver_root is not None and Path(origin).is_absolute(), "wrong acquisition repository")
+    resolver_root = Path(resolver_root).resolve(strict=True)
+    checkouts, repositories = resolver_root / "checkouts", resolver_root / "repositories"
+    require(not checkouts.is_symlink() and not repositories.is_symlink() and
+            root.parent == checkouts, "resolver repository root escaped approved storage")
+    mirror_input = Path(origin)
+    mirror = mirror_input.resolve(strict=True)
+    require(not mirror_input.is_symlink() and mirror.parent == repositories and
+            not (mirror / "objects").is_symlink(), "resolver mirror escaped approved storage")
+    require(git_bytes(mirror, "rev-parse", "--is-bare-repository", bare=True).strip() == b"true", "resolver mirror is not bare")
+    upstream = git_bytes(mirror, "remote", "get-url", "origin", bare=True).decode().strip()
+    require(upstream.removesuffix(".git") == expected_url.removesuffix(".git"), "resolver mirror upstream repository mismatch")
+    require(git_bytes(mirror, "rev-parse", "--is-shallow-repository", bare=True).strip() == b"false", "shallow resolver mirror")
+    # Permit exactly the object-sharing relationship created by clone --shared.
+    # A second mirror/cache hop requires separately reviewed native evidence.
+    require(not (mirror / "objects/info/alternates").exists(), "unapproved nested resolver object store")
+    gitdir = Path(git_bytes(root, "rev-parse", "--absolute-git-dir").decode().strip()).resolve(strict=True)
+    alternates = gitdir / "objects/info/alternates"
+    if alternates.exists():
+        require(not alternates.is_symlink(), "substituted resolver object store")
+        paths = alternates.read_text().splitlines()
+        require(len(paths) == 1 and Path(paths[0]).is_absolute() and
+                Path(paths[0]).resolve(strict=True) == mirror / "objects", "resolver object store escaped approved mirror")
+    require(git_bytes(mirror, "rev-parse", commit + "^{commit}", bare=True).decode().strip() == commit,
+            "resolver mirror lacks exact commit")
+    tree = git_bytes(root, "rev-parse", "HEAD^{tree}").decode().strip()
+    require(git_bytes(mirror, "rev-parse", commit + "^{tree}", bare=True).decode().strip() == tree,
+            "resolver mirror tree differs from checkout")
+    return {"kind": "swiftpm-local-mirror", "repository": expected_url,
+            "mirror": str(mirror), "commit": commit, "tree": tree}
+
+
+def git(root, *arguments, bare=False):
+    return git_bytes(root, *arguments, bare=bare).decode().strip()
+
+
+def tree_entries(root, revision):
+    result = {}
+    for record in git_bytes(root, "ls-tree", "-rz", revision).split(b"\0"):
+        if record:
+            metadata, name = record.split(b"\t", 1)
+            mode, _, oid = metadata.decode().split()
+            result[os.fsdecode(name)] = (mode, oid)
+    return result
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_inputs(path, digest, phase):
+    approved_file(path, digest)
+    data = json.loads(path.read_text())
+    require(data.get("schema_version") == 1 and data.get("baseline") == BASELINE and data.get("phase") == phase,
+            "Wrong production phase, baseline or schema")
+    expected = {"SideSign", "AnisetteKit"} if phase == "sidesign" else ALL_OWNERS
+    require(set(data.get("owners", {})) == expected, "Incomplete production owner set")
+    for owner, entry in data["owners"].items():
+        require(entry.get("repository") == "NRG-Wardog/" + owner, "Unexpected owner repository")
+        require(re.fullmatch(r"[0-9a-f]{40}", (entry.get("source_commit") or "")) and
+                re.fullmatch(r"[0-9a-f]{40}", (entry.get("source_tree") or "")),
+                owner + ": verified published commit/tree required")
+    require(data["owners"]["AnisetteKit"]["source_commit"] == ANISETTE["state"]["revision"], "Anisette owner pin changed")
+    native_map = Path(__file__).resolve().parents[1] / "native/owner-reference-map.json"
+    approved_file(native_map, "e8f8ff60cafa78db7f6b1cd95b08d39c7d7cab964899784135382f919da762d4")
+    frozen = json.loads(native_map.read_text())["owners"]
+    for owner, entry in data["owners"].items():
+        if owner not in {"SideSign", "SideStore"}:
+            require(entry["source_commit"] == frozen[owner]["source_commit"] and
+                    entry["source_tree"] == frozen[owner]["source_tree"], "Unchanged owner input drift: " + owner)
+    if phase == "sidestore":
+        require(data.get("sidesign_lock_metadata_reviewed") is True, "Final SideSign resolver metadata review missing")
+    return data
+
+
+def owner_path(root, owner, phase):
+    if phase == "sidestore" and owner in {"SideSign", "minimuxer"}:
+        return root / "SideStore/Dependencies" / owner
+    return root / owner
+
+
+def verify_source(root, owner, entry, lock=None, built=False):
+    root = root.resolve(strict=True)
+    require(git(root, "rev-parse", "HEAD") == entry["source_commit"], owner + ": wrong HEAD")
+    require(git(root, "rev-parse", "HEAD^{tree}") == entry["source_tree"], owner + ": wrong tree")
+    require(git(root, "rev-parse", "--is-shallow-repository") == "false", owner + ": shallow source")
+    require(git(root, "write-tree") == entry["source_tree"], owner + ": staged source changed")
+    origin = git(root, "config", "--get", "remote.origin.url")
+    if "repository" in entry:
+        require(origin == "https://github.com/" + entry["repository"] + ".git", owner + ": source origin changed")
+    allowed = {lock} if lock else set()
+    if built and owner == "idevice":
+        allowed.update({"ffi/idevice.h", "cpp/include/idevice.h", "swift/include/idevice.h"})
+    if built and owner == "SideStore":
+        allowed.add("build/SideBackup.ipa")
+    records = tree_entries(root, entry["source_commit"])
+    for relative in records:
+        for parent in (root / relative).parents:
+            if parent == root:
+                break
+            require(not parent.is_symlink(), owner + ": substituted source parent: " + relative)
+    verify_worktree_bytes(root, records, generated=allowed)
+    if lock:
+        target = root / lock
+        require(target.is_file() and not target.is_symlink() and stat.S_ISREG(target.lstat().st_mode), "Unsafe lock output")
+        require(not (target.stat().st_mode & 0o111), "Lock output executable mode drift")
+    prefixes = ()
+    if built:
+        prefixes = {"SideStore": ("build/sidebackup.xcarchive/",), "minimuxer": ("DeviceGateway/LocalBinary/IDevice.xcframework/",),
+                    "idevice": ("swift/IDevice.xcframework/",)}.get(owner, ())
+    untracked = [p for p in git(root, "ls-files", "--others", "-z").split("\0") if p]
+    unexpected = [p for p in untracked if p not in allowed and not p.startswith(prefixes)]
+    require(not unexpected, owner + ": unreviewed generated/untracked paths: " + repr(unexpected))
+    return {"commit": entry["source_commit"], "tree": entry["source_tree"], "origin": origin,
+            "status": "PASS", "allowed_lock": lock}
+
+
+def pin_map(lock):
+    result = {}
+    require(lock.get("version") == 3, "Unexpected resolver lock schema")
+    require(set(lock).issubset({"version", "pins", "originHash"}) and {"version", "pins"}.issubset(lock), "Unknown lock fields")
+    for pin in lock["pins"]:
+        key = pin["identity"].lower()
+        require(key not in result, "Duplicate package identity")
+        result[key] = pin
+    return result
+
+
+def compare_locks(before, after, phase):
+    old, new = pin_map(before), pin_map(after)
+    require(old == new, "Resolver changed a pin object; no added, removed or moved dependency is allowed")
+    require(len(new) == (6 if phase == "sidesign" else 10), "Unexpected exact production pin count")
+    require(new.get("anisettekit") == ANISETTE, "Anisette must remain the exact maintained remote revision")
+    origin = after.get("originHash")
+    require("originHash" not in after or isinstance(origin, str) and re.fullmatch(r"[0-9a-f]{64}", origin), "Malformed resolver originHash")
+    return {"pins": new, "originHash": origin,
+            "metadata_status": "resolver_hash_captured_for_review" if origin else "absent_requires_review"}
+
+
+def origin_chain(checkout, expected, boundary):
+    return verify_origin(checkout, expected, git(checkout, "rev-parse", "HEAD"), boundary)
+
+
+def verify_resolution(root, state_path, phase, refs):
+    owner = "SideSign" if phase == "sidesign" else "SideStore"
+    repo = owner_path(root, owner, phase)
+    lock_name = "Package.resolved" if phase == "sidesign" else APP_LOCK
+    before_bytes = git_bytes(repo, "show", refs["owners"][owner]["source_commit"] + ":" + lock_name)
+    after_path = repo / lock_name
+    comparison = compare_locks(json.loads(before_bytes), json.loads(after_path.read_text()), phase)
+    expected = comparison["pins"]
+    doc = json.loads(state_path.read_text())
+    deps = doc["object"]["dependencies"]
+    require(isinstance(deps, list), "Unknown resolver dependency schema")
+    local = {} if phase == "sidesign" else {
+        "sidesign": root / "SideStore/Dependencies/SideSign", "minimuxer": root / "SideStore/Dependencies/minimuxer",
+        "common": root / "SideStore/Dependencies/minimuxer/Common", "devicegateway": root / "SideStore/Dependencies/minimuxer/DeviceGateway"}
+    records = {}
+    for dep in deps:
+        ref = dep["packageRef"]
+        identity = ref["identity"].lower()
+        require(identity not in records, "Duplicate resolved package identity")
+        if identity in local:
+            require(ref["kind"] == "fileSystem" and Path(ref["location"]).is_absolute() and
+                    Path(ref["location"]).resolve() == local[identity].resolve(), "Source-owned child package path changed")
+            records[identity] = {"kind": "committed_local_child", "path": str(local[identity].resolve())}
+            continue
+        require(identity in expected and ref["kind"] == "remoteSourceControl" and
+                ref["location"] == expected[identity]["location"], "Remote dependency substituted or unreviewed")
+        revision = expected[identity]["state"]["revision"]
+        require(dep["state"]["name"] == "sourceControlCheckout" and
+                dep["state"]["checkoutState"]["revision"] == revision, "Resolver revision differs from lock")
+        checkout = (state_path.parent / "checkouts" / dep["subpath"]).resolve(strict=True)
+        require(checkout.is_relative_to((state_path.parent / "checkouts").resolve()), "Checkout escaped resolver directory")
+        entry = {"source_commit": revision, "source_tree": git(checkout, "rev-parse", revision + "^{tree}")}
+        verify_source(checkout, identity, entry)
+        if identity == "anisettekit":
+            require(entry["source_tree"] == refs["owners"]["AnisetteKit"]["source_tree"], "Anisette remote tree changed")
+        records[identity] = {**entry, "path": str(checkout), "origin_chain": origin_chain(checkout, ref["location"], state_path.parent)}
+    require(set(records) == set(expected) | set(local), "Incomplete real resolver graph")
+    comparison.update(status="PASS", dependencies=records, before_lock_sha256=hashlib.sha256(before_bytes).hexdigest(), lock_sha256=sha(after_path),
+                      workspace_state_sha256=sha(state_path), production_ready=False)
+    return comparison
+
+
+def verify_build_products(roots, archive):
+    """Bind the staged iOS slice/header to the actual Rust build outputs."""
+    framework = roots["minimuxer"] / "DeviceGateway/LocalBinary/IDevice.xcframework"
+    document = plistlib.loads((framework / "Info.plist").read_bytes())
+    libraries = document["AvailableLibraries"]
+    require(len(libraries) == 1, "exactly one built idevice slice required")
+    library = libraries[0]
+    require(library.get("SupportedPlatform") == "ios" and not library.get("SupportedPlatformVariant") and
+            library.get("SupportedArchitectures") == ["arm64"], "wrong idevice platform/architecture")
+    def checked(relative):
+        path = framework / relative
+        require(path.resolve().is_relative_to(framework.resolve()) and path.is_file() and
+                not path.is_symlink() and path.stat().st_size, "escaped/missing idevice build product")
+        return path
+    def digest(path):
+        value = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                value.update(chunk)
+        return value.hexdigest()
+    base = library["LibraryIdentifier"]
+    archived = checked(base + "/" + library["LibraryPath"])
+    header = checked(base + "/" + library["HeadersPath"] + "/idevice.h")
+    module = checked(base + "/" + library["HeadersPath"] + "/module.modulemap")
+    expected_archive = archive
+    require(digest(archived) == digest(expected_archive), "staged library differs from built Rust archive")
+    for relative in ("ffi/idevice.h", "cpp/include/idevice.h", "swift/include/idevice.h"):
+        require(digest(header) == digest(roots["idevice"] / relative), "generated idevice header mismatch")
+    require(digest(module) == digest(roots["idevice"] / "swift/include/module.modulemap"), "staged module map mismatch")
+    return {"library_sha256": digest(archived), "header_sha256": digest(header),
+            "module_map_sha256": digest(module), "framework_info_sha256": digest(framework / "Info.plist")}
+
+
+def capture_compiler_inputs(root, results, destination, resolution, phase):
+    expected = {"SideSign": owner_path(root, "SideSign", phase) / "Sources",
+                "AnisetteKit": Path(resolution["dependencies"]["anisettekit"]["path"]) / "Sources"}
+    if phase == "sidestore":
+        expected.update(SideStore=root / "SideStore/AltStore", minimuxer=owner_path(root, "minimuxer", phase),
+                        LiveContainer=root / "LiveContainer/LiveContainerSwiftUI")
+    records = {owner: [] for owner in expected}
+    destination.mkdir(parents=True, exist_ok=True)
+    files = set(results.rglob("*.SwiftFileList")) | set(results.rglob("sources"))
+    for file in sorted(files):
+        if not file.is_file():
+            continue
+        try:
+            text = file.read_text()
+        except UnicodeDecodeError:
+            continue
+        matched = [owner for owner, path in expected.items() if str(path.resolve()) + "/" in text]
+        if not matched:
+            continue
+        label = hashlib.sha256(str(file).encode()).hexdigest()[:16] + ".txt"
+        (destination / label).write_text("Compiler input list: " + str(file) + "\n" + text)
+        for owner in matched:
+            records[owner].append({"file": str(file), "sha256": sha(file), "copy": label})
+    require(all(records.values()), "Compiler input evidence missing for " + ", ".join(k for k, v in records.items() if not v))
+    return records
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("action", choices=("inputs", "fetch", "sources", "resolution", "snapshot", "compiler-inputs", "build-products"))
+    p.add_argument("--phase", choices=("sidesign", "sidestore"), required=True)
+    p.add_argument("--inputs", type=Path, required=True)
+    p.add_argument("--approved-sha256", required=True)
+    p.add_argument("--root", type=Path)
+    p.add_argument("--state", type=Path)
+    p.add_argument("--report", type=Path)
+    p.add_argument("--results", type=Path)
+    p.add_argument("--archive", type=Path)
+    p.add_argument("--after-resolution", action="store_true")
+    p.add_argument("--built", action="store_true")
+    a = p.parse_args()
+    refs = load_inputs(a.inputs, a.approved_sha256, a.phase)
+    result = {"status": "PASS", "phase": a.phase, "approved_inputs_sha256": a.approved_sha256, "production_ready": False}
+    if a.action == "fetch":
+        require(not a.root.exists(), "Production source output must be new")
+        a.root.mkdir(parents=True)
+        skip = {"SideSign", "minimuxer"} if a.phase == "sidestore" else set()
+        for owner, entry in refs["owners"].items():
+            if owner in skip:
+                continue
+            repo = owner_path(a.root, owner, a.phase)
+            repo.mkdir()
+            acquisition_git(repo, "init", "--quiet")
+            git(repo, "remote", "add", "origin", "https://github.com/" + entry["repository"] + ".git")
+            git(repo, "config", "remote.origin.pushurl", "disabled://production-validation")
+            git(repo, "fetch", "--no-tags", "--no-recurse-submodules", "origin", entry["source_commit"])
+            git(repo, "checkout", "--detach", "--quiet", entry["source_commit"])
+            verify_source(repo, owner, entry)
+    elif a.action == "sources":
+        result["owners"] = {}
+        for owner, entry in refs["owners"].items():
+            lock = ("Package.resolved" if owner == "SideSign" else APP_LOCK) if a.after_resolution and owner == ("SideSign" if a.phase == "sidesign" else "SideStore") else None
+            result["owners"][owner] = verify_source(owner_path(a.root, owner, a.phase), owner, entry, lock, a.built)
+        if a.phase == "sidestore":
+            for child in ("SideSign", "minimuxer"):
+                record = git(a.root / "SideStore", "ls-tree", "HEAD", "Dependencies/" + child)
+                require(record == "160000 commit " + refs["owners"][child]["source_commit"] + "\tDependencies/" + child,
+                        "Actual SideStore gitlink does not select the final published child")
+                require(git(owner_path(a.root, child, a.phase), "config", "--get", "remote.origin.url") ==
+                        "https://github.com/NRG-Wardog/" + child + ".git", "Child origin differs from committed owner URL")
+    elif a.action == "resolution":
+        result = verify_resolution(a.root, a.state, a.phase, refs)
+    elif a.action == "snapshot":
+        result = {"status": "OBSERVED_NOT_ACCEPTED", "owners": {}}
+        for owner in refs["owners"]:
+            repo = owner_path(a.root, owner, a.phase)
+            rows = {}
+            for name in filter(None, git(repo, "ls-files", "--others", "-z").split("\0")):
+                file = repo / name
+                rows[name] = {"type": "symlink"} if file.is_symlink() else {"sha256": sha(file)} if file.is_file() else {"type": "other"}
+            result["owners"][owner] = {"untracked_including_ignored": rows, "tracked_diff": git(repo, "diff", "--binary", "--ignore-submodules=all")}
+    elif a.action == "build-products":
+        require(a.phase == "sidestore" and a.archive is not None, "Only the staged production iOS build has local products")
+        result["products"] = verify_build_products({owner: owner_path(a.root, owner, a.phase) for owner in refs["owners"]}, a.archive)
+    elif a.action == "compiler-inputs":
+        resolution = verify_resolution(a.root, a.state, a.phase, refs)
+        result["compiler_inputs"] = capture_compiler_inputs(a.root, a.results,
+            a.report.parent / "compiler-input-lists", resolution, a.phase)
+    if a.report:
+        a.report.write_text(json.dumps(result, indent=2) + "\n")
+    print(json.dumps({"status": result["status"], "phase": a.phase, "production_ready": False}))
+
+
+if __name__ == "__main__":
+    main()

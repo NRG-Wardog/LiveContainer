@@ -2,7 +2,7 @@ name: Xcode - Build
 
 on: 
   push:
-    branches-ignore: [validation/runtime-source-141776ba]
+    branches-ignore: [validation/runtime-source-141776ba, validation/production-dependencies-141776ba]
     tags: ["**"]
   pull_request:
   workflow_dispatch:
@@ -14,8 +14,8 @@ on:
 
 jobs:
   build:
-    # This branch runs only the isolated native validation workflow.
-    if: github.ref != 'refs/heads/validation/runtime-source-141776ba' && github.head_ref != 'validation/runtime-source-141776ba' && github.base_ref != 'validation/runtime-source-141776ba'
+    # Dedicated validation branches run only their read-only validation workflows.
+    if: github.ref != 'refs/heads/validation/runtime-source-141776ba' && github.head_ref != 'validation/runtime-source-141776ba' && github.base_ref != 'validation/runtime-source-141776ba' && github.ref != 'refs/heads/validation/production-dependencies-141776ba' && github.head_ref != 'validation/production-dependencies-141776ba' && github.base_ref != 'validation/production-dependencies-141776ba'
     name: Build using xcodebuild command
     runs-on: macos-latest
     env:
@@ -90,7 +90,7 @@ jobs:
     name: Nightly Release
     permissions:
       contents: write
-    if: github.ref != 'refs/heads/validation/runtime-source-141776ba' && github.head_ref != 'validation/runtime-source-141776ba' && github.base_ref != 'validation/runtime-source-141776ba' && (inputs.release__nightly || github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+    if: github.ref != 'refs/heads/validation/runtime-source-141776ba' && github.head_ref != 'validation/runtime-source-141776ba' && github.base_ref != 'validation/runtime-source-141776ba' && github.ref != 'refs/heads/validation/production-dependencies-141776ba' && github.head_ref != 'validation/production-dependencies-141776ba' && github.base_ref != 'validation/production-dependencies-141776ba' && (inputs.release__nightly || github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     runs-on: ubuntu-latest
     needs: [build]
     concurrency:

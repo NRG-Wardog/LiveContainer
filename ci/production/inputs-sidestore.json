@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "phase": "sidestore",
+  "sidesign_lock_metadata_reviewed": false,
+  "owners": {
+    "LiveContainer": {
+      "repository": "NRG-Wardog/LiveContainer",
+      "source_commit": "47db163356dc419d2b6a894fdc5dbeb9d011dc69",
+      "source_tree": "f9d8560f6f35c26a66feeeb99e6ac0091d79a98b"
+    },
+    "SideStore": {
+      "repository": "NRG-Wardog/SideStore",
+      "source_commit": null,
+      "source_tree": null
+    },
+    "AnisetteKit": {
+      "repository": "NRG-Wardog/AnisetteKit",
+      "source_commit": "62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d",
+      "source_tree": "77bfbe938fa967b2531305ddb9264f939c90dfd6"
+    },
+    "SideSign": {
+      "repository": "NRG-Wardog/SideSign",
+      "source_commit": null,
+      "source_tree": null
+    },
+    "minimuxer": {
+      "repository": "NRG-Wardog/minimuxer",
+      "source_commit": "efbcab05d7d636aa37c6bf6c7f364d122c5610f6",
+      "source_tree": "30aa947645c5befb0c3210700095c8b039893d83"
+    },
+    "idevice": {
+      "repository": "NRG-Wardog/idevice",
+      "source_commit": "0182d7d8ce0c8bbeb440adbc989d88dc1d4c0789",
+      "source_tree": "0a911c3397ed8fd423f6b3da32a5e7d1d92dae23"
+    },
+    "jktcp": {
+      "repository": "NRG-Wardog/jktcp",
+      "source_commit": "82277a1f366e8d92e775d14212ff21621b25f3f3",
+      "source_tree": "6cd19fb9fa378477bfb58bd8f473049d3176b9d9"
+    }
+  }
+}

@@ -69,7 +69,7 @@ def verify_extracted_archive(archive, path):
 
 def manifest_declarations(workspace, state_file, document):
     roots = [workspace / relative for relative in (
-        "AnisetteKit", "SideStore", "SideStore/Dependencies/SideSign",
+        "AnisetteKit", "SideSign", "SideStore", "SideStore/Dependencies/SideSign",
         "SideStore/Dependencies/minimuxer", "LiveContainer", "idevice", "jktcp")]
     for dependency in document["object"]["dependencies"]:
         if dependency["packageRef"]["kind"] == "remoteSourceControl":

@@ -1,0 +1,63 @@
+name: Exact production dependency validation
+
+on:
+  push:
+    branches: [validation/production-dependencies-141776ba]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-dependency-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  production-graph:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/production-dependencies-141776ba'
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      # Phase 2 and its 150-minute envelope require a separate reviewed commit.
+      PRODUCTION_PHASE: sidesign
+      APPROVED_PRODUCTION_INPUTS_SHA256: MISSING_INDEPENDENTLY_REVIEWED_SHA256
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          set-safe-directory: false
+          path: validation
+      - name: Validate exact published phase inputs
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/logs artifacts/provenance
+          python3 -B validation/ci/production/prove_graph.py inputs \
+            --phase "$PRODUCTION_PHASE" \
+            --inputs "validation/ci/production/inputs-$PRODUCTION_PHASE.json" \
+            --approved-sha256 "$APPROVED_PRODUCTION_INPUTS_SHA256" \
+            2>&1 | tee artifacts/logs/production-inputs.log
+      - name: Capture the actual remote dependency graph
+        timeout-minutes: 55
+        run: |
+          set -euo pipefail
+          bash validation/ci/production/run-production.sh "$PRODUCTION_PHASE" \
+            "$GITHUB_WORKSPACE/production-work" "$GITHUB_WORKSPACE/artifacts" \
+            2>&1 | tee artifacts/logs/production-validation.log
+      - name: Preserve genuine locks, logs and source provenance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-dependencies-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            artifacts/logs/**
+            artifacts/provenance/**
