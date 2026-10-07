@@ -1,4 +1,5 @@
 #import "LCSharedUtils.h"
+#import "LCAppGroupSelectionPolicy.h"
 #import "FoundationPrivate.h"
 #import "UIKitPrivate.h"
 #import "utils.h"
@@ -57,6 +58,12 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
     static dispatch_once_t once;
     static NSString *appGroupID = @"Unknown";
     dispatch_once(&once, ^{
+        NSString *inherited = LCValidatedAppGroupID(
+            [NSUserDefaults.standardUserDefaults objectForKey:@"LCInheritedAppGroupID"],
+            ^BOOL(NSString *groupID) {
+                return [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:groupID] != nil;
+            });
+        if (inherited) { appGroupID = inherited; return; }
         NSArray* possibleAppGroups = @[
             [@"group.com.SideStore.SideStore." stringByAppendingString:[self teamIdentifier]],
             [@"group.com.rileytestut.AltStore." stringByAppendingString:[self teamIdentifier]]

@@ -11,6 +11,9 @@
 #import "../LiveContainer/utils.h"
 #import "../LiveContainer/Tweaks/Tweaks.h"
 #import "../SideStoreSupport/XPCServer.h"
+#import "../LiveContainer/LCAppGroupSelectionPolicy.h"
+#import "../LiveContainer/FoundationPrivate.h"
+#import <CommonCrypto/CommonDigest.h>
 
 @interface LiveProcessHandler : NSObject<NSExtensionRequestHandling>
 @end
@@ -61,6 +64,46 @@ int LiveProcessMain(int argc, char *argv[]) {
     if(overrideHomePath) setenv("LC_HOME_PATH", overrideHomePath, 1);
     // Pass selected app info to user defaults
     NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
+    NSString *inheritedGroupID = LCValidatedAppGroupID(appInfo[@"lcAppGroupID"], ^BOOL(NSString *groupID) {
+        return [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:groupID] != nil;
+    });
+    // Probe the extension process signature, not the framework Info.plist.
+    // Retain only group digests; no identifier or container path is logged.
+    unsetenv("LC_V3_INHERITED_APP_GROUP");
+    unsetenv("LC_V3_SIGNED_APP_GROUP_DIGESTS");
+    if (inheritedGroupID) {
+        setenv("LC_V3_INHERITED_APP_GROUP", inheritedGroupID.UTF8String, 1);
+        void *task = SecTaskCreateFromSelf(NULL);
+        if (task) {
+            CFErrorRef entitlementError = NULL;
+            CFTypeRef groups = SecTaskCopyValueForEntitlement(task,
+                CFSTR("com.apple.security.application-groups"), &entitlementError);
+            CFRelease(task);
+            if (groups && CFGetTypeID(groups) == CFArrayGetTypeID()) {
+                NSMutableArray<NSString *> *digests = [NSMutableArray array];
+                for (id value in (__bridge NSArray *)groups) {
+                    if (![value isKindOfClass:NSString.class]) continue;
+                    NSData *bytes = [(NSString *)value dataUsingEncoding:NSUTF8StringEncoding];
+                    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+                    CC_SHA256(bytes.bytes, (CC_LONG)bytes.length, digest);
+                    NSMutableString *hex = [NSMutableString stringWithCapacity:64];
+                    for (NSUInteger index = 0; index < CC_SHA256_DIGEST_LENGTH; index++) {
+                        [hex appendFormat:@"%02x", digest[index]];
+                    }
+                    [digests addObject:hex];
+                }
+                setenv("LC_V3_SIGNED_APP_GROUP_DIGESTS",
+                    [digests componentsJoinedByString:@","].UTF8String, 1);
+            }
+            if (groups) CFRelease(groups);
+            if (entitlementError) CFRelease(entitlementError);
+        }
+    }
+    if (inheritedGroupID) {
+        [lcUserDefaults setObject:inheritedGroupID forKey:@"LCInheritedAppGroupID"];
+    } else {
+        [lcUserDefaults removeObjectForKey:@"LCInheritedAppGroupID"];
+    }
     [lcUserDefaults setObject:appInfo[@"hostUrlScheme"] forKey:@"hostUrlScheme"];
     [lcUserDefaults setObject:appInfo[@"launchAppUrlScheme"] forKey:@"launchAppUrlScheme"];
     [lcUserDefaults setObject:appInfo[@"selected"] forKey:@"selected"];
