@@ -1,0 +1,71 @@
+name: Isolated seven-owner native validation
+
+# Candidate only. Publishing and running require a separately approved host and
+# these exact test-only paths. Never copy this over a production workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches: [validation/runtime-source-141776ba]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isolated-owner-native-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native-validation:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/runtime-source-141776ba'
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      # Independent reviewed literals. Never compute these from candidate files
+      # at runtime, read them from a generated manifest, or accept dispatch input.
+      APPROVED_OWNER_REFERENCE_MAP_SHA256: 5ba374b3f671b4dd176984a6e020b9475cad89e607fdc827f2cfbdfe3c38b4ec
+      APPROVED_ASSEMBLER_SHA256: a8e114a5fc0a4e18aff0df27b9b8f163eb15da9fea4f332658197dc348e3b657
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout only the isolated validation host
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          path: validation
+      - name: Validate approved inputs before any owner acquisition
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/logs artifacts/provenance
+          python3 -B validation/ci/native/validate_inputs.py approve \
+            --map validation/ci/native/owner-reference-map.json \
+            --approved-sha256 "$APPROVED_OWNER_REFERENCE_MAP_SHA256" \
+            --assembler validation/ci/native/assemble_isolated_workspace.py \
+            --assembler-sha256 "$APPROVED_ASSEMBLER_SHA256" \
+            --report artifacts/provenance/input-approval.json \
+            2>&1 | tee artifacts/logs/input-approval.log
+      - name: Verify preinstalled toolchain, acquire exact sources, and build in scratch
+        timeout-minutes: 140
+        run: |
+          set -euo pipefail
+          bash validation/ci/native/run-native.sh \
+            "$GITHUB_WORKSPACE/native-work" "$GITHUB_WORKSPACE/artifacts" \
+            2>&1 | tee artifacts/logs/native-validation.log
+      - name: Preserve logs and provenance only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: isolated-owner-native-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            artifacts/logs/**
+            artifacts/provenance/**

@@ -1,0 +1,195 @@
+{
+  "provenance": {
+    "source": "Historical release run 37633638024 build/dependencies/workspace-state.json",
+    "source_sha256": "44d3434b5075253ab88a2b326a617350cb8aa7fc64243f4c7488192a84393c99",
+    "paths_normalized": true,
+    "isolated_native_run": false
+  },
+  "version": 7,
+  "object": {
+    "artifacts": [
+      {
+        "kind": {
+          "xcframework": {}
+        },
+        "packageRef": {
+          "identity": "anisettekit",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/mahee96/AnisetteKit.git",
+          "name": "AnisetteKit"
+        },
+        "path": "/historical/results/artifacts/anisettekit/Unicorn.xcframework",
+        "source": {
+          "checksum": "4f61907db6aafc56fb3e336b524d742342312f498bb40739f1da55fb4a24614a",
+          "type": "remote",
+          "url": "https://github.com/mahee96/unicorn/releases/download/2.1.4-multiarch/Unicorn.xcframework.zip#AnisetteKit"
+        },
+        "targetName": "Unicorn"
+      },
+      {
+        "kind": {
+          "xcframework": {}
+        },
+        "packageRef": {
+          "identity": "codesignkit",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/mahee96/CodeSignKit.git",
+          "name": "CodeSignKit"
+        },
+        "path": "/historical/results/artifacts/codesignkit/OpenSSL.xcframework",
+        "source": {
+          "checksum": "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+          "type": "remote",
+          "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#CodeSignKit"
+        },
+        "targetName": "OpenSSL"
+      },
+      {
+        "kind": {
+          "xcframework": {}
+        },
+        "packageRef": {
+          "identity": "devicegateway",
+          "kind": "fileSystem",
+          "location": "/historical/owners/devicegateway",
+          "name": "DeviceGateway"
+        },
+        "path": "/historical/results/artifacts/devicegateway/IDevice.xcframework",
+        "source": {
+          "type": "local"
+        },
+        "targetName": "IDevice"
+      },
+      {
+        "kind": {
+          "xcframework": {}
+        },
+        "packageRef": {
+          "identity": "devicegateway",
+          "kind": "fileSystem",
+          "location": "/historical/owners/devicegateway",
+          "name": "DeviceGateway"
+        },
+        "path": "/historical/results/artifacts/devicegateway/libimobiledevice.xcframework",
+        "source": {
+          "checksum": "7ccbdd56b074807461fc43d2e32ba92f20df2501a6c14cf9f64a917e7f3fe6e7",
+          "type": "remote",
+          "url": "https://github.com/SideStore/libimobiledevice-xcframework/releases/download/1.4.0-ss-0f88f7b/libimobiledevice.xcframework.zip#DeviceGateway"
+        },
+        "targetName": "libimobiledevice"
+      },
+      {
+        "kind": {
+          "xcframework": {}
+        },
+        "packageRef": {
+          "identity": "gsacryptokit",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/mahee96/GSACryptoKit.git",
+          "name": "GSACryptoKit"
+        },
+        "path": "/historical/results/artifacts/gsacryptokit/OpenSSL.xcframework",
+        "source": {
+          "checksum": "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+          "type": "remote",
+          "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#GSACryptoKit"
+        },
+        "targetName": "OpenSSL"
+      },
+      {
+        "kind": {
+          "xcframework": {}
+        },
+        "packageRef": {
+          "identity": "minimuxer",
+          "kind": "fileSystem",
+          "location": "/historical/owners/minimuxer",
+          "name": "minimuxer"
+        },
+        "path": "/historical/results/artifacts/minimuxer/EMProxy.xcframework",
+        "source": {
+          "checksum": "3998789c38d09b55e488d46e31897affc7bbcb9c244d7a9d5b2d5cf6afd916c3",
+          "type": "remote",
+          "url": "https://github.com/SideStore/em_proxy/releases/download/v0.9.3/EMProxy.xcframework.zip#Minimuxer"
+        },
+        "targetName": "EMProxy"
+      },
+      {
+        "kind": {
+          "xcframework": {}
+        },
+        "packageRef": {
+          "identity": "remotepairingkit",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/mahee96/RemotePairingKit.git",
+          "name": "RemotePairingKit"
+        },
+        "path": "/historical/results/artifacts/remotepairingkit/OpenSSL.xcframework",
+        "source": {
+          "checksum": "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+          "type": "remote",
+          "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#RemotePairingKit"
+        },
+        "targetName": "OpenSSL"
+      }
+    ],
+    "dependencies": [
+      {
+        "basedOn": null,
+        "packageRef": {
+          "identity": "common",
+          "kind": "fileSystem",
+          "location": "/historical/owners/common",
+          "name": "Common"
+        },
+        "state": {
+          "name": "fileSystem",
+          "path": "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/Common"
+        },
+        "subpath": "common"
+      },
+      {
+        "basedOn": null,
+        "packageRef": {
+          "identity": "devicegateway",
+          "kind": "fileSystem",
+          "location": "/historical/owners/devicegateway",
+          "name": "DeviceGateway"
+        },
+        "state": {
+          "name": "fileSystem",
+          "path": "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/DeviceGateway"
+        },
+        "subpath": "devicegateway"
+      },
+      {
+        "basedOn": null,
+        "packageRef": {
+          "identity": "minimuxer",
+          "kind": "fileSystem",
+          "location": "/historical/owners/minimuxer",
+          "name": "minimuxer"
+        },
+        "state": {
+          "name": "fileSystem",
+          "path": "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer"
+        },
+        "subpath": "minimuxer"
+      },
+      {
+        "basedOn": null,
+        "packageRef": {
+          "identity": "sidesign",
+          "kind": "fileSystem",
+          "location": "/historical/owners/sidesign",
+          "name": "SideSign"
+        },
+        "state": {
+          "name": "fileSystem",
+          "path": "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/SideSign"
+        },
+        "subpath": "sidesign"
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "owners": {
+    "LiveContainer": {
+      "original_source_commit": "b226f9903a3c96acdb76fe32033569388e1e48cf",
+      "source_tree": "30076d28fe5dc99d98fee842be56b340cb17a45c",
+      "source_commit": "fb5a23f256b7c687fcd0149ac968d18830034463"
+    },
+    "SideStore": {
+      "original_source_commit": "c4eb2705ed8dfd0dcb585cd41d21d54e4287f03e",
+      "source_tree": "aee5909c3813560fea82e678d96c12bed34d0fc5",
+      "source_commit": "943f56965728c8bf7e8cbd05d9ba7ec5697fdf40"
+    },
+    "AnisetteKit": {
+      "original_source_commit": "0d0b777d4d4308387fb5361bd70ce667ecbd7fe4",
+      "source_tree": "77bfbe938fa967b2531305ddb9264f939c90dfd6",
+      "source_commit": "62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d"
+    },
+    "SideSign": {
+      "original_source_commit": "c196183e22f1f551cf35c07f176e5aa0bad04751",
+      "source_tree": "788b3adbcff935450845d57f31a33a92a497a71c",
+      "source_commit": "aaa4375a59075a7b0a446cf4c2dc8193c247a875"
+    },
+    "minimuxer": {
+      "original_source_commit": "712310158c3f8e795a6a2bb2bd32c42464eea6d2",
+      "source_tree": "30aa947645c5befb0c3210700095c8b039893d83",
+      "source_commit": "efbcab05d7d636aa37c6bf6c7f364d122c5610f6"
+    },
+    "idevice": {
+      "original_source_commit": "60731ad3903e716ddd002511b8f873bc412f4842",
+      "source_tree": "0a911c3397ed8fd423f6b3da32a5e7d1d92dae23",
+      "source_commit": "0182d7d8ce0c8bbeb440adbc989d88dc1d4c0789"
+    },
+    "jktcp": {
+      "original_source_commit": "a1be799d60cd07061b8548e1c9e069a057c2257a",
+      "source_tree": "6cd19fb9fa378477bfb58bd8f473049d3176b9d9",
+      "source_commit": "82277a1f366e8d92e775d14212ff21621b25f3f3"
+    }
+  }
+}
