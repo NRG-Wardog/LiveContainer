@@ -19,7 +19,7 @@ jobs:
     env:
       # Phase 2 and its 150-minute envelope require a separate reviewed commit.
       PRODUCTION_PHASE: sidesign
-      APPROVED_PRODUCTION_INPUTS_SHA256: MISSING_INDEPENDENTLY_REVIEWED_SHA256
+      APPROVED_PRODUCTION_INPUTS_SHA256: d55a0dc5179b6bfed4e62c491c161b506a0f224068257a5d3695db7ba2bcf0e1
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'

@@ -5,8 +5,8 @@
   "owners": {
     "SideSign": {
       "repository": "NRG-Wardog/SideSign",
-      "source_commit": null,
-      "source_tree": null
+      "source_commit": "0d451a6eca73358be8dfed6a89c4e227752d0083",
+      "source_tree": "702559ec7158d567de4b0cb383dc9d9f4bc20bf7"
     },
     "AnisetteKit": {
       "repository": "NRG-Wardog/AnisetteKit",

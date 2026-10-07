@@ -27,9 +27,12 @@ workflow, seven-owner map and assembler remain unchanged.
    and unsigned SideStore/LiveContainer builds. Compare exact lock objects,
    source inputs, framework bytes, symbols, compiler lists and submodules again.
 
-Both pending owner references and their trees are null. The workflow approval
-literal is missing. These gates deliberately prevent acquisition or native work
-until publication and independent input review finish. No branch-name fallback,
+Phase 1 selects published SideSign commit
+`0d451a6eca73358be8dfed6a89c4e227752d0083`, tree
+`702559ec7158d567de4b0cb383dc9d9f4bc20bf7`, and the unchanged Anisette revision.
+The independently reviewed input digest is pinned in the workflow. Phase 2 owner
+references and their trees remain null. Its gates prevent acquisition or native
+work until the later publication and independent input review finish. No branch-name fallback,
 manual dispatch fallback, package mirror configuration, source rewrite or local
 Anisette dependency overlay exists.
 
@@ -80,7 +83,9 @@ Estimated cost, not measured: Phase 1 uses 15–35 macOS minutes (60-minute job
 cap); Phase 2 uses 60–120 minutes (proposed 150-minute cap in its later review).
 Cold downloads/builds can vary. This candidate has only local Python/Git fixture,
 YAML and shell checks. Real SwiftPM/Xcode schemas, native compile success, current
-sandbox execution and final published input tuples remain unobserved here.
+sandbox execution and final Phase 2 published input tuples remain unobserved here.
+The Phase 1 published SideSign source/transition proofs passed in an exact remote
+checkout; its lock still has no originHash and native resolution remains not run.
 Every run reports `production_ready: false`; reviewed metadata import and exact
 remote graph rechecking are still required.
 

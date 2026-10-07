@@ -228,12 +228,15 @@ class SwiftPMMirrorOriginTests(unittest.TestCase):
 
 
 class InputGateTests(unittest.TestCase):
-    def test_actual_unpublished_phase_inputs_fail_closed(self):
-        for phase in ("sidesign", "sidestore"):
-            path = Path(__file__).with_name("inputs-" + phase + ".json")
-            # Fixture digest exercises mechanics only; no independent approval.
-            with self.subTest(phase=phase), self.assertRaises(ValueError):
-                proof.load_inputs(path, hashlib.sha256(path.read_bytes()).hexdigest(), phase)
+    def test_published_phase_one_tuple_and_unpublished_phase_two_gate(self):
+        path = Path(__file__).with_name("inputs-sidesign.json")
+        # This test checks the proposed input bytes, not workflow approval.
+        doc = proof.load_inputs(path, "d55a0dc5179b6bfed4e62c491c161b506a0f224068257a5d3695db7ba2bcf0e1", "sidesign")
+        self.assertEqual(doc["owners"]["SideSign"]["source_commit"], "0d451a6eca73358be8dfed6a89c4e227752d0083")
+        self.assertEqual(doc["owners"]["SideSign"]["source_tree"], "702559ec7158d567de4b0cb383dc9d9f4bc20bf7")
+        path = Path(__file__).with_name("inputs-sidestore.json")
+        with self.assertRaises(ValueError):
+            proof.load_inputs(path, hashlib.sha256(path.read_bytes()).hexdigest(), "sidestore")
 
     def test_missing_independent_digest_is_rejected(self):
         path = Path(__file__).with_name("inputs-sidesign.json")
