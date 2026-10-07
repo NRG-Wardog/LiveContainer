@@ -37,6 +37,7 @@ offline() {
   # descendants cannot contact Apple, local devices, VPNs or any network endpoint.
   /usr/bin/sandbox-exec -p '(version 1) (allow default) (deny network*)' "$@"
 }
+export -f offline
 verify_inputs() {
   python3 -B "$ASSEMBLER" verify-inputs --workspace "$W" "${MAP_ARGS[@]}"
 }
@@ -97,6 +98,9 @@ test -x "$NATIVE_OPENSSL_PREFIX/bin/openssl"
   uname -a
 } > "$EVIDENCE/provenance/tool-versions.txt" 2>&1
 
+PHASE=offline-network-preflight
+log_run network-sandbox-preflight python3 -B "$CI_DIR/verify_network_sandbox.py" "$EVIDENCE/provenance/network-sandbox-proof.json"
+
 PHASE=acquire-exact-owners
 log_run owner-fetch python3 -B "$CI_DIR/validate_inputs.py" fetch "${INPUT_ARGS[@]}" \
   --root "$SOURCES" --report "$EVIDENCE/provenance/remote-owner-proof.json"
@@ -146,7 +150,7 @@ verify_inputs
 PHASE=anisette-offline-tests
 log_run anisette-build swift build --package-path "$W/AnisetteKit" --scratch-path "$R/anisette" --build-tests -v
 log_run anisette offline swift test --package-path "$W/AnisetteKit" --scratch-path "$R/anisette" \
-  --skip-build --disable-automatic-resolution \
+  --skip-build --disable-sandbox --disable-automatic-resolution \
   --filter 'anisetteRequestHeadersCustomization|anisetteDataResponseStructure|anisetteHeadersDTORoundtrip'
 check_tests anisette
 verify_inputs
@@ -162,7 +166,7 @@ python3 -B "$CI_DIR/capture_binary_artifacts.py" "$R/sidesign/workspace-state.js
 log_run sidesign-build swift build --package-path "$S" --scratch-path "$R/sidesign" \
   --disable-automatic-resolution --build-tests -v
 log_run sidesign offline swift test --package-path "$S" --scratch-path "$R/sidesign" \
-  --skip-build --disable-automatic-resolution \
+  --skip-build --disable-sandbox --disable-automatic-resolution \
   --filter 'deviceInitializationAndFiltering|certificateRequestCSRGeneration|developerPortalSingleton|archiveStoreRoundtrip|archiveDeflateRoundtrip'
 check_tests sidesign
 verify_resolution sidesign "$R/sidesign/workspace-state.json" "$S/Package.resolved"
