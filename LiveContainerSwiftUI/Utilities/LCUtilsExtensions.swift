@@ -6,6 +6,7 @@
 //
 
 import LocalAuthentication
+import SideStoreSupport
 
 extension LCUtils {
     public static let appGroupUserDefault = UserDefaults.init(suiteName: LCSharedUtils.appGroupID()) ?? UserDefaults.standard
@@ -414,9 +415,18 @@ extension LCUtils {
             }
             await UIApplication.shared.open(launchURL)
         } else if jitEnabler == .SideStore {
-            onServerMessage?("JIT acquisition will continue in SideStore.")
-            let launchURL = URL(string: "sidestore://enable-jit?bundle-id=\(Bundle.main.bundleIdentifier!)")!
-            await UIApplication.shared.open(launchURL)
+            onServerMessage?("Requesting JIT from the SideStore service.")
+            do {
+                let snapshot = try await V3ServiceBridge.shared.request(operation: "snapshot")
+                guard let apps = snapshot["installedApps"] as? [[String: Any]],
+                      let host = apps.first(where: { $0["isHost"] as? Bool == true }),
+                      let identifier = host["identifier"] as? String else {
+                    onServerMessage?("The host is not in SideStore's library. Check Account and Signing.")
+                    return false
+                }
+                _ = try await V3ServiceBridge.shared.request(operation: "jit", target: identifier)
+                onServerMessage?("SideStore completed the JIT request.")
+            } catch { onServerMessage?(error.localizedDescription) }
         }
         return false
     }
@@ -516,11 +526,7 @@ extension LCUtils {
         }
     }
     
-    static func openSideStore(delegate: LCAppModelDelegate? = nil, urlStr: String? = nil) {
-        let sideStoreApp = LCAppModel(appInfo: BuiltInSideStoreAppInfo.shared, delegate: delegate)
-        
-        Task {
-            try await sideStoreApp.runApp(bundleIdOverride: "builtinSideStore", urlStr: urlStr)
-        }
-    }
+
 }
+
+// V3_HEADLESS_OPEN_SIDESTORE_HELPER_REMOVED_V1: callers route through the unified host.

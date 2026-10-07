@@ -65,6 +65,7 @@ struct InstallAnotherLCButton : View {
 }
 
 struct LCMultiLCManagementView : View, InstallAnotherLCButtonDelegate {
+    @EnvironmentObject private var v3Status: V3SideStoreStatusStore
     @AppStorage("LCMultiAllowGameCategory") var useGameCategory = false
     @AppStorage("LCMultiAllowGameMode") var allowGameMode = false
     @State var errorShow = false
@@ -210,14 +211,7 @@ struct LCMultiLCManagementView : View, InstallAnotherLCButtonDelegate {
             shareURL = packedIpaUrl
             
             if(result == 2) {
-                let launchURLStr = packedIpaUrl.absoluteString
-                let bookmark = try packedIpaUrl.bookmarkData(
-                    options: URL.BookmarkCreationOptions(rawValue: 1 << 11),
-                    includingResourceValuesForKeys: nil,
-                    relativeTo: nil
-                )
-                LCUtils.appGroupUserDefault.set(bookmark, forKey: "LCLaunchExtensionFileBookmark")
-                LCUtils.openSideStore(urlStr: launchURLStr)
+                v3Status.stageSharedIPA(packedIpaUrl, title: "Install " + name)
                 return
             }
             

@@ -493,7 +493,8 @@ final class ShareExtensionViewModel: ObservableObject {
         let launchURLString = try preparePayloadForLaunch()
 
         sharedDefaults?.set("livecontainer", forKey: "LCLaunchExtensionScheme")
-        sharedDefaults?.set("builtinSideStore", forKey: "LCLaunchExtensionBundleID")
+        // V3_COMMAND_PATCH_V1: always open the unified host for installation.
+        sharedDefaults?.removeObject(forKey: "LCLaunchExtensionBundleID")
         if let launchURLString {
             sharedDefaults?.set(launchURLString, forKey: "LCLaunchExtensionLaunchURL")
         }

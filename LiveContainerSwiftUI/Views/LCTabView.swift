@@ -8,7 +8,8 @@
 import Foundation
 import SwiftUI
 
-struct LCTabView: View {
+struct V3ApplicationRoot<Content: View>: View {
+    let content: Content
     @State var errorShow = false
     @State var crashReportShow = false
     @State var errorInfo = ""
@@ -22,33 +23,7 @@ struct LCTabView: View {
     let pub = NotificationCenter.default.publisher(for: UIScene.didDisconnectNotification)
     
     var body: some View {
-        TabView(selection: $sharedModel.selectedTab) {
-            if DataManager.shared.model.multiLCStatus != 2 {
-                LCSourcesView()
-                    .tabItem {
-                        Label("lc.tabView.sources".loc, systemImage: "books.vertical")
-                    }
-                    .tag(LCTabIdentifier.sources)
-            }
-            LCAppListView()
-                .tabItem {
-                    Label("lc.tabView.apps".loc, systemImage: "square.stack.3d.up.fill")
-                }
-                .tag(LCTabIdentifier.apps)
-            if DataManager.shared.model.multiLCStatus != 2 {
-                LCTweaksView()
-                    .tabItem{
-                        Label("lc.tabView.tweaks".loc, systemImage: "wrench.and.screwdriver")
-                    }
-                    .tag(LCTabIdentifier.tweaks)
-            }
-            
-            LCSettingsView()
-                .tabItem {
-                    Label("lc.tabView.settings".loc, systemImage: "gearshape.fill")
-                }
-                .tag(LCTabIdentifier.settings)
-        }
+        content
         .downloadAlert(helper: downloadHelper)
         .environmentObject(downloadHelper)
         .alert("lc.common.error".loc, isPresented: $errorShow){
@@ -98,44 +73,16 @@ struct LCTabView: View {
             if let scene1 = sceneDelegate.window?.windowScene, let scene2 = out.object as? UIWindowScene, scene1 == scene2 {
                 if shouldToggleMainWindowOpen {
                     DataManager.shared.model.mainWindowOpened = false
+                    if #available(iOS 16.1, *), MultitaskWindowManager.mainSceneSession?.persistentIdentifier == scene1.session.persistentIdentifier {
+                        MultitaskWindowManager.mainSceneSession = nil
+                    }
                 }
             }
         }
-        .onOpenURL { url in
-            dispatchURL(url: url)
-        }
+        // V3_HEADLESS_LC_TAB_ROUTING_REMOVED_V1: URL routing belongs to V3UnifiedShell.
     }
     
-    func dispatchURL(url: URL) {
-        repeat {
-            if url.isFileURL {
-                sharedModel.selectedTab = .apps
-                break
-            }
-            if url.scheme?.lowercased() == "sidestore" {
-                sharedModel.selectedTab = .apps
-                break
-            }
-            
-            guard let host = url.host?.lowercased() else {
-                return
-            }
-            
-            switch host {
-            case "livecontainer-launch", "install", "open-web-page", "open-url":
-                sharedModel.selectedTab = .apps
-            case "certificate":
-                sharedModel.selectedTab = .settings
-            case "source":
-                sharedModel.selectedTab = .sources
-            default:
-                return
-            }
-            
-        } while(false)
 
-        sharedModel.deepLink = url
-    }
     
     func closeDuplicatedWindow() {
         if let session = sceneDelegate.window?.windowScene?.session, DataManager.shared.model.mainWindowOpened {
@@ -144,6 +91,9 @@ struct LCTabView: View {
             }
         } else {
             shouldToggleMainWindowOpen = true
+            if #available(iOS 16.1, *) {
+                MultitaskWindowManager.mainSceneSession = sceneDelegate.window?.windowScene?.session
+            }
         }
         DataManager.shared.model.mainWindowOpened = true
     }

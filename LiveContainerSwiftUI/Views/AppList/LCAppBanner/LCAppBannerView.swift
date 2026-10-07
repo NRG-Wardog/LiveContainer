@@ -8,6 +8,24 @@ import UIKit
 
 final class LCAppBannerRootView: UIView {
     static let bannerHeight: CGFloat = 88
+    static let compactBannerHeight: CGFloat = 56
+
+    private var layoutStyle: AppLayoutStyle = .list
+    private var iconSizeConstraints: [NSLayoutConstraint] = []
+
+    func applyLayoutStyle(_ style: AppLayoutStyle) {
+        layoutStyle = style
+        for constraint in iconSizeConstraints { constraint.constant = style == .compactList ? 40 : 60 }
+        versionLabel.isHidden = style == .compactList
+        if style == .compactList {
+            remarkLabel.isHidden = true
+            containerLabel.isHidden = true
+        } else {
+            containerLabel.isHidden = false
+        }
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
 
     let runControl = LCAppBannerRunControl()
 
@@ -26,7 +44,7 @@ final class LCAppBannerRootView: UIView {
     private let detailStack = UIStackView()
 
     override var intrinsicContentSize: CGSize {
-        CGSize(width: UIView.noIntrinsicMetric, height: Self.bannerHeight)
+        CGSize(width: UIView.noIntrinsicMetric, height: layoutStyle == .compactList ? Self.compactBannerHeight : Self.bannerHeight)
     }
 
     override init(frame: CGRect) {
@@ -95,6 +113,11 @@ final class LCAppBannerRootView: UIView {
         addSubview(detailStack)
         addSubview(runControl)
 
+        iconSizeConstraints = [
+            iconImageView.widthAnchor.constraint(equalToConstant: 60),
+            iconImageView.heightAnchor.constraint(equalToConstant: 60)
+        ]
+        NSLayoutConstraint.activate(iconSizeConstraints)
         NSLayoutConstraint.activate([
             visualBackgroundView.leadingAnchor.constraint(equalTo: leadingAnchor),
             visualBackgroundView.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -103,8 +126,6 @@ final class LCAppBannerRootView: UIView {
 
             iconImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 60),
-            iconImageView.heightAnchor.constraint(equalToConstant: 60),
 
             detailStack.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 10),
             detailStack.trailingAnchor.constraint(lessThanOrEqualTo: runControl.leadingAnchor, constant: -10),

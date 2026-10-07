@@ -980,6 +980,18 @@ int LiveContainerMain(int argc, char *argv[]) {
         sideStoreExist = [NSFileManager.defaultManager fileExistsAtPath:[lcMainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/SideStoreApp.framework"]];
     }
 
+    // V3_COMMAND_PATCH_V1: upgrade old startup selection into unified navigation.
+    // The dedicated LiveProcess service still boots SideStore normally.
+    if (!isLiveProcess && sideStoreExist &&
+        ([lcUserDefaults boolForKey:@"LCOpenSideStore"] || [selectedApp isEqualToString:@"builtinSideStore"])) {
+        if (launchUrl.length) [lcUserDefaults setObject:launchUrl forKey:@"V3PendingSideStoreURL"];
+        [lcUserDefaults setBool:NO forKey:@"LCOpenSideStore"];
+        [lcUserDefaults removeObjectForKey:@"selected"];
+        [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+        selectedApp = nil;
+        selectedContainer = nil;
+        launchUrl = nil;
+    }
     if([lcUserDefaults boolForKey:@"LCOpenSideStore"] || [selectedApp isEqualToString:@"builtinSideStore"]) {
         if(sideStoreExist) {
             isSideStore = true;

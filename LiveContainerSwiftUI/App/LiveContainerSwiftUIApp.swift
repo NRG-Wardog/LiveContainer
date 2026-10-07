@@ -102,7 +102,7 @@ struct LiveContainerSwiftUIApp : SwiftUI.App {
     
     var body: some Scene {
         WindowGroup(id: "Main") {
-            LCTabView()
+            V3UnifiedShell()
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 .environmentObject(DataManager.shared.model)
                 .environmentObject(LCAppSortManager.shared)

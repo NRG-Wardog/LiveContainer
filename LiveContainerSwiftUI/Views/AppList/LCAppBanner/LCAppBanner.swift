@@ -25,13 +25,16 @@ struct LCAppBanner: UIViewControllerRepresentable {
     @AppStorage("darkModeIcon", store: LCUtils.appGroupUserDefault) private var darkModeIcon = false
     private let sharedModel = DataManager.shared.model
 
-    init(appModel: LCAppModel, delegate: LCAppBannerDelegate) {
+    var layoutStyle: AppLayoutStyle = .list
+
+    init(appModel: LCAppModel, delegate: LCAppBannerDelegate, layoutStyle: AppLayoutStyle = .list) {
         _model = ObservedObject(wrappedValue: appModel)
         self.delegate = delegate
+        self.layoutStyle = layoutStyle
     }
 
     func makeUIViewController(context: Context) -> UIViewController {
-        let viewController = LCAppBannerViewController(delegate: delegate, config: LCAppBannerConfiguration(model: model, dynamicColors: dynamicColors, darkModeIcon: darkModeIcon))
+        let viewController = LCAppBannerViewController(delegate: delegate, config: LCAppBannerConfiguration(model: model, dynamicColors: dynamicColors, darkModeIcon: darkModeIcon, layoutStyle: layoutStyle))
         return viewController
     }
 
@@ -42,7 +45,8 @@ struct LCAppBanner: UIViewControllerRepresentable {
         viewController.update(
             model: model,
             dynamicColors: dynamicColors,
-            darkModeIcon: darkModeIcon
+            darkModeIcon: darkModeIcon,
+            layoutStyle: layoutStyle
         )
     }
 
@@ -51,6 +55,7 @@ struct LCAppBanner: UIViewControllerRepresentable {
         guard let width = proposal.width else {
             return nil
         }
-        return CGSize(width: width, height: LCAppBannerRootView.bannerHeight)
+        let height = layoutStyle == .compactList ? LCAppBannerRootView.compactBannerHeight : LCAppBannerRootView.bannerHeight
+        return CGSize(width: width, height: height)
     }
 }

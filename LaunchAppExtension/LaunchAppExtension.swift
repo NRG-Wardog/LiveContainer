@@ -101,7 +101,8 @@ struct LaunchAppExtension: AppIntent {
         
         if normalizedLaunchScheme == "sidestore" {
             lcSharedDefaults.set("livecontainer", forKey: "LCLaunchExtensionScheme")
-            lcSharedDefaults.set("builtinSideStore", forKey: "LCLaunchExtensionBundleID")
+            // V3_COMMAND_PATCH_V1: the host routes SideStore links through its service.
+            lcSharedDefaults.removeObject(forKey: "LCLaunchExtensionBundleID")
             lcSharedDefaults.set(Date.now, forKey: "LCLaunchExtensionLaunchDate")
             try await openURL(launchOptions: ["url": launchURL])
             return .result()

@@ -11,6 +11,7 @@ struct LCAppBannerConfiguration {
     let model: LCAppModel
     let dynamicColors: Bool
     let darkModeIcon: Bool
+    var layoutStyle: AppLayoutStyle = .list
 }
 
 
@@ -38,7 +39,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        preferredContentSize = CGSize(width: 0, height: LCAppBannerRootView.bannerHeight)
+        preferredContentSize = CGSize(width: 0, height: configuration.layoutStyle == .compactList ? LCAppBannerRootView.compactBannerHeight : LCAppBannerRootView.bannerHeight)
         bannerView.runControl.addTarget(self, action: #selector(runButtonTapped), for: .touchUpInside)
         bannerView.addInteraction(UIContextMenuInteraction(delegate: self))
 
@@ -62,13 +63,15 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
     func update(
         model: LCAppModel,
         dynamicColors: Bool,
-        darkModeIcon: Bool
+        darkModeIcon: Bool,
+        layoutStyle: AppLayoutStyle = .list
     ) {
         loadViewIfNeeded()
         configuration = LCAppBannerConfiguration(
             model: model,
             dynamicColors: dynamicColors,
-            darkModeIcon: darkModeIcon
+            darkModeIcon: darkModeIcon,
+            layoutStyle: layoutStyle
         )
         refreshView()
     }
@@ -81,6 +84,8 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
             darkModeIcon: configuration.darkModeIcon,
             traitCollection: traitCollection
         )
+        bannerView.applyLayoutStyle(configuration.layoutStyle)
+        preferredContentSize = CGSize(width: 0, height: bannerView.intrinsicContentSize.height)
     }
 
     @objc private func bannerDoubleTapped(_ gestureRecognizer: UITapGestureRecognizer) {
@@ -89,6 +94,10 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
             return
         }
         openSettings()
+    }
+
+    func performPrimaryAction() {
+        runButtonTapped()
     }
 
     @objc private func runButtonTapped() {
@@ -131,7 +140,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         }
     }
 
-    private func makeContextMenu() -> UIMenu {
+    func makeContextMenu() -> UIMenu {
         let model = configuration.model
         let appInfo = model.appInfo
         var menuChildren: [UIMenuElement] = []

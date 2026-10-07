@@ -77,6 +77,23 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     @EnvironmentObject private var sharedModel : SharedModel
     @EnvironmentObject private var sharedAppSortManager : LCAppSortManager
+    // LC_APP_LAYOUT_PATCH_V1
+    @AppStorage(LCGridSize.storageKey, store: LCUtils.appGroupUserDefault) private var gridSize: LCGridSize = .medium
+    @AppStorage("LCShowAppLabels", store: LCUtils.appGroupUserDefault) private var showAppLabels: Bool = true
+    @ScaledMetric(relativeTo: .caption) private var gridTextScale: CGFloat = 1
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: gridSize.minimumWidth * min(1.5, max(1, gridTextScale))), spacing: 16, alignment: .top)]
+    }
+
+    private func renderAppCollection(apps: [LCAppModel]) -> some View {
+        LazyVGrid(columns: gridColumns, spacing: 16) {
+            ForEach(apps, id: \.self) { app in
+                LCGridAppCell(appModel: app, delegate: self, showLabels: showAppLabels, gridSize: gridSize)
+            }
+            .transition(.scale)
+        }
+    }
     
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("darkModeIcon", store: LCUtils.appGroupUserDefault) private var darkModeIcon = false
@@ -123,6 +140,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     var body: some View {
         NavigationView {
             ScrollView {
+                V3InstalledAppsSection(query: searchContext.debouncedQuery)
                 NavigationLink(
                     destination: navigateTo,
                     isActive: $isNavigationActive,
@@ -131,12 +149,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 })
                 .hidden()
                 
-                LazyVStack {
-                    ForEach(filteredApps, id: \.self) { app in
-                        LCAppBanner(appModel: app, delegate: self)
-                    }
-                    .transition(.scale)
-                }
+                renderAppCollection(apps: filteredApps)
                 .padding()
                 .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredApps)
 
@@ -150,10 +163,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                                     Spacer()
                                 }
                                 
-                                ForEach(filteredHiddenApps, id: \.self) { app in
-                                    LCAppBanner(appModel: app, delegate: self)
-                                }
-                                .transition(.scale)
+                                renderAppCollection(apps: filteredHiddenApps)
                                 
                             }
                             .padding()
@@ -172,7 +182,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                                     .font(.system(.title2).bold())
                                 Spacer()
                             }
-                            ForEach(filteredHiddenApps, id: \.self) { app in
+                            ForEach(filteredHiddenApps, id: \.v3Identity) { app in
                                 if sharedModel.isHiddenAppUnlocked {
                                     LCAppBanner(appModel: app, delegate: self)
                                 } else {
@@ -211,14 +221,15 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 }
             }
             
-            .navigationTitle("lc.appList.myApps".loc)
+            .navigationTitle("My Apps")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if sharedModel.multiLCStatus != 2 {
                         if !installprogressVisible {
                             Menu {
                                 
-                                Button("lc.appList.installFromIpa".loc, systemImage: "doc.badge.plus", action: {
+                                V3InstallButton()
+                                Button("Add to LiveContainer", systemImage: "doc.badge.plus", action: {
                                     choosingIPA = true
                                 })
                                 Button("lc.appList.installFromUrl".loc, systemImage: "link.badge.plus", action: {
@@ -233,24 +244,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                         }
                     }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    if(UserDefaults.sideStoreExist()) {
-                        Button {
-                            LCUtils.openSideStore(delegate: self)
-                        } label: {
-                            IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(darkModeIcon))
-                                .frame(width: UIFont.preferredFont(forTextStyle: .body).lineHeight, height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
+                // V3_UNIFIED_SHELL_V1: SideStore is reached through unified tabs.
 
-                        }
-                    } else {
-                        Button("Help", systemImage: "questionmark") {
-                            helpPresent = true
-                        }
-                    }
-                    
-
-                }
-                
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("lc.appList.openLink".loc, systemImage: "link", action: {
                         Task { await onOpenWebViewTapped() }
@@ -1031,8 +1026,9 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             }
         }
         
-        if appFound == nil && bundleId == "builtinSideStore" {
-            appFound = LCAppModel(appInfo: BuiltInSideStoreAppInfo.shared)
+        if bundleId == "builtinSideStore" {
+            sharedModel.selectedTab = .settings
+            return
         }
         
         if isFoundAppLocked && !sharedModel.isHiddenAppUnlocked {
@@ -1191,8 +1187,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         
         if url.scheme == "sidestore" && UserDefaults.sideStoreExist() {
-            UserDefaults.standard.setValue(url.absoluteString, forKey: "launchAppUrlScheme")
-            LCUtils.openSideStore(delegate: self)
+            sharedModel.selectedTab = .sources
             return
         }
         

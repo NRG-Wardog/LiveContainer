@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SideStoreSupport
 import SwiftUI
 import UserNotifications
 
@@ -33,12 +34,69 @@ enum JITEnablerType : Int, CaseIterable, Identifiable {
 }
 
 struct LCSettingsView: View {
+    @AppStorage("LCHideReturnControl", store: UserDefaults.lcShared()) private var hideReturnControl = false
+    @AppStorage("LCGuestReturnStartsCollapsed", store: UserDefaults.lcShared()) private var returnStartsCollapsed = false
+    @AppStorage("LCGuestReturnCustomColors", store: UserDefaults.lcShared()) private var returnCustomColors = false
+    @AppStorage("LCGuestReturnTintRGB", store: UserDefaults.lcShared()) private var returnTintRGB = 0x007AFF
+    @AppStorage("LCGuestReturnBackgroundRGB", store: UserDefaults.lcShared()) private var returnBackgroundRGB = 0xF2F2F7
     @State var errorShow = false
     @State var errorInfo = ""
     @State var successShow = false
     @State var successInfo = ""
 
     @State private var certificateDataFound = false
+    @State private var v3OpenJITLessDiagnose = false // V3_CANONICAL_JITLESS_ROUTE_V1
+    // V3_CERTIFICATE_IMPORT_OWNERSHIP_V1: persist only a short-lived opaque request id.
+    private enum V3CertificateImportOwnership {
+        private static let requestKey = "V3PendingCertificateImportRequestID"
+        private static let expiryKey = "V3PendingCertificateImportExpiry"
+        private static let lifetime: TimeInterval = 300
+        private static let lock = NSLock()
+        private static func invalidateLocked(_ defaults: UserDefaults) {
+            defaults.removeObject(forKey: requestKey)
+            defaults.removeObject(forKey: expiryKey)
+        }
+        private static func isActiveLocked(_ requestID: String, defaults: UserDefaults, now: Date) -> Bool {
+            guard UUID(uuidString: requestID) != nil,
+                  defaults.string(forKey: requestKey) == requestID,
+                  let expiry = defaults.object(forKey: expiryKey) as? NSNumber else { return false }
+            return expiry.doubleValue > now.timeIntervalSince1970
+        }
+        static func begin(defaults: UserDefaults = .standard, now: Date = Date()) -> String {
+            lock.lock(); defer { lock.unlock() }
+            let requestID = UUID().uuidString
+            defaults.set(requestID, forKey: requestKey)
+            defaults.set(now.addingTimeInterval(lifetime).timeIntervalSince1970, forKey: expiryKey)
+            defaults.synchronize()
+            return requestID
+        }
+        static func isActive(_ requestID: String, defaults: UserDefaults = .standard, now: Date = Date()) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            return isActiveLocked(requestID, defaults: defaults, now: now)
+        }
+        static func consume(_ requestID: String, defaults: UserDefaults = .standard, now: Date = Date()) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            guard isActiveLocked(requestID, defaults: defaults, now: now) else { return false }
+            invalidateLocked(defaults)
+            defaults.synchronize()
+            return true
+        }
+        // Cancellation is scoped to the exact current request. A late cancel
+        // from a superseded or expired prompt must not invalidate a newer import.
+        @discardableResult
+        static func cancel(_ requestID: String, defaults: UserDefaults = .standard, now: Date = Date()) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            guard isActiveLocked(requestID, defaults: defaults, now: now) else { return false }
+            invalidateLocked(defaults)
+            defaults.synchronize()
+            return true
+        }
+        static func invalidate(defaults: UserDefaults = .standard) {
+            lock.lock(); defer { lock.unlock() }
+            invalidateLocked(defaults)
+            defaults.synchronize()
+        }
+    }
     
     @StateObject private var certificateImportAlert = YesNoHelper()
     @StateObject private var certificateImportFromBuiltInSideStoreAlert = YesNoHelper()
@@ -53,6 +111,9 @@ struct LCSettingsView: View {
     @AppStorage("LCStrictHiding", store: LCUtils.appGroupUserDefault) var strictHiding = false
     @AppStorage("dynamicColors", store: LCUtils.appGroupUserDefault) var dynamicColors = true
     @AppStorage("darkModeIcon", store: LCUtils.appGroupUserDefault) var darkModeIcon = false
+    @AppStorage(LCGridSize.storageKey, store: LCUtils.appGroupUserDefault) private var gridSize: LCGridSize = .medium
+    @AppStorage(LCLaunchTab.storageKey, store: LCUtils.appGroupUserDefault) private var launchTab: LCLaunchTab = .home
+    @AppStorage("LCShowAppLabels", store: LCUtils.appGroupUserDefault) private var showAppLabels: Bool = true
     
     @AppStorage("LCSideJITServerAddress", store: LCUtils.appGroupUserDefault) var sideJITServerAddress : String = ""
     @AppStorage("LCDeviceUDID", store: LCUtils.appGroupUserDefault) var deviceUDID: String = ""
@@ -79,9 +140,45 @@ struct LCSettingsView: View {
         _store = State(initialValue: LCUtils.store())
     }
     
+    private func returnColorBinding(_ rgb: Binding<Int>) -> Binding<Color> {
+        Binding(get: {
+            let value = rgb.wrappedValue
+            return Color(.sRGB, red: Double((value >> 16) & 0xFF) / 255,
+                         green: Double((value >> 8) & 0xFF) / 255,
+                         blue: Double(value & 0xFF) / 255, opacity: 1)
+        }, set: { color in
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            guard UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return }
+            func channel(_ value: CGFloat) -> Int {
+                Int((min(1, max(0, value)) * 255).rounded())
+            }
+            rgb.wrappedValue = (channel(red) << 16) | (channel(green) << 8) | channel(blue)
+        })
+    }
+
     var body: some View {
         NavigationView {
             Form {
+                V3AccountSettings()
+                Section {
+                    Toggle("Show Return Button", isOn: Binding(get: { !hideReturnControl }, set: { hideReturnControl = !$0 }))
+                    Group {
+                        Toggle("Start Collapsed", isOn: $returnStartsCollapsed)
+                        Toggle("Use Custom Colors", isOn: $returnCustomColors)
+                        if returnCustomColors {
+                            ColorPicker("Icon Color", selection: returnColorBinding($returnTintRGB), supportsOpacity: false)
+                            ColorPicker("Button Background", selection: returnColorBinding($returnBackgroundRGB), supportsOpacity: false)
+                        }
+                    }
+                    .disabled(hideReturnControl)
+                } header: {
+                    Text("Guest Controls")
+                } footer: {
+                    Text("Start Collapsed shows an edge tab when a guest opens and after using Return. Tap the tab to expand, then tap Return to go back. Long-press Return to collapse it again. Icon Color also applies to the tab; its background stays transparent. Turn off Use Custom Colors to restore system colors.")
+                }
+                Section {
+                    NavigationLink { LCEmbeddedSideStoreRefreshView() } label: { Text("Refresh, Schedule and History") }
+                }
                 if sharedModel.multiLCStatus != 2 {
                     Section{
                         if !certificateDataFound {
@@ -202,6 +299,18 @@ struct LCSettingsView: View {
                 }
                 
                 Section{
+                    // LC_APP_LAYOUT_PATCH_V1
+                    Picker("Grid Size", selection: $gridSize) {
+                        ForEach(LCGridSize.allCases) { size in
+                            Text(size.displayName).tag(size)
+                        }
+                    }
+                    Toggle("Show app labels", isOn: $showAppLabels)
+                    Picker("Default Launch Screen", selection: $launchTab) {
+                        ForEach(LCLaunchTab.allCases) { tab in
+                            Text(tab.displayName).tag(tab)
+                        }
+                    }
                     Toggle(isOn: $dynamicColors) {
                         Text("lc.settings.dynamicColors".loc)
                     }
@@ -319,6 +428,16 @@ struct LCSettingsView: View {
                     .background(Color(UIColor.systemGroupedBackground))
                     .listRowInsets(EdgeInsets())
                 
+                Section("Build Candidate") {
+                    Text("Product: " + (Bundle.main.object(forInfoDictionaryKey: "LCProductLine") as? String ?? "unknown"))
+                    Text(Bundle.main.object(forInfoDictionaryKey: "LCBuilderCommit") as? String ?? "unknown commit").font(.caption).textSelection(.enabled)
+                    Button("Copy Build Diagnostics") {
+                        UIPasteboard.general.string = ["LCProductLine", "LCBuilderCommit", "LCBuildRunURL"].map {
+                            $0 + "=" + (Bundle.main.object(forInfoDictionaryKey: $0) as? String ?? "unknown")
+                        }.joined(separator: "\n")
+                    }
+                }
+
                 if sharedModel.developerMode {
                     Section {
                         Toggle(isOn: $injectToLCItelf) {
@@ -377,6 +496,14 @@ struct LCSettingsView: View {
                     }
                 }
             }
+            // V3_JITLESS_ROUTE_ROW_NEUTRALIZED_V1: a background is laid out
+            // outside the Form row structure, so this programmatic route cannot
+            // produce an empty Settings row at any text size or device width, and
+            // leaves no accessibility ghost element.
+            .background(
+                NavigationLink(destination: LCJITLessDiagnoseView(), isActive: $v3OpenJITLessDiagnose) { EmptyView() }
+                    .hidden()
+            )
             .navigationBarTitle("lc.tabView.settings".loc)
             .alert("lc.common.error".loc, isPresented: $errorShow){
             } message: {
@@ -574,89 +701,78 @@ struct LCSettingsView: View {
             return
         }
 
+        // V3_CANONICAL_JITLESS_MANUAL_IMPORT_INVALIDATES_PENDING_V1
+        V3CertificateImportOwnership.invalidate()
         LCUtils.appGroupUserDefault.set(certificateData, forKey: "LCCertificateData")
         LCUtils.appGroupUserDefault.set(certificatePassword, forKey: "LCCertificatePassword")
         LCUtils.appGroupUserDefault.set(NSDate.now, forKey: "LCCertificateUpdateDate")
         certificateDataFound = true
 
         UserDefaults.standard.set(LCSharedUtils.appGroupID(), forKey: "LCAppGroupID")
+        // V3_CANONICAL_JITLESS_MANUAL_IMPORT_EVENT_V1
+        NotificationCenter.default.post(name: Notification.Name("V3CanonicalJITLessCertificateUpdated"), object: nil)
     }
     
+    // V3_SERVICE_CERTIFICATE_EXPORT_V1: only the SideStore process can read its
+    // active Keychain group. The returned PKCS#12 is transient and enters the
+    // existing explicitly-confirmed, request-owned callback path.
     func importCertificateFromSideStore() async {
+        // V3_SERVICE_CERTIFICATE_EXPORT_V1
+        let requestID = V3CertificateImportOwnership.begin()
         if UserDefaults.sideStoreExist() {
-            if let ans = await certificateImportFromBuiltInSideStoreAlert.open(), ans {
-                let query: [String: Any] = [
-                    kSecClass as String: kSecClassGenericPassword,
-                    kSecAttrAccount as String: "signingCertificate",
-                    kSecReturnData as String: true,
-                    kSecMatchLimit as String: kSecMatchLimitOne,
-                    kSecAttrService as String: "com.kdt.livecontainer",
-                    kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
-                ]
-                
-                var item: CFTypeRef?
-                let status = SecItemCopyMatching(query as CFDictionary, &item)
-                
-                guard status == errSecSuccess else {
-                    if status == errSecItemNotFound {
-                        errorInfo = "lc.settings.importCertFromBuiltinSideStore.certNotFounndErr".loc
-                        errorShow = true
-                    } else {
-                        errorInfo = "Keychain read error: \(status)"
-                        errorShow = true
-                    }
-                    return
-                }
-                
-                guard let data = item as? Data else {
-                    errorInfo = "Failed to decode certificate data"
-                    errorShow = true
-                    return
-                }
-                
-                let passwordQuery: [String: Any] = [
-                    kSecClass as String: kSecClassGenericPassword,
-                    kSecAttrAccount as String: "signingCertificatePassword",
-                    kSecReturnData as String: true,
-                    kSecMatchLimit as String: kSecMatchLimitOne,
-                    kSecAttrService as String: "com.kdt.livecontainer",
-                    kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
-                ]
-                
-                var passwordItem: CFTypeRef?
-                let passwordStatus = SecItemCopyMatching(passwordQuery as CFDictionary, &passwordItem)
-                var password = ""
-                if passwordStatus == errSecSuccess,
-                   let passwordData = passwordItem as? Data,
-                   let pwd = String(data: passwordData, encoding: .utf8) {
-                    password = pwd
-                }
-                
-                onSideStoreCertificateCallback(certificateData: data, password: password)
-                
+            guard let accepted = await certificateImportFromBuiltInSideStoreAlert.open(), accepted else {
+                _ = V3CertificateImportOwnership.cancel(requestID)
                 return
             }
-        }
-        
-        let storeScheme : String
-        if store == .AltStore {
-            storeScheme = "altstore-classic"
+            guard V3CertificateImportOwnership.isActive(requestID) else { return }
+
+            do {
+                let reply = try await V3ServiceBridge.shared.request(operation: "certExportActive")
+                guard V3CertificateImportOwnership.isActive(requestID),
+                      Set(reply.keys) == Set(["data", "password", "teamIdentifier", "identitySHA256"]),
+                      let data = reply["data"] as? Data, !data.isEmpty, data.count <= 1_048_576,
+                      let password = reply["password"] as? String,
+                      password.utf8.count <= 512,
+                      let team = reply["teamIdentifier"] as? String,
+                      !team.isEmpty, team.utf8.count <= 64,
+                      let fingerprint = reply["identitySHA256"] as? String,
+                      fingerprint.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil,
+                      LCUtils.getCertTeamId(withKeyData: data, password: password) == team else {
+                    throw NSError(domain: "V3CertificateImport", code: 2)
+                }
+                let status = try await V3ServiceBridge.shared.request(operation: "healthSnapshot")
+                guard V3CertificateImportOwnership.isActive(requestID),
+                      let current = status["certificateState"] as? [String: Any],
+                      V3ServiceBridge.strictBool(current["active"]) == true,
+                      current["team"] as? String == team,
+                      current["certificateIdentitySHA256"] as? String == fingerprint else {
+                    throw NSError(domain: "V3CertificateImport", code: 3)
+                }
+                v3CompleteSideStoreCertificateImport(certificateData: data, password: password,
+                    requestID: requestID)
+            } catch {
+                guard V3CertificateImportOwnership.cancel(requestID) else { return }
+                errorInfo = "The active SideStore certificate could not be imported. Check Certificates and try again."
+                errorShow = true
+            }
         } else {
-            storeScheme = "sidestore"
-        }
-        
-        guard let url = URL(string: "\(storeScheme.lowercased())://certificate?callback_template=livecontainer%3A%2F%2Fcertificate%3Fcert%3D%24%28BASE64_CERT%29%26password%3D%24%28PASSWORD%29") else {
-            errorInfo = "Failed to initialize certificate import URL."
+            _ = V3CertificateImportOwnership.cancel(requestID)
+            errorInfo = "Embedded SideStore is unavailable in this LiveContainer build."
             errorShow = true
-            return
         }
-        await UIApplication.shared.open(url)
+    }
+
+    // Only an exact, live, one-use request may reach the existing three-key writer.
+    private func v3CompleteSideStoreCertificateImport(certificateData: Data, password: String, requestID: String) {
+        guard V3CertificateImportOwnership.consume(requestID) else { return }
+        onSideStoreCertificateCallback(certificateData: certificateData, password: password)
     }
     func onSideStoreCertificateCallback(certificateData: Data, password: String) {
         LCUtils.appGroupUserDefault.set(certificateData, forKey: "LCCertificateData")
         LCUtils.appGroupUserDefault.set(password, forKey: "LCCertificatePassword")
         LCUtils.appGroupUserDefault.set(NSDate.now, forKey: "LCCertificateUpdateDate")
         certificateDataFound = true
+        NotificationCenter.default.post(name: Notification.Name("V3CanonicalJITLessCertificateUpdated"), object: nil)
     }
     
     func removeCertificate() async {
@@ -664,12 +780,14 @@ struct LCSettingsView: View {
             return
         }
 
+        V3CertificateImportOwnership.invalidate()
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificateData")
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificatePassword")
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificateUpdateDate")
         certificateDataFound = false
 
         UserDefaults.standard.set(nil, forKey: "LCAppGroupID")
+        NotificationCenter.default.post(name: Notification.Name("V3CanonicalJITLessCertificateUpdated"), object: nil)
     }
     
     func nukeSideStore() async {
@@ -700,6 +818,14 @@ struct LCSettingsView: View {
     }
     
     func handleURL(url: URL) {
+        if url.host == "jitless-setup" {
+            Task { await importCertificateFromSideStore() }
+            return
+        }
+        if url.host == "jitless-diagnose" {
+            v3OpenJITLessDiagnose = true
+            return
+        }
         if url.host == "certificate" {
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
                 let queryItems = components.queryItems?.reduce(into: [String: String]()) { $0[$1.name.lowercased()] = $1.value } ?? [:]
@@ -708,7 +834,9 @@ struct LCSettingsView: View {
                       let certData = Data(base64Encoded: encodedCert)
                 else { return }
                 
-                onSideStoreCertificateCallback(certificateData: certData, password: password)
+                guard let requestID = queryItems["request_id"],
+                      V3CertificateImportOwnership.isActive(requestID) else { return }
+                v3CompleteSideStoreCertificateImport(certificateData: certData, password: password, requestID: requestID)
                 
             }
         }
