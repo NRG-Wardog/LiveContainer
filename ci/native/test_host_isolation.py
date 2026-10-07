@@ -20,6 +20,13 @@ def baseline(relative):
 
 
 class HostIsolationTests(unittest.TestCase):
+    def test_checkout_cleanup_does_not_write_global_safe_directory(self):
+        workflow = yaml.load((ROOT / ".github/workflows/runtime-owner-native-validation.yml").read_text(), Loader=yaml.BaseLoader)
+        job = workflow["jobs"]["native-validation"]
+        self.assertEqual(job["steps"][0]["with"]["set-safe-directory"], "false")
+        self.assertEqual(job["steps"][0]["with"]["persist-credentials"], "false")
+        self.assertEqual(job["env"]["GIT_CONFIG_GLOBAL"], "/dev/null")
+
     def setUp(self):
         self.path = ".github/workflows/build.yml"
         self.original = yaml.load(baseline(self.path), Loader=yaml.BaseLoader)

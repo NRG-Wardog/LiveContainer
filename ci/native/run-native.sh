@@ -139,9 +139,8 @@ mkdir -p "$M/DeviceGateway/LocalBinary"
 cp -R "$W/idevice/swift/IDevice.xcframework" "$M/DeviceGateway/LocalBinary/"
 diff -qr "$W/idevice/swift/IDevice.xcframework" "$M/DeviceGateway/LocalBinary/IDevice.xcframework"
 cmp "$W/idevice/ffi/idevice.h" "$W/idevice/swift/include/idevice.h"
-xcrun nm -arch arm64 -g "$LIB" > "$EVIDENCE/provenance/idevice-symbols.txt"
-grep -E '[[:space:]][Tt][[:space:]]_lockdown_diag_rust_log$' "$EVIDENCE/provenance/idevice-symbols.txt"
-grep -E '[[:space:]][Tt][[:space:]]_idevice_set_transport_log_callback$' "$EVIDENCE/provenance/idevice-symbols.txt"
+log_run idevice-symbol-reader python3 -B "$CI_DIR/verify_archive_symbols.py" \
+  "$LIB" "$EVIDENCE/provenance"
 verify_inputs
 
 PHASE=anisette-offline-tests
