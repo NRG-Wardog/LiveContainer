@@ -41,9 +41,25 @@ class WholeTreeGateRegressionTests(unittest.TestCase):
             self.assertEqual(report['regular_files'], 289)
 
     def test_blob_anchor_survives_reconstructed_history_without_original_commit(self):
+        self.check_reconstructed_history(detached=False)
+
+    def test_blob_anchor_survives_reconstructed_history_with_detached_head(self):
+        self.check_reconstructed_history(detached=True)
+
+    def check_reconstructed_history(self, detached):
         with self.checkout() as root:
             git = BoundGit(root)
             original_head = git.run('rev-parse', 'HEAD').decode().strip()
+            # Acquisition checks out an immutable commit with detached HEAD.
+            # Cover both ref layouts regardless of the caller's own checkout.
+            if detached:
+                git.run('update-ref', '--no-deref', 'HEAD', original_head)
+                self.assertEqual((root / '.git/HEAD').read_text().strip(), original_head)
+            else:
+                branch = 'refs/heads/reconstructed-publication-test'
+                git.run('update-ref', branch, original_head)
+                git.run('symbolic-ref', 'HEAD', branch)
+                self.assertEqual(git.run('symbolic-ref', 'HEAD').decode().strip(), branch)
             current_parent = UPSTREAM_COMMIT
             old_commits = git.run('rev-list', '--reverse', UPSTREAM_COMMIT + '..HEAD').decode().splitlines()
             # Recreate each logical migration tree/message with a distinct test
@@ -56,8 +72,9 @@ class WholeTreeGateRegressionTests(unittest.TestCase):
                     '-p', current_parent, input=message).decode().strip()
                 self.assertNotEqual(current_parent, old_commit)
                 self.assertEqual(git.run('rev-parse', current_parent + '^{tree}').decode().strip(), tree)
-            branch = git.run('symbolic-ref', 'HEAD').decode().strip()
-            git.run('update-ref', branch, current_parent, original_head)
+            # update-ref follows symbolic HEAD when present and also supports
+            # a detached HEAD; retain the old-value guard in both cases.
+            git.run('update-ref', 'HEAD', current_parent, original_head)
             self.assertEqual(git.run('rev-parse', 'HEAD^{tree}'),
                              git.run('rev-parse', original_head + '^{tree}'))
             # Retain only objects reachable from the reconstructed graph. This
@@ -107,10 +124,64 @@ class WholeTreeGateRegressionTests(unittest.TestCase):
                     verify_repository(root)
 
     def test_case_collision_is_rejected(self):
-        with self.checkout() as root:
-            (root / 'SideStoreSupport/sidestore.swift').write_text('// collides on case-insensitive volumes\n')
-            with self.assertRaisesRegex(ParityError, 'Case/Unicode-colliding path'):
-                verify_repository(root)
+        # Always cover the portable fixture as well as a native collision when
+        # the volume can represent both names. Neither path may overwrite the
+        # original source or accept a different rejection as a collision proof.
+        for force_portable, symlinked_parent in ((False, False), (True, False), (True, True)):
+            with self.subTest(force_portable=force_portable, symlinked_parent=symlinked_parent), self.checkout() as root:
+                if symlinked_parent:
+                    # macOS temporary paths can traverse /var -> /private/var.
+                    alias = root.parent / 'temporary-directory-alias'
+                    alias.symlink_to(root.parent, target_is_directory=True)
+                    root = alias / root.name
+                original = root / 'SideStoreSupport/SideStore.swift'
+                original_bytes = original.read_bytes()
+                with self.case_collision(root, force_portable):
+                    self.assertEqual(original.read_bytes(), original_bytes)
+                    with self.assertRaisesRegex(ParityError, 'Case/Unicode-colliding path') as error:
+                        verify_repository(root)
+                    self.assertIn('SideStoreSupport/SideStore.swift', str(error.exception))
+                    self.assertIn('SideStoreSupport/sidestore.swift', str(error.exception))
+                self.assertEqual(original.read_bytes(), original_bytes)
+
+    @contextmanager
+    def case_collision(self, root, force_portable):
+        # Match BoundGit's canonical root even through a temporary-parent alias.
+        original = root.resolve() / 'SideStoreSupport/SideStore.swift'
+        collision = original.with_name('sidestore.swift')
+        if not force_portable:
+            try:
+                # Exclusive creation detects case-insensitive aliases without
+                # ever truncating the maintained source file.
+                with collision.open('x') as handle:
+                    handle.write('// distinct case-colliding source\n')
+            except FileExistsError:
+                self.assertTrue(collision.samefile(original))
+            else:
+                self.assertFalse(collision.samefile(original))
+                yield
+                return
+
+        # A case-insensitive volume cannot store these siblings together.
+        # Present two real, distinct DirEntry records at the enumeration
+        # boundary while running the unchanged full repository validator.
+        with tempfile.TemporaryDirectory(prefix='lc-case-collision-') as temporary:
+            fixture = Path(temporary)
+            (fixture / collision.name).write_text('// distinct case-colliding source\n')
+            self.assertFalse((fixture / collision.name).samefile(original))
+            scandir = os.scandir
+
+            @contextmanager
+            def colliding_scandir(directory):
+                with scandir(directory) as entries:
+                    if Path(directory) == original.parent:
+                        with scandir(fixture) as extra:
+                            yield iter([*entries, *extra])
+                    else:
+                        yield entries
+
+            with patch('runtime_tree_gate.os.scandir', colliding_scandir):
+                yield
 
     def test_runtime_file_mode_change_is_rejected(self):
         with self.checkout() as root:

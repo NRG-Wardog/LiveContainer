@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 
+// This C-only platform double intentionally selects the simulator adapter path.
+// Apple Clang may predefine this macro even when compiling the host fixture.
+#undef TARGET_OS_SIMULATOR
 #define TARGET_OS_SIMULATOR 1
 #define YES 1
 #define NO 0

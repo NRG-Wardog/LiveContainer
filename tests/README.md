@@ -42,3 +42,13 @@ The adversarial suite mutates only disposable independent checkout copies. It
 also demonstrates that inherited Git environment, replacement/graft views,
 ignore rules, index hiding flags and local worktree settings cannot redirect or
 hide the actual source inventory.
+
+Reconstructed-history checks cover named and detached HEAD. Collision checks
+use exclusive file creation so case-insensitive volumes never overwrite the
+original source. When a volume cannot store both case variants, two real
+directory entries from separate temporary directories are presented at the
+scanner boundary; this fixture also runs on case-sensitive hosts and through a
+symlinked temporary-parent path. The complete, unchanged validator must report
+the exact collision in every case. The CFBundle
+host fixture also compiles with the simulator macro predefined, keeping compiler
+warnings fatal to the test on both ordinary C and Apple Clang toolchains.

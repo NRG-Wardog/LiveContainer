@@ -154,8 +154,12 @@ class NativeCExecutionTests(unittest.TestCase):
         harness = source('tests/fixtures/cf_bundle_runtime.c').replace('__PRODUCTION_HELPER__', scan_helper())
         harness = harness.replace('__PRODUCTION_RUNTIME_WITH_NS_BUNDLE_DOUBLE__', runtime)
         harness = harness.replace('__PRODUCTION_CALLER_WITH_STRING_LITERALS__', caller)
-        outputs = self.compile_and_run(harness)
-        self.assertIn('CF_BUNDLE_FAILURE_PROPAGATION_PASS', outputs[0])
+        # Exercise both ordinary host compilation and Apple Clang's predefined
+        # simulator macro without relaxing the strict no-warning assertion.
+        for flags in ((), ('-UTARGET_OS_SIMULATOR', '-DTARGET_OS_SIMULATOR=0')):
+            with self.subTest(flags=flags):
+                outputs = self.compile_and_run(harness, flags=flags)
+                self.assertIn('CF_BUNDLE_FAILURE_PROPAGATION_PASS', outputs[0])
 
     def test_dead10cc_gate_concurrent_exactly_once_and_foreground_reset(self):
         text = source('LiveContainer/Tweaks/Dead10ccFix.m')
