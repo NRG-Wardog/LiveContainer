@@ -287,6 +287,136 @@ class BuildAttributionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'escaped/missing'): proof.verify_build_products(self.roots, self.roots["idevice"] / "target/aarch64-apple-ios/release/libidevice_ffi.a")
 
 
+class CompilerProvenanceTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name)
+        self.root, self.results, self.evidence = base / "sources", base / "results", base / "artifacts/provenance"
+        self.logs = self.evidence.parent / "logs"
+        for directory in (self.root, self.results, self.evidence, self.logs): directory.mkdir(parents=True)
+        owners = {"SideStore": "AltStore/App.swift", "SideStore/Dependencies/SideSign": "Sources/Sign.swift",
+                  "AnisetteKit": "Sources/Anisette.swift", "SideStore/Dependencies/minimuxer": "Sources/Transport.swift",
+                  "LiveContainer": "LiveContainerSwiftUI/App.swift"}
+        self.swift = []
+        for name, relative in owners.items():
+            repo = self.root / name
+            repo.mkdir(parents=True, exist_ok=True)
+            proof.acquisition_git(repo, "init", "-q")
+            source = repo / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("let fixture = true\n")
+            proof.git(repo, "add", relative)
+            proof.git(repo, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "Source")
+            self.swift.append(source)
+        self.file_list = self.results / "actual.SwiftFileList"
+        self.file_list.write_text("\n".join(map(str, self.swift)))
+        self.resolution = {"dependencies": {"anisettekit": {"path": str(self.root / "AnisetteKit")}}}
+        manifests = {"idevice": "idevice/idevice/Cargo.toml", "idevice-ffi": "idevice/ffi/Cargo.toml", "jktcp": "jktcp/Cargo.toml"}
+        self.metadata = {"packages": [{"name": name, "source": None, "manifest_path": str(self.root / relative)}
+                                     for name, relative in manifests.items()]}
+        self.metadata_path = self.evidence / "idevice-cargo-metadata.json"
+        self.metadata_path.write_text(json.dumps(self.metadata))
+        self.rust_log = self.logs / "idevice-build.log"
+        self.rust_log.write_text("\n".join("Running rustc --crate-name " + name.replace("-", "_") + " --target aarch64-apple-ios src/lib.rs" for name in manifests))
+        self.built = self.results / "cargo-target/aarch64-apple-ios/release/libidevice_ffi.a"
+        self.linked = self.results / "sidestore-derived/Build/Products/libidevice_ffi.a"
+        for archive in (self.built, self.linked):
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            archive.write_bytes(b"Synthetic fixture, not a native archive")
+        self.link_log = self.logs / "sidestore-production-build.log"
+        self.link_log.write_text("/Applications/Xcode.app/usr/bin/clang -target arm64-apple-ios15.0 -o SideStore " + str(self.linked) + "\n")
+
+    def verify(self):
+        return proof.capture_compiler_inputs(self.root, self.results, self.evidence / "compiler-input-lists", self.resolution, "sidestore")
+
+    def test_committed_sources_and_actual_archive_link_pass(self):
+        self.assertEqual(len(self.verify()["owners"]), 5)
+        self.link_log.write_text("/Applications/Xcode.app/usr/bin/clang -o SideStore -L" + str(self.linked.parent) + " -lidevice_ffi\n")
+        self.assertEqual(self.verify()["actual_linker_inputs"][0]["sha256"], proof.sha(self.built))
+
+    def test_canonical_aliases_in_actual_source_paths_pass(self):
+        alias = self.root.parent / "source-alias"
+        alias.symlink_to(self.root, target_is_directory=True)
+        self.file_list.write_text("\n".join(str(alias / path.relative_to(self.root)) for path in self.swift))
+        self.assertEqual(len(self.verify()["owners"]), 5)
+
+    def test_registry_sourced_rust_owner_fails(self):
+        self.metadata["packages"][0]["source"] = "registry+https://example.invalid"
+        self.metadata_path.write_text(json.dumps(self.metadata))
+        with self.assertRaisesRegex(ValueError, "outside explicit"):
+            self.verify()
+
+    def test_wrong_rust_manifest_fails(self):
+        self.metadata["packages"][0]["manifest_path"] = str(self.root / "other/Cargo.toml")
+        self.metadata_path.write_text(json.dumps(self.metadata))
+        with self.assertRaisesRegex(ValueError, "outside explicit"):
+            self.verify()
+
+    def test_host_target_cannot_stand_in_for_ios_compilation(self):
+        self.rust_log.write_text(self.rust_log.read_text().replace("aarch64-apple-ios", "aarch64-apple-darwin"))
+        with self.assertRaisesRegex(ValueError, "iOS rustc"):
+            self.verify()
+
+    def test_replaced_xcode_archive_fails(self):
+        self.linked.write_bytes(b"Unexpected prebuilt replacement")
+        with self.assertRaisesRegex(ValueError, "different from local FFI"):
+            self.verify()
+
+    def test_nonexistent_swift_input_fails(self):
+        self.file_list.write_text(self.file_list.read_text().replace("App.swift", "Invented.swift"))
+        with self.assertRaisesRegex(ValueError, "does not exist"):
+            self.verify()
+
+    def test_existing_outside_owner_source_fails(self):
+        outside = self.results / "outside.swift"
+        outside.write_text("let outside = true\n")
+        self.file_list.write_text(self.file_list.read_text() + "\n" + str(outside))
+        with self.assertRaisesRegex(ValueError, "outside proven owner"):
+            self.verify()
+
+    def test_uncommitted_owner_source_fails(self):
+        injected = self.swift[0].with_name("Injected.swift")
+        injected.write_text("let injected = true\n")
+        self.file_list.write_text(self.file_list.read_text() + "\n" + str(injected))
+        with self.assertRaisesRegex(ValueError, "not a committed source"):
+            self.verify()
+
+    def test_unused_equal_archive_does_not_prove_the_linker_input(self):
+        self.link_log.write_text("/Applications/Xcode.app/usr/bin/clang -o SideStore /unrelated/libidevice_ffi.a\n")
+        with self.assertRaisesRegex(ValueError, "absent or outside Xcode"):
+            self.verify()
+
+    def test_echo_diagnostic_and_output_archive_are_not_link_inputs(self):
+        for command in ("echo /Applications/Xcode.app/usr/bin/clang -o SideStore " + str(self.linked),
+                        "/Applications/Xcode.app/usr/bin/clang -o " + str(self.linked)):
+            self.link_log.write_text(command + "\n")
+            with self.subTest(command=command), self.assertRaisesRegex(ValueError, "actual Xcode|actual IDevice"):
+                self.verify()
+
+    def test_mixed_search_path_forms_preserve_actual_linker_order(self):
+        wrong = self.results / "outside-xcode"
+        wrong.mkdir()
+        (wrong / "libidevice_ffi.a").write_bytes(b"Wrong first-match archive")
+        self.link_log.write_text("/Applications/Xcode.app/usr/bin/clang -o SideStore -L " + str(wrong) + " -L" + str(self.linked.parent) + " -lidevice_ffi\n")
+        with self.assertRaisesRegex(ValueError, "outside Xcode"):
+            self.verify()
+
+    def test_competing_dynamic_library_cannot_be_ignored(self):
+        self.link_log.write_text("/Applications/Xcode.app/usr/bin/clang -o SideStore -L" + str(self.linked.parent) + " -lidevice_ffi\n")
+        for suffix in (".dylib", ".tbd"):
+            competing = self.linked.with_suffix(suffix)
+            competing.write_bytes(b"Competing dynamic library")
+            with self.subTest(suffix=suffix), self.assertRaisesRegex(ValueError, "Competing dynamic"):
+                self.verify()
+            competing.unlink()
+
+    def test_bare_library_flag_without_resolved_search_path_fails(self):
+        self.link_log.write_text("/Applications/Xcode.app/usr/bin/clang -o SideStore -lidevice_ffi\n")
+        with self.assertRaisesRegex(ValueError, "no actual archive"):
+            self.verify()
+
+
 class CommandBoundaryTests(unittest.TestCase):
     def test_production_offline_tests_reuse_runtime_canary_and_inner_sandbox_fix(self):
         script = Path(__file__).with_name("run-production.sh").read_text()

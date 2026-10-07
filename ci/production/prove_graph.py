@@ -7,6 +7,7 @@ import os
 import plistlib
 from pathlib import Path
 import re
+import shlex
 import stat
 import subprocess
 import sys
@@ -14,6 +15,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "native"))
 from validate_inputs import git as acquisition_git, require, approved_file
 from assemble_isolated_workspace import verify_worktree_bytes
+from collect_provenance import rust_link_inputs
 
 BASELINE = "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee"
 ALL_OWNERS = {"LiveContainer", "SideStore", "SideSign", "AnisetteKit", "minimuxer", "idevice", "jktcp"}
@@ -270,31 +272,104 @@ def verify_build_products(roots, archive):
             "module_map_sha256": digest(module), "framework_info_sha256": digest(framework / "Info.plist")}
 
 
+def verify_linked_archive(results, destination):
+    """Bind the actual clang argument, including -L/-l selection, to local bytes."""
+    built = results / "cargo-target/aarch64-apple-ios/release/libidevice_ffi.a"
+    derived = (results / "sidestore-derived").resolve(strict=True)
+    report = []
+    for line in (destination.parent / "logs/sidestore-production-build.log").read_text().splitlines():
+        if not re.search(r"(?:^|\s)\S*/clang(?:\+\+)?\s", line) or not re.search(r"libidevice_ffi\.a|-lidevice_ffi", line):
+            continue
+        args = shlex.split(line)
+        if not args or not Path(args[0]).is_absolute() or Path(args[0]).name not in {"clang", "clang++"}:
+            continue
+        require(not {"-c", "-E", "-S"}.intersection(args), "Expected an Xcode linker command, not compilation only")
+        candidates = [Path(arg) for i, arg in enumerate(args) if arg.endswith("/libidevice_ffi.a")
+                      and (i == 0 or args[i - 1] != "-o")]
+        if "-lidevice_ffi" in args:
+            directories = []
+            for i, arg in enumerate(args):
+                if arg == "-L":
+                    require(i + 1 < len(args), "Incomplete linker search path")
+                    directories.append(Path(args[i + 1]))
+                elif arg.startswith("-L"):
+                    directories.append(Path(arg[2:]))
+            require(all(path.is_absolute() for path in directories), "Relative linker search path requires observed working-directory proof")
+            require(not any((path / ("libidevice_ffi" + suffix)).exists()
+                            for path in directories for suffix in (".dylib", ".tbd")),
+                    "Competing dynamic IDevice library makes static archive selection unproven")
+            found = [path / "libidevice_ffi.a" for path in directories
+                     if (path / "libidevice_ffi.a").is_file()]
+            require(found, "Linker -lidevice_ffi has no actual archive in its -L search paths")
+            candidates.append(found[0])
+        require(candidates, "Linker invocation does not identify an actual IDevice archive")
+        for path in candidates:
+            require(path.is_absolute() and path.is_file() and not path.is_symlink() and
+                    path.resolve(strict=True).is_relative_to(derived), "Linked IDevice archive is absent or outside Xcode products")
+            require(sha(path) == sha(built), "Actually linked IDevice archive differs from local FFI output")
+            report.append({"archive": str(path.resolve()), "sha256": sha(path), "command": args})
+    require(report, "Missing actual Xcode linker input for local IDevice")
+    return report
+
+
 def capture_compiler_inputs(root, results, destination, resolution, phase):
     expected = {"SideSign": owner_path(root, "SideSign", phase) / "Sources",
                 "AnisetteKit": Path(resolution["dependencies"]["anisettekit"]["path"]) / "Sources"}
+    owners = {"SideSign": owner_path(root, "SideSign", phase)}
     if phase == "sidestore":
         expected.update(SideStore=root / "SideStore/AltStore", minimuxer=owner_path(root, "minimuxer", phase),
                         LiveContainer=root / "LiveContainer/LiveContainerSwiftUI")
+        owners.update({name: owner_path(root, name, phase) for name in ("SideStore", "minimuxer", "LiveContainer")})
+    for identity, entry in resolution["dependencies"].items():
+        if "source_commit" in entry:  # Only the already-proven remote Git roots.
+            owners[identity] = Path(entry["path"])
+    owners.setdefault("AnisetteKit", Path(resolution["dependencies"]["anisettekit"]["path"]))
+    owned = {path.resolve(strict=True): tree_entries(path, "HEAD") for path in owners.values()}
     records = {owner: [] for owner in expected}
     destination.mkdir(parents=True, exist_ok=True)
-    files = set(results.rglob("*.SwiftFileList")) | set(results.rglob("sources"))
-    for file in sorted(files):
+    for file in sorted(set(results.rglob("*.SwiftFileList")) | set(results.rglob("sources"))):
+        require(not file.is_symlink() and file.resolve().is_relative_to(results.resolve()), "Compiler list escaped results")
         if not file.is_file():
             continue
-        try:
-            text = file.read_text()
-        except UnicodeDecodeError:
-            continue
-        matched = [owner for owner, path in expected.items() if str(path.resolve()) + "/" in text]
+        text = file.read_text()
+        paths = []
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            tokens = [line] if Path(line).is_file() else shlex.split(line)
+            require(len(tokens) == 1, "Unknown compiler input list entry")
+            paths.append(Path(tokens[0]))
+        matched = [owner for owner, prefix in expected.items()
+                   if any(path.resolve().is_relative_to(prefix.resolve()) for path in paths)]
         if not matched:
             continue
+        inputs = []
+        for path in paths:
+            require(path.is_absolute() and path.is_file() and not path.is_symlink(), "Compiler input does not exist as a regular source file: " + str(path))
+            path = path.resolve(strict=True)
+            candidates = [owner for owner in owned if path.is_relative_to(owner)]
+            require(candidates, "Compiler input is outside proven owner sources: " + str(path))
+            owner = max(candidates, key=lambda value: len(value.parts))
+            relative = str(path.relative_to(owner))
+            require(relative in owned[owner] and owned[owner][relative][0] in {"100644", "100755"},
+                    "Compiler input is not a committed source: " + str(path))
+            verify_worktree_bytes(owner, {relative: owned[owner][relative]})
+            inputs.append({"path": str(path), "sha256": sha(path), "blob": owned[owner][relative][1]})
+        require(inputs, "Empty compiler input list")
+        # Match parsed canonical inputs too: strings inside comments never count.
+        matched = [owner for owner, prefix in expected.items()
+                   if any(Path(item["path"]).is_relative_to(prefix.resolve()) for item in inputs)]
         label = hashlib.sha256(str(file).encode()).hexdigest()[:16] + ".txt"
         (destination / label).write_text("Compiler input list: " + str(file) + "\n" + text)
         for owner in matched:
-            records[owner].append({"file": str(file), "sha256": sha(file), "copy": label})
+            records[owner].append({"file": str(file), "sha256": sha(file), "copy": label, "inputs": inputs})
     require(all(records.values()), "Compiler input evidence missing for " + ", ".join(k for k, v in records.items() if not v))
-    return records
+    report = {"owners": records}
+    if phase == "sidestore":
+        # Preserve the native gate's Cargo and Xcode evidence, using production log names.
+        rust_link_inputs(root, results, destination.parent, side_log_name="sidestore-production-build.log")
+        report["actual_linker_inputs"] = verify_linked_archive(results, destination.parent)
+    return report
 
 
 def main():

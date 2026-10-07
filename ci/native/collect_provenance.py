@@ -39,6 +39,11 @@ def compile_inputs(workspace, results, destination):
         "missing": missing, "scope": "Actual Xcode compiler input lists; read with successful build logs"}, indent=2) + "\n")
     if missing:
         raise ValueError("Native compiler input evidence missing for " + ", ".join(missing))
+    rust_link_inputs(workspace, results, destination)
+
+
+def rust_link_inputs(workspace, results, destination, side_log_name="sidestore-build.log"):
+    """Shared required Cargo owner/iOS compilation and Xcode archive evidence."""
     metadata = json.loads((destination / "idevice-cargo-metadata.json").read_text())
     packages = {p["name"]: p for p in metadata["packages"] if p["name"] in {"idevice", "idevice-ffi", "jktcp"}}
     paths = {"idevice": workspace / "idevice/idevice/Cargo.toml", "idevice-ffi": workspace / "idevice/ffi/Cargo.toml",
@@ -51,7 +56,7 @@ def compile_inputs(workspace, results, destination):
         if not any("--crate-name " + name.replace("-", "_") + " " in line and "--target aarch64-apple-ios" in line
                    for line in cargo_log.splitlines()):
             raise ValueError("Missing iOS rustc compilation command: " + name)
-    side_log = (destination.parent / "logs/sidestore-build.log").read_text()
+    side_log = (destination.parent / "logs" / side_log_name).read_text()
     # Xcode links a copied static archive; accept only an actual clang/link command
     # that names that archive, or its -L path with the matching -l argument.
     link_lines = [line for line in side_log.splitlines()
