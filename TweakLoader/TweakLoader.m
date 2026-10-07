@@ -57,6 +57,13 @@ static void loadTweaksRecursively(NSURL *folderURL, NSMutableArray *errors) {
 }
 
 static void showDlerrAlert(NSString *error) {
+    // LC_NATIVE_ERROR_PRESENTERS_V1
+    error = [NSString stringWithFormat:@"%@\nError ID: SS-NATIVE-TWEAK-LOAD", error];
+    id saved = [NSBundle.mainBundle objectForInfoDictionaryKey:@"LCBuilderCommit"];
+    NSString *commit = [saved isKindOfClass:NSString.class] && [saved length] == 40 &&
+        [saved rangeOfString:@"^[0-9a-fA-F]{40}$" options:NSRegularExpressionSearch].location != NSNotFound
+        ? [saved lowercaseString] : @"unknown";
+    NSString *details = [NSString stringWithFormat:@"%@\nbuilder_commit=%@", error, commit];
     UIWindow *window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Failed to load tweaks" message:error preferredStyle:UIAlertControllerStyleAlert];
     UIAlertAction* okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * action) {
@@ -64,7 +71,7 @@ static void showDlerrAlert(NSString *error) {
     }];
     [alert addAction:okAction];
     UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"Copy" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action) {
-        UIPasteboard.generalPasteboard.string = error;
+        UIPasteboard.generalPasteboard.string = details;
         window.windowScene = nil;
     }];
     [alert addAction:cancelAction];

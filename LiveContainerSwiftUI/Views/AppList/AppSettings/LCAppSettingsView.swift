@@ -406,7 +406,7 @@ struct LCAppSettingsView: View {
             Button("lc.common.ok".loc, action: {
             })
         } message: {
-            Text(errorInfo)
+            Text(LCNativeErrorPresentation.message(errorInfo, site: .appSettings))
         }
         
         .textFieldAlert(
@@ -886,3 +886,5 @@ extension LCAppSettingsView : LCSelectContainerViewDelegate {
 
     }
 }
+
+// LC_NATIVE_ERROR_PRESENTERS_V1

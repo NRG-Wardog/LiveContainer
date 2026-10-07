@@ -507,7 +507,7 @@ struct LCSettingsView: View {
             .navigationBarTitle("lc.tabView.settings".loc)
             .alert("lc.common.error".loc, isPresented: $errorShow){
             } message: {
-                Text(errorInfo)
+                Text(LCNativeErrorPresentation.message(errorInfo, site: .settings))
             }
             .alert("lc.common.success".loc, isPresented: $successShow){
             } message: {
@@ -842,3 +842,5 @@ struct LCSettingsView: View {
         }
     }
 }
+
+// LC_NATIVE_ERROR_PRESENTERS_V1

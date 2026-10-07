@@ -30,10 +30,10 @@ struct V3ApplicationRoot<Content: View>: View {
             Button("lc.common.ok".loc, action: {
             })
             Button("lc.common.copy".loc, action: {
-                copyError()
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .root)
             })
         } message: {
-            Text(errorInfo)
+            Text(LCNativeErrorPresentation.message(errorInfo, site: .root))
         }
         .sheet(isPresented: $crashReportShow) {
             NavigationView {
@@ -214,3 +214,5 @@ struct V3ApplicationRoot<Content: View>: View {
         LCUtils.appGroupUserDefault.set(bookmark, forKey: "LCLaunchExtensionPrivateDocBookmark")
     }
 }
+
+// LC_NATIVE_ERROR_PRESENTERS_V1

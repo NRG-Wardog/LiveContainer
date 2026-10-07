@@ -109,7 +109,7 @@ struct LCStorageSummarySection: View {
                 }
 
                 if let errorInfo {
-                    Text(errorInfo)
+                    Text(LCNativeErrorPresentation.message(errorInfo, site: .storage))
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
@@ -396,3 +396,5 @@ private func formatStorageDate(_ date: Date) -> String {
 private func formatStorageSize(_ size: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
 }
+
+// LC_NATIVE_ERROR_PRESENTERS_V1

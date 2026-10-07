@@ -185,7 +185,7 @@ struct LCTweakFolderView : View {
             Button("lc.common.ok".loc, action: {
             })
         } message: {
-            Text(errorInfo)
+            Text(LCNativeErrorPresentation.message(errorInfo, site: .tweaks))
         }
         .textFieldAlert(
             isPresented: $newFolderInput.show,
@@ -400,3 +400,5 @@ struct LCTweaksView: View {
 
     }
 }
+
+// LC_NATIVE_ERROR_PRESENTERS_V1

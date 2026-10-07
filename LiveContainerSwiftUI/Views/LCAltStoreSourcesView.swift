@@ -565,7 +565,7 @@ struct LCSourcesView: View {
         ) {
             Button("lc.common.ok".loc, role: .cancel) { errorMessage = nil }
         } message: {
-            Text(errorMessage ?? "")
+            Text(errorMessage.map { LCNativeErrorPresentation.message($0, site: .source) } ?? "")
         }
         .alert("lc.sources.removeConfirmation.title".loc, isPresented: Binding(
             get: { sourcePendingRemoval != nil },
@@ -905,7 +905,7 @@ private struct AltStoreSourceSectionView: View {
                     Text("lc.sources.section.error".loc)
                         .font(.subheadline)
                         .bold()
-                    Text(error)
+                    Text(LCNativeErrorPresentation.message(error, site: .source))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Button("lc.sources.refresh".loc, action: onRefresh)
@@ -1076,3 +1076,5 @@ private struct SourceIconView: View {
             .scaledToFill()
     }
 }
+
+// LC_NATIVE_ERROR_PRESENTERS_V1

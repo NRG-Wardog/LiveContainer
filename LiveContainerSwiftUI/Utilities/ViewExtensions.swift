@@ -364,6 +364,8 @@ extension UIViewController {
     }
 
     func showError(_ message: String) {
+        let details = LCNativeErrorPresentation.details(message, site: .banner)
+        let message = LCNativeErrorPresentation.message(message, site: .banner)
         guard viewIfLoaded?.window != nil else {
             return
         }
@@ -375,7 +377,7 @@ extension UIViewController {
             let alert = UIAlertController(title: "lc.common.error".loc, message: message, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "lc.common.ok".loc, style: .default))
             alert.addAction(UIAlertAction(title: "lc.common.copy".loc, style: .default) { _ in
-                UIPasteboard.general.string = message
+                UIPasteboard.general.string = details
             })
             self.present(alert, animated: true)
         }
@@ -385,5 +387,32 @@ extension UIViewController {
         } else {
             presentError()
         }
+    }
+}
+
+// LC_NATIVE_ERROR_PRESENTERS_V1: site identity only, with unknown underlying cause.
+enum LCNativeErrorSite: String {
+    case appList = "SS-NATIVE-APP-LIST"
+    case banner = "SS-NATIVE-BANNER"
+    case appSettings = "SS-NATIVE-APP-SETTINGS"
+    case container = "SS-NATIVE-CONTAINER"
+    case storage = "SS-NATIVE-STORAGE"
+    case dataManagement = "SS-NATIVE-DATA"
+    case settings = "SS-NATIVE-SETTINGS"
+    case signingDiagnostics = "SS-NATIVE-SIGNING"
+    case source = "SS-NATIVE-SOURCE"
+    case tweaks = "SS-NATIVE-TWEAKS"
+    case webDownload = "SS-NATIVE-DOWNLOAD"
+    case root = "SS-NATIVE-ROOT"
+}
+enum LCNativeErrorPresentation {
+    static func message(_ original: String, site: LCNativeErrorSite) -> String {
+        original + "\nError ID: " + site.rawValue
+    }
+    static func details(_ original: String, site: LCNativeErrorSite) -> String {
+        let saved = Bundle.main.object(forInfoDictionaryKey: "LCBuilderCommit") as? String ?? ""
+        let commit = saved.utf8.count == 40 && saved.range(of: "^[0-9a-fA-F]{40}$", options: .regularExpression) != nil
+            ? saved.lowercased() : "unknown"
+        return message(original, site: site) + "\nbuilder_commit=" + commit
     }
 }

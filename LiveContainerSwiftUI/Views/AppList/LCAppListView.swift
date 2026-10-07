@@ -288,7 +288,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 copyError()
             })
         } message: {
-            Text(errorInfo)
+            Text(LCNativeErrorPresentation.message(errorInfo, site: .appList))
         }
         .betterFileImporter(isPresented: $choosingIPA, types: [.ipa, .tipa], multiple: false, callback: { fileUrls in
             Task { await startInstallApp(fileUrls[0]) }
@@ -1177,7 +1177,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     }
     
     func copyError() {
-        UIPasteboard.general.string = errorInfo
+        UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .appList)
     }
     
     func handleURL(url : URL) {
@@ -1250,3 +1250,5 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 extension View {
     func apply<V: View>(@ViewBuilder _ block: (Self) -> V) -> V { block(self) }
 }
+
+// LC_NATIVE_ERROR_PRESENTERS_V1

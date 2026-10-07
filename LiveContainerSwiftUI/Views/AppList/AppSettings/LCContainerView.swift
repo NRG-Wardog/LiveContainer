@@ -177,7 +177,7 @@ struct LCContainerView : View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("lc.common.error".loc, isPresented: $errorShow){
         } message: {
-            Text(errorInfo)
+            Text(LCNativeErrorPresentation.message(errorInfo, site: .container))
         }
         .alert("lc.common.success".loc, isPresented: $successShow){
         } message: {
@@ -332,3 +332,5 @@ struct LCContainerView : View {
         }
     }
 }
+
+// LC_NATIVE_ERROR_PRESENTERS_V1

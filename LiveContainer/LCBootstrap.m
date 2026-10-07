@@ -330,44 +330,88 @@ static uint64_t rnd64(uint64_t v, uint64_t r) {
     return (v + r) & ~r;
 }
 
-void overwriteMainCFBundle(void) {
-    // Overwrite CFBundleGetMainBundle
-    uint32_t *pc = (uint32_t *)CFBundleGetMainBundle;
-    void **mainBundleAddr = 0;
-    
-#if !TARGET_OS_SIMULATOR
-    if(@available(iOS 27.0, *)) {
-        // at least in iOS 27.0 db1, the logic is inversed and the __mainBundle is right after the first tbz instruction
-        while (true) {
-            bool isTbz = ((*pc) & 0x7F000000) == 0x36000000;
-            if (isTbz) {
-                // adrp <- pc-1
-                // tbz <- pc
-                // ldr  <- addr
-                mainBundleAddr = (void **)aarch64_emulate_adrp_ldr(*(pc-1), *(uint32_t *)(pc+1), (uint64_t)(pc-1));
-                break;
-            }
-            ++pc;
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+// LC_CF_BUNDLE_BOUNDED_SCAN_V1
+// Bounds existing upstream instruction patterns; it does not infer a new OS
+// layout. Every instruction read, including branch destinations, uses the
+// caller's checked reader. An unsupported pattern returns no writable address.
+enum { LCMainCFBundleInstructionBudget = 256 };
+typedef bool (*LCMainCFBundleInstructionReader)(uintptr_t, uint32_t *);
+
+static uintptr_t LCFindMainCFBundleAddress(uintptr_t start, bool adjacentTBZ,
+                                         LCMainCFBundleInstructionReader readInstruction) {
+    const uintptr_t byteCount = LCMainCFBundleInstructionBudget * sizeof(uint32_t);
+    if (!start || start % sizeof(uint32_t) || !readInstruction ||
+        start > UINTPTR_MAX - byteCount) return 0;
+    const uintptr_t end = start + byteCount;
+
+    for (size_t index = 0; index < LCMainCFBundleInstructionBudget; ++index) {
+        uintptr_t pc = start + index * sizeof(uint32_t);
+        uint32_t instruction = 0;
+        if (!readInstruction(pc, &instruction)) return 0;
+        uintptr_t loadAddress = 0;
+        if (adjacentTBZ) {
+            if ((instruction & 0x7F000000) != 0x36000000) continue;
+            loadAddress = pc + sizeof(uint32_t);
+        } else {
+            loadAddress = (uintptr_t)aarch64_get_tbnz_jump_address(instruction, pc);
+            if (!loadAddress) continue;
         }
-    } else {
-#endif
-        while (true) {
-            uint64_t addr = aarch64_get_tbnz_jump_address(*pc, (uint64_t)pc);
-            if (addr) {
-                // adrp <- pc-1
-                // tbnz <- pc
-                // ...
-                // ldr  <- addr
-                mainBundleAddr = (void **)aarch64_emulate_adrp_ldr(*(pc-1), *(uint32_t *)addr, (uint64_t)(pc-1));
-                break;
-            }
-            ++pc;
-        }
-#if !TARGET_OS_SIMULATOR
+        // pc-1 must belong to this scan, and the load must be an aligned
+        // instruction inside the same finite window before it can be read.
+        if (index == 0 || loadAddress < start || loadAddress >= end ||
+            (loadAddress - start) % sizeof(uint32_t)) return 0;
+        uint32_t adrp = 0, load = 0;
+        if (!readInstruction(pc - sizeof(uint32_t), &adrp) ||
+            !readInstruction(loadAddress, &load)) return 0;
+        // The existing emulator validates ADRP/LDR opcodes and register match.
+        return (uintptr_t)aarch64_emulate_adrp_ldr(adrp, load, pc - sizeof(uint32_t));
     }
+    return 0;
+}
+
+
+_Static_assert(sizeof(vm_address_t) >= sizeof(uintptr_t), "VM address truncates a pointer");
+_Static_assert(sizeof(vm_offset_t) >= sizeof(uintptr_t), "VM data address truncates a pointer");
+
+static bool LCReadMainCFBundleMemory(uintptr_t address, void *value, size_t size) {
+    vm_size_t copied = 0;
+    return vm_read_overwrite(mach_task_self(), (vm_address_t)address,
+        (vm_size_t)size, (vm_address_t)(uintptr_t)value, &copied) == KERN_SUCCESS
+        && copied == size;
+}
+
+static bool LCReadMainCFBundleInstruction(uintptr_t address, uint32_t *instruction) {
+    return LCReadMainCFBundleMemory(address, instruction, sizeof(*instruction));
+}
+
+static void **LCResolveMainCFBundleAddress(void) {
+    // Initialize the existing cache before checking the decoded storage value.
+    CFBundleRef expected = CFBundleGetMainBundle();
+    if (!expected) return NULL;
+    bool adjacentTBZ = false;
+#if !TARGET_OS_SIMULATOR
+    if (@available(iOS 27.0, *)) adjacentTBZ = true;
 #endif
-    assert(mainBundleAddr != NULL);
-    *mainBundleAddr = (__bridge void *)NSBundle.mainBundle._cfBundle;
+    uintptr_t address = LCFindMainCFBundleAddress((uintptr_t)CFBundleGetMainBundle,
+        adjacentTBZ, LCReadMainCFBundleInstruction);
+    void *observed = NULL;
+    if (!address || address % sizeof(void *) ||
+        !LCReadMainCFBundleMemory(address, &observed, sizeof(observed)) ||
+        observed != (void *)expected) return NULL;
+    return (void **)address;
+}
+
+static BOOL overwriteMainCFBundle(void **address) {
+    void *value = (__bridge void *)NSBundle.mainBundle._cfBundle;
+    if (!address || !value) return NO;
+    // A protection/layout change must return failure, never fault on a raw
+    // pointer store or change VM protections to force the write through.
+    return vm_write(mach_task_self(), (vm_address_t)(uintptr_t)address,
+        (vm_offset_t)(uintptr_t)&value, (mach_msg_type_number_t)sizeof(value)) == KERN_SUCCESS;
 }
 
 void overwriteMainNSBundle(NSBundle *newBundle) {
@@ -708,11 +752,19 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     
     [LCSharedUtils setContainerUsingByLC:lcAppUrlScheme folderName:dataUUID auditToken:0];
 
+    // Resolve the existing CF cache before changing NSBundle identity.
+    void **mainCFBundleAddress = LCResolveMainCFBundleAddress();
+    if (!mainCFBundleAddress) {
+        return @"The main bundle layout could not be verified. Guest startup was stopped.";
+    }
+
     // Overwrite NSBundle
     overwriteMainNSBundle(appBundle);
 
-    // Overwrite CFBundle
-    overwriteMainCFBundle();
+    // Overwrite CFBundle only after a bounded, checked lookup.
+    if (!overwriteMainCFBundle(mainCFBundleAddress)) {
+        return @"The main bundle cache could not be updated. Guest startup was stopped.";
+    }
 
     // Overwrite executable info
     if(!appBundle.executablePath) {
