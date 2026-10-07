@@ -1,11 +1,48 @@
 import UIKit
 import SwiftUI
 import Intents
+import Foundation
+import BackgroundTasks
+import SideStoreSupport
+import UserNotifications
 
 @objc class AppDelegate: UIResponder, UIApplicationDelegate {
         
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? ) -> Bool {
         application.shortcutItems = nil
+        NotificationCenter.default.addObserver(forName: Notification.Name("V3TargetedRefreshResult"), object: nil, queue: .main) { notification in
+            let result = notification.userInfo?["result"] as? String ?? "unknown"
+            let detail = notification.userInfo?["detail"] as? String ?? ""
+            Task { @MainActor in LiveContainerAutoRefreshScheduler.record(source: "manual_selected_app", result: result, detail: detail) }
+        }
+        // LC_REFRESH_HOST_V2
+        UNUserNotificationCenter.current().delegate = self
+        // V3_RUNTIME_SHARED_REFRESH_STORE_V1: the host owns the App Group
+        // selection. Publish it before any shared refresh state is touched, so
+        // the embedded service, which cannot see LiveContainer's Objective-C
+        // helper, resolves the identical group instead of a packaged name.
+        V3SharedAppGroup.publishRuntimeGroup(LCSharedUtils.appGroupID())
+        LiveContainerAutoRefreshScheduler.register()
+        LiveContainerAutoRefreshScheduler.recoverAfterLaunchOrResume()
+        LiveContainerAutoRefreshScheduler.schedule()
+        NotificationCenter.default.addObserver(forName: Notification.Name("LiveContainerAutoRefreshScheduleChanged"), object: nil, queue: .main) { _ in
+            Task { @MainActor in LiveContainerAutoRefreshScheduler.scheduleChanged() }
+        }
+        NotificationCenter.default.addObserver(forName: Notification.Name("LiveContainerAutoRefreshRunNow"), object: nil, queue: .main) { notification in
+            guard let request = V3ShortcutRefreshRequest(userInfo: notification.userInfo) else {
+                NSLog("[V3_REFRESH] RUN_NOW_REJECTED reason=invalid_request_identity")
+                return
+            }
+            let requestID = request.requestID
+            let origin = request.origin
+            Task { @MainActor in LiveContainerAutoRefreshScheduler.runNow(requestID: requestID, origin: origin) }
+        }
+        NotificationCenter.default.addObserver(forName: UIScene.didActivateNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in LiveContainerAutoRefreshScheduler.recoverAfterLaunchOrResume() }
+        }
+        NotificationCenter.default.addObserver(forName: UIScene.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in LiveContainerAutoRefreshScheduler.schedule() }
+        }
         UserDefaults.standard.removeObject(forKey: "LCNeedToAcquireJIT")
         
         NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { _ in
@@ -49,6 +86,1456 @@ import Intents
     }
 }
 
+// Foundation-only policy. Kept outside Python strings so swiftc checks the real code.
+import Foundation
+
+struct LiveContainerRefreshTaskIdentifiers: Equatable {
+    let processing: String
+    let watchdog: String
+
+    static func resolve(info: [String: Any]) throws -> Self {
+        let suffix = ".sidestore.automatic-refresh"
+        let permitted = info["BGTaskSchedulerPermittedIdentifiers"] as? [String] ?? []
+        let candidates = permitted.filter { $0.hasSuffix(suffix) }
+        guard candidates.count == 1, Set(permitted).count == permitted.count,
+              permitted.contains(candidates[0] + ".watchdog") else {
+            throw NSError(domain: "LiveContainerRefresh.Configuration", code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "This installation has missing or ambiguous background task identifiers. Reinstall a corrected build; manual refresh remains available."])
+        }
+        let modes = Set(info["UIBackgroundModes"] as? [String] ?? [])
+        guard modes.contains("processing"), modes.contains("fetch") else {
+            throw NSError(domain: "LiveContainerRefresh.Configuration", code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "This installation is missing the processing or fetch background mode. Manual refresh remains available."])
+        }
+        // The installed allowlist is authoritative. An external signer may leave
+        // these IDs unchanged OR rewrite them. Do not invent a team-qualified ID.
+        return Self(processing: candidates[0], watchdog: candidates[0] + ".watchdog")
+    }
+}
+
+struct LiveContainerRefreshPolicy {
+    static func earliestUsefulDate(now: Date, deadline: Date, lead: TimeInterval,
+                                   eligible: Date?, retry: Date?) -> Date {
+        [now, deadline.addingTimeInterval(-lead), eligible ?? now, retry ?? now].max()!
+    }
+
+    static func workIsDue(now: Date, eligible: Date?, retry: Date?, pendingHandoff: Bool,
+                          retryExhausted: Bool, manual: Bool) -> Bool {
+        if pendingHandoff { return false }
+        if manual { return true }
+        if retryExhausted { return false }
+        if let retry, retry > now { return false }
+        if let eligible, eligible > now { return false }
+        return true
+    }
+
+    static func retryDelay(failureCount: Int) -> TimeInterval? {
+        let delays: [TimeInterval] = [5 * 60, 20 * 60, 60 * 60]
+        guard (1...delays.count).contains(failureCount) else { return nil }
+        return delays[failureCount - 1]
+    }
+
+    static func isUserActionFailure(_ error: NSError) -> Bool {
+        // Classify by concrete domain/code, not by guessing from localized text.
+        error.domain == "LiveContainerRefresh.Configuration" ||
+        error.domain == "com.SideStore.Authentication" ||
+        error.domain == "LiveContainerRefresh.UnsupportedOS"
+    }
+}
+
+/// Thread-safe terminal claim shared by completion and expiration callbacks.
+/// A late async completion must not call setTaskCompleted for a second time.
+final class LiveContainerRefreshCompletionGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finished = false
+
+    var isFinished: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return finished
+    }
+
+    @discardableResult
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !finished else { return false }
+        finished = true
+        return true
+    }
+}
+
+/// Reads validity metadata from the installed, OS-signed host bundle, never
+/// from SideStore's optimistic database result. This is metadata inspection,
+/// NOT independent cryptographic validation of the CMS signer/certificate.
+struct LiveContainerHostProfile {
+    let identifier: String
+    let uuid: String
+    let expiration: Date
+
+    static func read(at url: URL, expectedBundleID: String) throws -> Self {
+        let data = try Data(contentsOf: url, options: .mappedIfSafe)
+        guard data.count <= 2 * 1024 * 1024,
+              let start = data.range(of: Data("<?xml".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex),
+              let plist = try PropertyListSerialization.propertyList(
+                  from: data.subdata(in: start.lowerBound..<end.upperBound), options: [], format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any],
+              let identifier = entitlements["application-identifier"] as? String,
+              let prefixes = plist["ApplicationIdentifierPrefix"] as? [String],
+              prefixes.contains(where: { identifier == $0 + "." + expectedBundleID }),
+              let uuid = plist["UUID"] as? String, !uuid.isEmpty,
+              let expiration = plist["ExpirationDate"] as? Date else {
+            throw NSError(domain: "LiveContainerRefresh.Verification", code: 1002,
+                userInfo: [NSLocalizedDescriptionKey: "The installed host provisioning profile could not be read or its identity does not match. Refresh success has not been verified."])
+        }
+        return Self(identifier: identifier, uuid: uuid, expiration: expiration)
+    }
+}
+
+import Network
+import Darwin
+
+// V3_VPN_HANDOFF_OWNER_BEGIN
+// Pure owner used by the activation flow and its host-side interleaving harness.
+// It also makes callbacks arriving after settlement harmless.
+@MainActor
+final class LiveContainerVPNActivationWaiter {
+    enum Outcome: Equatable {
+        case returned
+        case openFailed
+        case timedOut
+        case cancelled
+    }
+
+    let runID: String
+    private let onSettle: @MainActor (String, Outcome) -> Void
+    private var continuation: CheckedContinuation<Outcome, Never>?
+    private(set) var outcome: Outcome?
+
+    init(runID: String, onSettle: @escaping @MainActor (String, Outcome) -> Void = { _, _ in }) {
+        self.runID = runID
+        self.onSettle = onSettle
+    }
+
+    func value() async -> Outcome {
+        await withCheckedContinuation { continuation in
+            if let outcome {
+                continuation.resume(returning: outcome)
+            } else {
+                self.continuation = continuation
+            }
+        }
+    }
+
+    @discardableResult
+    func settle(_ outcome: Outcome) -> Bool {
+        guard self.outcome == nil else { return false }
+        self.outcome = outcome
+        onSettle(runID, outcome)
+        let continuation = self.continuation
+        self.continuation = nil
+        continuation?.resume(returning: outcome)
+        return true
+    }
+}
+
+@MainActor
+final class LiveContainerVPNActivationState {
+    var leftHost = false
+}
+
+enum LiveContainerVPNReturnMarkerPolicy {
+    static func marker(runID: String, requestedAt: Date) -> [String: Any]? {
+        guard UUID(uuidString: runID)?.uuidString == runID else { return nil }
+        return ["run_id": runID, "requested_at": requestedAt]
+    }
+
+    static func owner(in value: Any?) -> String? {
+        guard let marker = value as? [String: Any],
+              let runID = marker["run_id"] as? String,
+              UUID(uuidString: runID)?.uuidString == runID,
+              marker["requested_at"] is Date else { return nil }
+        return runID
+    }
+
+    static func requestedAt(in value: Any?) -> Date? {
+        if let marker = value as? [String: Any], owner(in: marker) != nil {
+            return marker["requested_at"] as? Date
+        }
+        // A Date marker is the prior on-disk format. Consume it once so an
+        // upgrade during VPN activation keeps its existing return behavior.
+        return value as? Date
+    }
+
+    static func isSameMarker(_ first: Any?, _ second: Any?) -> Bool {
+        if let firstOwner = owner(in: first),
+           let secondOwner = owner(in: second) {
+            let firstDate = (first as? [String: Any])?["requested_at"] as? Date
+            let secondDate = (second as? [String: Any])?["requested_at"] as? Date
+            return firstOwner == secondOwner && firstDate == secondDate
+        }
+        if owner(in: first) == nil, owner(in: second) == nil,
+           let firstDate = first as? Date, let secondDate = second as? Date {
+            return firstDate == secondDate
+        }
+        return false
+    }
+
+    static func isOwned(by runID: String, value: Any?) -> Bool {
+        owner(in: value) == runID
+    }
+
+    static func shouldConsume(requestedAt: Date, now: Date) -> Bool {
+        let age = now.timeIntervalSince(requestedAt)
+        return age >= 0 && age < 120
+    }
+
+    static func shouldResume(_ value: Any?, now: Date) -> Bool {
+        guard let requestedAt = requestedAt(in: value) else { return false }
+        return shouldConsume(requestedAt: requestedAt, now: now)
+    }
+}
+// V3_VPN_HANDOFF_OWNER_END
+
+// One-shot checks owned by an actual refresh run. No idle monitoring.
+@MainActor
+enum LiveContainerNetworkPreflight {
+    private static let pendingKey = "liveContainerPendingVPNRefresh"
+    private static var defaults: UserDefaults { LiveContainerAutoRefreshScheduler.defaults }
+
+    // Consume once on a fresh host launch; never replay an expired handoff.
+    // The run identity is retained while a live owner exists and validated for
+    // new-format markers. A recent legacy Date is consumed once for upgrades.
+    static func consumePendingReturn() -> Bool {
+        guard let value = defaults.object(forKey: pendingKey) else { return false }
+        guard LiveContainerVPNReturnMarkerPolicy.requestedAt(in: value) != nil else {
+            defaults.removeObject(forKey: pendingKey)
+            return false
+        }
+        // Do not consume a newer run's marker if another process replaced it.
+        guard LiveContainerVPNReturnMarkerPolicy.isSameMarker(
+            value, defaults.object(forKey: pendingKey)) else { return false }
+        defaults.removeObject(forKey: pendingKey)
+        guard LiveContainerVPNReturnMarkerPolicy.shouldResume(value, now: Date()) else {
+            print("[AUTO_REFRESH] LOCALDEVVPN_VERIFY_FAIL reason=expired_handoff")
+            return false
+        }
+        return true
+    }
+    private static func failure(_ code: Int, _ message: String) -> NSError {
+        NSError(domain: "LiveContainerRefresh.Network", code: code,
+                userInfo: [NSLocalizedDescriptionKey: message])
+    }
+
+    static func wifiAvailable() async -> Bool {
+        let monitor = NWPathMonitor(requiredInterfaceType: .wifi)
+        return await withCheckedContinuation { continuation in
+            var completed = false
+            func finish(_ available: Bool) {
+                guard !completed else { return }
+                completed = true
+                monitor.cancel()
+                continuation.resume(returning: available)
+            }
+            monitor.pathUpdateHandler = { path in
+                let available = path.status == .satisfied && path.usesInterfaceType(.wifi)
+                Task { @MainActor in finish(available) }
+            }
+            monitor.start(queue: DispatchQueue(label: "LiveContainer.WiFiPreflight"))
+            // Bound a single pending OS path request; this is not a retry loop.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                finish(false)
+            }
+        }
+    }
+
+    static func hasTunnelInterface() -> Bool {
+        var first: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&first) == 0 else { return false }
+        defer { freeifaddrs(first) }
+        var current = first
+        while let entry = current {
+            if String(cString: entry.pointee.ifa_name).hasPrefix("utun"),
+               entry.pointee.ifa_flags & UInt32(IFF_UP) != 0 { return true }
+            current = entry.pointee.ifa_next
+        }
+        return false
+    }
+
+    private static func enableInForeground(runID: String) async throws -> Bool {
+        guard UIApplication.shared.applicationState == .active,
+              let scheme = UserDefaults.lcAppUrlScheme(), !scheme.isEmpty,
+              UUID(uuidString: runID)?.uuidString == runID else { return false }
+        var components = URLComponents(string: "localdevvpn://enable")!
+        components.queryItems = [URLQueryItem(name: "scheme", value: scheme)]
+        guard let url = components.url else { return false }
+        try Task.checkCancellation()
+        guard let marker = LiveContainerVPNReturnMarkerPolicy.marker(runID: runID, requestedAt: Date()) else {
+            return false
+        }
+        defaults.set(marker, forKey: pendingKey)
+        var observers: [NSObjectProtocol] = []
+        var timeout: DispatchWorkItem?
+        let waiter = LiveContainerVPNActivationWaiter(runID: runID) { ownerRunID, _ in
+            observers.forEach { NotificationCenter.default.removeObserver($0) }
+            observers.removeAll()
+            timeout?.cancel()
+            timeout = nil
+            Self.clearPendingReturn(ownedBy: ownerRunID)
+        }
+        let activationState = LiveContainerVPNActivationState()
+        observers.append(NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in activationState.leftHost = true }
+        })
+        observers.append(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in
+                guard activationState.leftHost else { return }
+                // A user can also return manually. Neither event proves VPN readiness.
+                print("[AUTO_REFRESH] LOCALDEVVPN_RETURN_RECEIVED")
+                waiter.settle(.returned)
+            }
+        })
+        let timeoutWork = DispatchWorkItem {
+            Task { @MainActor in waiter.settle(.timedOut) }
+        }
+        timeout = timeoutWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: timeoutWork)
+        print("[AUTO_REFRESH] LOCALDEVVPN_ENABLE_REQUESTED run_id=\(runID)")
+        UIApplication.shared.open(url, options: [:]) { opened in
+            Task { @MainActor in if !opened { waiter.settle(.openFailed) } }
+        }
+        let outcome = await withTaskCancellationHandler {
+            await waiter.value()
+        } onCancel: {
+            Task { @MainActor in waiter.settle(.cancelled) }
+        }
+        if Task.isCancelled {
+            waiter.settle(.cancelled)
+            throw CancellationError()
+        }
+        switch outcome {
+        case .returned: return true
+        case .openFailed, .timedOut: return false
+        case .cancelled: throw CancellationError()
+        }
+    }
+
+    private static func clearPendingReturn(ownedBy runID: String) {
+        guard LiveContainerVPNReturnMarkerPolicy.isOwned(
+            by: runID, value: defaults.object(forKey: pendingKey)) else { return }
+        defaults.removeObject(forKey: pendingKey)
+    }
+
+    static func check(allowForegroundActivation: Bool, runID: String) async throws {
+        guard UUID(uuidString: runID)?.uuidString == runID else { throw CancellationError() }
+        guard await wifiAvailable() else {
+            print("[AUTO_REFRESH] WIFI_PREFLIGHT_FAIL reason=no_wifi_path")
+            throw failure(1, "Wi-Fi is unavailable. Connect to Wi-Fi before refreshing.")
+        }
+        try Task.checkCancellation()
+        print("[AUTO_REFRESH] WIFI_PREFLIGHT_PASS")
+        if !hasTunnelInterface(), allowForegroundActivation {
+            guard try await enableInForeground(runID: runID) else {
+                throw failure(2, "LocalDevVPN activation did not return. Enable LocalDevVPN and retry refresh.")
+            }
+            try Task.checkCancellation()
+            guard await wifiAvailable() else {
+                print("[AUTO_REFRESH] WIFI_PREFLIGHT_FAIL reason=wifi_lost_during_activation")
+                throw failure(1, "Wi-Fi was lost while enabling LocalDevVPN. Reconnect and retry.")
+            }
+        }
+        guard hasTunnelInterface() else {
+            if !allowForegroundActivation { print("[AUTO_REFRESH] VPN_UNAVAILABLE_BACKGROUND") }
+            print("[AUTO_REFRESH] LOCALDEVVPN_VERIFY_FAIL reason=no_utun_interface")
+            throw failure(2, "Open LiveContainer and enable LocalDevVPN to continue refresh.")
+        }
+        // Interface presence is not proof of provider identity or CoreDevice readiness.
+        print("[AUTO_REFRESH] VPN_INTERFACE_PRESENT readiness=requires_coredevice_verification")
+    }
+}
+
+// Injected into the LiveContainer host, not its embedded SideStore executable.
+// There is no timer, persistent network probe, or permanently running task.
+@MainActor
+enum LiveContainerAutoRefreshScheduler {
+    // V3_RUNTIME_SHARED_REFRESH_STORE_V1: every key below is read by the
+    // embedded service, the background run and the service's verification
+    // manifest, so it is cross-process state. It lives in the one runtime App
+    // Group the host selected and published. `.standard` and a nil suite would
+    // each silently split the host and the service across two private stores,
+    // which is exactly how a refresh result stopped matching its run.
+    static let sharedStoreAvailable = V3SharedRefreshStore.isAvailable
+    /// Reads must not trap on a launch that cannot open the shared store. The
+    /// quarantine store is unique per process and unopenable by the service, so
+    /// a reader can render without its values being mistaken for shared state.
+    /// Every mutating entry point still refuses to run through `requireSharedStore`.
+    static let defaults: UserDefaults = V3SharedRefreshStore.defaults
+    static let sharedStoreUnavailableMessage = V3SharedRefreshStore.unavailableMessage
+    static let enabledKey = "liveContainerAutoRefreshEnabled"
+    static let frequencyKey = "liveContainerAutoRefreshFrequency"
+    static let weekdayKey = "liveContainerAutoRefreshWeekday"
+    static let minutesKey = "liveContainerAutoRefreshMinutes"
+    static let lastResultKey = "liveContainerAutoRefreshLastResult"
+    static let lastDateKey = "liveContainerAutoRefreshLastDate"
+    static let historyKey = "liveContainerAutoRefreshHistory"
+    static let earliestEligibleKey = "liveContainerAutoRefreshEarliestEligibleAt"
+    static let deadlineKey = "liveContainerAutoRefreshTargetDeadline"
+    static let nextRetryKey = "liveContainerAutoRefreshNextRetryAt"
+    static let lastTaskKey = "liveContainerAutoRefreshLastTaskTrigger"
+    static let lastAttemptKey = "liveContainerAutoRefreshLastAttempt"
+    static let activeRunKey = "liveContainerAutoRefreshActiveRunID"
+    static let directRunClaimKey = V3DirectRefreshRunClaimPolicy.defaultsKey
+    static let activeManualRequestKey = "liveContainerAutoRefreshActiveRequestID"
+    static let activeManualOriginKey = "liveContainerAutoRefreshActiveManualOrigin"
+    static let activeManualOriginRunKey = "liveContainerAutoRefreshActiveManualOriginRunID"
+    static let retryCountKey = "liveContainerAutoRefreshRetryCount"
+    static let currentRunFailureKey = "liveContainerAutoRefreshCurrentRunFailure"
+    static let hostHandoffKey = "liveContainerAutoRefreshHostHandoff"
+    static let hostHandoffRunKey = "liveContainerAutoRefreshHostHandoffRunID"
+    static let hostHandoffStartedKey = "liveContainerAutoRefreshHostHandoffStartedAt"
+    static let hostPreviousExpirationKey = "liveContainerAutoRefreshHostPreviousExpiration"
+    static let verificationKey = "liveContainerAutoRefreshVerification"
+    static let runLedgerKey = "liveContainerAutoRefreshRunLedger"
+    static let expectedRunKey = "liveContainerAutoRefreshExpectedRunID"
+    static let hostVerifiedKey = "liveContainerAutoRefreshHostVerifiedAfterRelaunch"
+    static let strategyKey = "liveContainerAutoRefreshStrategy"
+    static let alarmScheduledKey = "liveContainerAutoRefreshAlarmScheduled"
+    static let alarmDeadlineKey = "liveContainerAutoRefreshAlarmDeadline"
+    static let healthStateKey = "liveContainerAutoRefreshHealthState"
+    static let lastErrorKey = "liveContainerAutoRefreshLastError"
+    static let lastSuccessfulKey = "liveContainerAutoRefreshLastSuccessfulRefresh"
+    static let hostBaselineKey = "liveContainerAutoRefreshInstalledHostBaseline"
+    static let satisfiedDeadlineKey = "liveContainerAutoRefreshSatisfiedDeadline"
+    static let warnedDeadlineKey = "liveContainerAutoRefreshWarnedDeadline"
+    static let configurationKey = "liveContainerAutoRefreshConfiguration"
+    static let retryExhaustedKey = "liveContainerAutoRefreshRetryExhausted"
+    static let uncertainMutationKey = "liveContainerAutoRefreshUncertainMutationRunID"
+    static let runStateChangedNotification = "LiveContainerAutoRefreshRunStateChanged"
+
+    // V3_FAILURE_GUIDANCE_V1: lastErrorKey is rendered as red product copy on
+    // Home, under a "Last Refresh Warning" heading. It used to hold
+    // error.localizedDescription, which for a bridged NSError is a numeric
+    // domain and code that means nothing to a reader, and it also held opaque
+    // snake_case tokens. Each of these states now says what happened and what
+    // remains true, and the raw error text stays in the log and the run record.
+    static let hostRelaunchUnverifiedMessage =
+        "LiveContainer refreshed its installed profile, but the new one could not be confirmed until you relaunch. Relaunch to finish verifying it." + "\nError ID: SS-VERIFY-D052"
+    static let hostBaselineUnavailableMessage =
+        "LiveContainer could not read its previous installed profile, so a background refresh cannot be confirmed as having renewed it. Open Refresh History for details." + "\nError ID: SS-VERIFY-D053"
+    static let hostExpirationNotAdvancedMessage =
+        "LiveContainer refreshed, but its installed profile has not advanced yet. Relaunch LiveContainer, then check Refresh History." + "\nError ID: SS-VERIFY-D054"
+    static let schedulerConfigurationMessage =
+        "iOS did not register every background refresh task, so refreshes will not run on their own. Manual Refresh All still works." + "\nError ID: SS-CMD-D055"
+    static let backgroundSubmitFailedMessage =
+        "iOS would not accept the next scheduled background refresh. Refresh All still works now; check Settings for Background App Refresh." + "\nError ID: SS-CMD-D056"
+    static let maximumRunLedgerEntries = 32
+    static let warningIdentifier = "LiveContainerAutoRefresh.deadline"
+    static let leadTime: TimeInterval = 60 * 60 // Provisional policy, not a timing guarantee.
+    static let coalescingWindow: TimeInterval = 60
+
+    private static var identifiers: LiveContainerRefreshTaskIdentifiers?
+    private static var processingRegistered = false
+    private static var watchdogRegistered = false
+    private static var registered = false
+    private static var sharedStoreUnavailableReported = false
+    private static var activeRun: UUID?
+    // Capture the real host before LiveContainer changes Bundle.main for guests.
+    private static var hostBundle: Bundle?
+
+    /// V3_RUNTIME_SHARED_REFRESH_STORE_V1: refresh state is cross-process state.
+    /// When the runtime App Group cannot be opened, the operation is refused
+    /// instead of being written to a store the embedded service and the
+    /// background run can never read. The refusal is typed and recoverable: the
+    /// process stays alive, manual Refresh All still reaches the service, and the
+    /// user is told once instead of being shown a scheduler that appears idle.
+    @discardableResult
+    static func requireSharedStore() -> Bool {
+        guard !sharedStoreAvailable else { return true }
+        defaults.set(sharedStoreUnavailableMessage, forKey: lastErrorKey)
+        defaults.set("SHARED_STORE_UNAVAILABLE", forKey: healthStateKey)
+        // schedule() runs on every background transition, so the refusal is
+        // reported once per launch. The stored keys stay set, so the settings
+        // screen and Home still show the reason.
+        if !sharedStoreUnavailableReported {
+            sharedStoreUnavailableReported = true
+            print("[LIVE_CONTAINER_REFRESH] SHARED_STORE_UNAVAILABLE operation_refused=1")
+            notify(title: "Scheduled refresh unavailable",
+                   body: sharedStoreUnavailableMessage, kind: "shared_store_unavailable")
+        }
+        NotificationCenter.default.post(name: Notification.Name(runStateChangedNotification), object: nil)
+        return false
+    }
+
+    static func requestNotificationPermission() async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .notDetermined else { return }
+        do {
+            let granted = try await center.requestAuthorization(options: [.alert, .sound])
+            print("[LIVE_CONTAINER_REFRESH] NOTIFICATION_PERMISSION granted=\(granted)")
+        } catch {
+            print("[LIVE_CONTAINER_REFRESH] NOTIFICATION_PERMISSION_FAIL error=\(error.localizedDescription)")
+        }
+    }
+
+    static func requestNotificationPermissionFromUserAction() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        if settings.authorizationStatus == .denied {
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                _ = await UIApplication.shared.open(url)
+            }
+            return
+        }
+        await requestNotificationPermission()
+    }
+
+    private static func notify(title: String, body: String, kind: String,
+                               runID: String? = nil, requestID: String? = nil, origin: String? = nil) {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                print("[LIVE_CONTAINER_REFRESH] NOTIFICATION_SKIPPED kind=\(kind) reason=not_authorized")
+                return
+            }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            var identity: [String: String] = ["kind": kind]
+            if let runID { identity["run_id"] = runID }
+            if let requestID { identity["request_id"] = requestID }
+            if let origin { identity["origin"] = origin }
+            content.userInfo = identity
+            center.add(UNNotificationRequest(identifier: "LiveContainerAutoRefresh.\(kind)", content: content, trigger: nil)) { error in
+                if let error {
+                    print("[LIVE_CONTAINER_REFRESH] NOTIFICATION_FAIL kind=\(kind) error=\(error.localizedDescription)")
+                } else {
+                    // Accepted by notification service, not proof the user saw it.
+                    print("[LIVE_CONTAINER_REFRESH] NOTIFICATION_PASS kind=\(kind)")
+                }
+            }
+        }
+    }
+
+    static func record(source: String, result: String, detail: String = "") {
+        let now = Date()
+        let entry = ["date": ISO8601DateFormatter().string(from: now), "source": source,
+                     "result": result, "detail": String(detail.prefix(300))]
+        var history = defaults.array(forKey: historyKey) as? [[String: String]] ?? []
+        history.insert(entry, at: 0)
+        defaults.set(Array(history.prefix(50)), forKey: historyKey)
+        defaults.set(result, forKey: lastResultKey)
+        defaults.set(now, forKey: lastDateKey)
+        NotificationCenter.default.post(name: Notification.Name("LiveContainerAutoRefreshHistoryChanged"), object: nil)
+    }
+
+    private static func compactWorkIsDue(now: Date, manual: Bool = false) -> Bool {
+        guard manual || defaults.string(forKey: uncertainMutationKey) == nil else { return false }
+        return LiveContainerRefreshPolicy.workIsDue(now: now,
+            eligible: defaults.object(forKey: earliestEligibleKey) as? Date,
+            retry: defaults.object(forKey: nextRetryKey) as? Date,
+            pendingHandoff: defaults.bool(forKey: hostHandoffKey),
+            retryExhausted: defaults.bool(forKey: retryExhaustedKey), manual: manual)
+    }
+
+    private static func observeMissedDeadline(now: Date) {
+        guard defaults.bool(forKey: enabledKey),
+              let deadline = defaults.object(forKey: deadlineKey) as? Date, now > deadline,
+              (defaults.object(forKey: satisfiedDeadlineKey) as? Date) != deadline,
+              (defaults.object(forKey: warnedDeadlineKey) as? Date) != deadline else { return }
+        defaults.set(deadline, forKey: warnedDeadlineKey)
+        defaults.set("REFRESH_DEADLINE_MISSED", forKey: healthStateKey)
+        record(source: "watchdog", result: "missed_window", detail: "No verified refresh for the expected deadline. The task may have been delayed, failed, or never launched.")
+        print("[LIVE_CONTAINER_REFRESH] MISSED_BACKGROUND_REFRESH deadline=\(deadline.timeIntervalSince1970)")
+    }
+
+    private static func runLedger() -> [String: [String: Any]] {
+        (defaults.dictionary(forKey: runLedgerKey) ?? [:]).compactMapValues { $0 as? [String: Any] }
+    }
+
+    private static func terminalManifestSummary(_ manifest: [String: Any]?, runID: String,
+                                               verified: Bool) -> [String: Any] {
+        guard let manifest, manifest["run_id"] as? String == runID else {
+            return ["version": 2, "schema": "LiveContainerRefreshManifestSummaryV2",
+                    "run_id": runID, "verified": verified,
+                    "expected_count": 0, "result_count": 0,
+                    "failed_count": 0, "skipped_count": 0, "requested_count": 0]
+        }
+        let expected = manifest["expected_ids"] as? [String] ?? []
+        let results = manifest["results"] as? [[String: Any]] ?? []
+        let failed = results.filter { ($0["success"] as? Bool) == false }.count
+        let skipped = manifest["skipped_ids"] as? [String] ?? []
+        var summary: [String: Any] = ["version": 2,
+            "schema": "LiveContainerRefreshManifestSummaryV2", "run_id": runID,
+            "verified": verified, "expected_count": expected.count,
+            "result_count": results.count, "failed_count": failed,
+            "skipped_count": skipped.count,
+            "requested_count": (manifest["requested_ids"] as? [String] ?? []).count]
+        if let verifiedAt = manifest["date"] as? Date { summary["verified_at"] = verifiedAt }
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+        for key in ["requested_ids", "expected_ids", "skipped_ids"] {
+            guard let values = manifest[key] as? [String] else { continue }
+            summary[key] = values.prefix(64).map { value in
+                String(value.filter { character in
+                    character.unicodeScalars.allSatisfy { allowed.contains($0) }
+                }.prefix(160))
+            }
+        }
+        return summary
+    }
+
+    private static func saveRunRecord(_ record: [String: Any], runID: String) {
+        var ledger = runLedger()
+        ledger[runID] = record
+        if ledger.count > maximumRunLedgerEntries {
+            let activeID = defaults.string(forKey: activeRunKey)
+            let removable = ledger.compactMap { key, value -> (String, TimeInterval)? in
+                guard key != activeID else { return nil }
+                let updated = value["updated_at"] as? TimeInterval ?? value["started_at"] as? TimeInterval ?? 0
+                return (key, updated)
+            }.sorted { $0.1 < $1.1 }
+            for (key, _) in removable.prefix(ledger.count - maximumRunLedgerEntries) {
+                ledger.removeValue(forKey: key)
+            }
+        }
+        defaults.set(ledger, forKey: runLedgerKey)
+    }
+
+    private static func recordNetworkPreflight(_ status: String, runID: String) {
+        guard var record = runLedger()[runID],
+              !["completed", "failed"].contains(record["state"] as? String ?? "") else { return }
+        record["network_preflight"] = status
+        record["updated_at"] = Date().timeIntervalSince1970
+        saveRunRecord(record, runID: runID)
+    }
+
+    private static func publishRunState(_ state: String, runID: String, requestID: String?, origin: String? = nil) {
+        var identity: [String: String] = ["run_id": runID, "state": state]
+        if let requestID { identity["request_id"] = requestID }
+        if let origin { identity["origin"] = origin }
+        NotificationCenter.default.post(name: Notification.Name(runStateChangedNotification), object: nil,
+                                         userInfo: identity)
+    }
+
+    private static func beginRun(source: String, manual: Bool, requestID: String? = nil,
+                                 manualOrigin: String? = nil) -> UUID? {
+        guard activeRun == nil else { return nil }
+        if let directClaim = defaults.dictionary(forKey: directRunClaimKey) {
+            if V3DirectRefreshRunClaimPolicy.isActive(
+                runID: directClaim["run_id"] as? String,
+                deadline: directClaim["deadline"] as? Date) {
+                return nil
+            }
+            defaults.removeObject(forKey: directRunClaimKey)
+        }
+        if !manual, let last = defaults.object(forKey: lastAttemptKey) as? Date,
+           Date().timeIntervalSince(last) < coalescingWindow { return nil }
+        let id = UUID()
+        let correlation = V3RefreshRunCorrelation.make(source: source, manual: manual,
+            requestID: requestID, manualOrigin: manualOrigin, runID: id)
+        let runID = correlation.runID
+        let correlatedRequestID = correlation.requestID
+        let origin = correlation.origin
+        activeRun = id
+        if let correlatedRequestID {
+            defaults.set(correlatedRequestID, forKey: activeManualRequestKey)
+            defaults.set(origin, forKey: activeManualOriginKey)
+            defaults.set(runID, forKey: activeManualOriginRunKey)
+        } else {
+            defaults.removeObject(forKey: activeManualRequestKey)
+            defaults.removeObject(forKey: activeManualOriginKey)
+            defaults.removeObject(forKey: activeManualOriginRunKey)
+        }
+        defaults.set(runID, forKey: expectedRunKey)
+        defaults.set(Date(), forKey: lastAttemptKey)
+        defaults.removeObject(forKey: verificationKey)
+        defaults.removeObject(forKey: currentRunFailureKey)
+        defaults.removeObject(forKey: lastErrorKey)
+        defaults.set(false, forKey: hostVerifiedKey)
+        defaults.set("REFRESH_IN_PROGRESS", forKey: healthStateKey)
+        saveRunRecord(["run_id": runID, "request_id": correlatedRequestID ?? "", "origin": origin,
+                       "source": source, "state": "running",
+                       "network_preflight": "pending",
+                       "started_at": Date().timeIntervalSince1970,
+                       "updated_at": Date().timeIntervalSince1970], runID: runID)
+        defaults.set(runID, forKey: activeRunKey)
+        // Snapshot actual installed host metadata before the refresh engine can
+        // optimistically update its database. Absence never becomes success.
+        if let bundle = hostBundle, let bundleID = bundle.bundleIdentifier,
+           let profile = try? LiveContainerHostProfile.read(
+               at: bundle.bundleURL.appendingPathComponent("embedded.mobileprovision"), expectedBundleID: bundleID) {
+            defaults.set(["run_id": id.uuidString, "identifier": profile.identifier,
+                          "uuid": profile.uuid, "expiration": profile.expiration], forKey: hostBaselineKey)
+        } else {
+            defaults.removeObject(forKey: hostBaselineKey)
+        }
+        print("[LIVE_CONTAINER_REFRESH] RUN_BEGIN source=\(source) origin=\(origin) run_id=\(runID) request_id=\(correlatedRequestID ?? "none")")
+        publishRunState("running", runID: runID, requestID: correlatedRequestID, origin: origin)
+        notify(title: "Refresh started", body: "Checking SideStore refresh requirements. Success is not yet confirmed.",
+               kind: "started", runID: runID, requestID: correlatedRequestID, origin: origin)
+        return id
+    }
+
+    private static func endRun(_ id: UUID) {
+        guard activeRun == id || defaults.string(forKey: activeRunKey) == id.uuidString else { return }
+        if activeRun == id { activeRun = nil }
+        if defaults.string(forKey: activeRunKey) == id.uuidString {
+            defaults.removeObject(forKey: activeRunKey)
+            defaults.removeObject(forKey: activeManualRequestKey)
+        }
+        if defaults.string(forKey: activeManualOriginRunKey) == id.uuidString {
+            defaults.removeObject(forKey: activeManualOriginKey)
+            defaults.removeObject(forKey: activeManualOriginRunKey)
+        }
+        if defaults.string(forKey: expectedRunKey) == id.uuidString {
+            defaults.removeObject(forKey: expectedRunKey)
+        }
+    }
+
+    private static func performRefresh(runID: UUID) async throws {
+        guard #available(iOS 17.0, *) else {
+            throw NSError(domain: "LiveContainerRefresh.UnsupportedOS", code: 17,
+                userInfo: [NSLocalizedDescriptionKey: "This combined refresh bridge requires iOS 17 or later. Refresh was not started. Review app expiration and account status; copy these diagnostics if you need assistance."])
+        }
+        try Task.checkCancellation()
+        print("[LIVE_CONTAINER_REFRESH] REFRESH_ATTEMPT_STARTED run_id=\(runID.uuidString)")
+        try await LiveContainerRefreshBridge.refreshAllApps(runID: runID)
+        try Task.checkCancellation()
+        print("[LIVE_CONTAINER_REFRESH] REFRESH_PIPELINE_RETURNED run_id=\(runID.uuidString)")
+    }
+
+    private static func verifyRefreshManifest(runID: String) -> (verified: Bool, hostHandoff: Bool, reason: String, failure: CombinedFailure?) {
+        let pending = defaults.bool(forKey: hostHandoffKey) && !defaults.bool(forKey: hostVerifiedKey)
+        if let manifest = defaults.dictionary(forKey: verificationKey), manifest["run_id"] as? String == runID {
+            let record = runLedger()[runID] ?? [:]
+            func ids(_ key: String) -> String {
+                ((manifest[key] as? [String]) ?? []).prefix(64).joined(separator: ",")
+            }
+            let requestID = record["request_id"] as? String ?? ""
+            let origin = record["origin"] as? String ?? "unknown"
+            print("[LIVE_CONTAINER_REFRESH] MANIFEST run_id=\(runID) request_id=\(requestID) origin=\(origin) requested_ids=\(ids("requested_ids")) expected_ids=\(ids("expected_ids")) skipped_ids=\(ids("skipped_ids"))")
+        }
+        guard let manifest = defaults.dictionary(forKey: verificationKey) else {
+            print("[LIVE_CONTAINER_REFRESH] VERIFICATION_FAILED reason=manifest_missing run_id=\(runID)")
+            return (false, pending, "SideStore returned without sharing installation results with LiveContainer. Refresh is unconfirmed. Review Refresh history, app expiration, and account status before an explicit retry.",
+                    CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .missingResult, id: runID))
+        }
+        guard manifest["run_id"] as? String == runID else {
+            print("[LIVE_CONTAINER_REFRESH] VERIFICATION_FAILED reason=run_mismatch expected_run=\(runID)")
+            return (false, pending, "LiveContainer received results for a different refresh attempt. This attempt could not be verified. Review Refresh history and app expiration; explicitly retry only after the previous attempt finishes.",
+                    CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .staleResult, id: runID))
+        }
+        guard let results = manifest["results"] as? [[String: Any]], !results.isEmpty else {
+            print("[LIVE_CONTAINER_REFRESH] VERIFICATION_FAILED reason=results_empty run_id=\(runID)")
+            return (false, pending, "SideStore returned no app installation results. No successful refresh was confirmed. Review eligible apps, account status, and Refresh history before an explicit retry.",
+                    CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .missingResult, id: runID))
+        }
+        guard CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID) else {
+            return (false, pending, "SideStore returned incomplete installation results. No successful refresh was confirmed.",
+                    CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .missingResult, id: runID))
+        }
+        let failedResults = results.filter { ($0["success"] as? Bool) != true }
+        if !failedResults.isEmpty {
+            // Persisted raw error text is not a safe diagnostic boundary. Decode only
+            // the bounded, allowlisted, current-run envelope; never display its fallback text.
+            let failures = failedResults.compactMap { entry in
+                (entry["failure"] as? [String: Any]).flatMap { CombinedFailure.decode($0, expectedID: runID) }
+            }
+            // A later app's concrete user-action failure must not be hidden by an earlier
+            // retryable/unknown failure when the scheduler considers retrying the batch.
+            let failure = failures.first { $0.retryable == false || $0.stage == .authentication || $0.code == .cancelled }
+                ?? failures.first
+                ?? CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .missingResult, id: runID)
+            return (false, pending, String(failure.localizedDescription.prefix(2048)), failure)
+        }
+        return pending ? (false, true, "host_handoff_awaiting_relaunch", nil) : (true, false, "verified_installed_app_records", nil)
+    }
+
+    private static func structuredRefreshFailure(_ error: Error, runID: String) -> CombinedFailure {
+        if let failure = error as? CombinedFailure {
+            guard failure.operation == "refresh", failure.correlationID == runID else {
+                return CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                                       code: .staleResult, id: runID)
+            }
+            return failure
+        }
+        let native = error as NSError
+        if native.domain == "LiveContainerRefresh.Network" {
+            let cause: CombinedFailure.SafeCause = native.code == 1 ? .wifiUnavailable : .localDevVPNUnavailable
+            return CombinedFailure(operation: "refresh", stage: .network, id: runID,
+                                   underlying: native, retryable: true, safeCause: cause)
+        }
+        if native.domain == "LiveContainerRefresh.Verification" {
+            return CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                                   code: .missingResult, id: runID, underlying: native)
+        }
+        return CombinedFailure.capture(error, operation: "refresh", stage: .command, id: runID)
+    }
+
+    private static func markRunVerifying(runID: String, manifest: [String: Any]? = nil) {
+        guard var record = runLedger()[runID],
+              !["completed", "failed"].contains(record["state"] as? String ?? "") else { return }
+        if let manifest {
+            guard manifest["run_id"] as? String == runID else { return }
+            // Commit this run's manifest before clearing its active ownership.
+            record["manifest"] = manifest
+        }
+        record["state"] = "verifying"
+        record["updated_at"] = Date().timeIntervalSince1970
+        saveRunRecord(record, runID: runID)
+        let requestID = record["request_id"] as? String
+        let origin = record["origin"] as? String
+        publishRunState("verifying", runID: runID, requestID: requestID?.isEmpty == true ? nil : requestID,
+                        origin: origin)
+    }
+
+    @discardableResult
+    private static func markVerified(runID: String, source: String, detail: String) -> Bool {
+        if let uncertain = defaults.string(forKey: uncertainMutationKey), uncertain != runID { return false }
+        guard let manifest = defaults.dictionary(forKey: verificationKey),
+              manifest["run_id"] as? String == runID,
+              var runRecord = runLedger()[runID],
+              !["completed", "failed"].contains(runRecord["state"] as? String ?? "") else { return false }
+        guard activeRun == nil || activeRun?.uuidString == runID else { return false }
+        if let storedActive = defaults.string(forKey: activeRunKey), storedActive != runID { return false }
+
+        // The verified manifest is durable and keyed to this exact run before
+        // the scheduler relinquishes active ownership.
+        runRecord["manifest"] = manifest
+        runRecord["state"] = "verifying"
+        runRecord["terminal_intent"] = "verified"
+        runRecord["updated_at"] = Date().timeIntervalSince1970
+        saveRunRecord(runRecord, runID: runID)
+
+        if let activeRun { endRun(activeRun) }
+        else if defaults.string(forKey: activeRunKey) == runID, let id = UUID(uuidString: runID) { endRun(id) }
+        defaults.removeObject(forKey: hostHandoffKey)
+        defaults.removeObject(forKey: hostHandoffRunKey)
+        defaults.removeObject(forKey: hostHandoffStartedKey)
+        defaults.removeObject(forKey: hostBaselineKey)
+
+        let requestValue = runRecord["request_id"] as? String ?? ""
+        let requestID = requestValue.isEmpty ? nil : requestValue
+        let origin = runRecord["origin"] as? String
+        let skippedCount = (manifest["skipped_ids"] as? [String])?.count ?? 0
+        let terminalDetail = skippedCount == 0 ? detail :
+            "Refresh completed for the verified app targets; \(skippedCount) running app(s) were skipped."
+        if defaults.string(forKey: uncertainMutationKey) == runID { defaults.removeObject(forKey: uncertainMutationKey) }
+        defaults.set(Date().addingTimeInterval(6 * 60 * 60), forKey: earliestEligibleKey)
+        defaults.removeObject(forKey: nextRetryKey)
+        defaults.set(0, forKey: retryCountKey)
+        defaults.set(false, forKey: retryExhaustedKey)
+        defaults.set("REFRESH_SUCCEEDED", forKey: healthStateKey)
+        defaults.set(Date(), forKey: lastSuccessfulKey)
+        defaults.removeObject(forKey: lastErrorKey)
+        if let deadline = defaults.object(forKey: deadlineKey) as? Date {
+            defaults.set(deadline, forKey: satisfiedDeadlineKey)
+        }
+        // Publish the authoritative terminal ledger only after the run marker
+        // is cleared and verified health is durable. A crash before this write
+        // is recovered from terminal_intent=verified and the saved manifest.
+        runRecord["state"] = "completed"
+        runRecord["message"] = terminalDetail
+        runRecord["health"] = "REFRESH_SUCCEEDED"
+        runRecord["manifest_run_id"] = runID
+        runRecord["manifest_summary"] = terminalManifestSummary(manifest, runID: runID, verified: true)
+        runRecord.removeValue(forKey: "manifest")
+        runRecord["terminal_at"] = Date().timeIntervalSince1970
+        runRecord["updated_at"] = Date().timeIntervalSince1970
+        saveRunRecord(runRecord, runID: runID)
+        record(source: source, result: "verified", detail: terminalDetail)
+        cancelDeadlineProtection()
+        publishRunState("completed", runID: runID, requestID: requestID, origin: origin)
+        notify(title: "Refresh completed", body: terminalDetail, kind: "verified", runID: runID,
+               requestID: requestID, origin: origin)
+        return true
+    }
+
+    @discardableResult
+    private static func markFailed(runID: String, source: String, health: String,
+                                   failure: CombinedFailure? = nil, message: String? = nil,
+                                   result: String = "failure") -> Bool {
+        guard var runRecord = runLedger()[runID],
+              !["completed", "failed"].contains(runRecord["state"] as? String ?? ""),
+              activeRun == nil || activeRun?.uuidString == runID else { return false }
+        if let storedActive = defaults.string(forKey: activeRunKey), storedActive != runID { return false }
+        if let manifest = defaults.dictionary(forKey: verificationKey), manifest["run_id"] as? String == runID {
+            runRecord["manifest"] = manifest
+            runRecord["state"] = "verifying"
+            runRecord["updated_at"] = Date().timeIntervalSince1970
+            saveRunRecord(runRecord, runID: runID)
+        }
+        let requestValue = runRecord["request_id"] as? String ?? ""
+        let requestID = requestValue.isEmpty ? nil : requestValue
+        let origin = runRecord["origin"] as? String
+        let suppliedFailureMatches = failure.map {
+            $0.operation == "refresh" && $0.correlationID == runID
+        } ?? true
+        let structured: CombinedFailure
+        if let failure, suppliedFailureMatches {
+            structured = failure
+        } else if failure != nil {
+            structured = CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                                         code: .staleResult, id: runID)
+        } else {
+            structured = CombinedFailure(operation: "refresh", stage: .refreshVerification, id: runID)
+        }
+        let safeMessage = V3DiagnosticPresentation.label(
+            String(((suppliedFailureMatches ? message : nil) ?? structured.safeMessage).prefix(2048)), context: .refresh)
+        // Persist a terminal intent before releasing the run marker. If iOS
+        // stops LiveContainer between the release and final ledger write,
+        // startup recovery can complete this exact failure instead of leaving
+        // an orphaned running/verifying row.
+        runRecord["terminal_intent"] = "failed"
+        runRecord["state"] = "failing"
+        runRecord["message"] = safeMessage
+        runRecord["health"] = health
+        runRecord["failure"] = structured.wire
+        runRecord["active_run_id"] = "none"
+        runRecord["manifest_run_id"] = ((runRecord["manifest"] as? [String: Any])?["run_id"] as? String) ?? "unknown"
+        runRecord["source"] = source
+        runRecord["result"] = result
+        runRecord["updated_at"] = Date().timeIntervalSince1970
+        saveRunRecord(runRecord, runID: runID)
+        if let activeRun { endRun(activeRun) }
+        else if defaults.string(forKey: activeRunKey) == runID, let id = UUID(uuidString: runID) { endRun(id) }
+
+        var terminalFailure: [String: Any] = [
+            "run_id": runID, "request_id": requestValue, "origin": origin ?? "unknown",
+            "source": source, "network_preflight": runRecord["network_preflight"] as? String ?? "unknown",
+            "active_run_id": "none", "health": health,
+            "manifest_run_id": runRecord["manifest_run_id"] as? String ?? "unknown",
+            "message": safeMessage, "safe_message": safeMessage, "failure": structured.wire
+        ]
+        for (wireKey, recordKey) in [
+            ("operation", "operation"), ("stage", "stage"), ("code", "code"),
+            ("correlationID", "correlation"), ("underlyingDomain", "underlying_domain"),
+            ("underlyingCode", "underlying_code"), ("safeCause", "safe_cause"),
+            ("sourceStep", "source_step")
+        ] {
+            if let value = structured.wire[wireKey] { terminalFailure[recordKey] = value }
+        }
+        terminalFailure["retryable"] = structured.retryable.map { $0 as Any } ?? "unknown"
+        defaults.set(terminalFailure, forKey: currentRunFailureKey)
+        defaults.set(health, forKey: healthStateKey)
+        defaults.set(safeMessage, forKey: lastErrorKey)
+        runRecord["state"] = "failed"
+        runRecord["manifest_summary"] = terminalManifestSummary(
+            runRecord["manifest"] as? [String: Any], runID: runID, verified: false)
+        runRecord.removeValue(forKey: "manifest")
+        runRecord["terminal_at"] = Date().timeIntervalSince1970
+        runRecord["updated_at"] = Date().timeIntervalSince1970
+        saveRunRecord(runRecord, runID: runID)
+        record(source: source, result: result, detail: safeMessage)
+        publishRunState("failed", runID: runID, requestID: requestID, origin: origin)
+        notify(title: "Refresh failed", body: safeMessage, kind: "failed", runID: runID,
+               requestID: requestID, origin: origin)
+        return true
+    }
+
+    private static func clearHostHandoffState(runID: String? = nil) {
+        if let runID, defaults.string(forKey: hostHandoffRunKey) != runID { return }
+        defaults.removeObject(forKey: hostHandoffKey)
+        defaults.removeObject(forKey: hostHandoffRunKey)
+        defaults.removeObject(forKey: hostHandoffStartedKey)
+        defaults.removeObject(forKey: hostBaselineKey)
+    }
+
+    // A crash can happen after the terminal ledger/health is committed but
+    // before the host-handoff metadata is removed. Reconcile that durable
+    // terminal record first so a later profile check cannot rewrite failure
+    // health back to HOST_REFRESH_AWAITING_RELAUNCH.
+    private static func restoreTerminalHostHandoffIfNeeded() -> Bool {
+        guard let runID = defaults.string(forKey: hostHandoffRunKey),
+              let record = runLedger()[runID],
+              let state = record["state"] as? String,
+              ["completed", "failed"].contains(state) else { return false }
+        if let health = record["health"] as? String { defaults.set(health, forKey: healthStateKey) }
+        if state == "failed", let message = record["message"] as? String, !message.isEmpty {
+            defaults.set(message, forKey: lastErrorKey)
+        } else {
+            defaults.removeObject(forKey: lastErrorKey)
+        }
+        clearHostHandoffState(runID: runID)
+        return true
+    }
+
+    private static func verifyPendingHostHandoff() {
+        guard activeRun == nil, defaults.bool(forKey: hostHandoffKey) else { return }
+        if let uncertain = defaults.string(forKey: uncertainMutationKey), uncertain != defaults.string(forKey: hostHandoffRunKey) { return }
+        if restoreTerminalHostHandoffIfNeeded() { return }
+        guard let baseline = defaults.dictionary(forKey: hostBaselineKey),
+              let runID = baseline["run_id"] as? String,
+              runID == defaults.string(forKey: hostHandoffRunKey),
+              let previous = baseline["expiration"] as? Date,
+              let bundle = hostBundle, let bundleID = bundle.bundleIdentifier else {
+            defaults.set(true, forKey: retryExhaustedKey)
+            let message = "The refresh could not verify the installed host profile because its handoff record or baseline is incomplete. Review Refresh history and app expiration before retrying." + "\nError ID: SS-VERIFY-D057"
+            if let runID = defaults.string(forKey: hostHandoffRunKey),
+               UUID(uuidString: runID) != nil,
+               runLedger()[runID] != nil {
+                let failure = CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                    code: .missingResult, id: runID, retryable: false)
+                if markFailed(runID: runID, source: "relaunch", health: "HOST_REFRESH_UNVERIFIED",
+                    failure: failure, message: message, result: "host_baseline_unavailable") {
+                    clearHostHandoffState(runID: runID)
+                    return
+                }
+                if restoreTerminalHostHandoffIfNeeded() { return }
+                // Preserve the handoff record if a different active run still
+                // owns refresh state; do not clear another run's evidence.
+                return
+            }
+            defaults.set("HOST_REFRESH_UNVERIFIED", forKey: healthStateKey)
+            defaults.set(message, forKey: lastErrorKey)
+            clearHostHandoffState()
+            record(source: "relaunch", result: "host_unverified", detail: message)
+            return
+        }
+        do {
+            let current = try LiveContainerHostProfile.read(
+                at: bundle.bundleURL.appendingPathComponent("embedded.mobileprovision"), expectedBundleID: bundleID)
+            guard current.expiration > previous, current.expiration > Date() else {
+                defaults.set("HOST_REFRESH_AWAITING_RELAUNCH", forKey: healthStateKey)
+                defaults.set(Self.hostExpirationNotAdvancedMessage, forKey: lastErrorKey)
+                print("[LIVE_CONTAINER_REFRESH] HOST_REFRESH_UNVERIFIED reason=installed_profile_expiration_not_advanced")
+                if let started = defaults.object(forKey: hostHandoffStartedKey) as? Date,
+                   Date().timeIntervalSince(started) >= 180 {
+                    defaults.set(true, forKey: retryExhaustedKey)
+                    let message = "The installed host profile did not advance after replacement. Retry manually; no success was recorded." + "\nError ID: SS-VERIFY-D058"
+                    let failed = markFailed(runID: runID, source: "relaunch", health: "HOST_REFRESH_FAILED",
+                        failure: CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                            code: .timedOut, id: runID, retryable: true),
+                        message: message, result: "host_refresh_failed")
+                    if failed { clearHostHandoffState(runID: runID) }
+                    else { _ = restoreTerminalHostHandoffIfNeeded() }
+                }
+                return
+            }
+            defaults.set(true, forKey: hostVerifiedKey)
+            print("[LIVE_CONTAINER_REFRESH] HOST_REFRESH_VERIFIED evidence=installed_profile_expiration_advanced")
+            let batch = verifyRefreshManifest(runID: runID)
+            if batch.verified {
+                markVerified(runID: runID, source: "relaunch", detail: "LiveContainer's installed profile renewed; all requested app results were confirmed.")
+            } else {
+                // Host profile renewal is only one part of the run. Persist a
+                // terminal failure for the batch if its per-app manifest is
+                // absent or incomplete; never announce refresh success here.
+                let failure = batch.failure ?? CombinedFailure(operation: "refresh",
+                    stage: .refreshVerification, code: .missingResult, id: runID, retryable: false)
+                let failed = markFailed(runID: runID, source: "relaunch", health: "REFRESH_FAILED",
+                    failure: failure, message: batch.reason, result: "host_verified_batch_unconfirmed")
+                if failed { clearHostHandoffState(runID: runID) }
+                else { _ = restoreTerminalHostHandoffIfNeeded() }
+            }
+        } catch {
+            defaults.set("HOST_REFRESH_AWAITING_RELAUNCH", forKey: healthStateKey)
+            // lastErrorKey is rendered as product copy on Home. A bridged error
+            // description is a numeric domain and code there, so the raw text
+            // stays in the log and the user gets something readable.
+            defaults.set(Self.hostRelaunchUnverifiedMessage, forKey: lastErrorKey)
+            print("[LIVE_CONTAINER_REFRESH] HOST_REFRESH_UNVERIFIED error=\(error.localizedDescription)")
+        }
+    }
+
+    private static func verifyGuestSignatures() -> Bool {
+        // Guests are not standalone InstalledApps and are never re-signed here.
+        let guests = DataManager.shared.model.apps + DataManager.shared.model.hiddenApps
+        for guest in guests {
+            guard let path = guest.appInfo.bundlePath(), let executable = Bundle(path: path)?.executableURL,
+                  executable.path.withCString({ checkCodeSignature($0) }) else {
+                print("[LIVE_CONTAINER_REFRESH] GUEST_SIGNATURE_INVALID bundle_id=\(guest.appInfo.bundleIdentifier())")
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func execute(source: String, task: BGTask? = nil, manualRequestID: String? = nil,
+                                manualOrigin: String? = nil,
+                                gate: LiveContainerRefreshCompletionGate = LiveContainerRefreshCompletionGate()) async {
+        if !requireSharedStore() {
+            task?.setTaskCompleted(success: false)
+            return
+        }
+        guard !gate.isFinished, !Task.isCancelled else { return }
+        let manual = source == "manual" || source == "alarm_action" || source == "vpn_return"
+        let now = Date()
+        print("[LIVE_CONTAINER_REFRESH] TASK_TRIGGERED source=\(source) at=\(now.timeIntervalSince1970)")
+        if source == "bgprocessing" || source == "bgapprefresh" { defaults.set(now, forKey: lastTaskKey) }
+        observeMissedDeadline(now: now)
+        func finish(_ success: Bool) {
+            if gate.claim() { task?.setTaskCompleted(success: success) }
+        }
+        guard manual || defaults.bool(forKey: enabledKey) else { finish(true); return }
+        guard compactWorkIsDue(now: now, manual: manual) else {
+            if manual, defaults.bool(forKey: hostHandoffKey) {
+                notify(title: "Refresh awaiting verification", body: "A host replacement is still pending. Reopen LiveContainer and check the installed profile before retrying.", kind: "host_handoff")
+            }
+            print("[LIVE_CONTAINER_REFRESH] NO_OP source=\(source)")
+            finish(true)
+            if task != nil { schedule() }
+            return
+        }
+        if source == "bgapprefresh" {
+            print("[LIVE_CONTAINER_REFRESH] WATCHDOG_DUE action=resubmit_bgprocessing")
+            schedule()
+            finish(true)
+            return
+        }
+        guard let runID = beginRun(source: source, manual: manual, requestID: manualRequestID,
+                                   manualOrigin: manualOrigin) else {
+            print("[LIVE_CONTAINER_REFRESH] RUN_COALESCED source=\(source)")
+            if manual {
+                record(source: source, result: "coalesced", detail: "A refresh is already running. Wait for it to finish before retrying.")
+                notify(title: "Refresh already running", body: "A refresh is already running. Wait for it to finish before retrying.", kind: "coalesced")
+            }
+            finish(true)
+            if task != nil { schedule() }
+            return
+        }
+        defer { schedule() }
+        let correlatedRequestValue = defaults.string(forKey: activeManualRequestKey) ?? ""
+        let correlatedRequestID = correlatedRequestValue.isEmpty ? nil : correlatedRequestValue
+        let correlatedOrigin = runLedger()[runID.uuidString]?["origin"] as? String
+        if manual, defaults.string(forKey: uncertainMutationKey) != nil {
+            record(source: source, result: "explicit_retry", detail: "Previous mutation completion was uncertain. This user-requested attempt will reload SideStore's authoritative app state.")
+            defaults.removeObject(forKey: uncertainMutationKey)
+        }
+        do {
+            print("[LIVE_CONTAINER_REFRESH] NETWORK_PREFLIGHT_START run_id=\(runID.uuidString) request_id=\(correlatedRequestID ?? "none") origin=\(correlatedOrigin ?? "unknown") source=\(source)")
+            try await LiveContainerNetworkPreflight.check(
+                allowForegroundActivation: manual && source != "vpn_return" && task == nil,
+                runID: runID.uuidString)
+            recordNetworkPreflight("passed", runID: runID.uuidString)
+            print("[LIVE_CONTAINER_REFRESH] NETWORK_PREFLIGHT_PASS run_id=\(runID.uuidString) request_id=\(correlatedRequestID ?? "none") origin=\(correlatedOrigin ?? "unknown")")
+            try await performRefresh(runID: runID)
+            markRunVerifying(runID: runID.uuidString,
+                             manifest: defaults.dictionary(forKey: verificationKey))
+            let verification = verifyRefreshManifest(runID: runID.uuidString)
+            if verification.hostHandoff {
+                guard gate.claim() else { return }
+                endRun(runID)
+                defaults.set("HOST_REFRESH_AWAITING_RELAUNCH", forKey: healthStateKey)
+                record(source: source, result: "host_handoff_awaiting_relaunch", detail: verification.reason)
+                publishRunState("verifying", runID: runID.uuidString, requestID: correlatedRequestID, origin: correlatedOrigin)
+                notify(title: "Host refresh awaiting verification", body: "Reopen LiveContainer to check that its installed profile renewed.",
+                       kind: "host_handoff", runID: runID.uuidString, requestID: correlatedRequestID,
+                       origin: correlatedOrigin)
+                // Completion of this handler is not a claim of refresh success.
+                task?.setTaskCompleted(success: false)
+            } else if verification.verified {
+                let guestsValid = verifyGuestSignatures()
+                try Task.checkCancellation()
+                guard gate.claim() else { return }
+                if guestsValid {
+                    guard markVerified(runID: runID.uuidString, source: source, detail: "All requested installed-app results were confirmed.") else {
+                        let failure = CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                            code: .missingResult, id: runID.uuidString)
+                        _ = markFailed(runID: runID.uuidString, source: source, health: "REFRESH_FAILED",
+                                       failure: failure,
+                                       message: "Refresh failed during refreshVerification, but no safe underlying cause was available.")
+                        task?.setTaskCompleted(success: false)
+                        return
+                    }
+                    print("[LIVE_CONTAINER_REFRESH] REFRESH_RESULT run_id=\(runID.uuidString) success=true verified=true")
+                    task?.setTaskCompleted(success: true)
+                } else {
+                    let failure = CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                        code: .failed, id: runID.uuidString)
+                    _ = markFailed(runID: runID.uuidString, source: source, health: "GUEST_SIGNATURE_INVALID",
+                                   failure: failure,
+                                   message: "Refresh failed during refreshVerification because an installed guest signature did not verify.",
+                                   result: "guest_signature_invalid")
+                    notify(title: "Guest signature needs attention", body: "Open the affected guest in LiveContainer to check its signing status.",
+                           kind: "guest_invalid", runID: runID.uuidString, requestID: correlatedRequestID)
+                    task?.setTaskCompleted(success: false)
+                }
+            } else {
+                if let failure = verification.failure { throw failure }
+                throw NSError(domain: "LiveContainerRefresh.Verification", code: 1001,
+                    userInfo: [NSLocalizedDescriptionKey: verification.reason])
+            }
+        } catch {
+            guard gate.claim() else { return } // Expiration already recorded the outcome.
+            if runLedger()[runID.uuidString]?["network_preflight"] as? String == "pending" {
+                recordNetworkPreflight("failed", runID: runID.uuidString)
+            }
+            let nsError = error as NSError
+            let count = defaults.integer(forKey: retryCountKey) + 1
+            defaults.set(count, forKey: retryCountKey)
+            let structured = error as? CombinedFailure
+            // This is a conservative scheduling policy, not a claim that an unknown
+            // authentication retryability has become false in the authoritative error.
+            let requiresExplicitRetry = structured?.retryable == false || structured?.stage == .authentication || structured?.code == .cancelled
+            if defaults.string(forKey: uncertainMutationKey) == nil,
+               !requiresExplicitRetry,
+               !(error is CancellationError), !LiveContainerRefreshPolicy.isUserActionFailure(nsError),
+               let delay = LiveContainerRefreshPolicy.retryDelay(failureCount: count) {
+                defaults.set(Date().addingTimeInterval(delay), forKey: nextRetryKey)
+            } else {
+                defaults.removeObject(forKey: nextRetryKey)
+                defaults.set(true, forKey: retryExhaustedKey)
+            }
+            let failure = structuredRefreshFailure(error, runID: runID.uuidString)
+            let networkState = failure.safeCause == .wifiUnavailable ? "WIFI_UNAVAILABLE" :
+                (failure.safeCause == .localDevVPNUnavailable ? "VPN_UNAVAILABLE" :
+                 (failure.stage == .network ? "REFRESH_FAILED" : "REFRESH_FAILED"))
+            let safeMessage = failure.safeMessage
+            _ = markFailed(runID: runID.uuidString, source: source, health: networkState,
+                           failure: failure, message: safeMessage)
+            print("[LIVE_CONTAINER_REFRESH] REFRESH_RESULT run_id=\(runID.uuidString) success=false verified=false \(failure.technicalDetails)")
+            task?.setTaskCompleted(success: false)
+        }
+    }
+
+    private static func handle(_ task: BGTask, source: String) {
+        let gate = LiveContainerRefreshCompletionGate()
+        let work = Task { @MainActor in await execute(source: source, task: task, gate: gate) }
+        task.expirationHandler = {
+            work.cancel()
+            guard gate.claim() else { return }
+            task.setTaskCompleted(success: false)
+            Task { @MainActor in
+                let count = defaults.integer(forKey: retryCountKey) + 1
+                defaults.set(count, forKey: retryCountKey)
+                if defaults.string(forKey: uncertainMutationKey) == nil,
+                   let delay = LiveContainerRefreshPolicy.retryDelay(failureCount: count) {
+                    defaults.set(Date().addingTimeInterval(delay), forKey: nextRetryKey)
+                } else { defaults.set(true, forKey: retryExhaustedKey) }
+                let detail = "iOS ended the background execution window; refresh was not verified."
+                if let id = activeRun?.uuidString ?? defaults.string(forKey: activeRunKey) {
+                    let failure = CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                        code: .timedOut, id: id, retryable: true)
+                    _ = markFailed(runID: id, source: source, health: "REFRESH_INTERRUPTED",
+                                   failure: failure, message: detail, result: "expired")
+                } else {
+                    defaults.set("REFRESH_INTERRUPTED", forKey: healthStateKey)
+                    record(source: source, result: "expired", detail: detail)
+                    notify(title: "Refresh interrupted", body: "iOS ended background execution before completion. Open LiveContainer to check the result.", kind: "expired")
+                }
+            }
+        }
+    }
+
+    private static func recoverOrphanedRunLedger() {
+        let ledger = runLedger()
+        for (runID, record) in ledger {
+            let currentState = record["state"] as? String ?? "unknown"
+            if ["completed", "failed"].contains(currentState) { continue }
+            let storedManifest = record["manifest"] as? [String: Any]
+            let sharedManifest = defaults.dictionary(forKey: verificationKey)
+            let manifest = storedManifest ?? (sharedManifest?["run_id"] as? String == runID ? sharedManifest : nil)
+            let manifestIsComplete = manifest.map {
+                $0["run_id"] as? String == runID &&
+                    CombinedVerification.hasCompleteTerminalResults($0, runID: runID)
+            } ?? false
+            let hostHandoffPending = defaults.bool(forKey: hostHandoffKey) &&
+                defaults.string(forKey: hostHandoffRunKey) == runID
+            guard let action = V3RefreshTerminalRecoveryPolicy.action(
+                state: record["state"] as? String ?? "unknown",
+                terminalIntent: record["terminal_intent"] as? String,
+                manifestIsComplete: manifestIsComplete,
+                hostHandoffPending: hostHandoffPending) else { continue }
+
+            switch action {
+            case .finalizeVerified:
+                guard let manifest else { continue }
+                defaults.set(manifest, forKey: verificationKey)
+                _ = markVerified(runID: runID, source: "relaunch_recovery",
+                    detail: "All requested installed-app results were confirmed before LiveContainer closed.")
+            case .finalizeFailed:
+                let failure = (record["failure"] as? [String: Any]).flatMap {
+                    CombinedFailure.decode($0, expectedID: runID)
+                }
+                _ = markFailed(runID: runID,
+                    source: record["source"] as? String ?? "relaunch_recovery",
+                    health: record["health"] as? String ?? "REFRESH_FAILED",
+                    failure: failure, message: record["message"] as? String,
+                    result: record["result"] as? String ?? "failure")
+            case .markInterrupted:
+                if defaults.string(forKey: activeRunKey) == runID { continue }
+                _ = markFailed(runID: runID, source: "relaunch_recovery", health: "REFRESH_INTERRUPTED",
+                    failure: CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                        code: .interrupted, id: runID, retryable: true),
+                    message: "Refresh was interrupted before its terminal result was recorded.",
+                    result: "interrupted")
+            }
+        }
+    }
+
+    static func register() {
+        guard !registered else { return }
+        guard requireSharedStore() else { return }
+        registered = true
+        hostBundle = Bundle.main
+        recoverOrphanedRunLedger()
+        // A durable marker from a terminated process is not a live mutex.
+        if let interruptedRunID = defaults.string(forKey: activeRunKey) {
+            defaults.set(interruptedRunID, forKey: uncertainMutationKey)
+            defaults.removeObject(forKey: activeRunKey)
+            defaults.removeObject(forKey: activeManualRequestKey)
+            defaults.removeObject(forKey: activeManualOriginKey)
+            defaults.removeObject(forKey: activeManualOriginRunKey)
+            defaults.removeObject(forKey: expectedRunKey)
+            if !markFailed(runID: interruptedRunID, source: "relaunch", health: "REFRESH_INTERRUPTED",
+                           failure: CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                               code: .interrupted, id: interruptedRunID, retryable: true),
+                           message: "Refresh was interrupted when LiveContainer closed before its result was recorded.",
+                           result: "interrupted") {
+                defaults.set("REFRESH_INTERRUPTED", forKey: healthStateKey)
+                record(source: "relaunch", result: "interrupted", detail: "The previous process ended before recording completion.")
+            }
+        }
+        do {
+            let resolved = try LiveContainerRefreshTaskIdentifiers.resolve(info: hostBundle?.infoDictionary ?? [:])
+            identifiers = resolved
+            processingRegistered = BGTaskScheduler.shared.register(forTaskWithIdentifier: resolved.processing, using: nil) { task in
+                Task { @MainActor in handle(task, source: "bgprocessing") }
+            }
+            watchdogRegistered = BGTaskScheduler.shared.register(forTaskWithIdentifier: resolved.watchdog, using: nil) { task in
+                Task { @MainActor in handle(task, source: "bgapprefresh") }
+            }
+            print("[LIVE_CONTAINER_REFRESH] REGISTER_PASS processing=\(processingRegistered) watchdog=\(watchdogRegistered) task_id=\(resolved.processing)")
+            if !processingRegistered || !watchdogRegistered {
+                record(source: "scheduler", result: "registration_limited", detail: "iOS did not register every background task. Manual refresh remains available.")
+            }
+        } catch {
+            defaults.set("foreground_recovery_only", forKey: strategyKey)
+            defaults.set(Self.schedulerConfigurationMessage, forKey: lastErrorKey)
+            record(source: "scheduler", result: "configuration_failed", detail: error.localizedDescription)
+        }
+    }
+
+    static func requestRefreshNow() async {
+        await execute(source: "alarm_action", manualRequestID: UUID().uuidString, manualOrigin: "deadlineAlarm")
+    }
+    static func runNow(requestID: String? = nil, origin: String? = nil) {
+        Task { @MainActor in
+            // Manual refresh must reach scheduler admission promptly. The
+            // system permission dialog is requested only by the explicit
+            // notification-settings action, not as part of a refresh request.
+            verifyPendingHostHandoff()
+            await execute(source: "manual", manualRequestID: requestID, manualOrigin: origin)
+        }
+    }
+
+    static func recoverAfterLaunchOrResume() {
+        guard activeRun == nil else { return }
+        guard requireSharedStore() else { return }
+        verifyPendingHostHandoff()
+        if LiveContainerNetworkPreflight.consumePendingReturn() {
+            Task { @MainActor in await execute(source: "vpn_return") }
+            return
+        }
+        observeMissedDeadline(now: Date())
+        guard defaults.bool(forKey: enabledKey), defaults.object(forKey: earliestEligibleKey) != nil,
+              compactWorkIsDue(now: Date()) else { return }
+        Task { @MainActor in await execute(source: "launch_or_resume") }
+    }
+
+    static func scheduleChanged() {
+        guard requireSharedStore() else { return }
+        cancelDeadlineProtection()
+        defaults.removeObject(forKey: deadlineKey)
+        defaults.removeObject(forKey: satisfiedDeadlineKey)
+        defaults.set(false, forKey: retryExhaustedKey)
+        defaults.set(0, forKey: retryCountKey)
+        schedule()
+        if defaults.bool(forKey: enabledKey) {
+            Task { @MainActor in await requestNotificationPermission(); schedule() }
+        }
+    }
+
+    static func cancelDeadlineProtection() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [warningIdentifier])
+        if #available(iOS 26.1, *), defaults.bool(forKey: alarmScheduledKey) {
+            LiveContainerAutoRefreshAlarmProvider.cancelIfAvailable()
+        }
+    }
+
+    private static func scheduleDeadlineWarning(_ deadline: Date) {
+        guard deadline > Date() else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Automatic refresh needs checking"
+        content.body = "No completed refresh has been confirmed for this deadline. Open LiveContainer to check or refresh. A host replacement may still need verification."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.timeIntervalSinceNow), repeats: false)
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: warningIdentifier, content: content, trigger: trigger)) { error in
+            if let error { print("[LIVE_CONTAINER_REFRESH] DEADLINE_WARNING_FAIL error=\(error.localizedDescription)") }
+        }
+    }
+
+    static func schedule() {
+        guard requireSharedStore() else { return }
+        guard defaults.bool(forKey: enabledKey) else {
+            if let ids = identifiers {
+                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: ids.processing)
+                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: ids.watchdog)
+            }
+            cancelDeadlineProtection()
+            defaults.set("disabled", forKey: strategyKey)
+            return
+        }
+        let now = Date()
+        observeMissedDeadline(now: now)
+        var deadline = defaults.object(forKey: deadlineKey) as? Date
+        if deadline == nil || deadline == (defaults.object(forKey: satisfiedDeadlineKey) as? Date) ||
+            (defaults.bool(forKey: retryExhaustedKey) && (deadline ?? now) < now) {
+            let advancingExistingWindow = deadline != nil
+            deadline = nextDate(after: now)
+            defaults.set(deadline, forKey: deadlineKey)
+            // Initial schedule creation must not erase a just-recorded failure/backoff.
+            if advancingExistingWindow {
+                defaults.removeObject(forKey: nextRetryKey)
+                defaults.set(false, forKey: retryExhaustedKey)
+                defaults.set(0, forKey: retryCountKey)
+            }
+        }
+        guard let deadline else { return }
+        scheduleDeadlineWarning(deadline) // Pre-scheduled; does not require a future app wake.
+        defaults.set(processingRegistered ? "native_without_alarmkit" : "foreground_recovery_only", forKey: strategyKey)
+        if let ids = identifiers, processingRegistered, defaults.string(forKey: uncertainMutationKey) == nil,
+           !defaults.bool(forKey: retryExhaustedKey), !defaults.bool(forKey: hostHandoffKey) {
+            let earliest = LiveContainerRefreshPolicy.earliestUsefulDate(now: now, deadline: deadline, lead: leadTime,
+                eligible: defaults.object(forKey: earliestEligibleKey) as? Date,
+                retry: defaults.object(forKey: nextRetryKey) as? Date)
+            let request = BGProcessingTaskRequest(identifier: ids.processing)
+            request.requiresNetworkConnectivity = true
+            request.requiresExternalPower = false
+            request.earliestBeginDate = earliest
+            do {
+                try BGTaskScheduler.shared.submit(request)
+                print("[LIVE_CONTAINER_REFRESH] SCHEDULE_PASS target_deadline=\(deadline.timeIntervalSince1970) earliest_begin=\(earliest.timeIntervalSince1970)")
+            } catch {
+                defaults.set(Self.backgroundSubmitFailedMessage, forKey: lastErrorKey)
+                record(source: "scheduler", result: "bgprocessing_submit_failed", detail: error.localizedDescription)
+            }
+            // A watchdog is one bounded opportunity, not a repeated polling job.
+            if watchdogRegistered, deadline > now {
+                let watchdog = BGAppRefreshTaskRequest(identifier: ids.watchdog)
+                watchdog.earliestBeginDate = deadline
+                do { try BGTaskScheduler.shared.submit(watchdog) }
+                catch { record(source: "scheduler", result: "bgapprefresh_submit_failed", detail: error.localizedDescription) }
+            }
+        }
+        if #available(iOS 26.1, *), deadline > now {
+            Task { @MainActor in await LiveContainerAutoRefreshAlarmProvider.scheduleIfAvailable(deadline: deadline) }
+        }
+    }
+
+    private static func nextDate(after now: Date) -> Date {
+        let frequency = defaults.string(forKey: frequencyKey) ?? "interval"
+        if frequency == "interval" { return now.addingTimeInterval(6 * 60 * 60) }
+        let minutes = max(0, min(1439, defaults.object(forKey: minutesKey) as? Int ?? 600))
+        var parts = DateComponents(hour: minutes / 60, minute: minutes % 60, second: 0)
+        if frequency == "weekly" { parts.weekday = max(1, min(7, defaults.object(forKey: weekdayKey) as? Int ?? 2)) }
+        return Calendar.autoupdatingCurrent.nextDate(after: now, matching: parts, matchingPolicy: .nextTime,
+            repeatedTimePolicy: .first) ?? now.addingTimeInterval(6 * 60 * 60)
+    }
+}
+
 class SceneDelegate: NSObject, UIWindowSceneDelegate, ObservableObject { // Make SceneDelegate conform ObservableObject
     var window: UIWindow?
 
@@ -82,5 +1569,13 @@ public class ViewAppIntentHandler: NSObject, ViewAppIntentHandling
     public func provideAppOptionsCollection(for intent: ViewAppIntent, with completion: @escaping (INObjectCollection<App>?, Error?) -> Void)
     {
         completion(INObjectCollection(items:[]), nil)
+    }
+}
+
+// Existing embedded notification handling remains in SideStoreSupport.
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
     }
 }

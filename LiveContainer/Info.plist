@@ -220,6 +220,7 @@
 		<string>nearby-interaction</string>
 		<string>remote-notification</string>
 		<string>voip</string>
+		<string>processing</string>
 	</array>
 	<key>UIDeviceFamily</key>
 	<array>
@@ -320,5 +321,12 @@
 	</array>
 	<key>UISupportsDocumentBrowser</key>
 	<true/>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.kdt.livecontainer.sidestore.automatic-refresh</string>
+		<string>com.kdt.livecontainer.sidestore.automatic-refresh.watchdog</string>
+	</array>
+	<key>LCRefreshContractVersion</key>
+	<integer>2</integer>
 </dict>
 </plist>
