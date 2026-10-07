@@ -2,6 +2,8 @@
   "schema_version": 1,
   "upstream_commit": "12377cf3b91d51739a33f14a302e5f522b238593",
   "frozen_manifest_commit": "6f5452fa51a4aea2103fc86d3b855bd110ec6f25",
+  "frozen_manifest_commit_role": "Informational original local provenance; not an executable lookup anchor",
+  "frozen_manifest_blob": "93ad280c04915c03685af01e4e0121e40e250557",
   "frozen_manifest_sha256": "9754db15588b8e729362a3e03558933b94a884f28038a5cc39eb128731b43359",
   "policy": "Exact tree and real filesystem inventory. No ignored/untracked extras. All reviewed additions must be regular mode-0644 files matching HEAD and index. Directory mode is 0755. Gitlink directories remain empty and unpopulated. Only the real root .git administrative directory is excluded from source scanning.",
   "products": [

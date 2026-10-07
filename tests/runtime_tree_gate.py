@@ -16,7 +16,9 @@ import subprocess
 import unicodedata
 
 UPSTREAM_COMMIT = '12377cf3b91d51739a33f14a302e5f522b238593'
-FROZEN_MANIFEST_COMMIT = '6f5452fa51a4aea2103fc86d3b855bd110ec6f25'
+# Informational original provenance only; publication may remap commit objects.
+FROZEN_MANIFEST_ORIGIN_COMMIT = '6f5452fa51a4aea2103fc86d3b855bd110ec6f25'
+FROZEN_MANIFEST_BLOB = '93ad280c04915c03685af01e4e0121e40e250557'
 FROZEN_MANIFEST_PATH = 'docs/migration/source-parity.json'
 FROZEN_MANIFEST_SHA256 = '9754db15588b8e729362a3e03558933b94a884f28038a5cc39eb128731b43359'
 INVENTORY_PATH = 'docs/migration/repository-inventory.json'
@@ -106,7 +108,7 @@ def read_tree(git, revision):
 
 
 def product_expectations(git):
-    manifest_bytes = git.run('show', FROZEN_MANIFEST_COMMIT + ':' + FROZEN_MANIFEST_PATH)
+    manifest_bytes = git.run('cat-file', 'blob', FROZEN_MANIFEST_BLOB)
     require(hashlib.sha256(manifest_bytes).hexdigest() == FROZEN_MANIFEST_SHA256,
             'Frozen manifest object does not match its pinned digest')
     manifest = json.loads(manifest_bytes)
@@ -133,7 +135,9 @@ def expected_inventory(git):
     return {
         'schema_version': 1,
         'upstream_commit': UPSTREAM_COMMIT,
-        'frozen_manifest_commit': FROZEN_MANIFEST_COMMIT,
+        'frozen_manifest_commit': FROZEN_MANIFEST_ORIGIN_COMMIT,
+        'frozen_manifest_commit_role': 'Informational original local provenance; not an executable lookup anchor',
+        'frozen_manifest_blob': FROZEN_MANIFEST_BLOB,
         'frozen_manifest_sha256': FROZEN_MANIFEST_SHA256,
         'policy': 'Exact tree and real filesystem inventory. No ignored/untracked extras. '
                   'All reviewed additions must be regular mode-0644 files matching HEAD and index. '

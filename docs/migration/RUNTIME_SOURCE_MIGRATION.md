@@ -60,7 +60,7 @@ Run from this fork:
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -v
 ```
 
-Result on the available Linux environment: **39 tests discovered; 37 passed; 2 skipped** after whole-checkout gate hardening.
+Result on the available Linux environment: **40 tests discovered; 38 passed; 2 skipped** after whole-checkout gate hardening.
 
 Executed production-code probes:
 
@@ -113,9 +113,10 @@ Git is bound to the supplied worktree and its local `.git`, without inherited
 `GIT_*` overrides, replacement refs, graft views or global/system configuration.
 Shallow repositories are rejected, and implicit lazy object fetching is disabled.
 Full object-availability/fsck evidence is a separate checkpoint check.
-The parity manifest is read from pinned historical commit
-`6f5452fa51a4aea2103fc86d3b855bd110ec6f25`, verified by SHA-256, rather than trusted
-from the working tree.
+The parity manifest is read by exact Git blob OID
+`93ad280c04915c03685af01e4e0121e40e250557`, additionally verified by its pinned
+SHA-256, rather than trusted from the working tree. The original local commit
+`6f5452fa51a4aea2103fc86d3b855bd110ec6f25` remains informational provenance only.
 
 Disposable-copy regressions exercise additions (untracked and committed),
 ignored extras, case collisions, file modes, type-only commits, symlink/hardlink
@@ -129,3 +130,20 @@ external attestation or authorization to adopt a fork commit. The coordinated
 cutover still requires separate exact fork/pin admission and whole-owner
 checkpoint review; selected-file cross-repository contract checks alone do not
 establish that admission.
+
+## Commit-remapping portability
+
+Git-data publication can preserve every logical tree and upstream parent while
+assigning different migration commit IDs because the API cannot reproduce the
+original commit dates. Executable metadata lookups therefore use immutable blob
+OIDs, with independent SHA-256 checks, instead of local migration commit IDs.
+The source-component test index is likewise anchored by blob
+`cf97e350e1bbf76e1c09d03ab722b2753c5e48df`. Original local commit references remain
+provenance information, not required executable objects.
+
+A disposable-copy regression rebuilds every migration tree/message over the
+exact upstream base, packs only objects reachable from that reconstructed graph,
+proves the original manifest commit object is absent, then passes the unchanged
+whole-tree inventory/content/mode/ancestry gate using the retained manifest blob.
+No runtime source, expected runtime digest, reviewed path, mode or safety check
+is relaxed by this portability adjustment.

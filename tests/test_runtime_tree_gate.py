@@ -9,7 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from runtime_tree_gate import BoundGit, ParityError, UPSTREAM_COMMIT, verify_repository
+from runtime_tree_gate import (BoundGit, ParityError, UPSTREAM_COMMIT, verify_repository,
+                               FROZEN_MANIFEST_BLOB, FROZEN_MANIFEST_ORIGIN_COMMIT)
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = 'LiveContainerSwiftUI/App/AppDelegate.swift'
@@ -38,6 +39,41 @@ class WholeTreeGateRegressionTests(unittest.TestCase):
             self.assertEqual(report['product_entries'], 274)
             self.assertEqual(report['reviewed_additions'], 17)
             self.assertEqual(report['regular_files'], 289)
+
+    def test_blob_anchor_survives_reconstructed_history_without_original_commit(self):
+        with self.checkout() as root:
+            git = BoundGit(root)
+            original_head = git.run('rev-parse', 'HEAD').decode().strip()
+            current_parent = UPSTREAM_COMMIT
+            old_commits = git.run('rev-list', '--reverse', UPSTREAM_COMMIT + '..HEAD').decode().splitlines()
+            # Recreate each logical migration tree/message with a distinct test
+            # author, exactly modelling a publication with remapped commit IDs.
+            for old_commit in old_commits:
+                tree = git.run('rev-parse', old_commit + '^{tree}').decode().strip()
+                message = git.run('log', '-1', '--format=%B', old_commit)
+                current_parent = git.run('-c', 'user.name=Reconstructed Publication Test',
+                    '-c', 'user.email=reconstructed@example.invalid', 'commit-tree', tree,
+                    '-p', current_parent, input=message).decode().strip()
+                self.assertNotEqual(current_parent, old_commit)
+                self.assertEqual(git.run('rev-parse', current_parent + '^{tree}').decode().strip(), tree)
+            branch = git.run('symbolic-ref', 'HEAD').decode().strip()
+            git.run('update-ref', branch, current_parent, original_head)
+            self.assertEqual(git.run('rev-parse', 'HEAD^{tree}'),
+                             git.run('rev-parse', original_head + '^{tree}'))
+            # Retain only objects reachable from the reconstructed graph. This
+            # works whether the original commit was loose, packed or absent in
+            # the source checkout; no filesystem-layout assumption is needed.
+            packed = git.run('pack-objects', '--stdout', '--revs', '--no-reuse-delta',
+                             input=(current_parent + '\n').encode())
+            shutil.rmtree(root / '.git/objects')
+            (root / '.git/objects').mkdir()
+            git.run('index-pack', '--stdin', input=packed)
+            with self.assertRaisesRegex(ParityError, 'Bound Git failed'):
+                git.run('cat-file', '-e', FROZEN_MANIFEST_ORIGIN_COMMIT + '^{commit}')
+            self.assertEqual(git.run('cat-file', '-t', FROZEN_MANIFEST_BLOB), b'blob\n')
+            report = verify_repository(root)
+            self.assertEqual(report['head'], current_parent)
+            self.assertEqual(report['product_entries'], 274)
 
     def test_shallow_upstream_boundary_is_rejected(self):
         with self.checkout() as root:

@@ -15,11 +15,17 @@ import sys
 import tempfile
 import unittest
 
-from runtime_tree_gate import BoundGit, FROZEN_MANIFEST_COMMIT, verify_repository
+from runtime_tree_gate import BoundGit, FROZEN_MANIFEST_BLOB, FROZEN_MANIFEST_SHA256, verify_repository
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = json.loads(BoundGit(ROOT).run('show', FROZEN_MANIFEST_COMMIT + ':docs/migration/source-parity.json'))
-COMPONENTS = json.loads(BoundGit(ROOT).run('show', FROZEN_MANIFEST_COMMIT + ':docs/migration/source-components.json'))['components']
+MANIFEST_BYTES = BoundGit(ROOT).run('cat-file', 'blob', FROZEN_MANIFEST_BLOB)
+assert hashlib.sha256(MANIFEST_BYTES).hexdigest() == FROZEN_MANIFEST_SHA256
+MANIFEST = json.loads(MANIFEST_BYTES)
+COMPONENTS_BLOB = 'cf97e350e1bbf76e1c09d03ab722b2753c5e48df'
+COMPONENTS_SHA256 = '128dcce38f1a542d1f5989b56f889ae22f732f2824d94fffdf7d0ad8957cf12d'
+COMPONENTS_BYTES = BoundGit(ROOT).run('cat-file', 'blob', COMPONENTS_BLOB)
+assert hashlib.sha256(COMPONENTS_BYTES).hexdigest() == COMPONENTS_SHA256
+COMPONENTS = json.loads(COMPONENTS_BYTES)['components']
 BASE = MANIFEST['upstream_commit']
 CC = shutil.which('cc') or shutil.which('clang') or shutil.which('gcc')
 SWIFTC = shutil.which('swiftc')
