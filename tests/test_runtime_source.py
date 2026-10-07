@@ -15,12 +15,19 @@ import sys
 import tempfile
 import unittest
 
+from runtime_tree_gate import BoundGit, FROZEN_MANIFEST_COMMIT, verify_repository
+
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = json.loads((ROOT / 'docs/migration/source-parity.json').read_text())
-COMPONENTS = json.loads((ROOT / 'docs/migration/source-components.json').read_text())['components']
+MANIFEST = json.loads(BoundGit(ROOT).run('show', FROZEN_MANIFEST_COMMIT + ':docs/migration/source-parity.json'))
+COMPONENTS = json.loads(BoundGit(ROOT).run('show', FROZEN_MANIFEST_COMMIT + ':docs/migration/source-components.json'))['components']
 BASE = MANIFEST['upstream_commit']
 CC = shutil.which('cc') or shutil.which('clang') or shutil.which('gcc')
 SWIFTC = shutil.which('swiftc')
+
+
+def setUpModule():
+    # Reject substituted/dirty source before any content is compiled by probes.
+    verify_repository(ROOT)
 
 
 def source(path: str) -> str:
@@ -43,7 +50,7 @@ def block(text: str, anchor: str) -> str:
 
 
 def git(*args: str) -> bytes:
-    return subprocess.check_output(['git', '-C', str(ROOT), *args])
+    return BoundGit(ROOT).run(*args)
 
 
 def scan_helper() -> str:
@@ -70,16 +77,10 @@ class MaintainedSourceParityTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(data[start:start + count]).hexdigest(), component['sha256'])
 
     def test_upstream_ancestry_license_and_dependency_pins_are_preserved(self):
-        self.assertEqual(subprocess.run(['git', '-C', str(ROOT), 'merge-base', '--is-ancestor', BASE, 'HEAD']).returncode, 0)
-        for path in ('LICENSE', '.gitmodules'):
-            self.assertEqual((ROOT / path).read_bytes(), git('show', BASE + ':' + path))
-        # Every pre-existing tracked path outside the explicit migration is unchanged.
-        migrated = {item['path'] for item in MANIFEST['files']}
-        changed = set(git('diff', '--name-only', '--diff-filter=MD', BASE).decode().splitlines())
-        self.assertFalse(changed - migrated, changed - migrated)
-        for line in git('ls-tree', '-r', BASE).decode().splitlines():
-            if line.startswith('160000 '):
-                self.assertEqual(git('ls-tree', 'HEAD', '--', line.split('\t', 1)[1]).decode().strip(), line)
+        report = verify_repository(ROOT)
+        self.assertEqual(report['product_entries'], 274)
+        self.assertEqual(report['reviewed_additions'], 17)
+        self.assertEqual(report['gitlinks'], 2)
 
     def test_preparation_sidecars_are_archived_not_product_inputs(self):
         self.assertEqual(len(MANIFEST['excluded_preparation_sidecars']), 3)

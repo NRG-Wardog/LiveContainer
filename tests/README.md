@@ -24,3 +24,21 @@ under its upstream license. The scanner fixture no longer contains a generated
 or legacy runtime path; it exercises only the maintained implementation.
 
 See `docs/migration/RUNTIME_SOURCE_MIGRATION.md` for scope, results and limitations.
+
+## Pristine whole-tree validation
+
+The checkpoint deliberately rejects every file not in the exact inventory,
+including ignored files, `__pycache__`, empty extra directories and initialized
+submodule contents. Use `-B` or `PYTHONDONTWRITEBYTECODE=1`, and run after committing
+reviewed changes in a clean, non-recursive checkout. No prefix-based exemption is
+granted to tests or documentation. Source expectations are anchored to immutable
+historical objects; test/docs additions must match committed HEAD and index.
+
+```sh
+python -B tests/runtime_tree_gate.py "$PWD"
+```
+
+The adversarial suite mutates only disposable independent checkout copies. It
+also demonstrates that inherited Git environment, replacement/graft views,
+ignore rules, index hiding flags and local worktree settings cannot redirect or
+hide the actual source inventory.

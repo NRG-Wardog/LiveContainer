@@ -1,0 +1,2048 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "12377cf3b91d51739a33f14a302e5f522b238593",
+  "frozen_manifest_commit": "6f5452fa51a4aea2103fc86d3b855bd110ec6f25",
+  "frozen_manifest_sha256": "9754db15588b8e729362a3e03558933b94a884f28038a5cc39eb128731b43359",
+  "policy": "Exact tree and real filesystem inventory. No ignored/untracked extras. All reviewed additions must be regular mode-0644 files matching HEAD and index. Directory mode is 0755. Gitlink directories remain empty and unpopulated. Only the real root .git administrative directory is excluded from source scanning.",
+  "products": [
+    {
+      "path": ".github/FUNDING.yml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "20d84ac6736f86881a6d01cd455b8c373f580ef2",
+      "sha256": "71f817ad67f267dd8483960a4597d2bb557f49c28020ee14333bf4df4ff12fd6"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "d46647541f32462be2619d13f1ed4e3f41cef082",
+      "sha256": "5a3f37cc48612893ed57e7abbcd4520ed0e6d9511797230a9fd21a9ecd0a79a5"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/compatibility_issue.yml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "60dfc542aa5fa20e2a7cb346969bc5baf590ea58",
+      "sha256": "33c782b2f02c272113bd5a9bc9ee9bb88a01a09e83e20e260ea7e23eab3d9390"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/sidestore_issue.yml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "10fe3a1ad2d5a6fddb179726335d874f02129c04",
+      "sha256": "92c2dc7421d45ff056435b6b11a3a8989e2864cda583db0d0f3bfc7ce6f2e849"
+    },
+    {
+      "path": ".github/apps.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "6fe9fb45891187aa8f000420b64418a9f9320b50",
+      "sha256": "9d04861d9e9b74a59642282d26c83f094626b1118ad9debf2d1e069a770805a4"
+    },
+    {
+      "path": ".github/apps_nightly.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "3dac8ac120d3999d0e2e6b448c7b996de4f86d85",
+      "sha256": "4e66ea51207dd9b23bd8817b472b6775da6d8f85192ef0fee9c96f28c5896fb2"
+    },
+    {
+      "path": ".github/apps_ss_lc.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "94a4ce5df8d9fcb9a3373e29881aae9bb9fa42eb",
+      "sha256": "e1a0561ab2ea698913a93160b35a85bb00aaef78880c72889c0a2224b03382b9"
+    },
+    {
+      "path": ".github/build_github.sh",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "dfa913d8b8343cfaba6e6940c1e2667f2d1ffb49",
+      "sha256": "4a83b9594c13e8f5d2de57433286f7381d4221961bbd4946c0699bcfbaed7e4f"
+    },
+    {
+      "path": ".github/sidelc/LCAppInfo.plist",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "32374a23e8e967b1524570d27052dc4756a4b1f5",
+      "sha256": "0480fd6539fa200afff2e5e0b1dab69935bff04eca17acda9c60350595a824a7"
+    },
+    {
+      "path": ".github/sidelc/LiveWidgetExtension_adhoc.xml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "732c5f445ecb9915a3f53cddaac41299bdb14c3c",
+      "sha256": "1f6bcd298a18abf692bd5bf167179ce5e78d3a4bd635ce12f04f586a0e143335"
+    },
+    {
+      "path": ".github/update_json.py",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "3a7f5a5536341cb5265c2d14a5136b534a55ff55",
+      "sha256": "6f0da214a6742d2fcb315141d646d1119cf03fcbce98f2b289150645a1c5cf3d"
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "2628da6817855bfdd050167b38e209b28582a60f",
+      "sha256": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4"
+    },
+    {
+      "path": ".github/workflows/update_source.yml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1e40d230b933f9d12e2025a7e566cca9bbd1067f",
+      "sha256": "04b6ad467cfe5c6e6d9708a0c720476af96ef0753053ca7918a950550275d164"
+    },
+    {
+      "path": ".gitignore",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "dc051d8ee9144f0cc1dbb88370a327eac44b5169",
+      "sha256": "09cd3e732e1c33302e65498088e13693880448faa5dd4774181c2c0fb8a706e9"
+    },
+    {
+      "path": ".gitmodules",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1b8ff608b0fba36d0a53fc2c32390e4ce0009587",
+      "sha256": "2990fa4dabfb0182aa69679ffab5e6444a45476070894efb20928ebb473c1d0a"
+    },
+    {
+      "path": "LICENSE",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "0ad25db4bd1d86c452db3f9602ccdbe172438f52",
+      "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+    },
+    {
+      "path": "LaunchAppExtension/Info.plist",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1536a52b9a7d2ebf276c271568e61933e223ac83",
+      "sha256": "b416b6ced3325b98b06a1e66e7da640b3c508c8dbb019daa35ac895c763cdd9a"
+    },
+    {
+      "path": "LaunchAppExtension/LaunchAppExtension-Bridging-Header.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "dc0058e323a72d7a0fba1ed4330b26b51f286ab4",
+      "sha256": "354751942937b90db7312fa512e7562309c86e06824175a86a3dc1d25e3dc9a2"
+    },
+    {
+      "path": "LaunchAppExtension/LaunchAppExtension.entitlements",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "41a83f327ce1596bdfecbd6e3bc9286b8153da21",
+      "sha256": "d134ad7d0384f3cbcdbbf8258693f8b3d765d20c955a1dbbbd456ab08d46cc05"
+    },
+    {
+      "path": "LaunchAppExtension/LaunchAppExtension.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "aff2c014705a34dd9c2fae0eab9df89661a223634ace44dcfca04c7a9e46010c"
+    },
+    {
+      "path": "LaunchAppExtension/LaunchAppExtensionExtension.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1a4cf70d417bce6a11057c3ede2f03cb71e6b77a",
+      "sha256": "4bd9304d5cb78791780dd873c0eea067eb45610266a758b1dc8a63aa713e2893"
+    },
+    {
+      "path": "LaunchAppExtension/utils.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "6e5d3c476d20917618c4a9078e50ea2c166ee99c",
+      "sha256": "0d51016e7233c98ae4dd9f51420cb7197bf57760ab0d774b755541b2b1ad981d"
+    },
+    {
+      "path": "LiveContainer.xcodeproj/project.pbxproj",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "9c5d246ce0dd37bcf48c13c4bad780e4f7dfd597cba3a5c570ed578e7f73c16a"
+    },
+    {
+      "path": "LiveContainer.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "919434a6254f0e9651f402737811be6634a03e9c",
+      "sha256": "7f3b00b5c3fdb45242d7b87e1e5c4e25d1fa8129a16c94295ecc4e8ea2235c5f"
+    },
+    {
+      "path": "LiveContainer.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "18d981003d68d0546c4804ac2ff47dd97c6e7921",
+      "sha256": "dfa0f9bb85b95ccba9c6811adadf8cb407fb5d52088e89db83ebc308ec448542"
+    },
+    {
+      "path": "LiveContainer.xcodeproj/xcshareddata/xcschemes/LiveContainer.xcscheme",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "d84a138ea917e4dfb9fa7e1f2343d5c226efe49c",
+      "sha256": "849435ed81da2b5f309a9d10cb4d90e68f45f2fcd2592e698009075caff86616"
+    },
+    {
+      "path": "LiveContainer.xcodeproj/xcshareddata/xcschemes/LiveContainerSwiftUI.xcscheme",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "06d08f4565a948c37f2de2931213b12bd222811e",
+      "sha256": "b47fbc2ca6f7fbfb7c1c4e56e555192ae2659d85f35a6b35b36929f75ab59070"
+    },
+    {
+      "path": "LiveContainer.xcodeproj/xcshareddata/xcschemes/LiveProcess.xcscheme",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "10478a00468b27a4cf13631553b4d807b4a42cbb",
+      "sha256": "eaafd45b0b4e353569300b95dd7233eabc26772ea39086781b679c2dbda73507"
+    },
+    {
+      "path": "LiveContainer/FoundationPrivate.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c093b017e7fa5ad1e7ddea9abcfedd23f4d57822",
+      "sha256": "d125895721e1a282e21ccc3e81c9e6970a4a377decfb6209109923f63b7b28b0"
+    },
+    {
+      "path": "LiveContainer/Info.plist",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "1e002e1965dda600334b73a1f4cf836aa88568b6a1f99ef8060a09518bab81cc"
+    },
+    {
+      "path": "LiveContainer/LCAppGroupIdentityRules.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "6e21323f11e5aaa11b22e376cb5f62cebe02f89babaac9a5fd2086f4a988c724"
+    },
+    {
+      "path": "LiveContainer/LCAppGroupSelectionPolicy.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "1fe76564b89bd431924628249aa36484b86e47943aca4f754fa0fd66d6b91a96"
+    },
+    {
+      "path": "LiveContainer/LCBootstrap.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "19f1a15fffa162e56eedf7059fc3c756fcc3a002a0d94143ce8f7d15ac37498d"
+    },
+    {
+      "path": "LiveContainer/LCContainerStorage.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "f732b42eca5e3f20cf407338837aceefeef61c5243b493d84e6d709e3efbfbcf"
+    },
+    {
+      "path": "LiveContainer/LCMachOUtils.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "93c3e4be5fab0b1d702c5828a58446d7a52c4626",
+      "sha256": "69480290f8b81bca7f77d5906381053fee24bb2a1ea4669ab4307cc0185df5f4"
+    },
+    {
+      "path": "LiveContainer/LCMachOUtils.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "54daa2dc8c6c7159dbbf71df19b0bb2681624996",
+      "sha256": "e6cde527ea1b2675a92877c58f46d9940f58071876d4bf6f9b9185010aac9a1c"
+    },
+    {
+      "path": "LiveContainer/LCSharedUtils.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "daf7b7b852928545dcb4cf284ecb67453f65ab71",
+      "sha256": "523527bee6b6ddd97a337e89a1c0033903610de5ea8ff963de2728183cd33d66"
+    },
+    {
+      "path": "LiveContainer/LCSharedUtils.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "48b45f4c7941a500fd8b46f955596407bcf17f470d289431e6bf6b14a7505eb0"
+    },
+    {
+      "path": "LiveContainer/Localization.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "9e32328e67ef3375246dfafb95be97c12d4d3d87",
+      "sha256": "787a23fa0ae9ac33b84ed2b67ba6b07b8426288bedfa082c61affee4c6729ad3"
+    },
+    {
+      "path": "LiveContainer/Localization.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "a0bb2726ca8069498ba90402cda4e978f8edf937",
+      "sha256": "23b985710c6a6ecd3016e644d81c7de39953115638ad3883d2cfb72f1a685bdd"
+    },
+    {
+      "path": "LiveContainer/Tweaks/Dead10ccFix.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "76cfc7e3fcbc2220183168b2b77b5e78c3334d971ac01e5793cc3ea197e85690"
+    },
+    {
+      "path": "LiveContainer/Tweaks/Dyld.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c1dcb77c8738b71f35367d9ef73a229e60757c8b",
+      "sha256": "1924ac50bd2c4111d629d0f2b41de99ba47dd118528c55b0dfedaf9b8cd93318"
+    },
+    {
+      "path": "LiveContainer/Tweaks/IDFV.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "204f66134737517ead2a0b619fb87a2d5020be7e",
+      "sha256": "cb634944222e21d747a761d4b779b1712362c8c6bacea1f8f5eb02c1cd4c216e"
+    },
+    {
+      "path": "LiveContainer/Tweaks/NSBundle+FixCydiaSubstrate.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1c0642e6ac4f2d202a005fab165efb5d3d95a16e",
+      "sha256": "d3f91c7ddd0f8b8ac3883e88abc866a13a2968e9da85e1743eef05070a577baa"
+    },
+    {
+      "path": "LiveContainer/Tweaks/NSFileManager+GuestHooks.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "edb884e1f0d8bd4aec9d3be24f3bdf278a8bc8ad",
+      "sha256": "288381fc425f786d3e36f9830a3a4bd8485a7791be774c5077bbf4be7e8bb65e"
+    },
+    {
+      "path": "LiveContainer/Tweaks/NSURLSessionConfiguration+GuestHooks.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "18894e7dfbb5bc0808ba32a7b3420d89f4002c34",
+      "sha256": "e1758eed2bfbcccdbdfbc28373475f65a3a53818eb7eba4bc922383f0df25875"
+    },
+    {
+      "path": "LiveContainer/Tweaks/NSUserDefaults.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "d6074f17b7ff77683e6aec28d76e75f2dffd0dbc",
+      "sha256": "2515e8888f3be913c543ca8fc051b2d29288055ac24d6f1e16ae1aa1296ef021"
+    },
+    {
+      "path": "LiveContainer/Tweaks/SecItem.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "2f10e0359133ffc48162cb31ef87289322c0d2f5",
+      "sha256": "a0d862b4c826d678b05d8dad57692383a7c8e33b1c6a32a3971bf9120741fce8"
+    },
+    {
+      "path": "LiveContainer/Tweaks/Tweaks.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "daf8d7f42e038fb618842e91a5e2875af2618c17",
+      "sha256": "6725d33ac7d2ef3727ba79516ff373c51ccbc28436f25583f1ce9fc04c9c86c4"
+    },
+    {
+      "path": "LiveContainer/Tweaks/libproc.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "12ebaacc1e98072602edfa59e5c2cefae53b0021",
+      "sha256": "9d5b3183d7d3c2fe0ed916f8e3df196482725cc613e8f1f345beeab86e837486"
+    },
+    {
+      "path": "LiveContainer/Tweaks/mach_excServer.c",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "f1ae7bc882b54e629aaa1cf352fd4e69f0f38a7f",
+      "sha256": "47ff7150ebaff0a41b985cc7e7ac3ce180e03d1d21ab5f149e6f6ea7769b6fbb"
+    },
+    {
+      "path": "LiveContainer/Tweaks/mach_excServer.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "6532baf6374ec8204500abeed0ea8a2ac5f36c68",
+      "sha256": "2710aa08f4a576ab98be3643cbc55f66e308aaaa32aceb253a9c5a6e2276e23d"
+    },
+    {
+      "path": "LiveContainer/Tweaks/proc_info.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "d42a18f8229f7e513d937acfb74f1a94dbb01baa",
+      "sha256": "b8a01cfb86cdc773f3015036e5471e878ef0d64c840df04ac621390b8808d16f"
+    },
+    {
+      "path": "LiveContainer/UIKitPrivate.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "ecf20a405c698a67ca4c40d11cc12ded7f501619",
+      "sha256": "8b36de2c66f0ff36188d40eaaa95c9cef0a612ffc1434a9358547f79b6835118"
+    },
+    {
+      "path": "LiveContainer/dyld_bypass_validation.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "da8c0eebbd34fa31a912b6118be955bf8027a30b",
+      "sha256": "757d839ce1846612ab733bb622ac15e4d8932bda23aea1ac1cc8b5cd1a2bd279"
+    },
+    {
+      "path": "LiveContainer/dyld_bypass_validation.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "2ecdac2662850e7b4867b46be5f51517c2bd89b6",
+      "sha256": "90d6905ad6d1d725799ab2e5ee90ec8678116665cf4767696fdf93fe8378b393"
+    },
+    {
+      "path": "LiveContainer/main.c",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "ca8dd3cfd3e0e4a19120ecad1cf693d94dfb5116",
+      "sha256": "07c6ebfe495069df0cd0a9f44e607c117e254391184e9e231c5a35dce6efaf8a"
+    },
+    {
+      "path": "LiveContainer/utils.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "665eeeb6fc55928e276fd64b224f3041aba6ec54",
+      "sha256": "94d9debc2fe2ddb1f069ff15c22a31c531002ff4569215904e07f54eead8a715"
+    },
+    {
+      "path": "LiveContainer/utils.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1612b3372a89316e2cbf89fa6bd744b91c2d5f24",
+      "sha256": "9daefa4ebf16263bb722635a5d2123e2519f7a10eaf6713e4c278b6f4784a8b1"
+    },
+    {
+      "path": "LiveContainerSwiftUI/App/AppDelegate.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "61556da1e6abe23bcf8b63d9e8b3278efee9c198e8dcd39eedc4a774e7969a79"
+    },
+    {
+      "path": "LiveContainerSwiftUI/App/LiveContainerAutoRefreshAlarm.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "e67daa3dfcf257cb0256bf4f3dd6f69407c9d72368ba699e672b158eda75f004"
+    },
+    {
+      "path": "LiveContainerSwiftUI/App/LiveContainerSwiftUIApp.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "d68e1b5a847e8c9b6960f5379ee82a7b3841adcf9eaf9a4c4399273fcb34a9e5"
+    },
+    {
+      "path": "LiveContainerSwiftUI/App/V3SetupAssistantIntent.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "b167b6e19d1fbf5ce5faed56a26337cf6435e9c917148c3fa281a77738230f02"
+    },
+    {
+      "path": "LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "82fc317dddb84b4036f363302145094c464e90b3",
+      "sha256": "8839f778fddcc63214ee1a4bc0c32c1f948c673b9ec5136957b958cda069e08a"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Models/AppLayoutStyle.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "fd076c15a4827bf235558a85ad8515849ff5cc824c7b2f30d3f9633eada7e45b"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Models/BuiltInSideStoreAppInfo.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "eef3a59d14f1cd43fe21bef3c1510e83f62332f9",
+      "sha256": "725ddcbe69b3fee2516efe0295079235bd432ef5a176396e5a22d4db246dac7b"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Models/LCAppInfo.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "8814f4f9e54f91d708ab3adb3a7f751668126d7d",
+      "sha256": "cac14720a5ca644e6d03ced90d26c84f79e6e22e38279794a2bfa66dff00a36d"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Models/LCAppInfo.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "0c768900ed564fb6380748858c7a70c40c1bd990",
+      "sha256": "adfaa09de5312c3b6c3e9f5aeba2da57ffe2b5341b105477553f6b335b1ee195"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Models/LCAppModel.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "8061f8b8a0f5c1eec66d3777acf071bf137c57781c561fb480d066343921caca"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Models/LCContainer.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "4d3814d2e15f9a62f083ad7614bcce2f05408179",
+      "sha256": "ca830810d4c8276aa1676a2ae5e2ac3e2b76e11f2722ed3b4d72be63d2425301"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Models/LCStorageManagementModel.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "ea449983827f6989fdd443dc74bed4f9f24eb854",
+      "sha256": "364d2ca1c3edde5fe87cf2bf57c354d309d5104353406681cd4dd85b739a7a01"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/IconServices.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "8717b834f3b63fa4d367653fdb9de1d2485234ca",
+      "sha256": "67b073286a2bb8793b4e91c948fb259c10b03834addead24032fa767555c2276"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/LCUtils.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "af76afdbf9bf4e318f20340f4f663253102a32bb4402f6d002f79c5cdf5851ff"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/LCUtils.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "2a01174f6d2d149be630f30fefdcec46dbfd9a5f331e50b9be771b3ebbee9a1b"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/LCUtilsExtensions.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "7a5021f8758ffb66b8a0fd868722efa6b3ed9d3460916e7dfe47e4132159aecf"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/OfflineClassicModeProbe.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "28453401ad20462bf61cea57c908cb32f7a02fce",
+      "sha256": "dd16cf82cdbb0e459ab187edf73a446892f65700bccab0f5afa58b52eaa1029a"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/Shared.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "8c3d8f80f25a29ad794fdb3ce71e461ece359175449f559249d4fa118fb3e455"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/V3SharedAppGroup.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "5df142bd417b4c8065d688ef5ab49f58c6670ce858e91fee03bd4ac81b1e71cf"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/ViewExtensions.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "0af6b884c38694a413c3d0d4c20cb38f0bcba0ffec479c0117ef5335fbd5e998"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/archive.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "75629a8ca306abc0c7600516a52f32a13641dcac",
+      "sha256": "8d18b5976cb240a7576d863c2469c089e99693fa712587f507373ab9266b6c44"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/archive_entry.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "64e0f4a612c5d52a24ce2b9160100809c7382d52",
+      "sha256": "0e94700970ae7cc2228d0a6a49c9473de58d358a23b66df3c91740577dbe24c7"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/unarchive.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29a6b8702bf20c8f7323fcb98b82402566f0efd8",
+      "sha256": "19bcb6a72de635c9e5ba90b09b64acd81ded0650959c058072e42b4ec0826ef4"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Utilities/unarchive.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "5286f5745636c54cdc2197af84dd11f7c7fd15be",
+      "sha256": "d488d14ca9a23e9f30d20c171bf70588ed9da1ec56c7b0c735f46e0e2c4367eb"
+    },
+    {
+      "path": "LiveContainerSwiftUI/ViewApp.intentdefinition",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "8d8b3a167893bf346ff7f1fd89112471c8c50cdf",
+      "sha256": "8d687866c977fb8ca9cf7f197cc32ead1032b54252cd765d481cb172d836e3f1"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/AppSettings/LCAppPreferenceView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "e4f52194be892a5744cbdf5d0a7f0b1e7487fbbe",
+      "sha256": "bc7e20e8998a4fc4a98b9eb6544ca32853ea7f2429f6b1f8ffe662265e0c46b6"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/AppSettings/LCAppSettingsView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "f7a9cf79a894e927f29e70ec6bf3395bdc65092f0a146dfa927832b9abab4c73"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/AppSettings/LCContainerView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "802dd8653f485053bd2be2c1f1e74eaeb0c30cbc265f1e8d211b132756cd5164"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/AppSettings/LCSelectContainerView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "6d6518c4703edf2952607de0db5d23b17e02ce15",
+      "sha256": "c10e20ba0a67a8d7f4391422c2b286a6441e11d5d42c718e8900e1cc7cd8d1db"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCAppBanner/LCAppBanner.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "e9852b8c875b17a94926eaefc56fd8c70f2762bb70fb43570d75a0ec30686c1f"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCAppBanner/LCAppBannerView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "c1b7de64bff406131ecf1c90e356d2b88e6a02a8d8c3fe4f755f219412870da8"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCAppBanner/LCAppBannerViewController.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "03ea5b3cc3e93609fd98358cbb7d83a0a6dc383969b4c2b2a85c44269c0163b5"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCAppBanner/LCAppSkeletonBanner.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1dce8d221897fe681250b5736bb6d6da422aa702",
+      "sha256": "508632e11424188544c4ec0d9ce65e910163ebb99c2f629ed5dcb7305591c61b"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCAppListView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "091ab0e20b6b029127470d55b41e2748ab21d043eef1a2fcd8cd8d782de9533b"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCDownloadView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "dba9ecb6e9121aefcf04178959a262ab2e2a6fa3",
+      "sha256": "d60f3e18f3854bc9b9b55f8577ac3be20167178d56e05d8a1610890aa5240b1c"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCGridAppCell.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "c7984d420f525e4aea6879d69474d0ac8f4cf96b1eff7566a368d7d4c7f3a910"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCHelpView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "63f80fb653a00ebd43de84421ea45ca8048d6361",
+      "sha256": "7995b9e570959dc8b65cb6f90ff94d59aa281f3c5e05eca9ab5628f8b0b48f54"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/LCWebView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "26e070e8e46ca0b34f984a19f4a8f952f25b558ecd7f9396651da93fa009b84c"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/Sorting/LCAppSortManager.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "7fa75212437ed50efd382901616aa87e69868399",
+      "sha256": "475deddc17aa7f4360c313c7863894cbd83c732091f6dda0c2a4ba8a7a476833"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/AppList/Sorting/LCCustomSortView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "6d31e3814beea906fe64da2935605fb39ce478e7",
+      "sha256": "51366eeb61dbafc9f9fa94b3ca49cb345f01f0fcce8e7db3d85a645e800684e2"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/LCAltStoreSourcesView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "84120a6dca9a1b9fe0932d9d7753b5368dd01684c911ec8d07e047f96e8d8a3a"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/LCTabView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "6859c307caacbac6e9b9443c45b608062261d353dd8dfc6cb8b04176d49262e7"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/LCTweaksView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "17103a2c36ac6c2c89797c8ad4be47f3d8c6719a9cb011527f5a1e09bf12f739"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/Settings/DataManagement/LCDataManagementView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "6c3ed8fbe8bb2652409402dde0a789248d91de628cbe57641897204a0840db0f"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/Settings/DataManagement/LCStorageManagementSections.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "6246ccefabcb3753a84174b7d032adab68b3f82aa4290953d077d0b4f34e2ea3"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/Settings/DataManagement/LCStorageManagementView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "7a148b83565edb0c210d0ecaf3720b878a8ea8f9",
+      "sha256": "345d7209da0a082dba86bf676dbf9a0de36fc9cecc7e50a97ee335b88e8f1cfd"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/Settings/LCEmbeddedSideStoreRefreshView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "2739650a91d535d5d54189dfd84d19d244d4cafd583cbbe9aa24752f4df43f5c"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/Settings/LCJITLessDiagnoseView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "0dc2122c5a1ba0c7d324bc811963afc61d8af0f7cc0e029bc822d06d9fea2e2e"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/Settings/LCMultiLCManagementView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "9eaa7ba5183432a6a5f63e8776526784ec66e1a170d3fb92cec1214bde03a330"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/Settings/LCMultitaskSettingView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "d250173c690c82747971ef782c4ad67e8b4c915a4e9178a889da3ff1fa5c1a90"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "3ffc638e9b4a143c319efdd6c6d702692f440973f7aafae6db91d381eef1f6a8"
+    },
+    {
+      "path": "LiveContainerSwiftUI/Views/V3UnifiedShell.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "7a2def783c208768f0188e994bd77dd1bdc0dde250f6b2fd4fae07b5b36d39b9"
+    },
+    {
+      "path": "LiveProcess/Info.plist",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c55cf3cede7c246f6bc95c1980af722c95893d26",
+      "sha256": "68c26b34a527b7f1980fb22a9ef9b8d3b28fb73de1fda4407a819cb14fba17dd"
+    },
+    {
+      "path": "LiveProcess/LiveProcess.entitlements",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "cb4f20cae45ff7711a98ba5d5de294ce43277131",
+      "sha256": "65a2cb60b858e710603fde7070bc20d4eefffb7cfd7a2dc0fee57c74f2892f5c"
+    },
+    {
+      "path": "LiveProcess/SideStoreLiveProcessHandler.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c741eba13feabf514d8667a9e5afff20bc14c3c7",
+      "sha256": "c5eb5191260add7f417b358a9ae08465fdc53d2da71626aa6fdc6894a4471acc"
+    },
+    {
+      "path": "LiveProcess/main.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "9cfa9ac047bc7702de1915cc4703cb4544a86436884b401e6565824a60bf77c5"
+    },
+    {
+      "path": "MultitaskSupport/AppSceneViewController.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "bceeb13905d138c11116f7100474ec77ab9b1956bb00a11678de55d1dfdbc0b7"
+    },
+    {
+      "path": "MultitaskSupport/AppSceneViewController.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "0d0045dae1c1dbddcf0f327c6183a6b4f89ee71cc8ba879f88033140defedf4e"
+    },
+    {
+      "path": "MultitaskSupport/DecoratedAppSceneViewController.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "039218e31890579162ea2685e65f6e415c596769",
+      "sha256": "2f20d734555cc0b23d74830f3941a6727f694f22c95e6d2a254d14f4d038b73d"
+    },
+    {
+      "path": "MultitaskSupport/DecoratedAppSceneViewController.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "f48d44bed7cdd1421bd4b275e1fb0d6469d67c4a56894388f1a0188efcfb7c4e"
+    },
+    {
+      "path": "MultitaskSupport/LCStatusBarManager.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "49b779050450d184f62133c65ba4610531493ef5",
+      "sha256": "8f69db402a945fd2c46c8f42ba6f8ee2e2d7108cafccafad45e9cb19523e5b9a"
+    },
+    {
+      "path": "MultitaskSupport/LCStatusBarManager.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1bd8710289e496476a3d84551d0d2a4ca5493daf",
+      "sha256": "157fd2070e5949256ee6c5188d2860d5d95c158519241efa5cf06adcd5c2a57f"
+    },
+    {
+      "path": "MultitaskSupport/MultitaskAppWindow.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "339014d9da850cef429a5c053100149c7025307d9aef9c09015caa12fc4167b3"
+    },
+    {
+      "path": "MultitaskSupport/MultitaskDockView.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "d8c7ca145482289f1fe9fe35aa571c7b91fcb30bd9ae5c59447142f75f0f147a"
+    },
+    {
+      "path": "MultitaskSupport/MultitaskManager.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "e02cd57e59852e45f61bd1f02fea048f095135d6",
+      "sha256": "992b2ff1e81f16306de53345152b73dc850deb34432d2a37a9537aa79d8dc31f"
+    },
+    {
+      "path": "MultitaskSupport/PiPManager.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "4c68394090ba8618d68bf7adae91957283a72991",
+      "sha256": "bf480d73d4aa0b8c9fa3e560509ba26aca84d0fd8ffe8fa2dae61089a4c367b6"
+    },
+    {
+      "path": "MultitaskSupport/PiPManager.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "5d4bbe2d45e28c2bdbc999f613435fb287ef5310",
+      "sha256": "52fde233c213519671b9c54b774c515fbb52981ad69c470a35721ac85042f77a"
+    },
+    {
+      "path": "MultitaskSupport/ResizeHandleView.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "d421e04f9e6db348f3a23716f7e989acd9169d5c",
+      "sha256": "597152b8f3158dad4e3de86659be9de4e489157ccc4562499cd2f0fa6e8119b8"
+    },
+    {
+      "path": "MultitaskSupport/ResizeHandleView.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "caee87696957cd69a93be8b5a01afadc5ca35613",
+      "sha256": "ac518dc9b8b05a5a62ab53042661f302e0705fc8173e3708f519d22717b7cf88"
+    },
+    {
+      "path": "MultitaskSupport/UIKitHooks.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "2ee54f1993d71b5770052722037197a756b3fd26",
+      "sha256": "eb0bcc1693fbc1a7dba7a2560b624eea5d42ed4e0472b4fc835137ba4d705dba"
+    },
+    {
+      "path": "MultitaskSupport/UIKitPrivate+MultitaskSupport.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "775b95e4fe68d898363944426fc8d267feede72f",
+      "sha256": "164cbcc6b21094c1caf973ea1b1103f6c4fb2ff1364a92fb00f9b1ca9fc8d252"
+    },
+    {
+      "path": "MultitaskSupport/VirtualWindowsHostView.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "42f7eaeadb0bb04e5f1b7ae620b42ed2ea839f52",
+      "sha256": "b580c888903c69f21fead6d7107877dea6687392dac99fa641eb99f77042596d"
+    },
+    {
+      "path": "MultitaskSupport/VirtualWindowsHostView.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "841bb421c3283629f6517436d9e27b7bce94a16a",
+      "sha256": "3b31573f5ef5cf7d8d7ceb0ae72869eca97f52609957997174a4d820863bd785"
+    },
+    {
+      "path": "OpenSSL",
+      "git_mode": "160000",
+      "kind": "commit",
+      "upstream_object": "623c84da314e85363236507ca38a4bde65df21c3",
+      "sha256": null
+    },
+    {
+      "path": "README.md",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "4103524a67ad0a032f7cecf71f93ce1f3f4ceba7",
+      "sha256": "fd23479a4a222944681119adbc9ab378ac62ef3e19b4c4e974c9a970904568a8"
+    },
+    {
+      "path": "Resources/AppIconGrey60x60@2x.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "9955a297286a226357997903c44bf8ce3cc2dac2",
+      "sha256": "6cac2e035e0b6e6cab7ba66eb1cbb11b89dcbee502568a71fa7c1e4e71cb33f0"
+    },
+    {
+      "path": "Resources/AppIconGrey76x76@2x~ipad.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "fa151efd07725a7d7e1567f0cc44a11c6c21832f",
+      "sha256": "c4de824cc04b181e5d22f3e9d0f456d6dcd373caf15b7cbe1c8bbef503e04149"
+    },
+    {
+      "path": "Resources/Assets.xcassets/32BitBadgeColor.colorset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "12ef47c020898b108a474b74115ad44e5e50bddd",
+      "sha256": "caa9287357535fc60442a1fdc131a1de406d307e2d7387dbad47004b5030c54a"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AccentColor.colorset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "01c1a32f98b6f23c4e11614750d3e5c88db6b7db",
+      "sha256": "33b4a9fb5f0f7b76c71e1b239214172c971d44717e0a1450af32f338cc4be8e4"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppBannerBG.colorset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "cb12ea5a2eb83d95751ae6bd7816a094b3c0dba1",
+      "sha256": "98f268696d4c1c1ccad7b6908e6be876e5ffa5e340625a296f7a5954a4ca5d36"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "b204acdcd6812c01224c6d71de61a8f375e4987a",
+      "sha256": "51620f4401211178a166e0d175295350081dd57cdc39da8f17e209cc259ae143"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIcon.appiconset/AppIconDark1024 1.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "43910df47aa2e64c8b71736167c7cf91301a6346",
+      "sha256": "53c782e4a0cb24528e1e7524fddb1387aa754e1f95d3d690accac9daacd6359f"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIcon.appiconset/AppIconDark1024.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "3d7baa28ee78044a4fb02786047b856d48124398",
+      "sha256": "4ef8d8ca6c3921d6bd4b478606c7a238359685b6949e402c1c6c260720d540f8"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "9b03a09bdafcd9b3fb50572ddc2c16d661a79609",
+      "sha256": "98fccbfb151d04ccd5e35b6a9069d84fcc98fa1e020b43e73d29e7ce75ec05f7"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIconGrey.appiconset/AppIconGrey1024.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "3c91feb0a18bb1b0441ef77af21cd8bc88177e63",
+      "sha256": "2057695217d3c34927a1fb07fb18fed657374dc080bf6094e6ad119c2e4f27d0"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIconGrey.appiconset/AppIconGreyDark1024 1.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c4b9956640382f3d5c89a0cbb202762f32fe5d09",
+      "sha256": "fcc8413f702bc192a44930d22c39474ef7d47cb6ddb5293270b21d7d2c18eac2"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIconGrey.appiconset/AppIconGreyDark1024.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c4b9956640382f3d5c89a0cbb202762f32fe5d09",
+      "sha256": "fcc8413f702bc192a44930d22c39474ef7d47cb6ddb5293270b21d7d2c18eac2"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIconGrey.appiconset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "8a72cb0752cdf2b47cf36c396f2dff06390c357e",
+      "sha256": "6ab9bae625985110244785c89d78eb57c5570242984e1dda06efd3b1ddee09df"
+    },
+    {
+      "path": "Resources/Assets.xcassets/BadgeColor.colorset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "5b2f605c0a74215c70e34aad9a391b7b1dc31978",
+      "sha256": "123780372c2121ab1ea31fbbd8be663480390729c3e042fe4c204f91eee6e4b1"
+    },
+    {
+      "path": "Resources/Assets.xcassets/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "73c00596a7fca3f3d4bdd64053b69d86745f9e10",
+      "sha256": "0fd49ba3c3585c709678e0046a821c3c60685ec7063720d30d3a3448be3a208b"
+    },
+    {
+      "path": "Resources/Assets.xcassets/DefaultIcon.imageset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "3a64daf46d3ab74a2078d5af73ae0f165cf4658a",
+      "sha256": "371ef347510220aedcf4cc782d0fa3b5eaa6877bd975fa5bc55bbcc7bef2eca7"
+    },
+    {
+      "path": "Resources/Assets.xcassets/DefaultIcon.imageset/DefaultIcon.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "e4d0c3371f4dc4679fd845d3cf06d70f7b1aca29",
+      "sha256": "b0a69de03682904c4861f1a7473a5e9e5e382e67e10bcec37551d374bcc99315"
+    },
+    {
+      "path": "Resources/Assets.xcassets/FontColor.colorset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "096145147ef257d6f1928762dcce132514a50b6b",
+      "sha256": "09456b7f69641d483ad3b469105e3882c80b3c5d501c45843aecc8d800da4e6a"
+    },
+    {
+      "path": "Resources/Assets.xcassets/GitHub.imageset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "79ee99ebca67c663677461b76a4700f8e13baa21",
+      "sha256": "37106c8abadbec188f8a36512f29c4f7c4f98fbe72ae555831beffa64dc698a6"
+    },
+    {
+      "path": "Resources/Assets.xcassets/GitHub.imageset/GitHub@2x.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "bc4a373789eff43584cea70b21d04f0a22768874",
+      "sha256": "29718a1007f94fad32905fc3703353d44c505e9712811b3e2b8824fc4236d2e2"
+    },
+    {
+      "path": "Resources/Assets.xcassets/GitHub.imageset/GitHub@3x.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "991894192f5fa322660def64d4ff273927251370",
+      "sha256": "c0f559f02be300407a85823503f8f2a0d231e668725f00bdd816bbff68fdf30e"
+    },
+    {
+      "path": "Resources/Assets.xcassets/JITBadgeColor.colorset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "cae52b1c62b17dcb07a48e94c2400b2e1e2922f9",
+      "sha256": "de21974add58ca1ddda03c1495165dd8c235e873d15ee6a024ec321636ff6063"
+    },
+    {
+      "path": "Resources/Assets.xcassets/Twitter.imageset/Contents.json",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "65a02fafc1fb50ae2a8c396895eca8bd9d8576f2",
+      "sha256": "9f28e93aeae3dcb9a41974f16e1d133e09bed03d9a979c9486d05d4409f719a8"
+    },
+    {
+      "path": "Resources/Assets.xcassets/Twitter.imageset/Twitter@2x.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "72cf57e5fe29e73e46f8970bc53aa56679b8cbb2",
+      "sha256": "827b7601f8a8b1a282fc5252ac275da752312277f5e1bb3a11da955f2f0f3b78"
+    },
+    {
+      "path": "Resources/Assets.xcassets/Twitter.imageset/Twitter@3x.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "ed324ce5b024917844a108a0b3d962a26e9acf68",
+      "sha256": "c1e7d0a64c315768aca9072a3e5ecfeeedcc24081d3af0eba04609aa6cfcde9c"
+    },
+    {
+      "path": "Resources/DefaultIcon.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "e4d0c3371f4dc4679fd845d3cf06d70f7b1aca29",
+      "sha256": "b0a69de03682904c4861f1a7473a5e9e5e382e67e10bcec37551d374bcc99315"
+    },
+    {
+      "path": "Resources/Frameworks/CydiaSubstrate.framework/CydiaSubstrate",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "8deb4185968db5df964ed76c113bf58c4b31eee9",
+      "sha256": "bca859c9413cb85ca0d3ecfca494c61d67e4acd5846660e618526a152963965b"
+    },
+    {
+      "path": "Resources/Frameworks/CydiaSubstrate.framework/Info.plist",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "621e78a404c28c843581671f516dbe5dee781501",
+      "sha256": "e4fc927cb1eb9e7d6397dad1972cb016e463265d2c95fc30422cda394d5ac5c3"
+    },
+    {
+      "path": "Resources/Frameworks/CydiaSubstrate.framework/LICENSE",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "83ac4b77e0748e63899deb4581cefde15376a546",
+      "sha256": "ac3842df55783a43c093806730c480cecdd3c011dfb7fd001ec1ed5258fb0c08"
+    },
+    {
+      "path": "Resources/Localizable.xcstrings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1b13904e8103e92c19309b8e4cf3a3739fd07a81",
+      "sha256": "ba1d08c47bc9137e4fe0ae263f556fb1d7ce017185755ae87949f80b4f948eb2"
+    },
+    {
+      "path": "Resources/Settings.bundle/Root.plist",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "7e594bbe3a9b3667fbf2047bc01befad1c006a2e",
+      "sha256": "47a6937c3fe04251447835e7618ab1741bb5d097c34c1b9f15b96be101196d99"
+    },
+    {
+      "path": "Resources/ar.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/ca.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/cs.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/da.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/de.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/el.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/en.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/en_AU.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/en_GB.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/es.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/es_419.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/fi.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/fr.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/fr_CA.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/he.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/hi.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/hr.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/hu.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/id.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/it.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/ja.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/ko.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/ms.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/nl.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/no.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/pl.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/pt_BR.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/pt_PT.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/ro.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/ru.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/sk.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/sv.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/th.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/tr.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/uk.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/universal.js",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "fb6de3b5cc64d47a8876c1a4f96dbac33eee6d14",
+      "sha256": "086fe817349c526b414a9e9fb04892544f1658d77abf31524311220a40c7f021"
+    },
+    {
+      "path": "Resources/vi.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/zh_CN.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/zh_HK.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "Resources/zh_TW.lproj/InfoPlist.strings",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "29e6f3187646c542e2dc061c80cce145f3f4712b",
+      "sha256": "144837e2d4a9f42c946d4fed5df3de3b14dfdcaaa252b4fbc5b9b3e135d00f4f"
+    },
+    {
+      "path": "ShareExtension/AssociatedDomainResolver.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "2d2f31cc8a00e12e80de3c4ccbe7bb6ba7876428",
+      "sha256": "43518824dca82b4669cfd16db605502b795df0121ec372245f6a17994f5e29f0"
+    },
+    {
+      "path": "ShareExtension/EXExtensionContextImplementationHook.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "58768aa7deb487f6e9205e8584eafec58b7a8473",
+      "sha256": "32917d1c1e1c10cc314704fa3559fc0244b324695647eab9f7df209192aa4a40"
+    },
+    {
+      "path": "ShareExtension/Info.plist",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "e787919ffa879caac8ea8d66ceeeb4fa70be109d",
+      "sha256": "a44759a2c340683770c09b86dc222677bb7003f29c74b809a1ea7f0d60d19e4d"
+    },
+    {
+      "path": "ShareExtension/LCShareExtensionLauncher.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "6d431b819476db0e29365c334fc2624ec70e5487",
+      "sha256": "cb7f84c888f5e217719b6ed7ea18b7b8a32d503b94bd6703d75e6037b6b9b116"
+    },
+    {
+      "path": "ShareExtension/ShareExtension-Bridging-Header.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "ad60ca64a5fa10eb619e7f6f5ac0ce0a1101641f",
+      "sha256": "c72ec201dc70d1740930a74ce184915c244694da26d86090b388d83d23ebad7c"
+    },
+    {
+      "path": "ShareExtension/ShareExtension.entitlements",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "41a83f327ce1596bdfecbd6e3bc9286b8153da21",
+      "sha256": "d134ad7d0384f3cbcdbbf8258693f8b3d765d20c955a1dbbbd456ab08d46cc05"
+    },
+    {
+      "path": "ShareExtension/ShareExtensionHandler.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "6dc85d2bd337fbb14f760b7a4e5af927936d2ac7",
+      "sha256": "292e76da48f96257853f9c219fde1dc587c69bd54bf916f3305d140e14526216"
+    },
+    {
+      "path": "ShareExtension/ShareExtensionViewModel.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "d2bcd0bcdf1df8355776235e4ea72b76630fa04e4b35730ce507e2d1db339ba8"
+    },
+    {
+      "path": "ShareExtension/ShareExtensionViews.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "f97f4c9b64a2da451caf00009dc762877e46e931",
+      "sha256": "fad4b3a9bc5376c94617136611821259cbbef45c6ce485f0d2fe89fd2c2c039a"
+    },
+    {
+      "path": "ShareExtension/ShareModels.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "31c9fa4706a258be30359740e12be03e283aa70f",
+      "sha256": "5477cdb95d5aeb5585f98decc2e097e4813bc8f21146566a9cd8bc855c392d9c"
+    },
+    {
+      "path": "ShareExtension/main.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c50e68a195a6cd42a282ba879ffda5184cffd832",
+      "sha256": "34ca3f540a1ed623d7d23f4b89706de7248637e887f1102be2fdd17b15738dcd"
+    },
+    {
+      "path": "SideStoreSupport/AppIntentsPrivate.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1ae6805d706e48f972202cbc89eb9bbc7dffa3e7",
+      "sha256": "c23164bfa9a9e275a12c0188bb8b5e7fd5cb9f159d0a865c9b577bc06e97afe7"
+    },
+    {
+      "path": "SideStoreSupport/PrivateIntentRunner.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1238de0f52d4100fa4cd3944625b7ac13c4a2b79",
+      "sha256": "58051a16313192d873fab0320bafc401026ecaa0654c8f13f463f006bc794b5e"
+    },
+    {
+      "path": "SideStoreSupport/PrivateIntentRunner.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "12c362cba068f09f47b8bf732f06a70a4abd3774",
+      "sha256": "d5e18eeb8da760099f64b90a258d2469c8b6ab8f1321f657db47374816931f4f"
+    },
+    {
+      "path": "SideStoreSupport/SideStore-Bridging-Header.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "0684261da4287fda500171daed3c06c7cede7233",
+      "sha256": "fa1a2f52ad9a63bc6777d61c3e6bb252f037ee37697f5aac8dc292a3083f458a"
+    },
+    {
+      "path": "SideStoreSupport/SideStore.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "aff80bf38077e7872606d4a0088ca4c79740466e24320b29eba8b8185aca165e"
+    },
+    {
+      "path": "SideStoreSupport/SideStoreClient.swift",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "9e03646c42531af98b150c7866a6b1bb8297b5d8cb285b7a5da739dce985aed5"
+    },
+    {
+      "path": "SideStoreSupport/SideStoreHooks.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "2fef18e4b9f7bb9acb895b175ade4dcfc592ee65151b0afecb51befa1e6caf9d"
+    },
+    {
+      "path": "SideStoreSupport/XPCClient.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "7a83b4d771876ca64fe3ded78a7387eb3e9820307b7b5e474fad64149eddea9d"
+    },
+    {
+      "path": "SideStoreSupport/XPCServer.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "5f435a16457cd31c6179ed77c70c698c4ce2498cbd848dcfa2e5e532d34df544"
+    },
+    {
+      "path": "SideStoreSupport/XPCServer.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "cf8111951e6bd079efc43778cea20051d6099765795a94ba64f2b716525f34dd"
+    },
+    {
+      "path": "TestJITLess/TestJITLess.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "f289cdd58d6d29ea7b493a6cc445123083a3e714",
+      "sha256": "8706dce09b9a444fb578308ec2d5de643c2f57e604a17c9fa34730b971fb6cdd"
+    },
+    {
+      "path": "TweakLoader/DocumentPicker.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "79c1d996d1c9dd8d2899d121f85a2ca1cb147900",
+      "sha256": "0277911782d34b1edc6dfe21bfc362c61bf7220eeaf4eb4f51331001a5c4346f"
+    },
+    {
+      "path": "TweakLoader/Notification.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "05ee995202f1f57d4b875880ee593305a01ca56a",
+      "sha256": "3f8795405ac02907154f4da06ccabf567fb0d4ec312ff2571c84d69ea02bf7d7"
+    },
+    {
+      "path": "TweakLoader/TweakLoader.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "8b91734eee1153bb6b9ed895099bb280a0a909c0d40ddf3c678f7b7a9031d4d3"
+    },
+    {
+      "path": "TweakLoader/UIKit+GuestHooks.m",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "2abc86f092a020598f3772d1935c9234dd128e21",
+      "sha256": "26dda34ab730de54e554c86d3c17967f014bc84c9e7bfc087ac910daf4605266"
+    },
+    {
+      "path": "ZSign/Utils.hpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "d45163499a9904e286553e20f1bd1e6d4a3a742b",
+      "sha256": "3d1b55c0bdda0cc7c312b1e4c21cd853a113b0bd1860e5649094a08505ce6e2f"
+    },
+    {
+      "path": "ZSign/Utils.mm",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c65783573f5e06094168430b8aff26939907b2c1",
+      "sha256": "0b164b6e5587982bb4a886c7f11c6e13d5a60e9b1842249116a6857b722b82e7"
+    },
+    {
+      "path": "ZSign/archo.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c25cdc56c9bb1e893f1e7b51c1445e4575687d54",
+      "sha256": "f957eaf285fe4a57123a502a3a46a1384a05d3ca59adcd2beb685b0d36f38595"
+    },
+    {
+      "path": "ZSign/archo.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "5d8322b721f88e694d14a55c3c5b68bf7e1590f3",
+      "sha256": "5269a71e97a2d3861df92669cb604e4d52e283ddaf2024cbe3554e958f11b960"
+    },
+    {
+      "path": "ZSign/common/base64.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "ec74bc133bef18b0b23925ee616c5c986106b1b8",
+      "sha256": "61e2f90c8f532d852dc76bb9836aabf9e173f4634970c67df96953e31e7654ed"
+    },
+    {
+      "path": "ZSign/common/base64.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "ed4e0de422318530639f5cce7f938d800b881ffe",
+      "sha256": "d869557450d29f07e386e7f5047d3c73d70d22422b94c74e2e6fc4346f43a00a"
+    },
+    {
+      "path": "ZSign/common/common.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1d5ef349aeac754374d015b63428301417b1d775",
+      "sha256": "2a4bf09de8603638fdb74beb9abb32cf233e89cfb043de27d5d02bd34204a266"
+    },
+    {
+      "path": "ZSign/common/fs.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "f321a423b61720b824180e9afdbaa8432fa2bed5",
+      "sha256": "e5069fab7e0c66a854f4313fee9403aeb8204f4fdb9265b5a83842d5e41f3c23"
+    },
+    {
+      "path": "ZSign/common/fs.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "27c900ba578f8641323d14bf5496485d97df49eb",
+      "sha256": "b5fea7e789b87fe91b4cffec54ac5ad2c0edd685d364856a2ee0bf00373671dc"
+    },
+    {
+      "path": "ZSign/common/json.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "cd1ce1c3896aabd3d9104361d1f94531fcd1fe84",
+      "sha256": "154fc5e647e7406742e681430719805c96b8f44894d234f198798598bbeacf52"
+    },
+    {
+      "path": "ZSign/common/json.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "de9f8105417ee18c9ce6be7e232ffbe05a8640f3",
+      "sha256": "16b698e2372e4439c828480faaebdc87c6837d2485486f8abb1eeed30952bf03"
+    },
+    {
+      "path": "ZSign/common/log.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "d91ea1d526c91eeb46430823da373c3521629be2",
+      "sha256": "cb2fe949c74b93895d450cc8c360228029ba749f4e74b16719ca11626b987ff0"
+    },
+    {
+      "path": "ZSign/common/log.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "6cf3f9547c369263e94df1dd75b829837f560be6",
+      "sha256": "5821115fb2cd509edd1b54e2687a077903c74e0d1280d793f9179b3de5f7c1ea"
+    },
+    {
+      "path": "ZSign/common/mach-o.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c024c118a15b8fd77030728db12eb296e6d7bf72",
+      "sha256": "371f4e460b891346014e67de02dfd52ed6ecbef53c128b4aeef46f08b2270819"
+    },
+    {
+      "path": "ZSign/common/sha.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "89a3e2fc742dfe127d67a366ef81de7b6c3cd49b",
+      "sha256": "440852f2ff4b966f9d2db0fceeef156822a396641ee5cc97e6309eb1347fe097"
+    },
+    {
+      "path": "ZSign/common/sha.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "b23e4983146b95689df4b43b660269362606a06f",
+      "sha256": "f01bcabfe7bd210abfe7f5cda609a6bc4aadfd46445f8ba3629a72921b062b42"
+    },
+    {
+      "path": "ZSign/common/timer.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c7bf44c47d55076042ef250ffefbdd24422aa3ac",
+      "sha256": "c41d4cb63a8320567c9e9acb9e243c0efad42941d6719ec7b9701e4df23b2d94"
+    },
+    {
+      "path": "ZSign/common/timer.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "a39da603064ba1aabb53026aa90a5354cfbe127f",
+      "sha256": "5c52ec079a2f6d76faef346583cd3efac9515efd30a74c40d2c42f2130aefb7d"
+    },
+    {
+      "path": "ZSign/common/util.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "3e21250432e0598c79f8f5d572c703ef6e846142",
+      "sha256": "b25b6a9d54a009b7962904e4b0a7c1f9dba8be0e4f2b0b7b0713f0d0304f8dcf"
+    },
+    {
+      "path": "ZSign/common/util.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "a2c69c554242746ee898ff1d78c12e01c0090356",
+      "sha256": "00a9e99aaac14645ad7aa2cbffa5abc913de13207f694d8baba16374bc2ceff1"
+    },
+    {
+      "path": "ZSign/macho.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "9fadcaf47b3d069293cf9916601ed224ec5b4d48",
+      "sha256": "22fe0ab9e94dd8e4999b08b300d1081b33efeaa6a98c4aed6a673ef6d8f59147"
+    },
+    {
+      "path": "ZSign/macho.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "b8ce45b10031438989a1fbd0760470d7bf565e97",
+      "sha256": "a311f0ba66378e875cd509a694ed90e61fdb01358e18fb5ba8f477e4b7ab84cb"
+    },
+    {
+      "path": "ZSign/openssl.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "0da92a8bf42ebbe97ed66765c52bf99b8a913cca",
+      "sha256": "5ba8f44170a0f9ca254c17317dbc2ad02b353451e3a38067591f19770c9a3558"
+    },
+    {
+      "path": "ZSign/openssl.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "2146202de36a7e808899c36b7efbe289dd1c07e1",
+      "sha256": "ee6ef6a8d47efcfcfd2d1076666dced782eb0b7287c05a691b04a38fb38cdc26"
+    },
+    {
+      "path": "ZSign/signing.cpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "5ae266c9ba288f4f9accb1776427d319689a9aa9",
+      "sha256": "6e4fc7e9bd0edf4826d5d97fc9558ef3f62d06f1893d618f8d35b09750e93ef5"
+    },
+    {
+      "path": "ZSign/signing.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "b339e0ff3952eedd1ac7d65edb1a48b149b1ed69",
+      "sha256": "bb0844ab81ded10519afa2f6899503f06d0964fdc3134f2aec0311e35ccdc707"
+    },
+    {
+      "path": "ZSign/zsign.hpp",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "c9df4599032731156af068e973e6c4c0fa91acb7",
+      "sha256": "098f8a9f542a1307b2720db0b5e8a34f764822d8fd29f86dfeae65c019e776ce"
+    },
+    {
+      "path": "ZSign/zsign.mm",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "85809a23f26576d0db4615377665b073de71801850f92ab8ab03495b845a04b9"
+    },
+    {
+      "path": "ZSign/zsigner.h",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": null,
+      "sha256": "fcf360447fb9a482edf236b016ad4c1c4d135ee57da92024ddfacfb9a2e64711"
+    },
+    {
+      "path": "entitlements.catalyst.xml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "f4738d031f849702958520f71348c4e98a145485",
+      "sha256": "0f6d4dddbf34ae83db2dc1a3ed682adc6a1052183289e5a03c40e25d7172b97a"
+    },
+    {
+      "path": "entitlements.xml",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "bf0beb94f3b7f3e69c770d4d2167f37151c7dddc",
+      "sha256": "20a487383a6f3f7c0b9a4c254aa4d69c9f5306d5e02ef5545b2a1059a03dd6a1"
+    },
+    {
+      "path": "litehook",
+      "git_mode": "160000",
+      "kind": "commit",
+      "upstream_object": "8025e0c8ebdf5cdd1d2a4f45025813234bf9dc55",
+      "sha256": null
+    },
+    {
+      "path": "screenshots/1.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "cc6ea5d7e471fccee02ee7d1b5fdbeeff7138916",
+      "sha256": "ca3ed3b6a69f1f145b89e76e5ccabb22ed8ac51c4e57179b76842513af89d8f0"
+    },
+    {
+      "path": "screenshots/AppIcon1024.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "b204acdcd6812c01224c6d71de61a8f375e4987a",
+      "sha256": "51620f4401211178a166e0d175295350081dd57cdc39da8f17e209cc259ae143"
+    },
+    {
+      "path": "screenshots/emptyfile",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "8b137891791fe96927ad78e64b0aad7bded08bdc",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "screenshots/header.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "239c30cacb2ddc6cdb5caf09d54e596c670ea232",
+      "sha256": "664d9c52f2dbeb9f82aa99160f2f05fd9781ae3f8284a1064cc75d14eb1c4dc2"
+    },
+    {
+      "path": "screenshots/livecontainer_icon.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1622c1ec4e72b4195db22acd2fadf63a9839b520",
+      "sha256": "3579791cc8e910ce5465b9ad875917c246c37890d9a1e90fa0654913815aeb90"
+    },
+    {
+      "path": "screenshots/release.png",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "5b60bcf74e7be88e67242e82175380ed90cedbec",
+      "sha256": "e118e1db2249bbe08a0b6837c957a1e21b92b8fc51371b2c6945528c6e1bf84b"
+    },
+    {
+      "path": "xcconfigs/Global.xcconfig",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "98e35ff285d26a853dfd0a390bd31a47d8f8494a",
+      "sha256": "b80b080760b1db08c9a0b134c404a9f468c6139a976ba0e4a8678938d4efac92"
+    },
+    {
+      "path": "xcconfigs/LaunchAppExtension.xcconfig",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "5ee08dceb044e829410a42712bfa8fccf7072afb",
+      "sha256": "5413b3d3ebe960ba452038c2869c8019b65097158f0d06e3112fe77f8b3a1d18"
+    },
+    {
+      "path": "xcconfigs/LiveContainer.xcconfig",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "f7da0b96aa3e692feb921e7d00067a0c7deee646",
+      "sha256": "eb896954fade46d05fd1c4ff90d8741de2d55564b47a11592ce4bc7d48b42c90"
+    },
+    {
+      "path": "xcconfigs/LiveProcess.xcconfig",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1cb72de26469b2b7ad047b2f8472441e095c440d",
+      "sha256": "4b16c9a8ca4d2c85c86e43c008e6a205585377140d4d3eb81596249d7a8b7d97"
+    },
+    {
+      "path": "xcconfigs/ShareExtension.xcconfig",
+      "git_mode": "100644",
+      "kind": "blob",
+      "upstream_object": "1824726bed0fbdc4676fb4cbaf20cc99ffc71ccd",
+      "sha256": "3f4ef9c023ace630cce8f8b3ab11ab70dc2606ffc32648d3015ef5788a496b8a"
+    }
+  ],
+  "reviewed_additions": [
+    {
+      "path": "LICENSES/sidestore-auto-refresh-MIT.txt",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "RUNTIME_SOURCE_NOTICE.md",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "docs/migration/PATCH_TO_SOURCE.md",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "docs/migration/RUNTIME_SOURCE_MIGRATION.md",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "docs/migration/preparation-sidecars/combined-service-startup.json",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "docs/migration/preparation-sidecars/lc-app-layout.json",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "docs/migration/preparation-sidecars/v3-command-patch.json",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "docs/migration/repository-inventory.json",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "docs/migration/source-components.json",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "docs/migration/source-parity.json",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "tests/README.md",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "tests/fixtures/app_group_identity.c",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "tests/fixtures/cf_bundle_runtime.c",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "tests/fixtures/cf_bundle_scan.c",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "tests/runtime_tree_gate.py",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "tests/test_runtime_source.py",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    },
+    {
+      "path": "tests/test_runtime_tree_gate.py",
+      "git_mode": "100644",
+      "filesystem_mode": "0o644",
+      "kind": "regular",
+      "content_authority": "committed HEAD and identical stage-0 index"
+    }
+  ]
+}

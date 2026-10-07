@@ -60,7 +60,7 @@ Run from this fork:
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -v
 ```
 
-Result on the available Linux environment: **19 tests discovered; 17 passed; 2 skipped**.
+Result on the available Linux environment: **39 tests discovered; 37 passed; 2 skipped** after whole-checkout gate hardening.
 
 Executed production-code probes:
 
@@ -94,3 +94,38 @@ Historical integration patchers remain in place, and the active combined build s
 ## Licensing
 
 The upstream `LICENSE` remains byte-identical AGPL-3.0. Imported builder-authored additions retain the exact MIT copyright/license notice from the frozen integration repository at `LICENSES/sidestore-auto-refresh-MIT.txt`. This separate notice does not replace or relicense upstream work.
+
+## Exact whole-checkout gate
+
+The original 56-file delta check was insufficient to reject added source. The
+fork-native gate now anchors product expectations to immutable upstream and
+frozen manifest objects and validates all 274 product tree entries, plus an
+explicit list of 17 reviewed attribution/test/documentation additions. The
+complete allowlist is recorded in `repository-inventory.json`; no directory
+prefix or ignore rule grants permission for extra files.
+
+Validation compares the committed tree, stage-0 index and real filesystem. It
+rejects missing/extra paths (including ignored files and empty directories),
+case/Unicode collisions, mode/type substitutions, symlink and hardlink
+replacements, dirty source or metadata, and index hiding flags. Root `.git` is
+administrative state; submodule gitlinks remain unchanged, empty directories.
+Git is bound to the supplied worktree and its local `.git`, without inherited
+`GIT_*` overrides, replacement refs, graft views or global/system configuration.
+Shallow repositories are rejected, and implicit lazy object fetching is disabled.
+Full object-availability/fsck evidence is a separate checkpoint check.
+The parity manifest is read from pinned historical commit
+`6f5452fa51a4aea2103fc86d3b855bd110ec6f25`, verified by SHA-256, rather than trusted
+from the working tree.
+
+Disposable-copy regressions exercise additions (untracked and committed),
+ignored extras, case collisions, file modes, type-only commits, symlink/hardlink
+substitution, dirty index/worktree, metadata substitution, environment and
+local-worktree redirection, replacement refs and grafts. No production runtime
+bytes or dependency identities changed while hardening this gate.
+
+This remains a local source-integrity/accidental-drift gate. Its checked-in test
+code and reviewed-additions policy are themselves reviewable source, not an
+external attestation or authorization to adopt a fork commit. The coordinated
+cutover still requires separate exact fork/pin admission and whole-owner
+checkpoint review; selected-file cross-repository contract checks alone do not
+establish that admission.
