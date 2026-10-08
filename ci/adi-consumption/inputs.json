@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "scope": "adi-consumption-native-only",
+  "integration_checkpoint": "a939e4c077a51734a73a86805d051b578cce3fa7",
+  "owners": {
+    "AnisetteKit": {
+      "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
+      "commit": "e530b84687ebea2e7d1115119e1a6d18372de14b",
+      "tree": "ca63e018a2ef7e3f0ba759860dfa5f5e6c854065"
+    },
+    "SideStore": {
+      "repository": "https://github.com/NRG-Wardog/SideStore.git",
+      "commit": "364e65211f8678758542e3716e7b757c4dbd35ed",
+      "tree": "e765c3d23c3299ec7e1e57ac31ad0a76a91ff658"
+    },
+    "LiveContainer": {
+      "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
+      "commit": "2a1d297ed94840b134a6ea5111065d228a51cf2b",
+      "tree": "3b34a80de19a31e61a6375e562fe03e69b63812b"
+    }
+  }
+}

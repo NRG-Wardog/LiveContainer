@@ -1,0 +1,56 @@
+name: ADI consumer native validation
+
+on:
+  push:
+    branches: [validation/adi-consumption-native]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adi-consumption-native-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  producer-and-decoder:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/adi-consumption-native'
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      APPROVED_ADI_INPUTS_SHA256: 4bfde650a3654b9211c0fd615ec158effe239703ef6fe04c8516e48d41470d5b
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          set-safe-directory: false
+          path: validation
+      - name: Test exact maintained ADI producer and both decoders
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/logs artifacts/provenance
+          python3 -B validation/ci/adi-consumption/run-native.py \
+            --inputs validation/ci/adi-consumption/inputs.json \
+            --approved-sha256 "$APPROVED_ADI_INPUTS_SHA256" \
+            --work "$GITHUB_WORKSPACE/diagnostic-sources" \
+            --evidence "$GITHUB_WORKSPACE/artifacts/provenance" \
+            2>&1 | tee artifacts/logs/adi-consumption-native.log
+      - name: Preserve native test logs and immutable source identities
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: adi-consumption-native-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            artifacts/logs/**
+            artifacts/provenance/**
