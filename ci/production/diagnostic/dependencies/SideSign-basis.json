@@ -9,8 +9,8 @@
     "repository": "https://github.com/NRG-Wardog/AnisetteKit.git"
   },
   "candidate": {
-    "commit": "c2a3b64315dce924b35a48896e118a7516a5e209",
-    "tree": "3e0d2970e09277a852ba940e5b758085933cd69e"
+    "commit": "3bd4afa0addbf95a8666ac91d8bfcf99f5182eea",
+    "tree": "27329eab36999128b046eabad7a175faf71b03b0"
   },
   "changes": {
     ".ci/DIAGNOSTIC_DEPENDENCIES.md": {
@@ -51,6 +51,18 @@
         "blob": "1bca43fe2fe72105c2e678212aca3130a497f4ab",
         "mode": "100644",
         "sha256": "20bf532e1df402d5c798f9e598a493e0c6a4954dc2bd0e5f37ad703003f516e9"
+      }
+    },
+    "Package.resolved": {
+      "before": {
+        "mode": "100644",
+        "blob": "28daca991b3c78707077a98f7de63b548ed8a989",
+        "sha256": "5ccebb5f4fadcde4377db365de53e3c29806f5ed66ca0e039e7f70dd368343bb"
+      },
+      "after": {
+        "mode": "100644",
+        "blob": "a224fadf8db9782424a8e8427a87f27e28954102",
+        "sha256": "6dfda241326cf0af7b9b77978d3890b28d5205545fb65b6807d6706822a848fb"
       }
     }
   },

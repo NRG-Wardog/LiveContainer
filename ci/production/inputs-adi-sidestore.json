@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "phase": "sidestore",
+  "source_basis": "maintained-adi-consumption-v1",
+  "accepted_integration": "a939e4c077a51734a73a86805d051b578cce3fa7",
+  "source_registry_sha256": "97c9d0b81e9b59c8271ae1155393b2fcb534dc97ea367095d3adfcde8a3783ad",
+  "sidesign_lock_metadata_reviewed": true,
+  "dependency_bases": {
+    "SideSign": {
+      "path": "diagnostic/dependencies/SideSign-basis.json",
+      "sha256": "7ade04c3aa00a5606c4ab79a47ab1d0012585ee3022afd881885e5a90f0e8647"
+    },
+    "SideStore": {
+      "path": "diagnostic/dependencies/SideStore-basis.json",
+      "sha256": "0c1af686436a7c79e7b344b3262d264437350799accd0207a8d401e36e24acc9"
+    }
+  },
+  "resolver_receipts": {
+    "SideSign": {
+      "path": "diagnostic/dependencies/SideSign-resolver.json",
+      "sha256": "6934ed9dad546f437ea8aa44bb7845d047d440e8e8f4712c0b86ed5936618e54"
+    },
+    "SideStore": null
+  },
+  "owners": {
+    "AnisetteKit": {
+      "repository": "NRG-Wardog/AnisetteKit",
+      "source_commit": "e530b84687ebea2e7d1115119e1a6d18372de14b",
+      "source_tree": "ca63e018a2ef7e3f0ba759860dfa5f5e6c854065"
+    },
+    "LiveContainer": {
+      "repository": "NRG-Wardog/LiveContainer",
+      "source_commit": "2a1d297ed94840b134a6ea5111065d228a51cf2b",
+      "source_tree": "3b34a80de19a31e61a6375e562fe03e69b63812b"
+    },
+    "SideSign": {
+      "repository": "NRG-Wardog/SideSign",
+      "source_commit": "3bd4afa0addbf95a8666ac91d8bfcf99f5182eea",
+      "source_tree": "27329eab36999128b046eabad7a175faf71b03b0"
+    },
+    "SideStore": {
+      "repository": "NRG-Wardog/SideStore",
+      "source_commit": "3f0f1e40ac37e1b02f8c375743a46b3ce9ff3a8d",
+      "source_tree": "51cca412801e5236ac76c66440b0d8cea9e163f5"
+    },
+    "idevice": {
+      "repository": "NRG-Wardog/idevice",
+      "source_commit": "803f9368e6b27a43d8a9f22dc0ec281c87883113",
+      "source_tree": "f5ac11668bae97e577e7c4fc098b5484df1c9af1"
+    },
+    "jktcp": {
+      "repository": "NRG-Wardog/jktcp",
+      "source_commit": "32c0210f286b4fd16efe05be4f57167a9d94459b",
+      "source_tree": "e94eaefdcae5fe54a535186e36a0b2ebccc9bf13"
+    },
+    "minimuxer": {
+      "repository": "NRG-Wardog/minimuxer",
+      "source_commit": "efbcab05d7d636aa37c6bf6c7f364d122c5610f6",
+      "source_tree": "30aa947645c5befb0c3210700095c8b039893d83"
+    }
+  },
+  "focused_native_validation": {
+    "path": "diagnostic/focused-native-verification.json",
+    "sha256": "2a1793ebea48380229591240bad2122c72dad2ef8711d8000a1b92ec7a2f37b8"
+  }
+}

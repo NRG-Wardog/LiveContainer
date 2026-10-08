@@ -111,12 +111,30 @@ else
   STATE="$R/sidestore-packages/workspace-state.json"
   STAGE=strict-clean-proof
   # The default proof must already contain final committed child pins.
-  log_run sidestore-pre-initialization-proof python3 -B "$SS/.ci/production-dependencies.py"
+  if [ "$SOURCE_BASIS" = diagnostic ]; then
+    cp "$CI_DIR/diagnostic/focused-native-verification.json" "$EVIDENCE/provenance/focused-native-verification.json"
+    log_run sidestore-pre-initialization-proof prove owner-proof --owner SideStore --report "$EVIDENCE/provenance/diagnostic-sidestore-owner-proof.json"
+  else
+    log_run sidestore-pre-initialization-proof python3 -B "$SS/.ci/production-dependencies.py"
+  fi
   log_run production-child-fetch git -C "$SS" submodule update --init --recursive
   prove sources --report "$EVIDENCE/provenance/source-proof-before.json"
-  log_run sidestore-pre-resolution-proof python3 -B "$SS/.ci/production-dependencies.py"
-  log_run final-sidesign-proof python3 -B "$S/.ci/production-dependencies.py"
-  log_run sidestore-native offline python3 -B "$NATIVE/run_fork_suite.py" SideStore "$SS" "$EVIDENCE/provenance/sidestore-native-tests.json"
+  if [ "$SOURCE_BASIS" = diagnostic ]; then
+    log_run sidestore-pre-resolution-proof prove owner-proof --owner SideStore --report "$EVIDENCE/provenance/diagnostic-sidestore-owner-proof-initialized.json"
+    log_run final-sidesign-proof prove owner-proof --owner SideSign --report "$EVIDENCE/provenance/diagnostic-sidesign-owner-proof.json"
+  else
+    log_run sidestore-pre-resolution-proof python3 -B "$SS/.ci/production-dependencies.py"
+    log_run final-sidesign-proof python3 -B "$S/.ci/production-dependencies.py"
+  fi
+  if [ "$SOURCE_BASIS" = diagnostic ]; then
+    HISTORICAL_SS="$WORK/historical/SideStore"
+    log_run sidestore-historical-source-before prove historical-suite-source --historical-root "$HISTORICAL_SS" --report "$EVIDENCE/provenance/sidestore-historical-source-before.json"
+    log_run sidestore-historical-native offline python3 -B "$CI_DIR/run_diagnostic_sidestore_suite.py" historical "$HISTORICAL_SS" "$EVIDENCE/provenance/sidestore-historical-native-tests.json"
+    log_run sidestore-historical-source-after prove historical-suite-source --historical-root "$HISTORICAL_SS" --report "$EVIDENCE/provenance/sidestore-historical-source-after.json"
+    log_run sidestore-native offline python3 -B "$CI_DIR/run_diagnostic_sidestore_suite.py" candidate "$SS" "$EVIDENCE/provenance/sidestore-native-tests.json"
+  else
+    log_run sidestore-native offline python3 -B "$NATIVE/run_fork_suite.py" SideStore "$SS" "$EVIDENCE/provenance/sidestore-native-tests.json"
+  fi
   prove sources --report "$EVIDENCE/provenance/source-proof-after-native-tests.json"
   # Reuse the unchanged frozen contract gate and complete owner manifest set.
   python3 -B - "$CI_DIR/contracts" <<'PY'
@@ -125,9 +143,14 @@ from pathlib import Path
 p=Path(sys.argv[1])
 if hashlib.sha256((p/'validate_contracts.py').read_bytes()).hexdigest()!='0d5a5aa61dd37f566359312611826ae5dbbae00176c50b1e4c5e2143530bf520':raise SystemExit('Contract gate changed')
 PY
+  CONTRACT_REGISTRY="$CI_DIR/contracts/compatibility-registry.json"
+  CONTRACT_REGISTRY_SHA256=8e7eba95b8bc69037ffed8931478cefd46984b458f767c2a067547e3cd60b467
+  if [ "$SOURCE_BASIS" = diagnostic ]; then
+    CONTRACT_REGISTRY="$CI_DIR/diagnostic/compatibility-registry.json"
+    CONTRACT_REGISTRY_SHA256=97c9d0b81e9b59c8271ae1155393b2fcb534dc97ea367095d3adfcde8a3783ad
+  fi
   log_run production-contracts python3 -B "$CI_DIR/contracts/validate_contracts.py" \
-    --registry "$CI_DIR/contracts/compatibility-registry.json" \
-    --registry-sha256 8e7eba95b8bc69037ffed8931478cefd46984b458f767c2a067547e3cd60b467 \
+    --registry "$CONTRACT_REGISTRY" --registry-sha256 "$CONTRACT_REGISTRY_SHA256" \
     --owner "LiveContainer=$ROOT/LiveContainer" --owner "SideStore=$SS" --owner "AnisetteKit=$ROOT/AnisetteKit" \
     --owner "SideSign=$S" --owner "minimuxer=$M" --owner "idevice=$ROOT/idevice" --owner "jktcp=$ROOT/jktcp"
   STAGE=existing-ffi-product

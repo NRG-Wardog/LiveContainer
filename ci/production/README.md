@@ -93,6 +93,74 @@ checkout; its lock still has no originHash and native resolution remains not run
 Every run reports `production_ready: false`; reviewed metadata import and exact
 remote graph rechecking are still required.
 
+## Explicit diagnostic graph
+
+`PRODUCTION_SOURCE_BASIS=diagnostic` selects `inputs-adi-<phase>.json`.
+The phase-two inputs select real resolved SideSign
+`3bd4afa0addbf95a8666ac91d8bfcf99f5182eea` and pending-lock SideStore
+`3f0f1e40ac37e1b02f8c375743a46b3ce9ff3a8d`, with exact trees and independently
+reviewed dependency metadata. The separately approved workflow input digest is
+`39577aacdbea7705053a835cc018d86f21ba8ce4ff96c5ff7160334211872fa4`;
+no workflow can infer its own approval. Both
+`dependency_bases`, the SideSign entry in `resolver_receipts`, and
+`sidesign_lock_metadata_reviewed` are required. Each descriptor binds
+the exact `diagnostic/dependencies/<Owner>-basis.json` or `-resolver.json` bytes.
+SideStore's resolver receipt is null for its first genuine Xcode resolution;
+a committed changed app lock instead requires its separate genuine receipt.
+The workflow phase and input digest require their own review before publishing.
+The original diagnostic phase-one inputs and source basis remain archived at
+host commit `e63ba26ef6984c558bf29fc9e233e4b8d529cb5a`; this host candidate selects
+the completed SideSign dependency basis for phase two.
+
+The diagnostic registry, seven owner manifests and source evidence are copied
+unchanged from the source-only contract review. They remain separate from the
+historical parity contracts. Every nondependency owner is bound to its exact
+diagnostic tuple; SideStore's dependency basis must bind the exact final SideSign
+commit, tree and source-basis digest. Both owner dependency verifiers run before
+native compilation, and all source, resolver, toolchain, network, binary,
+generated-source and actual compiler-input gates remain active.
+Diagnostic compiler proof additionally requires the exact four changed Swift
+files in their actual Release iPhoneOS arm64 target lists: SideStore AppDelegate,
+AnisetteDataProvider, LiveContainer V3UnifiedShell and SideStoreSupport's decoder.
+Each source retains its proven committed blob/hash, and its exact list must be
+consumed by an actual logged iPhoneOS Swift compilation for the matching target.
+
+The already-verified focused native run 37734029130 is retained verbatim in
+`diagnostic/focused-native-verification.json`, SHA-256
+`2a1793ebea48380229591240bad2122c72dad2ef8711d8000a1b92ec7a2f37b8`.
+It covers the exact AnisetteKit observer, SideStore observer checkpoint and
+LiveContainer decoder: seven producer tests and five coupled consumer tests,
+zero failures or skips. Dependency source gates prove those runtime/test bytes
+remain unchanged in later dependency-only descendants. The host records this
+receipt in provenance and does not rerun the identical focused tests. This
+receipt alone does not establish app compilation, resolver or device success.
+
+The original SideStore suite contains four parity-specific assertions. The
+diagnostic lane runs exactly those four unchanged assertions on a detached
+worktree at accepted SideStore `dd4f0ca36e8ef1d858548f583c65842a8fc0ced3`, with
+strict before/after Git/source proof and `historical_baseline_only` scope. The
+remaining 42 tests run unchanged against the actual diagnostic candidate,
+including all three Swift runtime tests. The two selections are disjoint and
+cover all original 46 tests once; any inventory drift, failure or skip fails.
+The historical four never count as diagnostic candidate coverage.
+
+The replaced candidate assertions and their required current-source evidence are:
+
+- Whole owner hashes/modes/inventory: exact diagnostic owner dependency basis and
+  before/after source proof.
+- Ancestry/gitlinks/clean inventory: diagnostic owner proof and actual committed
+  source/child identities.
+- Old AppDelegate segment hashes: immutable diagnostic registry/source delta,
+  current contract proof and the already-verified focused native receipt.
+- Old Anisette lock pin: diagnostic lock proof and real Xcode resolution retaining
+  all nine unrelated pins. The original valid-Info.plist assertion still runs
+  against the current candidate.
+
+`sidestore-native-tests.json` records only the current 42-test result and actual
+tested commit/tree. `sidestore-historical-native-tests.json` records the four
+historical assertions and their separate tested tuple. Native readiness remains
+an external review of genuine two-app artifacts, never a claim by either suite.
+
 
 ## Observed SDK-generated Swift sources
 

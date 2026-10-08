@@ -12,6 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]
 BASE = "fb5a23f256b7c687fcd0149ac968d18830034463"
 BRANCH = "validation/runtime-source-141776ba"
 PRODUCTION_BRANCH = "validation/production-dependencies-141776ba"
+DIAGNOSTIC_BRANCH = "validation/adi-production-dependencies"
+DIAGNOSTIC_GUARD = ("github.ref != 'refs/heads/" + DIAGNOSTIC_BRANCH + "' && github.head_ref != '" + DIAGNOSTIC_BRANCH +
+                    "' && github.base_ref != '" + DIAGNOSTIC_BRANCH + "'")
 GUARD = ("github.ref != 'refs/heads/" + BRANCH + "' && github.head_ref != '" + BRANCH +
          "' && github.base_ref != '" + BRANCH + "'")
 
@@ -37,12 +40,12 @@ class HostIsolationTests(unittest.TestCase):
         self.current = yaml.load((ROOT / self.path).read_text(), Loader=yaml.BaseLoader)
 
     def test_validation_push_is_excluded_and_tag_behavior_preserved(self):
-        self.assertEqual(self.current["on"]["push"], {"branches-ignore": [BRANCH, PRODUCTION_BRANCH], "tags": ["**"]})
+        self.assertEqual(self.current["on"]["push"], {"branches-ignore": [BRANCH, PRODUCTION_BRANCH, DIAGNOSTIC_BRANCH], "tags": ["**"]})
 
     def test_all_legacy_jobs_explicitly_exclude_validation_dispatch_and_pr(self):
-        self.assertEqual(self.current["jobs"]["build"]["if"], GUARD)
+        self.assertEqual(self.current["jobs"]["build"]["if"], DIAGNOSTIC_GUARD + " && (" + GUARD + ")")
         self.assertEqual(self.current["jobs"]["release__nightly"]["if"],
-                         GUARD + " && (" + self.original["jobs"]["release__nightly"]["if"] + ")")
+                         DIAGNOSTIC_GUARD + " && (" + GUARD + " && (" + self.original["jobs"]["release__nightly"]["if"] + "))")
 
     def test_original_workflow_semantics_are_otherwise_unchanged(self):
         normalized = copy.deepcopy(self.current)
@@ -83,6 +86,21 @@ class HostIsolationTests(unittest.TestCase):
         workflow = yaml.load((ROOT / ".github/workflows/runtime-owner-native-validation.yml").read_text(), Loader=yaml.BaseLoader)
         value = workflow["jobs"]["native-validation"]["env"]["APPROVED_OWNER_REFERENCE_MAP_SHA256"]
         self.assertTrue(value == "MISSING_SEPARATELY_REVIEWED_SHA256" or re.fullmatch(r"[0-9a-f]{64}", value))
+
+    def test_diagnostic_workflow_has_only_reviewed_two_app_validation(self):
+        workflow = yaml.load((ROOT / ".github/workflows/adi-production-dependency-validation.yml").read_text(), Loader=yaml.BaseLoader)
+        self.assertEqual(workflow["on"], {"push": {"branches": [DIAGNOSTIC_BRANCH]}})
+        self.assertEqual(workflow["permissions"], {"contents": "read"})
+        job = workflow["jobs"]["production-graph"]
+        self.assertEqual(job["if"], "github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/" + DIAGNOSTIC_BRANCH + "'")
+        self.assertEqual(job["env"]["PRODUCTION_PHASE"], "sidestore")
+        self.assertEqual(job["env"]["PRODUCTION_SOURCE_BASIS"], "diagnostic")
+        self.assertEqual(job["env"]["GIT_CONFIG_GLOBAL"], "/dev/null")
+        value = job["env"]["APPROVED_PRODUCTION_INPUTS_SHA256"]
+        self.assertTrue(value == "MISSING_SEPARATELY_REVIEWED_SHA256" or re.fullmatch(r"[0-9a-f]{64}", value))
+        self.assertEqual(job["steps"][0]["with"]["persist-credentials"], "false")
+        self.assertEqual(job["steps"][0]["with"]["set-safe-directory"], "false")
+        self.assertEqual(job["steps"][-1]["with"]["path"].splitlines(), ["artifacts/logs/**", "artifacts/provenance/**"])
 
 
 if __name__ == "__main__":

@@ -26,12 +26,42 @@ ANISETTE = {"identity": "anisettekit", "kind": "remoteSourceControl",
 APP_LOCK = "AltStore.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
 DIAGNOSTIC_REGISTRY = "97c9d0b81e9b59c8271ae1155393b2fcb534dc97ea367095d3adfcde8a3783ad"
 DIAGNOSTIC_DELTA = "4d55fdeed931af02f9d44865c0c712695b471d8a101aa1643c3770484f158106"
+PRODUCTION_DIR = Path(__file__).resolve().parent
+FOCUSED_NATIVE_RECEIPT = "2a1793ebea48380229591240bad2122c72dad2ef8711d8000a1b92ec7a2f37b8"
 
 
-def diagnostic_basis(data, phase):
+def focused_native_receipt(data, delta):
+    descriptor = data.get("focused_native_validation")
+    require(descriptor == {"path": "diagnostic/focused-native-verification.json", "sha256": FOCUSED_NATIVE_RECEIPT},
+            "Previously reviewed diagnostic native verification required")
+    path = PRODUCTION_DIR / descriptor["path"]
+    approved_file(path, descriptor["sha256"])
+    receipt = json.loads(path.read_text())
+    require(receipt.get("status") == "PASS" and receipt.get("source_snapshots_byte_identical") is True and
+            receipt.get("tests") == {"AnisetteKit": 7, "SideStore_with_LiveContainer_peer": 5,
+                                     "failures": 0, "skips": 0}, "Incomplete focused diagnostic native receipt")
+    for owner in ("AnisetteKit", "SideStore", "LiveContainer"):
+        tested = receipt["owner_sources"][owner]
+        expected = delta["diagnostic_source_tuple"][owner]
+        require(all(tested[key] == expected[key] for key in ("repository", "commit", "tree")),
+                "Focused native proof does not cover the diagnostic source checkpoint: " + owner)
+    return receipt
+
+
+def diagnostic_document(descriptor, owner, kind):
+    expected_path = "diagnostic/dependencies/" + owner + "-" + kind + ".json"
+    require(isinstance(descriptor, dict) and set(descriptor) == {"path", "sha256"} and
+            descriptor["path"] == expected_path and isinstance(descriptor["sha256"], str) and
+            re.fullmatch(r"[0-9a-f]{64}", descriptor["sha256"]),
+            "Exact reviewed " + owner + " diagnostic " + kind + " required")
+    path = PRODUCTION_DIR / expected_path
+    approved_file(path, descriptor["sha256"])
+    return path, descriptor["sha256"], json.loads(path.read_text())
+
+
+def diagnostic_basis(data, phase, owner="SideSign"):
     """Bind the new dependency candidate to separately approved source-only data."""
-    require(phase == "sidesign", "Diagnostic two-app inputs need their later reviewed dependency closure")
-    directory = Path(__file__).resolve().parent / "diagnostic"
+    directory = PRODUCTION_DIR / "diagnostic"
     delta_path = directory / "accepted-to-diagnostic-delta.json"
     approved_file(delta_path, DIAGNOSTIC_DELTA)
     delta = json.loads(delta_path.read_text())
@@ -39,23 +69,75 @@ def diagnostic_basis(data, phase):
             data.get("source_registry_sha256") == DIAGNOSTIC_REGISTRY and
             data.get("accepted_integration") == delta["accepted_integration"]["commit"],
             "Unreviewed diagnostic source basis")
-    expected = delta["diagnostic_source_tuple"]["AnisetteKit"]
-    anisette = data["owners"]["AnisetteKit"]
-    require(anisette["source_commit"] == expected["commit"] and anisette["source_tree"] == expected["tree"],
-            "Diagnostic Anisette source identity changed")
-    descriptor = data.get("dependency_basis", {})
-    require(set(descriptor) == {"path", "sha256"} and descriptor["path"] == "diagnostic/dependencies/SideSign-basis.json",
-            "Exact SideSign dependency basis path required")
-    basis_path = Path(__file__).resolve().parent / descriptor["path"]
-    approved_file(basis_path, descriptor["sha256"])
-    basis = json.loads(basis_path.read_text())
-    accepted = delta["accepted_graph"]["SideSign"]
-    require(basis.get("accepted") == {"commit": accepted["commit"], "tree": accepted["tree"]} and
-            basis.get("source_registry_sha256") == DIAGNOSTIC_REGISTRY and
-            basis.get("candidate") == {"commit": data["owners"]["SideSign"]["source_commit"],
-                                       "tree": data["owners"]["SideSign"]["source_tree"]},
-            "SideSign candidate is not bound to its accepted source transition")
-    return basis_path, descriptor["sha256"]
+    fixed = {"AnisetteKit"} if phase == "sidesign" else ALL_OWNERS - {"SideSign", "SideStore"}
+    for name in fixed:
+        expected = delta["diagnostic_source_tuple"][name]
+        entry = data["owners"][name]
+        require(entry["source_commit"] == expected["commit"] and entry["source_tree"] == expected["tree"],
+                "Diagnostic source identity changed: " + name)
+    if phase == "sidesign":
+        require(owner == "SideSign", "Phase one proves only the SideSign dependency transition")
+        descriptors = {"SideSign": data.get("dependency_basis")}
+    else:
+        descriptors = data.get("dependency_bases")
+        receipts = data.get("resolver_receipts")
+        require(isinstance(descriptors, dict) and set(descriptors) == {"SideSign", "SideStore"} and
+                isinstance(receipts, dict) and set(receipts) == {"SideSign", "SideStore"},
+                "Diagnostic two-app dependency bases and resolver receipts required")
+        require(owner in descriptors, "Unknown diagnostic dependency owner")
+        require(data.get("sidesign_lock_metadata_reviewed") is True,
+                "Final diagnostic SideSign resolver metadata review missing")
+        focused_native_receipt(data, delta)
+        # A frozen child lock must have an actual reviewed phase-one receipt.
+        diagnostic_document(receipts["SideSign"], "SideSign", "resolver")
+        if receipts["SideStore"] is not None:
+            diagnostic_document(receipts["SideStore"], "SideStore", "resolver")
+    verified = {}
+    for name, descriptor in descriptors.items():
+        basis_path, basis_sha, basis = diagnostic_document(descriptor, name, "basis")
+        accepted = delta["accepted_graph"][name]
+        require(basis.get("accepted") == {"commit": accepted["commit"], "tree": accepted["tree"]} and
+                basis.get("source_registry_sha256") == DIAGNOSTIC_REGISTRY and
+                basis.get("candidate") == {"commit": data["owners"][name]["source_commit"],
+                                           "tree": data["owners"][name]["source_tree"]},
+                name + " candidate is not bound to its accepted source transition")
+        if name == "SideStore":
+            checkpoint = delta["diagnostic_source_tuple"][name]
+            require(basis.get("source_delta_sha256") == DIAGNOSTIC_DELTA and
+                    basis.get("source_checkpoint") == {"commit": checkpoint["commit"], "tree": checkpoint["tree"]} and
+                    basis.get("sidesign") == {"repository": "https://github.com/NRG-Wardog/SideSign.git",
+                        "commit": data["owners"]["SideSign"]["source_commit"],
+                        "tree": data["owners"]["SideSign"]["source_tree"],
+                        "basis_sha256": descriptors["SideSign"]["sha256"]},
+                    "SideStore basis does not bind the exact final SideSign source and basis")
+        verified[name] = (basis_path, basis_sha)
+    return verified[owner]
+
+
+def diagnostic_owner_proof(root, refs, phase, owner):
+    basis_path, basis_sha = diagnostic_basis(refs, phase, owner)
+    path = owner_path(root, owner, phase)
+    command = [sys.executable, "-B", str(path / ".ci/production-dependencies.py"),
+               "--root", str(path), "--diagnostic-basis", str(basis_path),
+               "--diagnostic-basis-sha256", basis_sha]
+    receipt = refs.get("resolver_receipts", {}).get(owner)
+    if receipt is not None:
+        receipt_path, receipt_sha, _ = diagnostic_document(receipt, owner, "resolver")
+        command += ["--diagnostic-resolver-receipt", str(receipt_path),
+                    "--diagnostic-resolver-receipt-sha256", receipt_sha]
+    completed = subprocess.run(command, check=True, capture_output=True, text=True)
+    proof = json.loads(completed.stdout)
+    require(proof.get("owner") == owner and proof.get("status") == "diagnostic_dependency_transition_pass" and
+            proof.get("production_ready") is False and
+            proof.get("commit") == refs["owners"][owner]["source_commit"] and
+            proof.get("tree") == refs["owners"][owner]["source_tree"] and
+            proof.get("diagnostic_basis_sha256") == basis_sha,
+            "Diagnostic owner source proof failed or falsely claims readiness")
+    if phase == "sidestore" and owner == "SideSign":
+        require(proof.get("lock_status") == "reviewed_resolver_observed_lock" and
+                proof.get("resolver_receipt_sha256") == receipt["sha256"],
+                "Two-app graph requires the real reviewed SideSign resolver lock")
+    return proof
 
 
 # Git binding and one-hop origin proof match reviewed integration b783a64b.
@@ -366,7 +448,46 @@ def verify_linked_archive(results, destination):
     return report
 
 
-def capture_compiler_inputs(root, results, destination, resolution, phase):
+def diagnostic_compiler_requirements(root, results, resolution):
+    specs = [
+        ("LiveContainer", "livecontainer", "LiveContainer", "LiveContainerSwiftUI", root / "LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift"),
+        ("LiveContainer", "livecontainer", "LiveContainer", "SideStoreSupport", root / "LiveContainer/SideStoreSupport/SideStore.swift"),
+        ("SideStore", "sidestore", "AltStore", "SideStore", root / "SideStore/AltStore/AppDelegate.swift"),
+        ("AnisetteKit", "sidestore", "AnisetteKit", "AnisetteKit", Path(resolution["dependencies"]["anisettekit"]["path"]) / "Sources/AnisetteDataProvider.swift"),
+    ]
+    return {str(source.resolve()): {"owner": owner, "target": target, "build": build,
+        "file_list": str((results / (build + "-derived/Build/Intermediates.noindex/" + project +
+            ".build/Release-iphoneos/" + target + ".build/Objects-normal/arm64/" + target + ".SwiftFileList")).resolve())}
+        for owner, build, project, target, source in specs}
+
+
+def verify_diagnostic_compiler_inputs(records, requirements, logs):
+    verified = {}
+    for source, spec in requirements.items():
+        rows = [item for record in records.get(spec["owner"], []) if record["file"] == spec["file_list"]
+                for item in record["inputs"] if item["path"] == source and "generated" not in item and item.get("blob")]
+        require(rows, "Changed diagnostic runtime source is missing from its exact app target: " + source)
+        commands = []
+        for line in logs[spec["build"]].splitlines():
+            if "@" + spec["file_list"] not in line:
+                continue
+            args = shlex.split(line)
+            if args[:2] == ["builtin-Swift-Compilation", "--"]:
+                args = args[2:]
+            if not args or not Path(args[0]).is_absolute() or Path(args[0]).name != "swiftc" or "-c" not in args:
+                continue
+            def option(name):
+                return args[args.index(name) + 1] if name in args and args.index(name) + 1 < len(args) else ""
+            if ("@" + spec["file_list"] in args and option("-module-name") == spec["target"] and
+                    re.fullmatch(r"arm64-apple-ios[0-9]+(?:\.[0-9]+)*", option("-target")) and
+                    option("-sdk").endswith("/iPhoneOS26.4.sdk")):
+                commands.append(args)
+        require(commands, "No actual iPhoneOS Swift compilation consumes the diagnostic target list: " + spec["target"])
+        verified[source] = {**spec, "blob": rows[0]["blob"], "sha256": rows[0]["sha256"], "commands": commands}
+    return verified
+
+
+def capture_compiler_inputs(root, results, destination, resolution, phase, diagnostic=False):
     expected = {"SideSign": owner_path(root, "SideSign", phase) / "Sources",
                 "AnisetteKit": Path(resolution["dependencies"]["anisettekit"]["path"]) / "Sources"}
     owners = {"SideSign": owner_path(root, "SideSign", phase)}
@@ -374,6 +495,8 @@ def capture_compiler_inputs(root, results, destination, resolution, phase):
         expected.update(SideStore=root / "SideStore/AltStore", minimuxer=owner_path(root, "minimuxer", phase),
                         LiveContainer=root / "LiveContainer/LiveContainerSwiftUI")
         owners.update({name: owner_path(root, name, phase) for name in ("SideStore", "minimuxer", "LiveContainer")})
+        if diagnostic:
+            expected["LiveContainer"] = root / "LiveContainer"
     for identity, entry in resolution["dependencies"].items():
         if "source_commit" in entry:  # Only the already-proven remote Git roots.
             owners[identity] = Path(entry["path"])
@@ -438,6 +561,12 @@ def capture_compiler_inputs(root, results, destination, resolution, phase):
             records[owner].append({"file": str(file), "sha256": sha(file), "copy": label, "inputs": inputs})
     require(all(records.values()), "Compiler input evidence missing for " + ", ".join(k for k, v in records.items() if not v))
     report = {"owners": records}
+    if diagnostic:
+        require(phase == "sidestore", "Diagnostic app compiler proof requires both apps")
+        report["diagnostic_runtime_inputs"] = verify_diagnostic_compiler_inputs(records,
+            diagnostic_compiler_requirements(root, results, resolution),
+            {name: (destination.parent.parent / "logs" / (name + "-production-build.log")).read_text()
+             for name in ("sidestore", "livecontainer")})
     if phase == "sidestore":
         # Preserve the native gate's Cargo and Xcode evidence, using production log names.
         rust_link_inputs(root, results, destination.parent, side_log_name="sidestore-production-build.log")
@@ -447,7 +576,7 @@ def capture_compiler_inputs(root, results, destination, resolution, phase):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("action", choices=("inputs", "owner-proof", "fetch", "sources", "resolution", "snapshot", "compiler-inputs", "build-products", "generated-sources"))
+    p.add_argument("action", choices=("inputs", "owner-proof", "historical-suite-source", "fetch", "sources", "resolution", "snapshot", "compiler-inputs", "build-products", "generated-sources"))
     p.add_argument("--phase", choices=("sidesign", "sidestore"), required=True)
     p.add_argument("--inputs", type=Path, required=True)
     p.add_argument("--approved-sha256", required=True)
@@ -456,21 +585,29 @@ def main():
     p.add_argument("--report", type=Path)
     p.add_argument("--results", type=Path)
     p.add_argument("--archive", type=Path)
+    p.add_argument("--owner", choices=("SideSign", "SideStore"), default="SideSign")
+    p.add_argument("--historical-root", type=Path)
     p.add_argument("--after-resolution", action="store_true")
     p.add_argument("--built", action="store_true")
     a = p.parse_args()
     refs = load_inputs(a.inputs, a.approved_sha256, a.phase)
     result = {"status": "PASS", "phase": a.phase, "approved_inputs_sha256": a.approved_sha256, "production_ready": False}
     if a.action == "owner-proof":
-        basis_path, basis_sha = diagnostic_basis(refs, a.phase)
-        owner = owner_path(a.root, "SideSign", a.phase)
-        completed = subprocess.run([sys.executable, "-B", str(owner / ".ci/production-dependencies.py"),
-            "--root", str(owner), "--diagnostic-basis", str(basis_path),
-            "--diagnostic-basis-sha256", basis_sha], check=True, capture_output=True, text=True)
-        proof = json.loads(completed.stdout)
-        require(proof.get("status") == "diagnostic_dependency_transition_pass" and
-                proof.get("production_ready") is False, "Diagnostic owner source proof failed or falsely claims readiness")
-        result["owner_proof"] = proof
+        result["owner_proof"] = diagnostic_owner_proof(a.root, refs, a.phase, a.owner)
+    elif a.action == "historical-suite-source":
+        require(a.phase == "sidestore" and refs.get("source_basis") == "maintained-adi-consumption-v1" and
+                a.historical_root is not None, "Historical fixture is only for the reviewed diagnostic app phase")
+        delta = json.loads((PRODUCTION_DIR / "diagnostic/accepted-to-diagnostic-delta.json").read_text())
+        accepted = delta["accepted_graph"]["SideStore"]
+        entry = {"repository": "NRG-Wardog/SideStore", "source_commit": accepted["commit"], "source_tree": accepted["tree"]}
+        candidate = owner_path(a.root, "SideStore", a.phase)
+        verify_source(candidate, "SideStore", refs["owners"]["SideStore"])
+        git(candidate, "merge-base", "--is-ancestor", accepted["commit"], "HEAD")
+        require(not a.historical_root.is_symlink(), "Substituted historical fixture")
+        if not a.historical_root.exists():
+            git(candidate, "worktree", "add", "--detach", str(a.historical_root), accepted["commit"])
+        result.update(scope="historical_baseline_only", candidate_coverage=False,
+                      source=verify_source(a.historical_root, "SideStore", entry))
     elif a.action == "fetch":
         require(not a.root.exists(), "Production source output must be new")
         a.root.mkdir(parents=True)
@@ -523,7 +660,8 @@ def main():
     elif a.action == "compiler-inputs":
         resolution = verify_resolution(a.root, a.state, a.phase, refs)
         result["compiler_inputs"] = capture_compiler_inputs(a.root, a.results,
-            a.report.parent / "compiler-input-lists", resolution, a.phase)
+            a.report.parent / "compiler-input-lists", resolution, a.phase,
+            diagnostic=a.phase == "sidestore" and refs.get("source_basis") == "maintained-adi-consumption-v1")
     if a.report:
         a.report.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps({"status": result["status"], "phase": a.phase, "production_ready": False}))

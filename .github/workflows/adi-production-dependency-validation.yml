@@ -18,9 +18,9 @@ jobs:
     timeout-minutes: 150
     env:
       # Review the exact diagnostic candidate and external source basis before publishing.
-      PRODUCTION_PHASE: sidesign
+      PRODUCTION_PHASE: sidestore
       PRODUCTION_SOURCE_BASIS: diagnostic
-      APPROVED_PRODUCTION_INPUTS_SHA256: 20f46c15134d4c460cae66f3f61c2626e8a8878766fc2d091b72606baa03779c
+      APPROVED_PRODUCTION_INPUTS_SHA256: 39577aacdbea7705053a835cc018d86f21ba8ce4ff96c5ff7160334211872fa4
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
