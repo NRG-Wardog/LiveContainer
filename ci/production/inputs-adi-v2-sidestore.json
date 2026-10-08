@@ -5,21 +5,21 @@
   "source_basis": "maintained-adi-consumption-v2",
   "accepted_integration": "f9f23d980df363eb0f6eb5093b48e3639b03e137",
   "source_registry_sha256": "2333ff8e03dea9fa4b8620e64e15ec76cb6a870a2d61c42dd057ddce0c13354f",
-  "sidesign_lock_metadata_reviewed": false,
+  "sidesign_lock_metadata_reviewed": true,
   "dependency_bases": {
     "SideSign": {
       "path": "diagnostic-v2/dependencies/SideSign-basis.json",
-      "sha256": null
+      "sha256": "a2392502cbe579071480cc2c1cf407bf4019d79e369b43e692e71d85419b7af1"
     },
     "SideStore": {
       "path": "diagnostic-v2/dependencies/SideStore-basis.json",
-      "sha256": null
+      "sha256": "fb860e149227a95c45c26fda361c7baa2e3950f44aa2450c4caab4d54ba222a5"
     }
   },
   "resolver_receipts": {
     "SideSign": {
       "path": "diagnostic-v2/dependencies/SideSign-resolver.json",
-      "sha256": null
+      "sha256": "fc6d8350a2de9a52563ec4bc03112cb03938c83e6f41efa6fe9758aa19034f3d"
     },
     "SideStore": null
   },
@@ -36,13 +36,13 @@
     },
     "SideSign": {
       "repository": "NRG-Wardog/SideSign",
-      "source_commit": null,
-      "source_tree": null
+      "source_commit": "45039f2c16348e098a69f4421719798b00f00429",
+      "source_tree": "eeea30447d960cd500ddcee325959116f40efdf9"
     },
     "SideStore": {
       "repository": "NRG-Wardog/SideStore",
-      "source_commit": null,
-      "source_tree": null
+      "source_commit": "0198bf408cf9ebf3a5f642e9790f3fc3ca215d9d",
+      "source_tree": "5f60facd78ac002007184d7e2dab99b7c727a7f0"
     },
     "idevice": {
       "repository": "NRG-Wardog/idevice",
