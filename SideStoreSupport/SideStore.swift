@@ -659,12 +659,16 @@ public struct CombinedFailure: Error, LocalizedError {
         "extendedVirtualAddressing", "increasedDebuggingMemoryLimit"
     ]
     public static func validatedSigningContext(_ value: [String: String]) -> [String: String]? {
-        var fields = V3TemporaryADIConsumption.sanitizingContext(value)
+        var fields = V3TemporaryADIExecution.sanitizingContext(value)
         if !V3TemporaryAnisetteTrace.temporaryAnisetteTraceEnabled {
             fields.removeValue(forKey: V3TemporaryAnisetteTrace.contextKey)
         }
         guard fields.count <= 20 else { return nil }
         for (key, text) in fields {
+            if key == V3TemporaryADIExecution.contextKey {
+                guard V3TemporaryADIExecution(encoded: text) != nil else { return nil }
+                continue
+            }
             if key == V3TemporaryADIConsumption.contextKey {
                 guard V3TemporaryADIConsumption(encoded: text) != nil else { return nil }
                 continue
@@ -1213,8 +1217,8 @@ public struct CombinedFailure: Error, LocalizedError {
     }
     public var technicalDetails: String {
         let displayedUnderlyingCode = underlyingDomain == "redacted" ? "unknown" : String(underlyingCode)
-        let signingDetails = signingContext.filter { $0.key != V3TemporaryAnisetteTrace.contextKey && $0.key != V3TemporaryADIConsumption.contextKey }.sorted(by: { $0.key < $1.key }).map { " \($0.key)=\($0.value)" }.joined()
-        return "schema=1 diagnostic_code=\(diagnosticCode) builder_commit=\(V3DiagnosticBuild.commit) operation=\(operation) stage=\(stage.rawValue) code=\(code.rawValue) correlation=\(correlationID) underlying_domain=\(underlyingDomain) underlying_code=\(displayedUnderlyingCode) retryable=\(retryable.map(String.init) ?? "unknown") source_step=\(sourceStep?.rawValue ?? "unknown") safe_cause=\(safeCause?.rawValue ?? "unknown")" + signingDetails + installVerdict + requestContextSuffix + (launchContext?.technicalDetails ?? "") + (temporaryAnisetteTrace?.technicalDetails ?? "") + (signingContext[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "")
+        let signingDetails = signingContext.filter { $0.key != V3TemporaryAnisetteTrace.contextKey && $0.key != V3TemporaryADIConsumption.contextKey && $0.key != V3TemporaryADIExecution.contextKey }.sorted(by: { $0.key < $1.key }).map { " \($0.key)=\($0.value)" }.joined()
+        return "schema=1 diagnostic_code=\(diagnosticCode) builder_commit=\(V3DiagnosticBuild.commit) operation=\(operation) stage=\(stage.rawValue) code=\(code.rawValue) correlation=\(correlationID) underlying_domain=\(underlyingDomain) underlying_code=\(displayedUnderlyingCode) retryable=\(retryable.map(String.init) ?? "unknown") source_step=\(sourceStep?.rawValue ?? "unknown") safe_cause=\(safeCause?.rawValue ?? "unknown")" + signingDetails + installVerdict + requestContextSuffix + (launchContext?.technicalDetails ?? "") + (temporaryAnisetteTrace?.technicalDetails ?? "") + (signingContext[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "") + (signingContext[V3TemporaryADIExecution.contextKey].flatMap(V3TemporaryADIExecution.init(encoded:))?.technicalDetails ?? "")
     }
     public var temporaryAnisetteTrace: V3TemporaryAnisetteTrace? {
         signingContext[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))
@@ -1265,7 +1269,7 @@ public struct CombinedFailure: Error, LocalizedError {
         if let sourceStep { result["sourceStep"] = sourceStep.rawValue }
         if !signingContext.isEmpty { result["signingContext"] = signingContext }
         if let retryable { result["retryable"] = retryable }
-        return V3TemporaryADIConsumption.boundingWire(result)
+        return V3TemporaryADIExecution.boundingWire(result)
     }
     public var encodedString: String {
         guard let data = try? PropertyListSerialization.data(fromPropertyList: wire, format: .binary, options: 0), data.count <= 4096 else { return "LCFAILURE1:invalid" }
@@ -1667,6 +1671,11 @@ public struct V3TemporaryADIConsumption {
         return "\nDEBUG TEMPORARY adi_consumption=\(encoded)"
     }
     static func splitDescription(_ description: String) -> (base: String, trace: Self?) {
+        guard description.utf8.count <= 8192 else { return (description, nil) }
+        let description = V3TemporaryADIExecution.splitDescription(description).base
+        // An invalid duplicate/nonterminal execution suffix must not be
+        // swallowed by the earlier consumption suffix and expose a false phase.
+        guard !V3TemporaryADIExecution.containsMarker(description) else { return (description, nil) }
         // Only a single, terminal owned suffix is removable. Invalid optional
         // metadata is dropped; the exact original error producer remains.
         guard description.utf8.count <= 8192, description.hasSuffix("]"),
@@ -1683,6 +1692,11 @@ public struct V3TemporaryADIConsumption {
             result[contextKey] = parsed.encoded
         }
         return result
+    }
+    fileprivate func droppingOldestEvent() -> Self? {
+        guard !rows.isEmpty else { return nil }
+        return Self(truncated: true, comparison: comparison, inputCovered: inputCovered,
+                    rows: Array(rows.dropFirst()))
     }
     public static func boundingWire(_ supplied: [String: Any]) -> [String: Any] {
         guard var context = supplied["signingContext"] as? [String: String],
@@ -1704,6 +1718,231 @@ public struct V3TemporaryADIConsumption {
             // Trim only this optional observer, retain later observations and
             // explicitly mark loss. Never discard the main failure fields.
             trace = Self(truncated: true, comparison: trace.comparison, inputCovered: trace.inputCovered, rows: Array(trace.rows.dropFirst()))
+        }
+    }
+}
+
+// DEBUG TEMPORARY: bounded execution metadata for one ADIOTPRequest.
+// Fixed loaded-ELF hashes, module offsets and import IDs; never raw guest values.
+public struct V3TemporaryADIExecution {
+    public static let contextKey = "debug_temporary_adi_execution"
+    public static let maximumBytes = 1536
+    public static let maximumEvents = 89
+    private static let marker = " [DEBUG_TEMPORARY_ADI_EXECUTION:"
+    private var truncated: Bool
+    private let steps: UInt32
+    private let w0State: Int
+    private let ucStatus: Int
+    private let returnReached: Bool
+    private let nativeResult: Int32
+    private let samples: Int?
+    private let sampleStop: Int?
+    private var rows: [[String]]
+
+    public init?(encoded: String) {
+        guard encoded.utf8.count <= Self.maximumBytes,
+              encoded.utf8.allSatisfy({ $0 < 128 }) else { return nil }
+        let pieces = encoded.split(separator: "|", omittingEmptySubsequences: false)
+        guard pieces.count >= 7, pieces[0] == "v1" || pieces[0] == "v2" else { return nil }
+        let isV2 = pieces[0] == "v2"
+        let offset = isV2 ? 9 : 7
+        guard (offset...(offset + (isV2 ? 88 : Self.maximumEvents))).contains(pieces.count),
+              pieces[1] == "0" || pieces[1] == "1",
+              let steps = UInt32(pieces[2]), String(steps) == String(pieces[2]),
+              let w0State = Int(pieces[3]), (0...2).contains(w0State), String(w0State) == String(pieces[3]),
+              let ucStatus = Int(pieces[4]), (-1...32).contains(ucStatus), String(ucStatus) == String(pieces[4]),
+              pieces[5] == "0" || pieces[5] == "1",
+              let nativeResult = Int32(pieces[6]), String(nativeResult) == String(pieces[6]) else { return nil }
+        func number(_ value: Substring) -> Int? {
+            guard let parsed = Int(value), String(parsed) == String(value) else { return nil }
+            return parsed
+        }
+        let samples: Int?
+        let sampleStop: Int?
+        if isV2 {
+            guard let count = number(pieces[7]), (0...1_000_000).contains(count),
+                  let stop = number(pieces[8]), (0...2).contains(stop),
+                  stop == 0 || (w0State != 0 && pieces[1] == "1") else { return nil }
+            samples = count
+            sampleStop = stop
+        } else {
+            samples = nil
+            sampleStop = nil
+        }
+        var decoded: [[String]] = []
+        var counts = [Int](repeating: 0, count: 9)
+        var modules: Set<Int> = []
+        var phases: Set<Int> = []
+        var anchors: Set<Int> = []
+        // v1: first/tail PCs, preceding neighborhood, first match, imports.
+        // v2: first/tail PCs, imports, ELF hashes, phase counters, constructors,
+        // first/latest previous-to-current W0 observations. No raw guest values.
+        let limits = [16, 48, 8, 1, 16, 2, 3, 1, 2]
+        for row in pieces.dropFirst(offset) {
+            let parts = row.split(separator: ",", omittingEmptySubsequences: false)
+            guard let first = parts.first, let kind = number(first),
+                  (0...(isV2 ? 8 : 4)).contains(kind),
+                  !isV2 || (kind != 2 && kind != 3) else { return nil }
+            counts[kind] += 1
+            guard counts[kind] <= limits[kind] else { return nil }
+            if kind == 5 {
+                guard parts.count == 5,
+                      let module = number(parts[1]), (1...2).contains(module),
+                      modules.insert(module).inserted,
+                      let state = number(parts[2]), (0...2).contains(state),
+                      let size = UInt32(parts[3]), String(size) == String(parts[3]) else { return nil }
+                let hash = parts[4]
+                if state == 0 {
+                    guard size == 0, hash == "-" else { return nil }
+                } else {
+                    guard size > 0, hash.utf8.count == 64,
+                          hash.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { return nil }
+                }
+            } else {
+                let fields = parts.compactMap(number)
+                guard fields.count == parts.count else { return nil }
+                switch kind {
+                case 0...3:
+                    guard fields.count == 4, (0...2).contains(fields[1]),
+                          (0...805_306_367).contains(fields[2]), fields[3] == 0,
+                          fields[1] != 0 || fields[2] == 0,
+                          kind < 2 || w0State == 1 else { return nil }
+                case 4:
+                    // Positive errno is limited to failed open/read (IDs 14/16).
+                    // Zero means unavailable/not reported, not a successful call.
+                    guard fields.count == 4, (0...44).contains(fields[1]),
+                          (-1...2).contains(fields[2]), (0...4095).contains(fields[3]),
+                          fields[3] == 0 || ([14, 16].contains(fields[1]) && fields[2] == -1) else { return nil }
+                case 6:
+                    guard fields.count == 9, (0...2).contains(fields[1]),
+                          phases.insert(fields[1]).inserted,
+                          fields.dropFirst(2).allSatisfy({ (0...65_535).contains($0) }) else { return nil }
+                case 7:
+                    guard fields.count == 5,
+                          fields[1...3].allSatisfy({ (0...65_535).contains($0) }),
+                          (-1...32).contains(fields[4]) else { return nil }
+                case 8:
+                    guard fields.count == 8, w0State == 1, (0...1).contains(fields[1]),
+                          anchors.insert(fields[1]).inserted,
+                          (0...2).contains(fields[2]), (0...805_306_367).contains(fields[3]),
+                          fields[2] != 0 || fields[3] == 0,
+                          (0...2).contains(fields[4]), (0...805_306_367).contains(fields[5]),
+                          fields[4] != 0 || fields[5] == 0,
+                          (0...3).contains(fields[6]), (0...44).contains(fields[7]),
+                          fields[6] == 3 || fields[7] == 0 else { return nil }
+                default: return nil
+                }
+            }
+            decoded.append(parts.map(String.init))
+        }
+        if isV2 {
+            guard modules.count == 2, phases.count == 3, counts[7] == 1,
+                  anchors.count == (w0State == 1 ? 2 : 0) else { return nil }
+        } else {
+            guard counts[3] == (w0State == 1 ? 1 : 0) else { return nil }
+        }
+        self.truncated = pieces[1] == "1"
+        self.steps = steps
+        self.w0State = w0State
+        self.ucStatus = ucStatus
+        self.returnReached = pieces[5] == "1"
+        self.nativeResult = nativeResult
+        self.samples = samples
+        self.sampleStop = sampleStop
+        self.rows = decoded
+    }
+    public var encoded: String {
+        let header = "\(samples == nil ? "v1" : "v2")|\(truncated ? 1 : 0)|\(steps)|\(w0State)|\(ucStatus)|\(returnReached ? 1 : 0)|\(nativeResult)"
+        let sampling = samples.flatMap { count in sampleStop.map { "|\(count)|\($0)" } } ?? ""
+        return header + sampling + rows.map { "|" + $0.joined(separator: ",") }.joined()
+    }
+    public var technicalDetails: String {
+        guard V3TemporaryAnisetteTrace.temporaryAnisetteTraceEnabled else { return "" }
+        let label = samples == nil ? "first_w0_match" : "first_latest_w0_match"
+        let observation = w0State == 1
+            ? "\nDEBUG TEMPORARY \(label)=pre_instruction_observation causal_origin=unproven" : ""
+        return "\nDEBUG TEMPORARY adi_execution=\(encoded)" + observation
+    }
+    static func splitDescription(_ description: String) -> (base: String, trace: Self?) {
+        // The producer appends this after consumption. Even invalid optional
+        // metadata is removable only as one bounded, terminal owned suffix.
+        guard description.utf8.count <= 8192, description.hasSuffix("]"),
+              let range = description.range(of: marker),
+              description[range.upperBound...].range(of: marker) == nil else { return (description, nil) }
+        let body = String(description[range.upperBound...].dropLast())
+        guard !body.contains("]") else { return (description, nil) }
+        return (String(description[..<range.lowerBound]), Self(encoded: body))
+    }
+    static func containsMarker(_ description: String) -> Bool {
+        description.range(of: marker) != nil
+    }
+    public static func sanitizingContext(_ supplied: [String: String]) -> [String: String] {
+        var result = supplied
+        let raw = result.removeValue(forKey: contextKey)
+        result = V3TemporaryADIConsumption.sanitizingContext(result)
+        if V3TemporaryAnisetteTrace.temporaryAnisetteTraceEnabled,
+           let raw, let parsed = Self(encoded: raw), result.count < 20 {
+            result[contextKey] = parsed.encoded
+        }
+        return result
+    }
+    private mutating func removeOldestRow(kind: Int, retaining: Int = 0) -> Bool {
+        let token = String(kind)
+        guard rows.filter({ $0[0] == token }).count > retaining else { return false }
+        // v2 emits its tail/import windows newest first; trim their last row.
+        // v1 windows and the initial-PC window are chronological.
+        let newestFirst = samples != nil && (kind == 1 || kind == 4)
+        let selected = newestFirst ? rows.lastIndex(where: { $0[0] == token })
+            : rows.firstIndex(where: { $0[0] == token })
+        guard let index = selected else { return false }
+        rows.remove(at: index)
+        truncated = true
+        return true
+    }
+    private mutating func trimLaterObservations() -> Bool {
+        // Mandatory v2 hashes, counters and first/latest anchors survive.
+        // Retain v1 first-match context and the latest final-tail observation
+        // until every lower-priority optional row is exhausted.
+        if removeOldestRow(kind: 4) { return true }
+        if removeOldestRow(kind: 1, retaining: 1) { return true }
+        if removeOldestRow(kind: 2) { return true }
+        return removeOldestRow(kind: 1)
+    }
+    public static func boundingWire(_ supplied: [String: Any]) -> [String: Any] {
+        guard var context = supplied["signingContext"] as? [String: String],
+              let raw = context.removeValue(forKey: contextKey) else {
+            return V3TemporaryADIConsumption.boundingWire(supplied)
+        }
+        var result = supplied
+        result["signingContext"] = context
+        guard V3TemporaryAnisetteTrace.temporaryAnisetteTraceEnabled,
+              var trace = Self(encoded: raw), context.count < 20 else {
+            return V3TemporaryADIConsumption.boundingWire(result)
+        }
+        let consumptionKey = V3TemporaryADIConsumption.contextKey
+        var consumption = context[consumptionKey].flatMap(V3TemporaryADIConsumption.init(encoded:))
+        while true {
+            context[contextKey] = trace.encoded
+            result["signingContext"] = context
+            if let data = try? PropertyListSerialization.data(fromPropertyList: result, format: .binary, options: 0),
+               data.count <= V3TemporaryADIConsumption.maximumWireBytes { return result }
+            if trace.removeOldestRow(kind: 0) { continue }
+            if let trimmed = consumption?.droppingOldestEvent() {
+                consumption = trimmed
+                context[consumptionKey] = trimmed.encoded
+                continue
+            }
+            if trace.trimLaterObservations() { continue }
+            // Headers, final status, ELF/counter summaries and match anchors
+            // survive row trimming with explicit loss. Omit optional data
+            // only if even these summaries cannot fit beside the main error.
+            if context.removeValue(forKey: consumptionKey) != nil {
+                consumption = nil
+                continue
+            }
+            context.removeValue(forKey: contextKey)
+            result["signingContext"] = context
+            return result
         }
     }
 }
@@ -1960,11 +2199,16 @@ struct V3AnisetteNativeEvidence {
     let phase: Phase
     let subcode: Int32?
     var consumption: V3TemporaryADIConsumption? = nil
+    var execution: V3TemporaryADIExecution? = nil
 
     static func capture(code: Int32, description: String) -> Self {
-        let observed = V3TemporaryADIConsumption.splitDescription(description)
+        let execution = V3TemporaryADIExecution.splitDescription(description)
+        let observed = V3TemporaryADIConsumption.splitDescription(execution.base)
         var evidence = captureBase(code: code, description: observed.base)
-        if V3TemporaryAnisetteTrace.temporaryAnisetteTraceEnabled { evidence.consumption = observed.trace }
+        if V3TemporaryAnisetteTrace.temporaryAnisetteTraceEnabled {
+            evidence.consumption = observed.trace
+            evidence.execution = execution.trace
+        }
         return evidence
     }
     private static func captureBase(code: Int32, description: String) -> Self {
@@ -2117,6 +2361,10 @@ struct V3AccountOperationError: Error, LocalizedError {
         if kind == .anisetteKitADIError, let consumption = nativeEvidence?.consumption,
            signingContext.count < 20 {
             signingContext[V3TemporaryADIConsumption.contextKey] = consumption.encoded
+        }
+        if kind == .anisetteKitADIError, let execution = nativeEvidence?.execution,
+           signingContext.count < 20 {
+            signingContext[V3TemporaryADIExecution.contextKey] = execution.encoded
         }
         return CombinedFailure(operation: operation, stage: failureStage, id: id,
             underlying: NSError(domain: native.domain, code: native.code),
@@ -4506,10 +4754,10 @@ enum V3ServiceReadinessReply: Equatable {
                 retryable: retryable)
             if let raw = envelope["signingContext"] {
                 guard let suppliedFields = raw as? [String: String] else { return .invalid }
-                let fields = V3TemporaryADIConsumption.sanitizingContext(suppliedFields)
+                let fields = V3TemporaryADIExecution.sanitizingContext(suppliedFields)
                 guard fields.count <= 20,
                       fields.allSatisfy({ $0.key.utf8.count <= 64 &&
-                          $0.value.utf8.count <= ([V3TemporaryAnisetteTrace.contextKey, V3TemporaryADIConsumption.contextKey].contains($0.key) ? 2048 : 512) }) else { return .invalid }
+                          $0.value.utf8.count <= ([V3TemporaryAnisetteTrace.contextKey, V3TemporaryADIConsumption.contextKey, V3TemporaryADIExecution.contextKey].contains($0.key) ? 2048 : 512) }) else { return .invalid }
                 // The typed failure boundary validates the fixed keys
                 // and values before any diagnostic publication.
                 failure.signingContext = fields
@@ -9732,7 +9980,8 @@ enum V3AuthFailureDiagnosticsPolicy {
         } ?? ""
         return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + nativeDetails + attemptDetails + probeDetails +
             (fields[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))?.technicalDetails ?? "") +
-            (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "")
+            (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "") +
+            (fields[V3TemporaryADIExecution.contextKey].flatMap(V3TemporaryADIExecution.init(encoded:))?.technicalDetails ?? "")
     }
 }
 
