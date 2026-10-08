@@ -1,22 +1,22 @@
 {
   "schema": 1,
   "scope": "adi-consumption-native-only",
-  "integration_checkpoint": "a939e4c077a51734a73a86805d051b578cce3fa7",
+  "integration_checkpoint": "f9f23d980df363eb0f6eb5093b48e3639b03e137",
   "owners": {
     "AnisetteKit": {
       "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
-      "commit": "e530b84687ebea2e7d1115119e1a6d18372de14b",
-      "tree": "ca63e018a2ef7e3f0ba759860dfa5f5e6c854065"
+      "commit": "f494494ede88890555df345054f7fbb87b53aea5",
+      "tree": "17b3b63607d4399c003e56b71b052bd7e73dc84a"
     },
     "SideStore": {
       "repository": "https://github.com/NRG-Wardog/SideStore.git",
-      "commit": "364e65211f8678758542e3716e7b757c4dbd35ed",
-      "tree": "e765c3d23c3299ec7e1e57ac31ad0a76a91ff658"
+      "commit": "7b3f356c5128b17fdd76eed81285096b3cc41da7",
+      "tree": "5eec041d13f5eb5d805189f5827d6a60ddfa91f2"
     },
     "LiveContainer": {
       "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
-      "commit": "2a1d297ed94840b134a6ea5111065d228a51cf2b",
-      "tree": "3b34a80de19a31e61a6375e562fe03e69b63812b"
+      "commit": "6b128686477b569a936915abaa4bd2ec51b40c14",
+      "tree": "2ee1dce1690533ee0010e1fc3852c86bb501a452"
     }
   }
 }

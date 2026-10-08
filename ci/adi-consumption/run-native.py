@@ -19,7 +19,7 @@ import unittest
 OWNERS = {name: "https://github.com/NRG-Wardog/" + name + ".git"
           for name in ("AnisetteKit", "SideStore", "LiveContainer")}
 SUITES = {"AnisetteKit": (".ci/native-tests/run_tests.py", 7),
-          "SideStore": ("tests/adi_consumption/test_contract.py", 5)}
+          "SideStore": ("tests/adi_consumption/test_contract.py", 6)}
 OFFLINE = ["/usr/bin/sandbox-exec", "-p", "(version 1) (allow default) (deny network*)"]
 HERE = Path(__file__).resolve()
 
@@ -50,7 +50,7 @@ def read_inputs(path, approved):
     require(set(result) == {"schema", "scope", "integration_checkpoint", "owners"}, "unexpected input fields")
     require(result.get("schema") == 1 and result.get("scope") == "adi-consumption-native-only",
             "unexpected native validation scope")
-    require(result["integration_checkpoint"] == "a939e4c077a51734a73a86805d051b578cce3fa7",
+    require(result["integration_checkpoint"] == "f9f23d980df363eb0f6eb5093b48e3639b03e137",
             "unexpected maintained-source checkpoint")
     require(set(result.get("owners", {})) == set(OWNERS), "exact three diagnostic owners required")
     for owner, expected_url in OWNERS.items():

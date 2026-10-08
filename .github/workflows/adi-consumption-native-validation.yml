@@ -18,7 +18,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
     env:
-      APPROVED_ADI_INPUTS_SHA256: 4bfde650a3654b9211c0fd615ec158effe239703ef6fe04c8516e48d41470d5b
+      APPROVED_ADI_INPUTS_SHA256: 930bc8822d4a31a92472eda70566755561ec3c9e255e67e60cb1a04edc74eaeb
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
