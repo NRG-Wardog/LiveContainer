@@ -18,7 +18,8 @@ mkdir -p "$R"
 SOURCE_BASIS="${PRODUCTION_SOURCE_BASIS:-parity}"
 case "$SOURCE_BASIS" in
   parity) INPUT_FILE="$CI_DIR/inputs-$PHASE.json" ;;
-  diagnostic) INPUT_FILE="$CI_DIR/inputs-adi-$PHASE.json" ;;
+  diagnostic) INPUT_FILE="$CI_DIR/inputs-adi-$PHASE.json"; DIAGNOSTIC_DIR="$CI_DIR/diagnostic"; DIAGNOSTIC_REGISTRY_SHA256=97c9d0b81e9b59c8271ae1155393b2fcb534dc97ea367095d3adfcde8a3783ad ;;
+  diagnostic-v2) INPUT_FILE="$CI_DIR/inputs-adi-v2-$PHASE.json"; DIAGNOSTIC_DIR="$CI_DIR/diagnostic-v2"; DIAGNOSTIC_REGISTRY_SHA256=2333ff8e03dea9fa4b8620e64e15ec76cb6a870a2d61c42dd057ddce0c13354f ;;
   *) echo 'Unreviewed production source basis' >&2; exit 1 ;;
 esac
 INPUT_ARGS=(--phase "$PHASE" --inputs "$INPUT_FILE" --approved-sha256 "$APPROVED_PRODUCTION_INPUTS_SHA256")
@@ -69,7 +70,7 @@ if [ "$PHASE" = sidesign ]; then
   LOCK="$S/Package.resolved"
   STATE="$R/sidesign/workspace-state.json"
   STAGE=strict-clean-proof
-  if [ "$SOURCE_BASIS" = diagnostic ]; then
+  if [ "$SOURCE_BASIS" != parity ]; then
     log_run sidesign-pre-resolution-proof prove owner-proof --report "$EVIDENCE/provenance/diagnostic-owner-proof.json"
   else
     log_run sidesign-pre-resolution-proof python3 -B "$S/.ci/production-dependencies.py"
@@ -111,22 +112,22 @@ else
   STATE="$R/sidestore-packages/workspace-state.json"
   STAGE=strict-clean-proof
   # The default proof must already contain final committed child pins.
-  if [ "$SOURCE_BASIS" = diagnostic ]; then
-    cp "$CI_DIR/diagnostic/focused-native-verification.json" "$EVIDENCE/provenance/focused-native-verification.json"
+  if [ "$SOURCE_BASIS" != parity ]; then
+    cp "$DIAGNOSTIC_DIR/focused-native-verification.json" "$EVIDENCE/provenance/focused-native-verification.json"
     log_run sidestore-pre-initialization-proof prove owner-proof --owner SideStore --report "$EVIDENCE/provenance/diagnostic-sidestore-owner-proof.json"
   else
     log_run sidestore-pre-initialization-proof python3 -B "$SS/.ci/production-dependencies.py"
   fi
   log_run production-child-fetch git -C "$SS" submodule update --init --recursive
   prove sources --report "$EVIDENCE/provenance/source-proof-before.json"
-  if [ "$SOURCE_BASIS" = diagnostic ]; then
+  if [ "$SOURCE_BASIS" != parity ]; then
     log_run sidestore-pre-resolution-proof prove owner-proof --owner SideStore --report "$EVIDENCE/provenance/diagnostic-sidestore-owner-proof-initialized.json"
     log_run final-sidesign-proof prove owner-proof --owner SideSign --report "$EVIDENCE/provenance/diagnostic-sidesign-owner-proof.json"
   else
     log_run sidestore-pre-resolution-proof python3 -B "$SS/.ci/production-dependencies.py"
     log_run final-sidesign-proof python3 -B "$S/.ci/production-dependencies.py"
   fi
-  if [ "$SOURCE_BASIS" = diagnostic ]; then
+  if [ "$SOURCE_BASIS" != parity ]; then
     HISTORICAL_SS="$WORK/historical/SideStore"
     log_run sidestore-historical-source-before prove historical-suite-source --historical-root "$HISTORICAL_SS" --report "$EVIDENCE/provenance/sidestore-historical-source-before.json"
     log_run sidestore-historical-native offline python3 -B "$CI_DIR/run_diagnostic_sidestore_suite.py" historical "$HISTORICAL_SS" "$EVIDENCE/provenance/sidestore-historical-native-tests.json"
@@ -145,9 +146,9 @@ if hashlib.sha256((p/'validate_contracts.py').read_bytes()).hexdigest()!='0d5a5a
 PY
   CONTRACT_REGISTRY="$CI_DIR/contracts/compatibility-registry.json"
   CONTRACT_REGISTRY_SHA256=8e7eba95b8bc69037ffed8931478cefd46984b458f767c2a067547e3cd60b467
-  if [ "$SOURCE_BASIS" = diagnostic ]; then
-    CONTRACT_REGISTRY="$CI_DIR/diagnostic/compatibility-registry.json"
-    CONTRACT_REGISTRY_SHA256=97c9d0b81e9b59c8271ae1155393b2fcb534dc97ea367095d3adfcde8a3783ad
+  if [ "$SOURCE_BASIS" != parity ]; then
+    CONTRACT_REGISTRY="$DIAGNOSTIC_DIR/compatibility-registry.json"
+    CONTRACT_REGISTRY_SHA256="$DIAGNOSTIC_REGISTRY_SHA256"
   fi
   log_run production-contracts python3 -B "$CI_DIR/contracts/validate_contracts.py" \
     --registry "$CONTRACT_REGISTRY" --registry-sha256 "$CONTRACT_REGISTRY_SHA256" \

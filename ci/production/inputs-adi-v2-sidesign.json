@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "phase": "sidesign",
+  "source_basis": "maintained-adi-consumption-v2",
+  "accepted_integration": "f9f23d980df363eb0f6eb5093b48e3639b03e137",
+  "source_registry_sha256": "2333ff8e03dea9fa4b8620e64e15ec76cb6a870a2d61c42dd057ddce0c13354f",
+  "dependency_basis": {
+    "path": "diagnostic-v2/dependencies/SideSign-basis.json",
+    "sha256": "f7e30b1dd1f8f11c0a39bbfca59e7a2bcd677c9b879207a6d840bda4c3eecb3f"
+  },
+  "owners": {
+    "SideSign": {
+      "repository": "NRG-Wardog/SideSign",
+      "source_commit": "6be9afd7e07762f77b74eda9c7710d029799f2e6",
+      "source_tree": "47ff728db2ca6a7e35e105eb8949dc2729539d0a"
+    },
+    "AnisetteKit": {
+      "repository": "NRG-Wardog/AnisetteKit",
+      "source_commit": "f494494ede88890555df345054f7fbb87b53aea5",
+      "source_tree": "17b3b63607d4399c003e56b71b052bd7e73dc84a"
+    }
+  }
+}

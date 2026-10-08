@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "phase": "sidestore",
+  "source_basis": "maintained-adi-consumption-v2",
+  "accepted_integration": "f9f23d980df363eb0f6eb5093b48e3639b03e137",
+  "source_registry_sha256": "2333ff8e03dea9fa4b8620e64e15ec76cb6a870a2d61c42dd057ddce0c13354f",
+  "sidesign_lock_metadata_reviewed": false,
+  "dependency_bases": {
+    "SideSign": {
+      "path": "diagnostic-v2/dependencies/SideSign-basis.json",
+      "sha256": null
+    },
+    "SideStore": {
+      "path": "diagnostic-v2/dependencies/SideStore-basis.json",
+      "sha256": null
+    }
+  },
+  "resolver_receipts": {
+    "SideSign": {
+      "path": "diagnostic-v2/dependencies/SideSign-resolver.json",
+      "sha256": null
+    },
+    "SideStore": null
+  },
+  "owners": {
+    "AnisetteKit": {
+      "repository": "NRG-Wardog/AnisetteKit",
+      "source_commit": "f494494ede88890555df345054f7fbb87b53aea5",
+      "source_tree": "17b3b63607d4399c003e56b71b052bd7e73dc84a"
+    },
+    "LiveContainer": {
+      "repository": "NRG-Wardog/LiveContainer",
+      "source_commit": "6b128686477b569a936915abaa4bd2ec51b40c14",
+      "source_tree": "2ee1dce1690533ee0010e1fc3852c86bb501a452"
+    },
+    "SideSign": {
+      "repository": "NRG-Wardog/SideSign",
+      "source_commit": null,
+      "source_tree": null
+    },
+    "SideStore": {
+      "repository": "NRG-Wardog/SideStore",
+      "source_commit": null,
+      "source_tree": null
+    },
+    "idevice": {
+      "repository": "NRG-Wardog/idevice",
+      "source_commit": "803f9368e6b27a43d8a9f22dc0ec281c87883113",
+      "source_tree": "f5ac11668bae97e577e7c4fc098b5484df1c9af1"
+    },
+    "jktcp": {
+      "repository": "NRG-Wardog/jktcp",
+      "source_commit": "32c0210f286b4fd16efe05be4f57167a9d94459b",
+      "source_tree": "e94eaefdcae5fe54a535186e36a0b2ebccc9bf13"
+    },
+    "minimuxer": {
+      "repository": "NRG-Wardog/minimuxer",
+      "source_commit": "efbcab05d7d636aa37c6bf6c7f364d122c5610f6",
+      "source_tree": "30aa947645c5befb0c3210700095c8b039893d83"
+    }
+  },
+  "focused_native_validation": {
+    "path": "diagnostic-v2/focused-native-verification.json",
+    "sha256": "42357eab1cf9b97d597d533e51fa4a88f93e7b30a79e4d5c279553131230a4da"
+  }
+}

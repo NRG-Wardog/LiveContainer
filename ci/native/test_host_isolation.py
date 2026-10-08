@@ -93,8 +93,8 @@ class HostIsolationTests(unittest.TestCase):
         self.assertEqual(workflow["permissions"], {"contents": "read"})
         job = workflow["jobs"]["production-graph"]
         self.assertEqual(job["if"], "github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/" + DIAGNOSTIC_BRANCH + "'")
-        self.assertEqual(job["env"]["PRODUCTION_PHASE"], "sidestore")
-        self.assertEqual(job["env"]["PRODUCTION_SOURCE_BASIS"], "diagnostic")
+        self.assertIn(job["env"]["PRODUCTION_PHASE"], ("sidesign", "sidestore"))
+        self.assertEqual(job["env"]["PRODUCTION_SOURCE_BASIS"], "diagnostic-v2")
         self.assertEqual(job["env"]["GIT_CONFIG_GLOBAL"], "/dev/null")
         value = job["env"]["APPROVED_PRODUCTION_INPUTS_SHA256"]
         self.assertTrue(value == "MISSING_SEPARATELY_REVIEWED_SHA256" or re.fullmatch(r"[0-9a-f]{64}", value))

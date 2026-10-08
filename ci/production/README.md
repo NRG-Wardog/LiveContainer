@@ -1,5 +1,46 @@
 # Actual remote production graph validation
 
+## Staging-order diagnostic v2
+
+`PRODUCTION_SOURCE_BASIS=diagnostic-v2` selects `inputs-adi-v2-<phase>.json`
+and the separately reviewed `diagnostic-v2/` source metadata. The explicit
+version table preserves the parity and original diagnostic v1 paths. Unknown
+versions, missing source tuples and missing approved basis digests are rejected.
+The same validation branch is reused, with phase one published before phase two.
+
+The v2 immutable registry is
+`2333ff8e03dea9fa4b8620e64e15ec76cb6a870a2d61c42dd057ddce0c13354f`,
+and its delta is
+`65a3689c1609cfbcfaa317e33401d500c5bde88a80cf054b240124f93b025165`.
+The source basis is `maintained-adi-consumption-v2`, descended from accepted
+integration `f9f23d980df363eb0f6eb5093b48e3639b03e137`. Real resolution permits
+only the exact Anisette revision transition from `e530b84687ebea2e7d1115119e1a6d18372de14b`
+to `f494494ede88890555df345054f7fbb87b53aea5`, preserving every other pin object.
+Actual resolver locks and originHash are captured, never synthesized.
+
+The focused native receipt from run 37773853730 is preserved verbatim, SHA-256
+`42357eab1cf9b97d597d533e51fa4a88f93e7b30a79e4d5c279553131230a4da`.
+It binds seven producer tests plus six coupled consumer tests with zero skips
+to the exact three v2 source checkpoints. These tests are not repeated here.
+The current 42 SideStore tests and four named historical assertions retain the
+same division. The historical fixture stays at original parity `dd4f0ca3`,
+explicitly independent of the latest accepted diagnostic SideStore `1ebc6939`.
+
+The v2 app compiler proof adds exact SideStore target requirements for
+`AltStore/Core/Components/Keychain.swift` and
+`SideStore/Core/Anisette/OnDeviceAnisetteManager.swift` to the existing four Swift
+files. All six require their actual Release iPhoneOS arm64 SwiftFileList,
+committed blob/hash, and real target compilation command. Historical log replay
+validates parser compatibility only; fresh phase-two compilation remains required.
+
+Phase-two final SideSign and SideStore tuples, basis digests and the real
+SideSign resolver receipt remain null until observed, published and reviewed.
+The phase-one published SideSign input is
+`6be9afd7e07762f77b74eda9c7710d029799f2e6`, tree
+`47ff728db2ca6a7e35e105eb8949dc2729539d0a`; its previous genuine lock remains
+unchanged pending the new native resolution. The independently approved input
+digest is `2ffaa1aded824b33e56bf1f8e90d0e73019f8fa0874ec9927ee1dee7a49b3692`.
+
 This is a local review candidate for the dedicated
 `NRG-Wardog/LiveContainer` branch
 `validation/production-dependencies-141776ba`. Its parent is published validation

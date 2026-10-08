@@ -18,9 +18,9 @@ jobs:
     timeout-minutes: 150
     env:
       # Review the exact diagnostic candidate and external source basis before publishing.
-      PRODUCTION_PHASE: sidestore
-      PRODUCTION_SOURCE_BASIS: diagnostic
-      APPROVED_PRODUCTION_INPUTS_SHA256: 39577aacdbea7705053a835cc018d86f21ba8ce4ff96c5ff7160334211872fa4
+      PRODUCTION_PHASE: sidesign
+      PRODUCTION_SOURCE_BASIS: diagnostic-v2
+      APPROVED_PRODUCTION_INPUTS_SHA256: 2ffaa1aded824b33e56bf1f8e90d0e73019f8fa0874ec9927ee1dee7a49b3692
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
@@ -42,7 +42,7 @@ jobs:
           mkdir -p artifacts/logs artifacts/provenance
           python3 -B validation/ci/production/prove_graph.py inputs \
             --phase "$PRODUCTION_PHASE" \
-            --inputs "validation/ci/production/inputs-adi-$PRODUCTION_PHASE.json" \
+            --inputs "validation/ci/production/inputs-adi-v2-$PRODUCTION_PHASE.json" \
             --approved-sha256 "$APPROVED_PRODUCTION_INPUTS_SHA256" \
             2>&1 | tee artifacts/logs/production-inputs.log
       - name: Capture the actual remote dependency graph
