@@ -24,6 +24,38 @@ ANISETTE = {"identity": "anisettekit", "kind": "remoteSourceControl",
     "location": "https://github.com/NRG-Wardog/AnisetteKit.git",
     "state": {"revision": "62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d"}}
 APP_LOCK = "AltStore.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+DIAGNOSTIC_REGISTRY = "97c9d0b81e9b59c8271ae1155393b2fcb534dc97ea367095d3adfcde8a3783ad"
+DIAGNOSTIC_DELTA = "4d55fdeed931af02f9d44865c0c712695b471d8a101aa1643c3770484f158106"
+
+
+def diagnostic_basis(data, phase):
+    """Bind the new dependency candidate to separately approved source-only data."""
+    require(phase == "sidesign", "Diagnostic two-app inputs need their later reviewed dependency closure")
+    directory = Path(__file__).resolve().parent / "diagnostic"
+    delta_path = directory / "accepted-to-diagnostic-delta.json"
+    approved_file(delta_path, DIAGNOSTIC_DELTA)
+    delta = json.loads(delta_path.read_text())
+    require(data.get("source_basis") == "maintained-adi-consumption-v1" and
+            data.get("source_registry_sha256") == DIAGNOSTIC_REGISTRY and
+            data.get("accepted_integration") == delta["accepted_integration"]["commit"],
+            "Unreviewed diagnostic source basis")
+    expected = delta["diagnostic_source_tuple"]["AnisetteKit"]
+    anisette = data["owners"]["AnisetteKit"]
+    require(anisette["source_commit"] == expected["commit"] and anisette["source_tree"] == expected["tree"],
+            "Diagnostic Anisette source identity changed")
+    descriptor = data.get("dependency_basis", {})
+    require(set(descriptor) == {"path", "sha256"} and descriptor["path"] == "diagnostic/dependencies/SideSign-basis.json",
+            "Exact SideSign dependency basis path required")
+    basis_path = Path(__file__).resolve().parent / descriptor["path"]
+    approved_file(basis_path, descriptor["sha256"])
+    basis = json.loads(basis_path.read_text())
+    accepted = delta["accepted_graph"]["SideSign"]
+    require(basis.get("accepted") == {"commit": accepted["commit"], "tree": accepted["tree"]} and
+            basis.get("source_registry_sha256") == DIAGNOSTIC_REGISTRY and
+            basis.get("candidate") == {"commit": data["owners"]["SideSign"]["source_commit"],
+                                       "tree": data["owners"]["SideSign"]["source_tree"]},
+            "SideSign candidate is not bound to its accepted source transition")
+    return basis_path, descriptor["sha256"]
 
 
 # Git binding and one-hop origin proof match reviewed integration b783a64b.
@@ -117,6 +149,9 @@ def load_inputs(path, digest, phase):
         require(re.fullmatch(r"[0-9a-f]{40}", (entry.get("source_commit") or "")) and
                 re.fullmatch(r"[0-9a-f]{40}", (entry.get("source_tree") or "")),
                 owner + ": verified published commit/tree required")
+    if data.get("source_basis") is not None:
+        diagnostic_basis(data, phase)
+        return data
     require(data["owners"]["AnisetteKit"]["source_commit"] == ANISETTE["state"]["revision"], "Anisette owner pin changed")
     native_map = Path(__file__).resolve().parents[1] / "native/owner-reference-map.json"
     approved_file(native_map, "e8f8ff60cafa78db7f6b1cd95b08d39c7d7cab964899784135382f919da762d4")
@@ -183,14 +218,29 @@ def pin_map(lock):
     return result
 
 
-def compare_locks(before, after, phase):
+def compare_locks(before, after, phase, diagnostic_anisette=None):
     old, new = pin_map(before), pin_map(after)
-    require(old == new, "Resolver changed a pin object; no added, removed or moved dependency is allowed")
+    expected_anisette = diagnostic_anisette or ANISETTE
+    if diagnostic_anisette is not None:
+        require(set(diagnostic_anisette) == set(ANISETTE) and
+                {key: value for key, value in diagnostic_anisette.items() if key != "state"} ==
+                {key: value for key, value in ANISETTE.items() if key != "state"} and
+                set(diagnostic_anisette["state"]) == {"revision"} and
+                re.fullmatch(r"[0-9a-f]{40}", diagnostic_anisette["state"]["revision"]),
+                "Diagnostic resolver may only change the Anisette revision")
+        require(old.get("anisettekit") in (ANISETTE, diagnostic_anisette), "Unreviewed initial Anisette lock pin")
+        expected = dict(old)
+        expected["anisettekit"] = diagnostic_anisette
+        require(expected == new, "Resolver changed a pin outside the exact diagnostic Anisette transition")
+    else:
+        require(old == new, "Resolver changed a pin object; no added, removed or moved dependency is allowed")
     require(len(new) == (6 if phase == "sidesign" else 10), "Unexpected exact production pin count")
-    require(new.get("anisettekit") == ANISETTE, "Anisette must remain the exact maintained remote revision")
+    require(new.get("anisettekit") == expected_anisette, "Anisette must select the exact reviewed remote revision")
     origin = after.get("originHash")
     require("originHash" not in after or isinstance(origin, str) and re.fullmatch(r"[0-9a-f]{64}", origin), "Malformed resolver originHash")
     return {"pins": new, "originHash": origin,
+            "pin_objects_unchanged": old == new,
+            "approved_diagnostic_anisette_transition": diagnostic_anisette is not None,
             "metadata_status": "resolver_hash_captured_for_review" if origin else "absent_requires_review"}
 
 
@@ -204,7 +254,10 @@ def verify_resolution(root, state_path, phase, refs):
     lock_name = "Package.resolved" if phase == "sidesign" else APP_LOCK
     before_bytes = git_bytes(repo, "show", refs["owners"][owner]["source_commit"] + ":" + lock_name)
     after_path = repo / lock_name
-    comparison = compare_locks(json.loads(before_bytes), json.loads(after_path.read_text()), phase)
+    diagnostic_pin = None
+    if refs.get("source_basis") == "maintained-adi-consumption-v1":
+        diagnostic_pin = {**ANISETTE, "state": {"revision": refs["owners"]["AnisetteKit"]["source_commit"]}}
+    comparison = compare_locks(json.loads(before_bytes), json.loads(after_path.read_text()), phase, diagnostic_pin)
     expected = comparison["pins"]
     doc = json.loads(state_path.read_text())
     deps = doc["object"]["dependencies"]
@@ -394,7 +447,7 @@ def capture_compiler_inputs(root, results, destination, resolution, phase):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("action", choices=("inputs", "fetch", "sources", "resolution", "snapshot", "compiler-inputs", "build-products", "generated-sources"))
+    p.add_argument("action", choices=("inputs", "owner-proof", "fetch", "sources", "resolution", "snapshot", "compiler-inputs", "build-products", "generated-sources"))
     p.add_argument("--phase", choices=("sidesign", "sidestore"), required=True)
     p.add_argument("--inputs", type=Path, required=True)
     p.add_argument("--approved-sha256", required=True)
@@ -408,7 +461,17 @@ def main():
     a = p.parse_args()
     refs = load_inputs(a.inputs, a.approved_sha256, a.phase)
     result = {"status": "PASS", "phase": a.phase, "approved_inputs_sha256": a.approved_sha256, "production_ready": False}
-    if a.action == "fetch":
+    if a.action == "owner-proof":
+        basis_path, basis_sha = diagnostic_basis(refs, a.phase)
+        owner = owner_path(a.root, "SideSign", a.phase)
+        completed = subprocess.run([sys.executable, "-B", str(owner / ".ci/production-dependencies.py"),
+            "--root", str(owner), "--diagnostic-basis", str(basis_path),
+            "--diagnostic-basis-sha256", basis_sha], check=True, capture_output=True, text=True)
+        proof = json.loads(completed.stdout)
+        require(proof.get("status") == "diagnostic_dependency_transition_pass" and
+                proof.get("production_ready") is False, "Diagnostic owner source proof failed or falsely claims readiness")
+        result["owner_proof"] = proof
+    elif a.action == "fetch":
         require(not a.root.exists(), "Production source output must be new")
         a.root.mkdir(parents=True)
         skip = {"SideSign", "minimuxer"} if a.phase == "sidestore" else set()

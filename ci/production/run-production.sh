@@ -15,7 +15,13 @@ EVIDENCE="$(cd "$EVIDENCE" && pwd -P)"
 ROOT="$WORK/sources"
 R="$WORK/results"
 mkdir -p "$R"
-INPUT_ARGS=(--phase "$PHASE" --inputs "$CI_DIR/inputs-$PHASE.json" --approved-sha256 "$APPROVED_PRODUCTION_INPUTS_SHA256")
+SOURCE_BASIS="${PRODUCTION_SOURCE_BASIS:-parity}"
+case "$SOURCE_BASIS" in
+  parity) INPUT_FILE="$CI_DIR/inputs-$PHASE.json" ;;
+  diagnostic) INPUT_FILE="$CI_DIR/inputs-adi-$PHASE.json" ;;
+  *) echo 'Unreviewed production source basis' >&2; exit 1 ;;
+esac
+INPUT_ARGS=(--phase "$PHASE" --inputs "$INPUT_FILE" --approved-sha256 "$APPROVED_PRODUCTION_INPUTS_SHA256")
 STAGE=inputs
 LOCK=
 STATE=
@@ -48,7 +54,7 @@ offline() { /usr/bin/sandbox-exec -p '(version 1) (allow default) (deny network*
 export -f offline
 prove() { python3 -B "$CI_DIR/prove_graph.py" "$1" "${INPUT_ARGS[@]}" --root "$ROOT" "${@:2}"; }
 prove inputs
-cp "$CI_DIR/inputs-$PHASE.json" "$EVIDENCE/provenance/reviewed-production-inputs.json"
+cp "$INPUT_FILE" "$EVIDENCE/provenance/reviewed-production-inputs.json"
 STAGE=toolchain
 python3 -B "$NATIVE/verify_toolchain.py" "$EVIDENCE/provenance/reviewed-toolchain.json"
 { xcodebuild -version; swift --version; rustc --version --verbose; cargo --version; } \
@@ -63,7 +69,11 @@ if [ "$PHASE" = sidesign ]; then
   LOCK="$S/Package.resolved"
   STATE="$R/sidesign/workspace-state.json"
   STAGE=strict-clean-proof
-  log_run sidesign-pre-resolution-proof python3 -B "$S/.ci/production-dependencies.py"
+  if [ "$SOURCE_BASIS" = diagnostic ]; then
+    log_run sidesign-pre-resolution-proof prove owner-proof --report "$EVIDENCE/provenance/diagnostic-owner-proof.json"
+  else
+    log_run sidesign-pre-resolution-proof python3 -B "$S/.ci/production-dependencies.py"
+  fi
   prove sources --report "$EVIDENCE/provenance/source-proof-before.json"
   cp "$LOCK" "$EVIDENCE/provenance/Package.resolved.before"
   STAGE=real-remote-resolution
