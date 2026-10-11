@@ -1,5 +1,46 @@
 import Foundation
 
+// Only capability and bounded state cross the service boundary. Pending keys,
+// owner IDs and certificate contents stay in the service's private storage.
+enum V3PendingCertificateRecoveryState: String {
+    case unavailable, none, signInRequired, ownerMismatch, ready, activationRequired, storageUnverified
+
+    static func decode(protocolVersion: Int?, rawState: String?) -> Self {
+        guard protocolVersion != nil || rawState != nil else { return .unavailable }
+        guard protocolVersion == 1, let rawState,
+              let state = Self(rawValue: rawState), state != .unavailable else { return .storageUnverified }
+        return state
+    }
+    var requiresAttention: Bool { self != .none && self != .unavailable }
+    func mayReconcile(authenticated: Bool, hasSession: Bool, isCancelling: Bool,
+                      authenticationActive: Bool, checkingStorage: Bool) -> Bool {
+        self == .ready && authenticated && !hasSession && !isCancelling &&
+            !authenticationActive && !checkingStorage
+    }
+    func mayFinishActivation(authenticated: Bool, hasSession: Bool, isCancelling: Bool,
+                             authenticationActive: Bool, checkingStorage: Bool) -> Bool {
+        self == .activationRequired && authenticated && !hasSession && !isCancelling &&
+            !authenticationActive && !checkingStorage
+    }
+    var guidance: String {
+        switch self {
+        case .activationRequired:
+            return "This pending certificate is ready for activation. Sign in again with the original Apple ID to finish signing setup."
+        case .signInRequired:
+            return "Sign in with the Apple ID that started this certificate request, then reconcile the pending request."
+        case .ownerMismatch:
+            return "This pending request belongs to another Apple ID. Return to Account and Signing, sign out, then sign in with the original Apple ID."
+        case .ready:
+            return "Check the original certificate request before creating or revoking certificates. Reconciliation does not submit another request or revoke a certificate."
+        case .storageUnverified:
+            return "The pending certificate state could not be verified. Reload status before continuing. The saved request has not been discarded."
+        case .none, .unavailable:
+            return ""
+        }
+    }
+}
+
+
 enum V3SetupSnapshotOutcome: String, Equatable {
     case applied
     case snapshotFailed
@@ -8086,6 +8127,7 @@ final class V3SideStoreStatusStore: ObservableObject {
     // session separately from the active account row, because authentication
     // completes before provisioning activates that row.
     @Published private(set) var authenticated = false
+    @Published private(set) var pendingCertificateRecoveryState = V3PendingCertificateRecoveryState.unavailable
     @Published private(set) var identityStamp: String?
     @Published private(set) var hostSigningContext: String?
     @Published private(set) var installedHostSigning = V3HostSigningObservation()
@@ -8973,6 +9015,9 @@ final class V3SideStoreStatusStore: ObservableObject {
         certificateExpiration = (snapshot["certificateExpiration"] as? Date).flatMap { $0 == .distantPast ? nil : $0 }
         pairing = snapshot["pairing"] as? String ?? "Unknown"
         authenticated = V3ServiceBridge.strictBool(snapshot["authenticated"]) ?? false
+        pendingCertificateRecoveryState = V3PendingCertificateRecoveryState.decode(
+            protocolVersion: V3ServiceBridge.strictInt(snapshot["pendingCertificateRecoveryProtocol"]),
+            rawState: snapshot["pendingCertificateRecoveryState"] as? String)
         authenticationActive = V3ServiceBridge.strictBool(snapshot["authenticationActive"]) ?? false
         activeAccountPresent = V3ServiceBridge.strictBool(snapshot["activeAccountPresent"]) ?? false
         activeTeamPresent = V3ServiceBridge.strictBool(snapshot["activeTeamPresent"]) ?? false
@@ -10575,6 +10620,15 @@ struct V3AccountSettings: View {
                         .foregroundColor(.orange)
                 }
                 .accessibilityHint("Apple ID is signed in. Retry provisioning or finish later.")
+            }
+            if status.pendingCertificateRecoveryState.requiresAttention {
+                NavigationLink {
+                    V3SignInView().environmentObject(status)
+                } label: {
+                    Label("Pending Certificate Recovery", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                }
+                .accessibilityIdentifier("account.pending-certificate-recovery")
             }
             // Account status is available only for a signed-in account. When
             // signed out, the section above already offers Sign In.
@@ -12224,6 +12278,7 @@ final class V3AuthStore: ObservableObject {
     @Published private(set) var provisioningRetryAvailable = false
     @Published private(set) var provisioningReauthenticationAvailable = false
     @Published private(set) var provisioningRecoveryRequiresReconciliation = false
+    @Published private(set) var pendingCertificateRecoveryState = V3PendingCertificateRecoveryState.unavailable
     @Published private(set) var provisioningIdentityStateBlocked = false
     @Published private(set) var checkingProvisioningStorage = false
     @Published private(set) var provisioningSessionUnavailable = false
@@ -12243,6 +12298,7 @@ final class V3AuthStore: ObservableObject {
     private var reconciledProvisioningRetryReadinessSessionID: String?
     private var accountRecoveryProtocolAvailable = false
     private var reauthenticationSessionID: String?
+    private var pendingCertificateActivationSessionID: String?
     private var session: String?
     private var authoritativeActiveAuthenticationSessionID: String?
     private var task: Task<Void, Never>?
@@ -12287,17 +12343,43 @@ final class V3AuthStore: ObservableObject {
             !hasSession && !isCancelling && !provisioningRetryBlockedByActiveSession
     }
 
+    var canCheckPendingCertificateRecovery: Bool {
+        accountRecoveryProtocolAvailable && pendingCertificateRecoveryState.mayReconcile(
+            authenticated: signedIn, hasSession: hasSession, isCancelling: isCancelling,
+            authenticationActive: provisioningRetryBlockedByActiveSession,
+            checkingStorage: checkingProvisioningStorage)
+    }
+
+    var canFinishPendingCertificateActivation: Bool {
+        accountRecoveryProtocolAvailable && cancellationConfirmed && !provisioningRecoveryRequiresReconciliation &&
+            pendingCertificateRecoveryState.mayFinishActivation(authenticated: signedIn,
+                hasSession: hasSession, isCancelling: isCancelling,
+                authenticationActive: provisioningRetryBlockedByActiveSession,
+                checkingStorage: checkingProvisioningStorage)
+    }
+
+    func finishPendingCertificateActivation() {
+        guard canFinishPendingCertificateActivation else { return }
+        startAuthentication(reauthenticatingProvisioning: true, finishingPendingCertificate: true)
+    }
+
     func checkProvisioningStorage() {
-        guard canCheckProvisioningStorage else { return }
+        guard canCheckProvisioningStorage || canCheckPendingCertificateRecovery else { return }
         checkingProvisioningStorage = true
         Task { @MainActor in
             defer { checkingProvisioningStorage = false }
             do {
                 _ = try await V3ServiceBridge.shared.request(operation: "authReconcileStorage")
-                _ = await reconcile(force: true)
-                message = provisioningRecoveryRequiresReconciliation
-                    ? "Saved signing state is still unverified. Review the account and certificate storage diagnostics before another attempt." + "\nError ID: SS-SAVE-D030"
-                    : "Saved account state was verified. You can continue setup."
+                let confirmed = await reconcile(force: true)
+                if confirmed && pendingCertificateRecoveryState == .activationRequired && !provisioningRecoveryRequiresReconciliation {
+                    message = pendingCertificateRecoveryState.guidance
+                } else if confirmed && pendingCertificateRecoveryState == .ready && !provisioningRecoveryRequiresReconciliation {
+                    message = "The pending certificate request still needs attention. If Retry Provisioning is available below, use it to finish signing setup."
+                } else {
+                    message = !confirmed || provisioningRecoveryRequiresReconciliation || pendingCertificateRecoveryState.requiresAttention
+                        ? "Saved signing state is still unverified. Review the account and certificate storage diagnostics before another attempt." + "\nError ID: SS-SAVE-D030"
+                        : "Saved account state was verified. You can continue setup."
+                }
             } catch {
                 message = "SideStore could not verify saved account state. Reload status and review the storage diagnostics." + "\nError ID: SS-SAVE-D031"
                 provisioningTechnical = (error as? CombinedFailure)?.technicalDetails ?? ""
@@ -12315,13 +12397,14 @@ final class V3AuthStore: ObservableObject {
         startAuthentication(reauthenticatingProvisioning: signedIn && provisioningIncomplete)
     }
 
-    private func startAuthentication(reauthenticatingProvisioning: Bool) {
+    private func startAuthentication(reauthenticatingProvisioning: Bool, finishingPendingCertificate: Bool = false) {
         task?.cancel()
         provisioningRetryReadinessOwnership.clear()
         provisioningRetryReadinessAttemptSequence = nil
         reconciledProvisioningRetryReadinessSessionID = nil
         let requestedSession = UUID().uuidString
         reauthenticationSessionID = reauthenticatingProvisioning ? requestedSession : nil
+        pendingCertificateActivationSessionID = finishingPendingCertificate && reauthenticatingProvisioning ? requestedSession : nil
         reconciliationGate.invalidate()
         session = requestedSession
         pendingAuthenticationReadinessSessionID = requestedSession
@@ -12635,6 +12718,9 @@ final class V3AuthStore: ObservableObject {
         let ticket = reconciliationGate.begin(sessionID: session, state: state, revision: revision)
         authoritativeActiveAuthenticationSessionID = nil
         provisioningReauthenticationAvailable = false
+        if pendingCertificateRecoveryState.requiresAttention {
+            pendingCertificateRecoveryState = .storageUnverified
+        }
         let reportedTerminalState = state
         do {
             let snapshot = try await V3ServiceBridge.shared.request(operation: "snapshot")
@@ -12646,6 +12732,9 @@ final class V3AuthStore: ObservableObject {
             }
             let accountFacts = V3AuthSnapshotAuthorityPolicy.facts(authSnapshot)
             accountRecoveryProtocolAvailable = V3ServiceBridge.strictInt(snapshot["accountRecoveryProtocol"]) == 1
+            pendingCertificateRecoveryState = V3PendingCertificateRecoveryState.decode(
+                protocolVersion: V3ServiceBridge.strictInt(snapshot["pendingCertificateRecoveryProtocol"]),
+                rawState: snapshot["pendingCertificateRecoveryState"] as? String)
             provisioningReauthenticationAvailable = accountRecoveryProtocolAvailable && authSnapshot.identityStable &&
                 V3ServiceBridge.strictBool(snapshot["provisioningReauthenticationAvailable"]) == true
             provisioningRecoveryRequiresReconciliation =
@@ -12899,6 +12988,9 @@ final class V3AuthStore: ObservableObject {
             if reauthenticationSessionID == requestedSession {
                 guard accountRecoveryProtocolAvailable else { return }
                 payload["provisioningLogin"] = true
+                if pendingCertificateActivationSessionID == requestedSession {
+                    payload["finishPendingCertificateActivation"] = true
+                }
             }
             let reply = try await V3ServiceBridge.shared.request(operation: "authBegin",
                 target: requestedSession, payload: payload)
@@ -13690,6 +13782,7 @@ struct V3SignInView: View {
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @EnvironmentObject private var sharedModel: SharedModel
     @StateObject private var auth = V3AuthStore()
+    @State private var confirmPendingCertificateActivation = false
     var body: some View {
         List {
             if shouldShowAccountSection {
@@ -13940,6 +14033,36 @@ struct V3SignInView: View {
                 role: .cancel) { auth.cancel() }
                 .disabled(auth.isCancelling)
         }
+        if auth.pendingCertificateRecoveryState.requiresAttention && auth.prompt == nil {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Pending Certificate Recovery")
+                    .font(.subheadline.weight(.semibold)).foregroundColor(.orange)
+                Text(auth.pendingCertificateRecoveryState.guidance)
+                    .font(.footnote).fixedSize(horizontal: false, vertical: true)
+                if auth.pendingCertificateRecoveryState == .ready {
+                    Button(auth.checkingProvisioningStorage ? "Checking Saved State..." : "Reconcile Pending Certificate") {
+                        auth.checkProvisioningStorage()
+                    }
+                    .disabled(!auth.canCheckPendingCertificateRecovery)
+                    .accessibilityIdentifier("signin.pending-certificate-reconcile")
+                }
+                if auth.pendingCertificateRecoveryState == .activationRequired {
+                    Button("Sign In Again to Finish Setup") { confirmPendingCertificateActivation = true }
+                        .disabled(!auth.canFinishPendingCertificateActivation)
+                        .accessibilityIdentifier("signin.pending-certificate-activate")
+                        .confirmationDialog("Activate Recovered Certificate?", isPresented: $confirmPendingCertificateActivation,
+                            titleVisibility: .visible) {
+                            Button("Use Recovered Certificate") { auth.finishPendingCertificateActivation() }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("The recovered certificate will become active and replace the current active certificate. Existing certificates will be kept.")
+                        }
+                }
+                Button("Reload Status") { auth.reloadAuthoritativeAccountStatus() }
+                    .disabled(auth.isCancelling || auth.checkingProvisioningStorage || auth.hasSession)
+            }
+            .accessibilityIdentifier("signin.pending-certificate-recovery")
+        }
         if auth.provisioningRecoveryRequiresReconciliation {
             Button(auth.checkingProvisioningStorage ? "Checking Saved State..." : "Check Saved Signing State") {
                 auth.checkProvisioningStorage()
@@ -13964,7 +14087,7 @@ struct V3SignInView: View {
                 }
                 .disabled(!auth.canRetryProvisioning)
             }
-            if recovery.showReauthenticateProvisioning {
+            if recovery.showReauthenticateProvisioning && auth.pendingCertificateRecoveryState != .activationRequired {
                 Button("Sign In Again to Finish Setup") { auth.reauthenticateProvisioning() }
                     .disabled(!auth.canReauthenticateProvisioning)
             }

@@ -4085,9 +4085,11 @@ enum V3WireContract {
             let baseKeys: Set<String> = ["session", "sessionDeadline"]
             // A control flag, not an authentication secret. Keep its name out
             // of the raw-secret vocabulary; do not exempt it from that sweep.
-            let allowedKeys = operation == "authBegin" ? baseKeys.union(["provisioningLogin"]) : baseKeys
+            let allowedKeys = operation == "authBegin" ? baseKeys.union(["provisioningLogin", "finishPendingCertificateActivation"]) : baseKeys
             guard baseKeys.isSubset(of: Set(payload.keys)), Set(payload.keys).isSubset(of: allowedKeys),
                   payload["provisioningLogin"] == nil || strictBool(payload["provisioningLogin"]) != nil,
+                  payload["finishPendingCertificateActivation"] == nil || strictBool(payload["finishPendingCertificateActivation"]) != nil,
+                  payload["finishPendingCertificateActivation"] == nil || strictBool(payload["provisioningLogin"]) == true,
                   let session = payload["session"] as? String,
                   canonicalSecretToken(session), session == target,
                   let sessionDeadline = payload["sessionDeadline"] as? Date,

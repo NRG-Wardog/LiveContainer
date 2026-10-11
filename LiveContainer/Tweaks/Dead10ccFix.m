@@ -95,7 +95,8 @@ void initDead10ccFix(void) {
         uint64_t count = pidinfo_size / sizeof(struct proc_fdinfo);
         struct proc_fdinfo *fdinfo = (struct proc_fdinfo *)pidinfo;
         
-        while (count--) {
+        // Advance after every entry, including failed or empty vnode lookups.
+        for (; count--; fdinfo++) {
             if (fdinfo->proc_fdtype == PROX_FDTYPE_VNODE) {
                 struct vnode_fdinfowithpath vnodeinfo;
                 //memset(&vnodeinfo, 0, 0x200); // TODO: Why not sizeof(vnodeinfo)?
@@ -122,7 +123,6 @@ void initDead10ccFix(void) {
                 path = [path stringByStandardizingPath];
                 [openFilePaths addObject:path];
             }
-            fdinfo++;
         }
     }
     free(pidinfo);
