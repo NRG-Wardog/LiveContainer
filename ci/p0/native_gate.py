@@ -111,6 +111,17 @@ def validate_inputs(raw, approved, host):
     return data
 
 
+def verified_prior_github_identity(root, expected):
+    require(root is not None, 'fresh workflow-fetched prior GitHub identity required')
+    transport=parse(ordinary(root,'transport.json').read_bytes())
+    require(transport=={'repository':os.environ.get('GITHUB_REPOSITORY'), 'run_id':os.environ.get('GITHUB_RUN_ID'), 'run_attempt':os.environ.get('GITHUB_RUN_ATTEMPT'), 'host_commit':os.environ.get('GITHUB_SHA')}, 'prior identity transport belongs to a different capture')
+    require(transport['repository']=='NRG-Wardog/LiveContainer' and all(transport.values()), 'missing current capture transport identity')
+    run_raw=ordinary(root,'run.json').read_bytes(); artifact_raw=ordinary(root,'artifact.json').read_bytes()
+    run=parse(run_raw); artifact=parse(artifact_raw)
+    require(run.get('conclusion')=='success' and run.get('status')=='completed' and run.get('head_sha')==expected['host_commit'] and run.get('run_attempt')==expected['run_attempt'] and run.get('id')==expected['run_id'],'prior GitHub run identity/conclusion differs')
+    require(artifact.get('id')==expected['artifact_id'] and artifact.get('expired') is False and artifact.get('digest')=='sha256:'+expected['artifact_sha256'] and artifact.get('workflow_run',{}).get('id')==expected['run_id'] and artifact.get('workflow_run',{}).get('head_sha')==expected['host_commit'],'prior GitHub artifact identity/digest differs')
+    return {'run':run,'artifact':artifact,'transport':transport,'raw_sha256':{'run':sha(run_raw),'artifact':sha(artifact_raw)}}
+
 def verify_sidesign_tests(text):
     text=re.sub(r"\x1b\[[0-9;]*m", "", text)
     expected={'deviceInitializationAndFiltering','certificateRequestCSRGeneration','developerPortalSingleton','archiveStoreRoundtrip','archiveDeflateRoundtrip'}
@@ -300,14 +311,8 @@ class Gate:
     def prior_sidesign(self,root):
         require(root is not None,'sidestore phase requires preserved SideSign evidence directory')
         expected=self.data['prior_sidesign']
-        def github(path):
-            request=urllib.request.Request('https://api.github.com/repos/NRG-Wardog/LiveContainer/'+path,headers={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'p0-native-capture'})
-            with urllib.request.urlopen(request,timeout=60) as response:return parse(response.read())
-        run=github('actions/runs/'+str(expected['run_id'])+'/attempts/'+str(expected['run_attempt']))
-        require(run.get('conclusion')=='success' and run.get('status')=='completed' and run.get('head_sha')==expected['host_commit'] and run.get('run_attempt')==expected['run_attempt'] and run.get('id')==expected['run_id'],'prior GitHub run identity/conclusion differs')
-        artifact=github('actions/artifacts/'+str(expected['artifact_id']))
-        require(artifact.get('id')==expected['artifact_id'] and artifact.get('expired') is False and artifact.get('digest')=='sha256:'+expected['artifact_sha256'] and artifact.get('workflow_run',{}).get('id')==expected['run_id'] and artifact.get('workflow_run',{}).get('head_sha')==expected['host_commit'],'prior GitHub artifact identity/digest differs')
-        dump(self.evidence/'provenance/prior-github-identity.json',{'run':run,'artifact':artifact})
+        identity=verified_prior_github_identity(self.prior_github_identity, expected)
+        dump(self.evidence/'provenance/prior-github-identity.json',identity)
         require(root is not None,'sidestore phase requires preserved SideSign evidence directory')
         index_raw=ordinary(root,'evidence-index.json').read_bytes()
         require(sha(index_raw)==self.data['prior_sidesign']['index_sha256'],'prior evidence index mismatch')
@@ -406,6 +411,7 @@ def main():
     p.add_argument('--inputs',type=Path,required=True);p.add_argument('--approved-inputs-sha256',required=True)
     p.add_argument('--host-root',type=Path,default=HERE.parents[1]);p.add_argument('--work',type=Path)
     p.add_argument('--evidence',type=Path);p.add_argument('--prior-sidesign-evidence',type=Path)
+    p.add_argument('--prior-github-identity',type=Path)
     p.add_argument('--prior-archive',type=Path);p.add_argument('--unpack-prior-to',type=Path)
     p.add_argument('--execute',action='store_true',help='Explicitly execute macOS native capture, never publish or approve it')
     a=p.parse_args()
@@ -423,7 +429,7 @@ def main():
         if not a.execute:
             print(json.dumps({'status':'SEALED_INPUTS_VALID','native_execution':False,'production_ready':False,'phase':data['phase']}));return
         require(a.work is not None and a.evidence is not None,'fresh --work and --evidence required')
-        gate=Gate(data,a.host_root.resolve(),a.work.resolve(),a.evidence.resolve(),a.approved_inputs_sha256);gate.input_bytes=raw;gate.execute(a.prior_sidesign_evidence)
+        gate=Gate(data,a.host_root.resolve(),a.work.resolve(),a.evidence.resolve(),a.approved_inputs_sha256);gate.input_bytes=raw;gate.prior_github_identity=a.prior_github_identity;gate.execute(a.prior_sidesign_evidence)
     except (ValueError,KeyError,TypeError,OSError,subprocess.SubprocessError) as error: p.exit(2,'BLOCKED: '+str(error)+'\n')
 
 if __name__=='__main__': main()
