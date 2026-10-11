@@ -34,6 +34,7 @@ jobs:
         with:
           path: validation
           persist-credentials: false
+          set-safe-directory: false
       - name: Fail closed on pending or altered source inputs
         run: |
           set -euo pipefail
@@ -66,14 +67,17 @@ jobs:
       - name: Resolve compile and capture exact P0 graph
         run: |
           set -euo pipefail
-          prior=()
-          if [ "$P0_PHASE" = sidestore ]; then prior=(--prior-sidesign-evidence "$RUNNER_TEMP/p0-prior-sidesign"); fi
-          python3 -B validation/ci/p0/native_gate.py \
-            --inputs "validation/ci/p0/inputs-$P0_PHASE.json" \
-            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
-            --host-root "$GITHUB_WORKSPACE/validation" \
-            --work "$RUNNER_TEMP/p0-work" --evidence "$GITHUB_WORKSPACE/p0-evidence" \
-            "${prior[@]}" --execute
+          args=(
+            --inputs "validation/ci/p0/inputs-$P0_PHASE.json"
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256"
+            --host-root "$GITHUB_WORKSPACE/validation"
+            --work "$RUNNER_TEMP/p0-work" --evidence "$GITHUB_WORKSPACE/p0-evidence"
+            --execute
+          )
+          if [ "$P0_PHASE" = sidestore ]; then
+            args+=(--prior-sidesign-evidence "$RUNNER_TEMP/p0-prior-sidesign")
+          fi
+          python3 -B validation/ci/p0/native_gate.py "${args[@]}"
       - name: Preserve actual capture for independent review
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
