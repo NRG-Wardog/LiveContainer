@@ -1,0 +1,25 @@
+{
+  "source_repository": "NRG-Wardog/sidestore-auto-refresh",
+  "source_commit": "767234eb704745ce915c0750eee2c31061ac4f78",
+  "source_path": "scripts/maintained_sources.py",
+  "source_git_blob": "08ee36e62768a4ae80295a0ffb928e3c7c35ccd7",
+  "source_sha256": "ac95dfaa5f5387d28dc4d0b3b2118aeba566cb1cfc4f969c02e3666fd48359e6",
+  "derived_path": "ci/p0/source_primitives.py",
+  "derived_sha256": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
+  "reused_functions": [
+    "require",
+    "unique_pairs",
+    "git",
+    "verify_origin",
+    "entries",
+    "allowed_output",
+    "verify_checkout",
+    "pin_map",
+    "verify_resolution"
+  ],
+  "explicit_adaptations": [
+    "verify_checkout: optional exact observed resolver-lock Git-blob override, no other tracked-file override",
+    "verify_resolution: parameterized state/lock/local-child paths for SideSign and SideStore phases"
+  ],
+  "production_ready": false
+}

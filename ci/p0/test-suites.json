@@ -1,0 +1,93 @@
+[
+  {
+    "id": "pending-certificate-creation",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0/tests/test_pending_certificate_creation.py": "c61a6dd76948d061271eff4da00e57c4ef5742503424d8eb15afd4f8ce220464",
+      "ci/p0/tests/proxy_harness.swift": "e3848992d312695d3fd87fafba3deab2c34952784fb9e8dc33695d8669a837d3",
+      "ci/p0/tests/security_query_harness.swift": "77cfd62918aaa4d2c0aacc585d549a5e6de67cf66c953c9308fdc4fb38791ecc",
+      "ci/p0/tests/activation_harness.swift": "c465be3e4b631262b30a9c778df4f3baaf3cd8c52dd04b7a754f80cf16c3f63b"
+    },
+    "modules": [
+      "test_pending_certificate_creation"
+    ],
+    "expected_test_ids": [
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_dispatch_requires_verified_retention_and_preserves_late_result",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_reconciliation_is_read_only_and_cryptographically_bound",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_secure_journal_is_separate_device_local_and_strict",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_existing_api_wrapper_and_app_entrypoints",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_record_core_fault_matrix",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_proxy_create_and_reconciliation",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_pending_activation_consumer",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_security_query_scope",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_security_matching_mismatching_and_invalid_keys"
+    ]
+  },
+  {
+    "id": "created-certificate-preservation",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0/tests/test_signin_certificate_creation_result.py": "2c0fb4865747cd6e510185a5b6aa33a32e24b76bcbd6fb3020a3acc6afa6c769"
+    },
+    "modules": [
+      "test_signin_certificate_creation_result"
+    ],
+    "expected_test_ids": [
+      "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_returns_full_result_without_second_fallible_request",
+      "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_invalidates_list_without_claiming_local_activation",
+      "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_existing_activation_retry_retains_result",
+      "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_native_request_and_local_retry"
+    ]
+  },
+  {
+    "id": "udid-diagnostics",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0/tests/test_signin_udid_failure_consumer.py": "0406bb7c163cfb104fb60714e4f07b29c749a91d62f17e8119cb342b36e6a96b"
+    },
+    "modules": [
+      "test_signin_udid_failure_consumer"
+    ],
+    "expected_test_ids": [
+      "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_preserves_first_failure_and_valid_fallback",
+      "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_cellular_restore_boundary_unchanged",
+      "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_logs_do_not_include_identifiers_or_raw_errors",
+      "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_extracted_native_consumer"
+    ]
+  },
+  {
+    "id": "descriptor-progression",
+    "owner": "LiveContainer",
+    "files": {
+      "ci/p0/tests/test_dead10cc_scan_progression.py": "85c77d5bcba9f8a03c1d0f5e62ae63598e3e60c624f6c0c4ddfbb8d0ca1133e8"
+    },
+    "modules": [
+      "test_dead10cc_scan_progression"
+    ],
+    "expected_test_ids": [
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_lookup_failure_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_short_lookup_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_negative_lookup_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_empty_path_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_failed_path_conversion_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_non_vnode_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_success_enumerates_every_entry_once"
+    ]
+  },
+  {
+    "id": "pending-certificate-host-recovery",
+    "owner": "LiveContainer",
+    "files": {
+      "ci/p0/tests/test_pending_certificate_host_recovery.py": "fbb3676714bad2ec74b208509467b6b749024867d9fb66a894fa7af8f2b1cb17"
+    },
+    "modules": [
+      "test_pending_certificate_host_recovery"
+    ],
+    "expected_test_ids": [
+      "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_distinct_capability_is_decoded_in_account_and_auth_snapshots",
+      "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_recovery_route_survives_signout_and_has_an_explicit_owner_bound_action",
+      "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_reconciliation_never_dispatches_create_revoke_or_auth_begin",
+      "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_pending_recovery_policy_executes_owner_and_capability_matrix"
+    ]
+  }
+]

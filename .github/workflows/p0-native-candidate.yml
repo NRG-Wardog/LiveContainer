@@ -1,0 +1,84 @@
+name: P0 native candidate capture
+
+# Local proposal only. Publish/trigger only after separate authorization.
+# Dedicated branch prevents accidentally rerunning the historical v2 lane.
+on:
+  push:
+    branches: [validation/p0-native-basis]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: p0-native-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  p0-native:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-native-basis'
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      P0_PHASE: sidesign
+      # Intentionally empty: replace ONLY after actual input bytes are independently reviewed.
+      APPROVED_P0_INPUTS_SHA256: 'bc393100be268480513c1ce051c6e225a55d468d994bfac6113696f2cfcd8fda'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          persist-credentials: false
+      - name: Fail closed on pending or altered source inputs
+        run: |
+          set -euo pipefail
+          test -n "$APPROVED_P0_INPUTS_SHA256"
+          python3 -B validation/ci/p0/native_gate.py \
+            --inputs "validation/ci/p0/inputs-$P0_PHASE.json" \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation"
+      - name: Retrieve exact reviewed prior SideSign evidence
+        if: env.P0_PHASE == 'sidestore'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(python3 -c 'import json; print(json.load(open("validation/ci/p0/inputs-sidestore.json"))["prior_sidesign"]["artifact_id"])')"
+          gh api "/repos/NRG-Wardog/LiveContainer/actions/artifacts/$artifact_id/zip" > "$RUNNER_TEMP/p0-prior-sidesign.zip"
+          python3 -B validation/ci/p0/native_gate.py \
+            --inputs validation/ci/p0/inputs-sidestore.json \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --prior-archive "$RUNNER_TEMP/p0-prior-sidesign.zip" \
+            --unpack-prior-to "$RUNNER_TEMP/p0-prior-sidesign"
+      - name: Install reviewed native prerequisites
+        run: |
+          set -euo pipefail
+          brew list --versions openssl@3 >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install openssl@3
+          if ! command -v bindgen >/dev/null || [ "$(bindgen --version)" != 'bindgen 0.72.1' ]; then
+            cargo install --locked --force bindgen-cli --version 0.72.1
+          fi
+      - name: Resolve compile and capture exact P0 graph
+        run: |
+          set -euo pipefail
+          prior=()
+          if [ "$P0_PHASE" = sidestore ]; then prior=(--prior-sidesign-evidence "$RUNNER_TEMP/p0-prior-sidesign"); fi
+          python3 -B validation/ci/p0/native_gate.py \
+            --inputs "validation/ci/p0/inputs-$P0_PHASE.json" \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --work "$RUNNER_TEMP/p0-work" --evidence "$GITHUB_WORKSPACE/p0-evidence" \
+            "${prior[@]}" --execute
+      - name: Preserve actual capture for independent review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p0-native-${{ env.P0_PHASE }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p0-evidence/**
+          if-no-files-found: error
+          retention-days: 14

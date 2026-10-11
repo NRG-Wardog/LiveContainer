@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "source_basis": "p0-abi-tls-certificate-lifecycle-v1",
+  "integration_baseline": "767234eb704745ce915c0750eee2c31061ac4f78",
+  "phase": "sidesign",
+  "owners": {
+    "AnisetteKit": {
+      "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
+      "commit": "0dfcc89aa93411d84f7c50beb3c75599af89e852",
+      "tree": "d1112813f8ea5fa93c076eb016442778b9eb29f9",
+      "changes": {
+        ".ci/native-tests/fixtures/android_tls_constructor.cpp": {
+          "before": null,
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "f6fb867f0358fe7f87e4c97cdb175e6f49d9ff85",
+            "sha256": "e914d11f518e065f4ddf1be75b9af5543006b222e118ef7a3d5b9c5b7fa7c331"
+          }
+        },
+        ".ci/native-tests/test_android_tls_runtime.py": {
+          "before": null,
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "6e7f69abc1f852e815572be301002315f6ce7d4b",
+            "sha256": "285e4accc6f90366f24be470c45a5376e2826d2bc05efe59da0851ec267c24ed"
+          }
+        },
+        "Native/Loader/android_tls_runtime.h": {
+          "before": null,
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "1a084e8314f94eb30a1591b6fc0112616d29ea87",
+            "sha256": "51c6c123d78b2d53f70e1720c8bf8aa934cbdb149a66df0a6763b6614f4fda07"
+          }
+        },
+        "Native/Loader/elf_loader_emulator.cpp": {
+          "before": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "83ca3d4f273cd1e7acab2dda2d687801335eb3f1",
+            "sha256": "c710077c4ad735d2a274908a252e38d48aa6b1811c8a70e56159fd34a51c6e09"
+          },
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "34c03938361d4ea061bbad9947773d1cf132f399",
+            "sha256": "6e2635c91bf5cbf4eb9cb7af586344d6641b80fcb31910892b60690dccc506ca"
+          }
+        },
+        "Native/Loader/elf_loader_emulator.h": {
+          "before": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "c02f0c0b48a5875a93740c85c94152c8e838d1cc",
+            "sha256": "aacfd99cf5049d2208bc9d6af471411ca3acd277828ebcd1f27914f552f2f62c"
+          },
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "74b09597dfd7ec1bb5306aca1d5793296866233d",
+            "sha256": "9d100b0fe5f0f3ee0293e0151b1884dd98147648415d7d4ead39c3b935ec4172"
+          }
+        },
+        "Native/anisette_core_uc.cpp": {
+          "before": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "076a453eb90f7a6c104b84ab7abf1e63be6809f2",
+            "sha256": "cb9a3c00c2db529fb127b6ef3aeaaf2f4c70a7261ca6ddae99fe91af14774000"
+          },
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "356bdee84457095157bde1e2c6d12b86aebc7750",
+            "sha256": "bd26de69de7c6a88f812ad1627f05b741c5407d5f21f9519bfdd1f2386230644"
+          }
+        }
+      }
+    },
+    "SideSign": {
+      "repository": "https://github.com/NRG-Wardog/SideSign.git",
+      "commit": "39d97e618c5178235ce5a7e415cae9d1c2a4a35c",
+      "tree": "56907f46d33e9cf9ee6c6d884460a693bfc4edaf",
+      "changes": {
+        "Sources/DeveloperPortal/Certificates.swift": {
+          "before": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "6127e16f8a265471e01ed8d03d6ba4a496caddb0",
+            "sha256": "3fb67077f5d95b7666941ae7958855c1ab3d81a4528067c730510d9e75df85ed"
+          },
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "432316f293ca57b1be446b45f05b5ec9c9882f93",
+            "sha256": "6e5afc992b3632c47394161149ccdf9d78684a76a50e455707c03e1f1193aaeb"
+          }
+        },
+        "Package.swift": {
+          "before": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "cd61d8763acb6522b2636e1ce903cee5593155cd",
+            "sha256": "164da73c538430aab4c7edc6babf6aceca245e007a6ec427522253747b16c2bc"
+          },
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "edcd3bfee49db6547f40123428345c1e3e3b9c56",
+            "sha256": "2485f239e750be9702e25b4c0e0c3cd03426ce114a527ad0add21c9583da1cc0"
+          }
+        }
+      }
+    }
+  },
+  "adapter_files": {
+    "ci/p0/native_gate.py": "78dc691a08272517ae3112f849a2b83f8fdfb3cf920f069ccdf72a57ef5178a7",
+    "prepare_candidate_inventory.py": "90e8bd00abf49a695057949dc28dcf3ad1747a7d220913a0463b0b253b9e134a",
+    "ci/p0/run_unittest_suite.py": "90dcfe7f52949df13e5ef4b1cdf610bf2726df4c939ce1b3ce40eb9ed4394426",
+    "ci/p0/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2"
+  },
+  "contracts": null,
+  "test_suites": [],
+  "prior_sidesign": null,
+  "submodules": {}
+}

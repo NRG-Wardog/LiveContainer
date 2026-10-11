@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "source_basis": "p0-abi-tls-certificate-lifecycle-v1",
+  "integration_baseline": "767234eb704745ce915c0750eee2c31061ac4f78",
+  "phase": "sidestore",
+  "owners": {
+    "AnisetteKit": {
+      "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
+      "commit": null,
+      "tree": null,
+      "changes": {
+        ".ci/native-tests/fixtures/android_tls_constructor.cpp": {
+          "before": null,
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "f6fb867f0358fe7f87e4c97cdb175e6f49d9ff85",
+            "sha256": "e914d11f518e065f4ddf1be75b9af5543006b222e118ef7a3d5b9c5b7fa7c331"
+          }
+        },
+        ".ci/native-tests/test_android_tls_runtime.py": {
+          "before": null,
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "6e7f69abc1f852e815572be301002315f6ce7d4b",
+            "sha256": "285e4accc6f90366f24be470c45a5376e2826d2bc05efe59da0851ec267c24ed"
+          }
+        },
+        "Native/Loader/android_tls_runtime.h": {
+          "before": null,
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "1a084e8314f94eb30a1591b6fc0112616d29ea87",
+            "sha256": "51c6c123d78b2d53f70e1720c8bf8aa934cbdb149a66df0a6763b6614f4fda07"
+          }
+        },
+        "Native/Loader/elf_loader_emulator.cpp": {
+          "before": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "83ca3d4f273cd1e7acab2dda2d687801335eb3f1",
+            "sha256": "c710077c4ad735d2a274908a252e38d48aa6b1811c8a70e56159fd34a51c6e09"
+          },
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "34c03938361d4ea061bbad9947773d1cf132f399",
+            "sha256": "6e2635c91bf5cbf4eb9cb7af586344d6641b80fcb31910892b60690dccc506ca"
+          }
+        },
+        "Native/Loader/elf_loader_emulator.h": {
+          "before": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "c02f0c0b48a5875a93740c85c94152c8e838d1cc",
+            "sha256": "aacfd99cf5049d2208bc9d6af471411ca3acd277828ebcd1f27914f552f2f62c"
+          },
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "74b09597dfd7ec1bb5306aca1d5793296866233d",
+            "sha256": "9d100b0fe5f0f3ee0293e0151b1884dd98147648415d7d4ead39c3b935ec4172"
+          }
+        },
+        "Native/anisette_core_uc.cpp": {
+          "before": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "076a453eb90f7a6c104b84ab7abf1e63be6809f2",
+            "sha256": "cb9a3c00c2db529fb127b6ef3aeaaf2f4c70a7261ca6ddae99fe91af14774000"
+          },
+          "after": {
+            "mode": "100644",
+            "type": "blob",
+            "git_object": "356bdee84457095157bde1e2c6d12b86aebc7750",
+            "sha256": "bd26de69de7c6a88f812ad1627f05b741c5407d5f21f9519bfdd1f2386230644"
+          }
+        }
+      }
+    },
+    "SideSign": {
+      "repository": "https://github.com/NRG-Wardog/SideSign.git",
+      "commit": null,
+      "tree": null,
+      "changes": {}
+    },
+    "SideStore": {
+      "repository": "https://github.com/NRG-Wardog/SideStore.git",
+      "commit": null,
+      "tree": null,
+      "changes": {}
+    },
+    "LiveContainer": {
+      "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
+      "commit": null,
+      "tree": null,
+      "changes": {}
+    },
+    "minimuxer": {
+      "repository": "https://github.com/NRG-Wardog/minimuxer.git",
+      "commit": null,
+      "tree": null,
+      "changes": {}
+    },
+    "idevice": {
+      "repository": "https://github.com/NRG-Wardog/idevice.git",
+      "commit": null,
+      "tree": null,
+      "changes": {}
+    },
+    "jktcp": {
+      "repository": "https://github.com/NRG-Wardog/jktcp.git",
+      "commit": null,
+      "tree": null,
+      "changes": {}
+    }
+  },
+  "adapter_files": {
+    "ci/p0/native_gate.py": "78dc691a08272517ae3112f849a2b83f8fdfb3cf920f069ccdf72a57ef5178a7",
+    "prepare_candidate_inventory.py": "90e8bd00abf49a695057949dc28dcf3ad1747a7d220913a0463b0b253b9e134a",
+    "ci/p0/run_unittest_suite.py": "90dcfe7f52949df13e5ef4b1cdf610bf2726df4c939ce1b3ce40eb9ed4394426",
+    "ci/p0/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2"
+  },
+  "contracts": null,
+  "test_suites": [
+    {
+      "id": "pending-certificate-creation",
+      "owner": "SideStore",
+      "files": {
+        "ci/p0/tests/test_pending_certificate_creation.py": "c61a6dd76948d061271eff4da00e57c4ef5742503424d8eb15afd4f8ce220464",
+        "ci/p0/tests/proxy_harness.swift": "e3848992d312695d3fd87fafba3deab2c34952784fb9e8dc33695d8669a837d3",
+        "ci/p0/tests/security_query_harness.swift": "77cfd62918aaa4d2c0aacc585d549a5e6de67cf66c953c9308fdc4fb38791ecc",
+        "ci/p0/tests/activation_harness.swift": "c465be3e4b631262b30a9c778df4f3baaf3cd8c52dd04b7a754f80cf16c3f63b"
+      },
+      "modules": [
+        "test_pending_certificate_creation"
+      ],
+      "expected_test_ids": [
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_dispatch_requires_verified_retention_and_preserves_late_result",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_reconciliation_is_read_only_and_cryptographically_bound",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_secure_journal_is_separate_device_local_and_strict",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_existing_api_wrapper_and_app_entrypoints",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_record_core_fault_matrix",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_proxy_create_and_reconciliation",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_pending_activation_consumer",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_security_query_scope",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_security_matching_mismatching_and_invalid_keys"
+      ]
+    },
+    {
+      "id": "created-certificate-preservation",
+      "owner": "SideStore",
+      "files": {
+        "ci/p0/tests/test_signin_certificate_creation_result.py": "2c0fb4865747cd6e510185a5b6aa33a32e24b76bcbd6fb3020a3acc6afa6c769"
+      },
+      "modules": [
+        "test_signin_certificate_creation_result"
+      ],
+      "expected_test_ids": [
+        "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_returns_full_result_without_second_fallible_request",
+        "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_invalidates_list_without_claiming_local_activation",
+        "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_existing_activation_retry_retains_result",
+        "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_native_request_and_local_retry"
+      ]
+    },
+    {
+      "id": "udid-diagnostics",
+      "owner": "SideStore",
+      "files": {
+        "ci/p0/tests/test_signin_udid_failure_consumer.py": "0406bb7c163cfb104fb60714e4f07b29c749a91d62f17e8119cb342b36e6a96b"
+      },
+      "modules": [
+        "test_signin_udid_failure_consumer"
+      ],
+      "expected_test_ids": [
+        "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_preserves_first_failure_and_valid_fallback",
+        "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_cellular_restore_boundary_unchanged",
+        "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_logs_do_not_include_identifiers_or_raw_errors",
+        "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_extracted_native_consumer"
+      ]
+    },
+    {
+      "id": "descriptor-progression",
+      "owner": "LiveContainer",
+      "files": {
+        "ci/p0/tests/test_dead10cc_scan_progression.py": "85c77d5bcba9f8a03c1d0f5e62ae63598e3e60c624f6c0c4ddfbb8d0ca1133e8"
+      },
+      "modules": [
+        "test_dead10cc_scan_progression"
+      ],
+      "expected_test_ids": [
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_lookup_failure_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_short_lookup_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_negative_lookup_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_empty_path_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_failed_path_conversion_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_non_vnode_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_success_enumerates_every_entry_once"
+      ]
+    },
+    {
+      "id": "pending-certificate-host-recovery",
+      "owner": "LiveContainer",
+      "files": {
+        "ci/p0/tests/test_pending_certificate_host_recovery.py": "fbb3676714bad2ec74b208509467b6b749024867d9fb66a894fa7af8f2b1cb17"
+      },
+      "modules": [
+        "test_pending_certificate_host_recovery"
+      ],
+      "expected_test_ids": [
+        "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_distinct_capability_is_decoded_in_account_and_auth_snapshots",
+        "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_recovery_route_survives_signout_and_has_an_explicit_owner_bound_action",
+        "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_reconciliation_never_dispatches_create_revoke_or_auth_begin",
+        "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_pending_recovery_policy_executes_owner_and_capability_matrix"
+      ]
+    }
+  ],
+  "prior_sidesign": null,
+  "submodules": {}
+}
