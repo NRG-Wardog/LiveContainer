@@ -89,5 +89,32 @@
       "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_reconciliation_never_dispatches_create_revoke_or_auth_begin",
       "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_pending_recovery_policy_executes_owner_and_capability_matrix"
     ]
+  },
+  {
+    "id": "test-reconstructed-completion",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0/tests/test_reconstructed_completion.py": "ee3983b5cbfae0c722b83e0bf8f0b25767d931fed3c14bda262f3b3ada2c8046"
+    },
+    "modules": [
+      "test_reconstructed_completion"
+    ],
+    "expected_test_ids": [
+      "test_reconstructed_completion.CompletionTests.test_index_proof_inside_locked_callback",
+      "test_reconstructed_completion.CompletionTests.test_native_index_missing_retains_journal"
+    ]
+  },
+  {
+    "id": "test-pending-pkcs8-proof",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0/tests/test_pending_pkcs8_proof.py": "3e41ded05d401c09ead871f4c179ada8735dad4b1c76b3ff2fd0f0cc95b747bc"
+    },
+    "modules": [
+      "test_pending_pkcs8_proof"
+    ],
+    "expected_test_ids": [
+      "test_pending_pkcs8_proof.PendingPKCS8Proof.test_native_exact_pkcs8_proof"
+    ]
   }
 ]
