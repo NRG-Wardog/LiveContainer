@@ -1,0 +1,59 @@
+name: P1 native host and UI candidate capture
+
+# Separate evidence lane. P0 artifacts and its source gate remain immutable.
+on:
+  push:
+    branches: [validation/p1-native-basis]
+permissions:
+  contents: read
+concurrency:
+  group: p1-native-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  p1-native-ui:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      APPROVED_P1_INPUTS_SHA256: '2105682309268d30626076ba084477db62b503fac5bc8611fd2a7893ef8ac10a'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Fail closed on altered P1 capture inputs
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p1/native_gate.py \
+            --inputs validation/ci/p1/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation"
+          python3 -B -m unittest discover -s validation/ci/p1/tests -p test_capture_gate.py -v
+          python3 -B -m unittest discover -s validation/ci/p1/tests -p test_behavior_capture.py -v
+      - name: Fresh P1 unsigned host build and exact-source UI capture
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p1/native_gate.py \
+            --inputs validation/ci/p1/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --work "$RUNNER_TEMP/p1-work" --evidence "$GITHUB_WORKSPACE/p1-evidence" \
+            --execute
+      - name: Preserve actual P1 evidence for independent review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-native-ui-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-evidence/**
+          if-no-files-found: error
+          retention-days: 30

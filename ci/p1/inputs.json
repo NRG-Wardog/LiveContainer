@@ -1,0 +1,73 @@
+{
+  "adapter_files": {
+    "ci/p0/native_gate.py": "ea6b7453f08149691dd35afe9ad6acf8f4987929ae84fc3857ec46cfbb8303dd",
+    "ci/p0/run_unittest_suite.py": "90dcfe7f52949df13e5ef4b1cdf610bf2726df4c939ce1b3ce40eb9ed4394426",
+    "ci/p0/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
+    "ci/p1/behavior_app.swift": "5c5f30a1cb7d656805c57c5a370bf4e541d31c7cf03d3fece53522de609e70ae",
+    "ci/p1/behavior_capture.py": "da1d9b44fa605622a4478cd7acd4168ccfe098ec912490e1269111d2c75e20f3",
+    "ci/p1/behavior_ui_tests.swift": "dcc357ec5f0ef56d059e3e26e02039fe1eb8a8e33e65dd24d8c9ae8259a29cc9",
+    "ci/p1/native_gate.py": "47ea5b83aab4a23bd0f88ce448da9990bfae131d9d862e664b314c45297c9fc6",
+    "ci/p1/recovery_app.swift": "4ed196fde2e1332cef6f1b2a3bf8deb16d6d5cb96cf4eb122a32917898d79c4d",
+    "ci/p1/recovery_source.py": "025bae6533b96af819c6a634cacb3823f936971ec630f2347f0d9d3eac15d2db",
+    "ci/p1/recovery_source_tests.py": "85ac3446454c91c719d9241c95384a0c7a3e4e3531a1f5130ff4ec09b1695382",
+    "ci/p1/recovery_ui_tests.swift": "b4ae4bcf2b78aab53926842ae6d69f49e025c0499f0c426108ec012bb4159e16",
+    "ci/p1/tests/test_behavior_capture.py": "e60b693e3e0ff79b18483c51ab217cae5b55f59be8f2abd3a24e3928f9757449",
+    "ci/p1/tests/test_capture_gate.py": "277659052b7bbab0103ea493558a33a844c6f7520be37a8c4e404e86e10e4504",
+    "ci/p1/tests/test_v3_signin_screen_cleanup.py": "c769e8c39984af1dfe1c78dbc38af9230d676da8d65bba947f53d98c9ed31212",
+    "prepare_candidate_inventory.py": "90e8bd00abf49a695057949dc28dcf3ad1747a7d220913a0463b0b253b9e134a"
+  },
+  "builder": {
+    "commit": "7e5062114f3ba8c1fe1990389ae9a008ce4d8c1f",
+    "repository": "https://github.com/NRG-Wardog/sidestore-auto-refresh.git",
+    "tree": "70c4bc332a925dd608d37f39e8803a13451add33"
+  },
+  "expected_test_ids": [
+    "test_v3_signin_screen_cleanup.SignInScreenCleanupTests.test_copy_feedback_is_scoped_and_cancel_safe",
+    "test_v3_signin_screen_cleanup.SignInScreenCleanupTests.test_current_unknown_failure_has_visible_copy_action_and_collapsed_details",
+    "test_v3_signin_screen_cleanup.SignInScreenCleanupTests.test_error_diagnostics_are_collapsed_but_copy_and_choices_remain_available",
+    "test_v3_signin_screen_cleanup.SignInScreenCleanupTests.test_every_interactive_prompt_has_only_its_lower_panel",
+    "test_v3_signin_screen_cleanup.SignInScreenCleanupTests.test_recovery_banner_reserves_navigation_space",
+    "test_v3_signin_screen_cleanup.SignInScreenCleanupTests.test_session_owned_cancel_stays_reachable_without_duplicate_prompt_cancel",
+    "test_v3_signin_screen_cleanup.SignInScreenCleanupTests.test_terminal_and_cancellation_recovery_remain_available",
+    "test_v3_signin_screen_cleanup.SignInScreenCleanupTests.test_unrelated_about_footer_is_removed_only_from_signin"
+  ],
+  "inherited_p0_review_sha256": "34d12b14364d4db4ed24ee80bf206332d383c27e958b497d6f5cd1c9d28cc6dc",
+  "livecontainer": {
+    "changes": {
+      "LiveContainerSwiftUI/Views/V3UnifiedShell.swift": {
+        "after": {
+          "git_object": "093a59955fff9252e18cc42a76c7f58055ef39d4",
+          "mode": "100644",
+          "sha256": "3c40aab6667431d0ecb502d49a38416b9e76250ddf6e66dc1037e60d4594e0be",
+          "type": "blob"
+        },
+        "before": {
+          "git_object": "f6a16cf997048f93b27be1eba39382f448273f54",
+          "mode": "100644",
+          "sha256": "7f9efe5881898bad6e8e2182c0095166b62f8b251dbb36b313d6876067df56be",
+          "type": "blob"
+        }
+      }
+    },
+    "commit": "fbaafb939bfd3b7c08fdc8ff4b8d2aae43526ece",
+    "parent": "00546cec351adad1fa1cad5590da4f06e612db8f",
+    "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
+    "tree": "3d3efc14415db6d28ede216965f83fa5924e9e9c"
+  },
+  "schema_version": 1,
+  "source_basis": "p1-ui-feedback-v1",
+  "submodules": {
+    "LiveContainer/OpenSSL": {
+      "commit": "623c84da314e85363236507ca38a4bde65df21c3",
+      "declared_repository": "https://github.com/krzyzanowskim/OpenSSL",
+      "repository": "https://github.com/krzyzanowskim/OpenSSL",
+      "tree": "21bc09387e7f91a46eb8bd26587ce1d052277801"
+    },
+    "LiveContainer/litehook": {
+      "commit": "8025e0c8ebdf5cdd1d2a4f45025813234bf9dc55",
+      "declared_repository": "https://github.com/LiveContainer/litehook",
+      "repository": "https://github.com/LiveContainerMirror/litehook.git",
+      "tree": "62bc06a17a1c12d805aec1ada25910bfa9f89781"
+    }
+  }
+}

@@ -2,7 +2,7 @@ name: Xcode - Build
 
 on: 
   push:
-    branches-ignore: [validation/p0-native-basis]
+    branches-ignore: [validation/p0-native-basis, validation/p1-native-basis]
     tags: ['**']
   pull_request:
   workflow_dispatch:
