@@ -34,15 +34,24 @@ enum JITEnablerType : Int, CaseIterable, Identifiable {
 }
 
 struct LCSettingsView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @AppStorage("LCHideReturnControl", store: UserDefaults.lcShared()) private var hideReturnControl = false
     @AppStorage("LCGuestReturnStartsCollapsed", store: UserDefaults.lcShared()) private var returnStartsCollapsed = false
     @AppStorage("LCGuestReturnCustomColors", store: UserDefaults.lcShared()) private var returnCustomColors = false
     @AppStorage("LCGuestReturnTintRGB", store: UserDefaults.lcShared()) private var returnTintRGB = 0x007AFF
     @AppStorage("LCGuestReturnBackgroundRGB", store: UserDefaults.lcShared()) private var returnBackgroundRGB = 0xF2F2F7
     @State var errorShow = false
-    @State var errorInfo = ""
+    @State var errorDisplay = V3DisplayMessage.raw("")
+    var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     @State var successShow = false
-    @State var successInfo = ""
+    @State var successDisplay = V3DisplayMessage.raw("")
+    var successInfo: String {
+        get { successDisplay.original }
+        nonmutating set { successDisplay = .raw(newValue) }
+    }
 
     @State private var certificateDataFound = false
     @State private var v3OpenJITLessDiagnose = false // V3_CANONICAL_JITLESS_ROUTE_V1
@@ -157,8 +166,10 @@ struct LCSettingsView: View {
     }
 
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         NavigationView {
             Form {
+                V3LanguageSettingsSection()
                 V3AccountSettings()
                 Section {
                     Toggle("Show Return Button", isOn: Binding(get: { !hideReturnControl }, set: { hideReturnControl = !$0 }))
@@ -275,7 +286,14 @@ struct LCSettingsView: View {
                     }
                     Picker(selection: $JITEnabler) {
                         ForEach(JITEnablerType.allCases) { enablerType in
-                            Text(enablerType.displayName).tag(enablerType)
+                            Group {
+                                switch enablerType {
+                                case .StikJITLC, .StosDebugLC, .JITStreamerEBLegacy:
+                                    V3LocalizedText(enablerType.displayName)
+                                default:
+                                    Text(verbatim: enablerType.displayName)
+                                }
+                            }.tag(enablerType)
                         }
                     } label: {
                         Text("lc.settings.jitEnabler".loc)
@@ -302,13 +320,13 @@ struct LCSettingsView: View {
                     // LC_APP_LAYOUT_PATCH_V1
                     Picker("Grid Size", selection: $gridSize) {
                         ForEach(LCGridSize.allCases) { size in
-                            Text(size.displayName).tag(size)
+                            V3LocalizedText(size.displayName).tag(size)
                         }
                     }
                     Toggle("Show app labels", isOn: $showAppLabels)
                     Picker("Default Launch Screen", selection: $launchTab) {
                         ForEach(LCLaunchTab.allCases) { tab in
-                            Text(tab.displayName).tag(tab)
+                            V3LocalizedText(tab.displayName).tag(tab)
                         }
                     }
                     Toggle(isOn: $dynamicColors) {
@@ -429,7 +447,7 @@ struct LCSettingsView: View {
                     .listRowInsets(EdgeInsets())
                 
                 Section("Build Candidate") {
-                    Text("Product: " + (Bundle.main.object(forInfoDictionaryKey: "LCProductLine") as? String ?? "unknown"))
+                    Text(V3Localization.format("Product %@", Bundle.main.object(forInfoDictionaryKey: "LCProductLine") as? String ?? "unknown"))
                     Text(Bundle.main.object(forInfoDictionaryKey: "LCBuilderCommit") as? String ?? "unknown commit").font(.caption).textSelection(.enabled)
                     Button("Copy Build Diagnostics") {
                         UIPasteboard.general.string = ["LCProductLine", "LCBuilderCommit", "LCBuildRunURL"].map {
@@ -506,12 +524,16 @@ struct LCSettingsView: View {
             )
             .navigationBarTitle("lc.tabView.settings".loc)
             .alert("lc.common.error".loc, isPresented: $errorShow){
+            Button("lc.common.ok".loc, role: .cancel) {}
+            Button("lc.common.copy".loc) {
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .settings)
+            }
             } message: {
-                Text(LCNativeErrorPresentation.message(errorInfo, site: .settings))
+                V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.settings.rawValue))
             }
             .alert("lc.common.success".loc, isPresented: $successShow){
             } message: {
-                Text(successInfo)
+                V3LocalizedText(successDisplay)
             }
             .alert("lc.settings.importCertificate".loc, isPresented: $certificateImportAlert.show) {
                 Button {
@@ -558,7 +580,7 @@ struct LCSettingsView: View {
             })
             .textFieldAlert(
                 isPresented: $certificateImportPasswordAlert.show,
-                title: "lc.settings.importCertificateInputPassword".loc,
+                title: "lc.settings.importCertificateInputPassword",
                 text: $certificateImportPasswordAlert.initVal,
                 placeholder: "",
                 action: { newText in
@@ -690,13 +712,13 @@ struct LCSettingsView: View {
         do {
             certificateData = try Data(contentsOf: certificateURL)
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
             return
         }
         
         guard let _ = LCUtils.getCertTeamId(withKeyData: certificateData, password: certificatePassword) else {
-            errorInfo = "lc.settings.invalidCertError".loc
+            errorDisplay = .localized("lc.settings.invalidCertError")
             errorShow = true
             return
         }

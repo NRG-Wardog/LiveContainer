@@ -5,6 +5,7 @@
 //  Created by s s on 2024/9/21.
 //
 #import "Localization.h"
+#import "utils.h"
 
 @implementation NSString (Localization)
 
@@ -20,21 +21,34 @@
     return enBundle;
 }
 
-// Instance method to return a localized string
-- (NSString *)localized {
-    NSString *message = [[NSUserDefaults lcMainBundle] localizedStringForKey:self value:@"" table:nil];
-    
-    if (![message isEqualToString:self]) {
-        return message;
+// P2_NATIVE_HOST_LANGUAGE_V1: use the defaults and bundle captured before any
+// guest swaps NSUserDefaults.standardUserDefaults or NSBundle.mainBundle. Never
+// inspect or mutate the guest's language settings, including AppleLanguages.
+static NSString *LCHostLanguageCode(void) {
+    id saved = [NSUserDefaults.lcUserDefaults objectForKey:@"V3AppLanguage"];
+    NSString *raw = [saved isKindOfClass:NSString.class] ? saved : @"en";
+    NSArray<NSString *> *parts = [[[raw stringByReplacingOccurrencesOfString:@"_" withString:@"-"] lowercaseString] componentsSeparatedByString:@"-"];
+    NSString *language = parts.firstObject;
+    if ([language isEqualToString:@"he"]) return @"he";
+    if ([language isEqualToString:@"zh"]) {
+        NSString *scriptOrRegion = parts.count > 1 ? parts[1] : @"";
+        if ([@[@"hant", @"tw", @"hk", @"mo"] containsObject:scriptOrRegion]) return @"zh-Hant";
+        return @"zh-Hans";
     }
+    return @"en";
+}
 
-    NSString *forcedString = [[NSString enBundle] localizedStringForKey:self value:nil table:nil];
-    
-    if (forcedString) {
-        return forcedString;
-    } else {
-        return self;
+- (NSString *)localized {
+    NSBundle *hostBundle = NSUserDefaults.lcMainBundle;
+    for (NSString *code in @[LCHostLanguageCode(), @"en"]) {
+        NSString *path = [hostBundle pathForResource:code ofType:@"lproj"];
+        if (!path) continue;
+        NSBundle *bundle = [NSBundle bundleWithPath:path];
+        NSString *missing = @"__V3_MISSING_LOCALIZATION__";
+        NSString *value = [bundle localizedStringForKey:self value:missing table:nil];
+        if (value && ![value isEqualToString:missing]) return value;
     }
+    return self;
 }
 
 // Instance method for localization with format

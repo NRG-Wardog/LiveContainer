@@ -159,30 +159,12 @@ extension String: @retroactive Error {}
 extension String: @retroactive LocalizedError {
     public var errorDescription: String? { return self }
         
-    private static var enBundle : Bundle? = {
-        let language = "en"
-        let path = Bundle.main.path(forResource:language, ofType: "lproj")
-        let bundle = Bundle(path: path!)
-        return bundle
-    }()
-    
-    var loc: String {
-        let message = NSLocalizedString(self, comment: "")
-        if message != self {
-            return message
-        }
+    var loc: String { V3Localization.string(self) }
 
-        if let forcedString = String.enBundle?.localizedString(forKey: self, value: nil, table: nil){
-            return forcedString
-        }else {
-            return self
-        }
+    func localizeWithFormat(_ arguments: CVarArg...) -> String {
+        String(format: self.loc, locale: Locale(identifier: V3AppLanguage.selected.rawValue), arguments: arguments)
     }
-    
-    func localizeWithFormat(_ arguments: CVarArg...) -> String{
-        String.localizedStringWithFormat(self.loc, arguments)
-    }
-    
+
     func sanitizeNonACSII() -> String  {
         filter { $0.isASCII }
     }

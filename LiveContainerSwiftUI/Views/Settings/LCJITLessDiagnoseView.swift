@@ -7,9 +7,11 @@
 import SwiftUI
 
 struct LCEntitlementView : View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @State var isLiveProcess: Bool
     @State var loaded = false
     @State var entitlementReadSuccess = false
+    @State private var hasEntitlementPayload = false
     
     @State var teamId : String?
     @State var getTaskAllow = false
@@ -21,6 +23,7 @@ struct LCEntitlementView : View {
     @State var entitlementContent = "Failed to Load Entitlement."
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         if loaded {
             Form {
                 Section {
@@ -77,11 +80,17 @@ struct LCEntitlementView : View {
                     } label: {
                         Text("lc.common.copy".loc)
                     }
-                    Text(entitlementContent)
-                        .font(.system(.subheadline, design: .monospaced))
+                    Group {
+                        if hasEntitlementPayload {
+                            Text(verbatim: entitlementContent)
+                        } else {
+                            V3LocalizedText(entitlementContent)
+                        }
+                    }
+                    .font(.system(.subheadline, design: .monospaced))
                 }
             }
-            .navigationTitle(isLiveProcess ? "LiveProcess Entitlements" : "LiveContainer Entitlements")
+            .navigationTitle(V3Localization.prose(isLiveProcess ? "LiveProcess Entitlements" : "LiveContainer Entitlements", language: .resolve(selectedDisplayLocale.identifier)))
             .navigationBarTitleDisplayMode(.inline)
         } else {
             Text("lc.common.loading".loc)
@@ -117,6 +126,7 @@ struct LCEntitlementView : View {
             return
         }
         entitlementContent = entitlementXML
+        hasEntitlementPayload = true
         
         var format = PropertyListSerialization.PropertyListFormat.xml
         guard let entitlementDict = try? PropertyListSerialization.propertyList(from: entitlementXML.data(using: .utf8) ?? Data(), format: &format) as? [String : AnyObject] else {
@@ -160,30 +170,42 @@ struct LCEntitlementView : View {
 }
 
 struct LCJITLessDiagnoseView : View {
+    @Environment(\.locale) private var selectedDisplayLocale
+    @Environment(\.locale) private var dateLocale
+
     @State var loaded = false
-    @State var appGroupId = "Unknown"
+    @State var appGroupId: String?
     @State var store : Store = .SideStore
     @State var certificateDataFound = false
     @State var certificatePasswordFound = false
     @State var appGroupAccessible = false
     @State var certTeamId : String?
     @State var expectedTeamId : String?
-    @State var certLastUpdateDateStr : String? = nil
+    @State var certLastUpdateDate : Date? = nil
     @State var certificateStatus : Int = -1
-    @State var certificateValidateUntil : String? = nil
+    @State var certificateValidateUntil : Date? = nil
     
     @State var isJITLessTestInProgress = false
     
     @State var errorShow = false
-    @State var errorInfo = ""
+    @State var errorDisplay = V3DisplayMessage.raw("")
+    var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     @State var successShow = false
-    @State var successInfo = ""
+    @State var successDisplay = V3DisplayMessage.raw("")
+    var successInfo: String {
+        get { successDisplay.original }
+        nonmutating set { successDisplay = .raw(newValue) }
+    }
     
     @EnvironmentObject private var sharedModel : SharedModel
     
     let storeName = LCUtils.getStoreName()
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         if loaded {
             Form {
                 Section {
@@ -198,7 +220,7 @@ struct LCJITLessDiagnoseView : View {
                     HStack {
                         Text("lc.jitlessDiag.appGroupId".loc)
                         Spacer()
-                        Text(appGroupId)
+                        Text(appGroupId ?? "lc.common.unknown".loc)
                             .foregroundStyle(appGroupId == "Unknown" ? .red : .green)
                     }
                     HStack {
@@ -257,8 +279,8 @@ struct LCJITLessDiagnoseView : View {
                     HStack {
                         Text("lc.jitlessDiag.certLastUpdate".loc)
                         Spacer()
-                        if let certLastUpdateDateStr {
-                            Text(certLastUpdateDateStr)
+                        if let certLastUpdateDate {
+                            Text(V3Localization.legacyDate(certLastUpdateDate, dateStyle: .short, timeStyle: .medium, language: V3AppLanguage.resolve(dateLocale.identifier)))
                                 .foregroundStyle(.green)
                         } else {
                             Text("lc.common.unknown".loc)
@@ -290,7 +312,7 @@ struct LCJITLessDiagnoseView : View {
                         HStack {
                             Text("lc.jitlessDiag.certificateValidateUntil".loc)
                             Spacer()
-                            Text(certificateValidateUntil != nil ? certificateValidateUntil! : "lc.common.unknown".loc)
+                            Text(certificateValidateUntil.map { V3Localization.legacyDate($0, dateStyle: .short, timeStyle: .medium, language: V3AppLanguage.resolve(dateLocale.identifier)) } ?? "lc.common.unknown".loc)
                                 .foregroundStyle(certificateStatus == 0 ? .green : .red)
                         }
                     }
@@ -329,12 +351,16 @@ struct LCJITLessDiagnoseView : View {
                 }
             }
             .alert("lc.common.error".loc, isPresented: $errorShow){
+            Button("lc.common.ok".loc, role: .cancel) {}
+            Button("lc.common.copy".loc) {
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .signingDiagnostics)
+            }
             } message: {
-                Text(LCNativeErrorPresentation.message(errorInfo, site: .signingDiagnostics))
+                V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.signingDiagnostics.rawValue))
             }
             .alert("lc.common.success".loc, isPresented: $successShow){
             } message: {
-                Text(successInfo)
+                V3LocalizedText(successDisplay)
             }
             
         } else {
@@ -347,16 +373,13 @@ struct LCJITLessDiagnoseView : View {
     }
     
     func onAppear() {
-        appGroupId = LCSharedUtils.appGroupID() ?? "lc.common.unknown".loc
+        appGroupId = LCSharedUtils.appGroupID()
         store = LCUtils.store()
         appGroupAccessible = LCSharedUtils.appGroupPath() != nil
         certificateDataFound = LCUtils.certificateData() != nil
         certificatePasswordFound = LCSharedUtils.certificatePassword() != nil
         if let lastUpdateDate = LCUtils.appGroupUserDefault.object(forKey: "LCCertificateUpdateDate") as? Date {
-            let formatter1 = DateFormatter()
-            formatter1.dateStyle = .short
-            formatter1.timeStyle = .medium
-            certLastUpdateDateStr = formatter1.string(from: lastUpdateDate)
+            certLastUpdateDate = lastUpdateDate
         }
         if certificateDataFound {
             validateCertificate()
@@ -374,7 +397,7 @@ struct LCJITLessDiagnoseView : View {
     
     func testJITLessMode() {
         if !certificateDataFound {
-            errorInfo = "lc.settings.error.certNotImported".loc
+            errorDisplay = .localized("lc.settings.error.certNotImported")
             errorShow = true
             return;
         }
@@ -382,10 +405,10 @@ struct LCJITLessDiagnoseView : View {
         isJITLessTestInProgress = true
         LCUtils.validateJITLessSetup { success, error in
             if success {
-                successInfo = "lc.jitlessSetup.success".loc
+                successDisplay = .localized("lc.jitlessSetup.success")
                 successShow = true
             } else {
-                errorInfo = "lc.jitlessSetup.error.testLibLoadFailed %@ %@ %@".localizeWithFormat(storeName, storeName, storeName) + "\n" + (error?.localizedDescription ?? "")
+                errorDisplay = .localized("lc.jitlessSetup.error.testLibLoadFailed %@ %@ %@", storeName, storeName, storeName) + .raw("\n") + .raw(error?.localizedDescription ?? "")
                 errorShow = true
             }
             isJITLessTestInProgress = false
@@ -402,17 +425,14 @@ struct LCJITLessDiagnoseView : View {
         certificateValidateUntil = nil
         LCUtils.validateCertificate { status, date, ou, error in
             if let error {
-                errorInfo = error.loc
+                errorDisplay = .localized(error)
                 errorShow = true
                 certificateStatus = 2
                 return
             }
             certificateStatus = Int(status)
             if let date {
-                let formatter1 = DateFormatter()
-                formatter1.dateStyle = .short
-                formatter1.timeStyle = .medium
-                certificateValidateUntil = formatter1.string(from: date)
+                certificateValidateUntil = date
             }
             if let ou {
                 certTeamId = ou

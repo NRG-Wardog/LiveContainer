@@ -215,6 +215,7 @@ struct AppSceneViewSwiftUI: UIViewControllerRepresentable {
 
 @available(iOS 16.1, *)
 struct MultitaskAppWindow: View {
+    @AppStorage(V3AppLanguage.storageKey, store: V3Localization.hostDefaults) private var selectedHostLanguage = V3AppLanguage.english.rawValue
     @State var show = true
     @State var pid = 0
     @State var appInfo: MultitaskAppInfo? = nil
@@ -235,6 +236,7 @@ struct MultitaskAppWindow: View {
     
     var body: some View {
         let isVirtualWindowMode = multitaskMode == .virtualWindow
+        let hostLanguage = V3AppLanguage.resolve(selectedHostLanguage)
         if show, let appInfo {
             GeometryReader { geometry in
                 AppSceneViewSwiftUI(windowID: appInfo.windowID, show: $show, bundleId: appInfo.bundleId, dataUUID: appInfo.dataUUID, initSize: geometry.size,
@@ -278,8 +280,13 @@ struct MultitaskAppWindow: View {
                 Text("lc.multitaskAppWindow.appTerminated".loc)
                     .font(.largeTitle)
                 if let errorMessage {
-                    Text(errorMessage)
-                        .font(.system(.body, design: .monospaced))
+                    V3LocalizedText(errorMessage)
+                    DisclosureGroup("Technical details") {
+                        Text(verbatim: errorMessage)
+                            .font(.system(.body, design: .monospaced))
+                            .environment(\.layoutDirection, .leftToRight)
+                            .textSelection(.enabled)
+                    }
                     Button("lc.common.copy".loc) {
                         UIPasteboard.general.string = errorMessage
                         requestSceneDestruction(isManual: true)
@@ -290,7 +297,12 @@ struct MultitaskAppWindow: View {
                     requestSceneDestruction(isManual: true)
                 }
                 .buttonStyle(.bordered)
-            }.onAppear {
+            }
+            // This environment is confined to host-owned termination controls.
+            // The guest AppSceneViewSwiftUI above retains its own environment.
+            .environment(\.locale, Locale(identifier: hostLanguage.rawValue))
+            .environment(\.layoutDirection, hostLanguage.isRightToLeft ? .rightToLeft : .leftToRight)
+            .onAppear {
                 // appInfo == nil indicates this is the first scene opened in this launch. We don't want this so we open lc's main scene and close this view
                 // however lc's main view may already be starting in another scene so we wait a bit before opening the main view
                 // also we have to keep the view open for a little bit otherwise lc will be killed by iOS

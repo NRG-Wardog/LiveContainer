@@ -57,9 +57,11 @@ enum LiveContainerAutoRefreshAlarmProvider {
             do { try AlarmManager.shared.cancel(id: alarmID) }
             catch { print("[LIVE_CONTAINER_REFRESH] ALARM_REPLACE_FAIL error=\(error.localizedDescription)"); return }
         }
+        let presentationLocale = Locale(identifier: V3AppLanguage.selected.rawValue)
+        let presentationBundle = LocalizedStringResource.BundleDescription.atURL(V3Localization.hostBundle.bundleURL)
         let alert = AlarmPresentation.Alert(
-            title: "Automatic refresh needs checking",
-            secondaryButton: AlarmButton(text: "Refresh Now", textColor: .white, systemImageName: "arrow.clockwise"),
+            title: LocalizedStringResource("Automatic refresh needs checking", locale: presentationLocale, bundle: presentationBundle),
+            secondaryButton: AlarmButton(text: LocalizedStringResource("Refresh Now", locale: presentationLocale, bundle: presentationBundle), textColor: .white, systemImageName: "arrow.clockwise"),
             secondaryButtonBehavior: .custom)
         let attributes: AlarmAttributes<LiveContainerRefreshAlarmMetadata> = AlarmAttributes(
             presentation: AlarmPresentation(alert: alert), metadata: LiveContainerRefreshAlarmMetadata(), tintColor: Color.orange)

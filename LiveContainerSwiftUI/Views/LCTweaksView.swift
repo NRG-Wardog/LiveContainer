@@ -25,13 +25,18 @@ struct LCTweakItem : Hashable {
 }
 
 struct LCTweakFolderView : View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @State var baseUrl : URL
     @State var tweakItems : [LCTweakItem]
     private var isRoot : Bool
     @EnvironmentObject private var sharedModel: SharedModel
     
     @State private var errorShow = false
-    @State private var errorInfo = ""
+    @State private var errorDisplay = V3DisplayMessage.raw("")
+    private var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     
     @StateObject private var newFolderInput = InputHelper()
     
@@ -62,12 +67,13 @@ struct LCTweakFolderView : View {
         } catch {
             NSLog("[LC] failed to load tweaks \(error.localizedDescription)")
             _errorShow = State(initialValue: true)
-            _errorInfo = State(initialValue: error.localizedDescription)
+            _errorDisplay = State(initialValue: .raw(error.localizedDescription))
             _tweakItems = State(initialValue: [])
         }
     }
 
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         List {
             Section {
                 ForEach(tweakItems, id:\.self) { tweakItem in
@@ -184,12 +190,15 @@ struct LCTweakFolderView : View {
         .alert("lc.common.error".loc, isPresented: $errorShow) {
             Button("lc.common.ok".loc, action: {
             })
+            Button("lc.common.copy".loc) {
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .tweaks)
+            }
         } message: {
-            Text(LCNativeErrorPresentation.message(errorInfo, site: .tweaks))
+            V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.tweaks.rawValue))
         }
         .textFieldAlert(
             isPresented: $newFolderInput.show,
-            title: "lc.common.enterNewFolderName".loc,
+            title: "lc.common.enterNewFolderName",
             text: $newFolderInput.initVal,
             placeholder: "",
             action: { newText in
@@ -201,7 +210,7 @@ struct LCTweakFolderView : View {
         )
         .textFieldAlert(
             isPresented: $renameFileInput.show,
-            title: "lc.common.enterNewName".loc,
+            title: "lc.common.enterNewName",
             text: $renameFileInput.initVal,
             placeholder: "",
             action: { newText in
@@ -230,7 +239,7 @@ struct LCTweakFolderView : View {
             try fm.moveItem(at: tweakItem.fileUrl, to: newUrl)
         } catch {
             errorShow = true
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             return
         }
         guard let index = tweakItems.firstIndex(of: tweakItem) else {
@@ -250,7 +259,7 @@ struct LCTweakFolderView : View {
             }
         } catch {
             errorShow = true
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             return
         }
         if isRoot {
@@ -275,7 +284,7 @@ struct LCTweakFolderView : View {
             })
         } catch {
             errorShow = true
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             return
         }
 
@@ -309,7 +318,7 @@ struct LCTweakFolderView : View {
             try fm.moveItem(at: tweakItem.fileUrl, to: newUrl)
         } catch {
             errorShow = true
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             return
         }
         tweakItems.remove(at: indexToRename)
@@ -338,7 +347,7 @@ struct LCTweakFolderView : View {
             }
 
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
             return
         }
@@ -354,7 +363,7 @@ struct LCTweakFolderView : View {
             try fm.createDirectory(at: dest, withIntermediateDirectories: false)
         } catch {
             errorShow = true
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             return
         }
         tweakItems.append(LCTweakItem(fileUrl: dest, isFolder: true, isFramework: false, isTweak: false, isEnabled: true))
@@ -371,7 +380,7 @@ struct LCTweakFolderView : View {
             for fileUrl in urls {
                 // handle deb file
                 if(!fileUrl.isFileURL) {
-                    throw "lc.tweakView.notFileError %@".localizeWithFormat(fileUrl.lastPathComponent)
+                    throw V3DisplayMessage.localized("lc.tweakView.notFileError %@", fileUrl.lastPathComponent)
                 }
                 let toPath = self.baseUrl.appendingPathComponent(fileUrl.lastPathComponent)
                 try fm.moveItem(at: fileUrl, to: toPath)
@@ -384,7 +393,7 @@ struct LCTweakFolderView : View {
                 self.tweakItems.append(LCTweakItem(fileUrl: toPath, isFolder: false, isFramework: isFramework, isTweak: isTweak, isEnabled: true))
             }
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true            
             return
         }
@@ -392,7 +401,9 @@ struct LCTweakFolderView : View {
 }
 
 struct LCTweaksView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         NavigationView {
             LCTweakFolderView(baseUrl: LCPath.tweakPath, isRoot: true)
         }

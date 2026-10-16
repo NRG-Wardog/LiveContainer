@@ -18,6 +18,7 @@ protocol LCContainerViewDelegate {
 }
 
 struct LCContainerView : View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @ObservedObject var container : LCContainer
     let delegate : LCContainerViewDelegate
     @Binding var uiDefaultDataFolder : String?
@@ -34,9 +35,17 @@ struct LCContainerView : View {
     @State private var runningLC : String? = nil
     
     @State private var errorShow = false
-    @State private var errorInfo = ""
+    @State private var errorDisplay = V3DisplayMessage.raw("")
+    private var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     @State private var successShow = false
-    @State private var successInfo = ""
+    @State private var successDisplay = V3DisplayMessage.raw("")
+    private var successInfo: String {
+        get { successDisplay.original }
+        nonmutating set { successDisplay = .raw(newValue) }
+    }
     
     init(container: LCContainer, uiDefaultDataFolder : Binding<String?>, delegate: LCContainerViewDelegate) {
         self._container = ObservedObject(initialValue: container)
@@ -46,6 +55,7 @@ struct LCContainerView : View {
     }
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         Form {
             if !(container.storageBookMark != nil && container.resolvedContainerURL == nil) {
                 
@@ -176,12 +186,16 @@ struct LCContainerView : View {
         .navigationTitle(container.name)
         .navigationBarTitleDisplayMode(.inline)
         .alert("lc.common.error".loc, isPresented: $errorShow){
+            Button("lc.common.ok".loc, role: .cancel) {}
+            Button("lc.common.copy".loc) {
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .container)
+            }
         } message: {
-            Text(LCNativeErrorPresentation.message(errorInfo, site: .container))
+            V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.container.rawValue))
         }
         .alert("lc.common.success".loc, isPresented: $successShow){
         } message: {
-            Text(successInfo)
+            V3LocalizedText(successDisplay)
         }
         
         .alert("lc.container.removeContainer".loc, isPresented: $removeContainerAlert.show) {
@@ -236,7 +250,7 @@ struct LCContainerView : View {
     
     func saveIDFV() {
         guard let newIDFV = UUID(uuidString: typingIDFV) else {
-            errorInfo = "lc.container.invalidIDFV".loc
+            errorDisplay = .localized("lc.container.invalidIDFV")
             errorShow = true
             return
         }
@@ -246,7 +260,7 @@ struct LCContainerView : View {
 
     func saveContainer() {
         if let usingLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {
-            errorInfo = "lc.container.inUseBy %@".localizeWithFormat(usingLC)
+            errorDisplay = .localized("lc.container.inUseBy %@", usingLC)
             errorShow = true
             return
         }
@@ -265,7 +279,7 @@ struct LCContainerView : View {
     
     func removeContainer() async {
         if let usingLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {
-            errorInfo = "lc.container.inUseBy %@".localizeWithFormat(usingLC)
+            errorDisplay = .localized("lc.container.inUseBy %@", usingLC)
             errorShow = true
             return
         }
@@ -276,7 +290,7 @@ struct LCContainerView : View {
             let fm = FileManager.default
             try fm.removeItem(at: container.containerURL)
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
             return
         }
@@ -287,7 +301,7 @@ struct LCContainerView : View {
     
     func unbindContainer() {
         if let usingLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {
-            errorInfo = "lc.container.inUseBy %@".localizeWithFormat(usingLC)
+            errorDisplay = .localized("lc.container.inUseBy %@", usingLC)
             errorShow = true
             return
         }
@@ -298,7 +312,7 @@ struct LCContainerView : View {
     
     func cleanUpKeychain() async {
         if let usingLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {
-            errorInfo = "lc.container.inUseBy %@".localizeWithFormat(usingLC)
+            errorDisplay = .localized("lc.container.inUseBy %@", usingLC)
             errorShow = true
             return
         }
@@ -311,7 +325,7 @@ struct LCContainerView : View {
     
     func deleteData() async {
         if let usingLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {
-            errorInfo = "lc.container.inUseBy %@".localizeWithFormat(usingLC)
+            errorDisplay = .localized("lc.container.inUseBy %@", usingLC)
             errorShow = true
             return
         }
@@ -327,7 +341,7 @@ struct LCContainerView : View {
                 try fm.removeItem(at: file)
             }
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }

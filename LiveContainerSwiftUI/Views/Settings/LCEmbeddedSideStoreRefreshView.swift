@@ -66,8 +66,50 @@ enum LiveContainerRefreshHistoryStore {
 }
 // LC_REFRESH_HISTORY_STORE_V1_END
 
+// Stable display keys for app-owned history protocol tokens. Never rewrite stored history.
+enum LiveContainerRefreshHistoryPresentation {
+    private static let sources: [String: String] = [
+        "manual": "Manual refresh",
+        "manual_selected_app": "Selected app refresh",
+        "alarm_action": "Deadline alarm action",
+        "bgapprefresh": "Background App Refresh",
+        "bgprocessing": "Background processing",
+        "watchdog": "Deadline watchdog",
+        "relaunch": "Relaunch",
+        "relaunch_recovery": "Relaunch recovery",
+        "scheduler": "Scheduler",
+        "vpn_return": "VPN return",
+        "launch_or_resume": "Launch or resume",
+    ]
+    private static let results: [String: String] = [
+        "verified": "Verified by successful refresh",
+        "failure": "Failed",
+        "failed": "Failed",
+        "completed": "Completed",
+        "missed_window": "Refresh Deadline Missed",
+        "host_baseline_unavailable": "Host baseline unavailable",
+        "host_unverified": "Host refresh unverified",
+        "host_refresh_failed": "Host Refresh Failed",
+        "host_verified_batch_unconfirmed": "Host verified; app batch unconfirmed",
+        "coalesced": "Refresh already running",
+        "explicit_retry": "Explicit retry",
+        "host_handoff_awaiting_relaunch": "Awaiting host relaunch",
+        "guest_signature_invalid": "Guest Signature Invalid",
+        "expired": "Expired",
+        "interrupted": "Refresh Interrupted",
+        "configuration_failed": "Configuration failed",
+        "registration_limited": "Background registration limited",
+        "bgprocessing_submit_failed": "Background processing submission failed",
+        "bgapprefresh_submit_failed": "Background refresh submission failed",
+    ]
+    static func sourceKey(_ token: String?) -> String { sources[token ?? ""] ?? "Unknown" }
+    static func resultKey(_ token: String?) -> String { results[token ?? ""] ?? "Unknown" }
+}
+
 @MainActor
 struct LCEmbeddedSideStoreRefreshView: View {
+    @Environment(\.locale) private var dateLocale
+
     // V3_RUNTIME_SHARED_REFRESH_STORE_V1: this screen renders the same keys the
     // embedded service writes, so it binds to the one runtime App Group store
     // rather than a fixed suite name. When that store is unavailable the screen
@@ -105,26 +147,26 @@ struct LCEmbeddedSideStoreRefreshView: View {
             V3TargetedRefreshSection()
             if sharedStoreUnavailable {
                 Section("Scheduled Refresh Unavailable") {
-                    Text(V3SharedRefreshStore.unavailableMessage).font(.footnote)
+                    V3LocalizedText(V3SharedRefreshStore.unavailableMessage).font(.footnote)
                     Text("Relaunch LiveContainer after reinstalling or re-signing. Manual Refresh All still works.")
                         .font(.caption).foregroundColor(.secondary)
                 }
             }
             Section("Status") {
-                Text("Auto Refresh: \(enabled ? "Enabled" : "Disabled")")
+                V3LocalizedText("Auto Refresh: \(enabled ? "Enabled" : "Disabled")")
                 let strategy = defaults.string(forKey: "liveContainerAutoRefreshStrategy") ?? "foreground_recovery_only"
                 let protection = strategy == "native_full" ? "Enhanced" :
                     (strategy == "native_without_alarmkit" ? "Standard" : "Limited")
-                Text("Protection: \(protection)")
-                Text("Refresh: \(healthState.replacingOccurrences(of: "_", with: " ").capitalized)")
+                V3LocalizedText("Protection: \(protection)")
+                V3LocalizedText("Refresh: \(healthState.replacingOccurrences(of: "_", with: " ").capitalized)")
                 Text("Background execution remains best-effort. A scheduled request is not a completed refresh.")
                     .font(.caption).foregroundColor(.secondary)
                 if !lastError.isEmpty {
-                    Text(V3DiagnosticPresentation.label(lastError, context: .refresh)).font(.caption).foregroundColor(.red)
+                    V3LocalizedText(V3DiagnosticPresentation.label(lastError, context: .refresh)).font(.caption).foregroundColor(.red)
                     Button("Copy Refresh Diagnostics") { UIPasteboard.general.string = V3DiagnosticCopy.details(visibleMessage: V3DiagnosticPresentation.label(lastError, context: .refresh), technical: V3DiagnosticPresentation.label(lastError, context: .refresh)) }
                 }
                 if !uncertainMutation.isEmpty {
-                    Text("The previous refresh result is uncertain. Automatic retries are paused. Review app status and expiration before explicitly retrying." + "\nError ID: SS-VERIFY-D098")
+                    V3LocalizedText("The previous refresh result is uncertain. Automatic retries are paused. Review app status and expiration before explicitly retrying." + "\nError ID: SS-VERIFY-D098")
                         .font(.caption).foregroundColor(.orange)
                 }
             }
@@ -150,7 +192,7 @@ struct LCEmbeddedSideStoreRefreshView: View {
                 }.disabled(!enabled)
                 if frequency == "weekly" {
                     Picker("Weekday", selection: Binding(get: { weekday }, set: { weekday = $0; notifyScheduleChanged() })) {
-                        ForEach(1...7, id: \.self) { day in Text(Calendar.autoupdatingCurrent.weekdaySymbols[day - 1]).tag(day) }
+                        ForEach(1...7, id: \.self) { day in Text(V3Localization.weekdayName(day, language: V3AppLanguage.resolve(dateLocale.identifier))).tag(day) }
                     }.disabled(!enabled)
                     Text("A weekly schedule can be too late for free-account signing. Prefer daily refresh.")
                         .font(.caption).foregroundColor(.secondary)
@@ -175,9 +217,9 @@ struct LCEmbeddedSideStoreRefreshView: View {
             }
             if let result = defaults.string(forKey: "liveContainerAutoRefreshLastResult") {
                 Section("Last result") {
-                    Text(result.replacingOccurrences(of: "_", with: " ").capitalized)
+                    V3LocalizedText(LiveContainerRefreshHistoryPresentation.resultKey(result))
                     if let date = defaults.object(forKey: "liveContainerAutoRefreshLastDate") as? Date {
-                        Text(date.formatted(date: .abbreviated, time: .shortened)).font(.caption)
+                        Text(V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))).font(.caption)
                     }
                 }
             }
@@ -198,12 +240,12 @@ struct LCEmbeddedSideStoreRefreshView: View {
         Section {
             if !history.isEmpty {
                 HStack {
-                    Button(isSelectingHistory ? "Done" : "Select") {
+                    Button {
                         withAnimation {
                             isSelectingHistory.toggle()
                             if !isSelectingHistory { selectedHistoryIDs.removeAll() }
                         }
-                    }
+                    } label: { V3LocalizedText(isSelectingHistory ? "Done" : "Select") }
                     Spacer()
                     Button("Clear All", role: .destructive) { showClearHistoryConfirmation = true }
                 }
@@ -211,7 +253,7 @@ struct LCEmbeddedSideStoreRefreshView: View {
                 .buttonStyle(.borderless)
                 if isSelectingHistory {
                     HStack {
-                        Text("\(selectedHistoryIDs.count) selected").foregroundColor(.secondary)
+                        V3LocalizedText("\(selectedHistoryIDs.count) selected").foregroundColor(.secondary)
                         Spacer()
                         Button("Delete Selected", role: .destructive, action: deleteSelectedHistory)
                             .disabled(selectedHistoryIDs.isEmpty)
@@ -237,7 +279,7 @@ struct LCEmbeddedSideStoreRefreshView: View {
         if isSelectingHistory {
             Button { toggleSelection(entry.id) } label: { historyContent(entry) }
                 .buttonStyle(.plain)
-                .accessibilityValue(selectedHistoryIDs.contains(entry.id) ? "Selected" : "Not selected")
+                .accessibilityValue(Text(verbatim: V3Localization.prose(selectedHistoryIDs.contains(entry.id) ? "Selected" : "Not selected", language: .resolve(dateLocale.identifier))))
                 .accessibilityAddTraits(selectedHistoryIDs.contains(entry.id) ? [.isSelected] : [])
         } else {
             historyContent(entry)
@@ -260,9 +302,25 @@ struct LCEmbeddedSideStoreRefreshView: View {
                     .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(entry.values["source"]?.capitalized ?? "Unknown") - \(entry.values["result"]?.capitalized ?? "Unknown")")
-                Text(entry.values["date"] ?? "").font(.caption).foregroundColor(.secondary)
-                if let detail = entry.values["detail"], !detail.isEmpty { Text(detail).font(.caption2).foregroundColor(.secondary) }
+                HStack(spacing: 4) {
+                    V3LocalizedText(LiveContainerRefreshHistoryPresentation.sourceKey(entry.values["source"]))
+                    Text(verbatim: "-")
+                    V3LocalizedText(LiveContainerRefreshHistoryPresentation.resultKey(entry.values["result"]))
+                }
+                if let rawDate = entry.values["date"], let date = ISO8601DateFormatter().date(from: rawDate) {
+                    Text(V3Localization.date(date, date: .abbreviated, time: .shortened, language: .resolve(dateLocale.identifier)))
+                        .font(.caption).foregroundColor(.secondary)
+                } else if let rawDate = entry.values["date"] {
+                    // Older non-ISO entries remain an explicit diagnostic timestamp.
+                    Text(verbatim: rawDate).font(.caption).foregroundColor(.secondary)
+                }
+                if let detail = entry.values["detail"], !detail.isEmpty {
+                    V3LocalizedText(detail).font(.caption2).foregroundColor(.secondary)
+                    DisclosureGroup("Technical details") {
+                        Text(verbatim: detail).font(.caption2).textSelection(.enabled)
+                            .environment(\.layoutDirection, .leftToRight)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

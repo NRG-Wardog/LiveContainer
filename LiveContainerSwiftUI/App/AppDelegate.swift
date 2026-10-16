@@ -599,8 +599,10 @@ enum LiveContainerAutoRefreshScheduler {
                 return
             }
             let content = UNMutableNotificationContent()
-            content.title = title
-            content.body = body
+            // Render only the outgoing display. Stored history/protocol messages remain unchanged.
+            let language = V3AppLanguage.selected
+            content.title = V3Localization.prose(title, language: language)
+            content.body = V3Localization.prose(body, language: language)
             content.sound = .default
             var identity: [String: String] = ["kind": kind]
             if let runID { identity["run_id"] = runID }
@@ -1458,8 +1460,8 @@ enum LiveContainerAutoRefreshScheduler {
     private static func scheduleDeadlineWarning(_ deadline: Date) {
         guard deadline > Date() else { return }
         let content = UNMutableNotificationContent()
-        content.title = "Automatic refresh needs checking"
-        content.body = "No completed refresh has been confirmed for this deadline. Open LiveContainer to check or refresh. A host replacement may still need verification."
+        content.title = V3Localization.prose("Automatic refresh needs checking")
+        content.body = V3Localization.prose("No completed refresh has been confirmed for this deadline. Open LiveContainer to check or refresh. A host replacement may still need verification.")
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.timeIntervalSinceNow), repeats: false)
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: warningIdentifier, content: content, trigger: trigger)) { error in

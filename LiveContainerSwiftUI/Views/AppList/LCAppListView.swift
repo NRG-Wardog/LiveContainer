@@ -37,11 +37,16 @@ struct AppReplaceOption : Hashable {
 }
 
 struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
+    @Environment(\.locale) private var selectedDisplayLocale
     @State var didAppear = false
     // ipa choosing stuff
     @State var choosingIPA = false
     @State var errorShow = false
-    @State var errorInfo = ""
+    @State var errorDisplay = V3DisplayMessage.raw("")
+    var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     
     // ipa installing stuff
     @State var installprogressVisible = false
@@ -138,6 +143,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     }
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         NavigationView {
             ScrollView {
                 V3InstalledAppsSection(query: searchContext.debouncedQuery)
@@ -256,7 +262,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     Menu {
                         Picker("Sort by", selection: $sharedAppSortManager.appSortType) {
                             ForEach(AppSortType.allCases, id: \.self) { sortType in
-                                Label(sortType.displayName, systemImage: sortType.systemImage)
+                                Label { Text(verbatim: sortType.displayName) } icon: { Image(systemName: sortType.systemImage) }
                                     .tag(sortType)
                             }
                         }
@@ -288,7 +294,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 copyError()
             })
         } message: {
-            Text(LCNativeErrorPresentation.message(errorInfo, site: .appList))
+            V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.appList.rawValue))
         }
         .betterFileImporter(isPresented: $choosingIPA, types: [.ipa, .tipa], multiple: false, callback: { fileUrls in
             Task { await startInstallApp(fileUrls[0]) }
@@ -346,7 +352,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         .textFieldAlert(
             isPresented: $webViewUrlInput.show,
-            title:  "lc.appList.enterUrlTip".loc,
+            title:  "lc.appList.enterUrlTip",
             text: $webViewUrlInput.initVal,
             placeholder: "scheme://",
             action: { newText in
@@ -358,7 +364,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         )
         .textFieldAlert(
             isPresented: $installUrlInput.show,
-            title:  "lc.appList.installUrlInputTip".loc,
+            title:  "lc.appList.installUrlInputTip",
             text: $installUrlInput.initVal,
             placeholder: "https://",
             action: { newText in
@@ -492,7 +498,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     func openWebView(urlString: String) async {
         guard var urlToOpen = URLComponents(string: urlString), urlToOpen.url != nil else {
-            errorInfo = "lc.appList.urlInvalidError".loc
+            errorDisplay = .localized("lc.appList.urlInvalidError")
             errorShow = true
             return
         }
@@ -527,7 +533,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
 
             guard let appToLaunch = appToLaunch else {
-                errorInfo = "lc.appList.schemeCannotOpenError %@".localizeWithFormat(urlToOpen.scheme!)
+                errorDisplay = .localized("lc.appList.schemeCannotOpenError %@", urlToOpen.scheme!)
                 errorShow = true
                 return
             }
@@ -538,7 +544,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                         return
                     }
                 } catch {
-                    errorInfo = error.localizedDescription
+                    errorDisplay = .preserving(error)
                     errorShow = true
                     return
                 }
@@ -547,7 +553,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             do {
                 try await appToLaunch.runApp(urlStr: urlToOpen.url!.absoluteString)
             } catch {
-                errorInfo = error.localizedDescription
+                errorDisplay = .preserving(error)
                 errorShow = true
             }
             
@@ -572,7 +578,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             try await installIpaFile(fileUrl)
             try FileManager.default.removeItem(at: fileUrl)
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
             self.installprogressVisible = false
         }
@@ -601,7 +607,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         
         // decompress
         guard await decompress(url.path, fm.temporaryDirectory.path, decompressProgress) == 0 else {
-            throw "lc.appList.urlFileIsNotIpaError".loc
+            throw V3DisplayMessage.localized("lc.appList.urlFileIsNotIpaError")
         }
 
         let payloadContents = try fm.contentsOfDirectory(atPath: payloadPath.path)
@@ -613,13 +619,13 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             }
         }
         guard let appBundleName = appBundleName else {
-            throw "lc.appList.bundleNotFondError".loc
+            throw V3DisplayMessage.localized("lc.appList.bundleNotFondError")
         }
 
         let appFolderPath = payloadPath.appendingPathComponent(appBundleName)
         
         guard let newAppInfo = LCAppInfo(bundlePath: appFolderPath.path) else {
-            throw "lc.appList.infoPlistCannotReadError".loc
+            throw V3DisplayMessage.localized("lc.appList.infoPlistCannotReadError")
         }
 
         var appRelativePath = "\(newAppInfo.bundleIdentifier()!.sanitizeNonACSII()).app"
@@ -642,7 +648,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                         return
                     }
                 } catch {
-                    errorInfo = error.localizedDescription
+                    errorDisplay = .preserving(error)
                     errorShow = true
                     self.installprogressVisible = false
                     return
@@ -684,7 +690,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         finalNewApp?.relativeBundlePath = appRelativePath
         
         guard let finalNewApp else {
-            errorInfo = "lc.appList.appInfoInitError".loc
+            errorDisplay = .localized("lc.appList.appInfoInitError")
             errorShow = true
             return
         }
@@ -708,9 +714,9 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         // we leave it unsigned even if signing failed
         if let signError {
             if signSuccess {
-                errorInfo = "\("lc.appList.signSuccessWithError".loc)\n\n\(signError)"
+                errorDisplay = .localized("lc.appList.signSuccessWithError") + .raw("\n\n") + .raw(signError)
             } else {
-                errorInfo = signError.loc
+                errorDisplay = .localized(signError)
             }
             errorShow = true
         }
@@ -791,7 +797,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         
         if sharedModel.multiLCStatus == 2 {
-            errorInfo = "lc.appList.manageInPrimaryTip".loc
+            errorDisplay = .localized("lc.appList.manageInPrimaryTip")
             errorShow = true
             return
         }
@@ -804,14 +810,14 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                let urlParam = queryItems.first(where: { $0.name == "url" })?.value {
                 plistUrlStr = urlParam
             } else {
-                errorInfo = "lc.appList.plistInvalidError".loc
+                errorDisplay = .localized("lc.appList.plistInvalidError")
                 errorShow = true
                 return
             }
         }
         
         guard let plistUrl = URL(string: plistUrlStr) else {
-            errorInfo = "lc.appList.urlInvalidError".loc
+            errorDisplay = .localized("lc.appList.urlInvalidError")
             errorShow = true
             return
         }
@@ -823,7 +829,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                   let items = plist["items"] as? [[String: Any]],
                   let firstItem = items.first,
                   let assets = firstItem["assets"] as? [[String: Any]] else {
-                errorInfo = "lc.appList.plistParseError".loc
+                errorDisplay = .localized("lc.appList.plistParseError")
                 errorShow = true
                 return
             }
@@ -838,7 +844,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             }
             
             guard let ipaUrlStr else {
-                errorInfo = "lc.appList.plistNoIpaError".loc
+                errorDisplay = .localized("lc.appList.plistNoIpaError")
                 errorShow = true
                 return
             }
@@ -846,7 +852,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             await installFromUrl(urlStr: ipaUrlStr)
             
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -858,13 +864,13 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         
         if sharedModel.multiLCStatus == 2 {
-            errorInfo = "lc.appList.manageInPrimaryTip".loc
+            errorDisplay = .localized("lc.appList.manageInPrimaryTip")
             errorShow = true
             return
         }
         
         guard var installUrl = URL(string: urlStr) else {
-            errorInfo = "lc.appList.urlInvalidError".loc
+            errorDisplay = .localized("lc.appList.urlInvalidError")
             errorShow = true
             return
         }
@@ -878,7 +884,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             // install from local, we directly call local install method
             let fileExtension = installUrl.pathExtension.lowercased()
             if fileExtension != "ipa" && fileExtension != "tipa" {
-                errorInfo = "lc.appList.urlFileIsNotIpaError".loc
+                errorDisplay = .localized("lc.appList.urlFileIsNotIpaError")
                 errorShow = true
                 return
             }
@@ -909,7 +915,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             }
 
             if !fm.isReadableFile(atPath: installUrl.path) && !didStartAccessing {
-                errorInfo = "lc.appList.ipaAccessError".loc
+                errorDisplay = .localized("lc.appList.ipaAccessError")
                 errorShow = true
                 return
             }
@@ -923,7 +929,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             do {
                 try await installIpaFile(installUrl)
             } catch {
-                errorInfo = error.localizedDescription
+                errorDisplay = .preserving(error)
                 errorShow = true
             }
             
@@ -938,7 +944,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     try fm.removeItem(at: installUrl)
                 }
             } catch {
-                errorInfo = error.localizedDescription
+                errorDisplay = .preserving(error)
                 errorShow = true
             }
             return
@@ -958,7 +964,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             try await installIpaFile(destinationURL)
             try fileManager.removeItem(at: destinationURL)
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
         
@@ -1038,13 +1044,13 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     return
                 }
             } catch {
-                errorInfo = error.localizedDescription
+                errorDisplay = .preserving(error)
                 errorShow = true
             }
         }
         
         guard let appFound else {
-            errorInfo = "lc.appList.appNotFoundError".loc
+            errorDisplay = .localized("lc.appList.appNotFoundError")
             errorShow = true
             return
         }
@@ -1052,7 +1058,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         do {
             try await appFound.runApp(multitask: nil, containerFolderName: container, urlStr: urlStr, forceJIT: forceJIT)
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
         
@@ -1064,7 +1070,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 return
             }
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
             return
         }

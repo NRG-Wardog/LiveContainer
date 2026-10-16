@@ -11,6 +11,9 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct LCAppSettingsView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
+    @Environment(\.locale) private var dateLocale
+
     @State private var documentPickerCoordinator = DocumentPickerCoordinator()
 
     private class DocumentPickerCoordinator: NSObject, UIDocumentPickerDelegate {
@@ -35,7 +38,11 @@ struct LCAppSettingsView: View {
     @State var choosingStorage = false
     
     @State private var errorShow = false
-    @State private var errorInfo = ""
+    @State private var errorDisplay = V3DisplayMessage.raw("")
+    private var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     @State private var selectUnusedContainerSheetShow = false
     
     @EnvironmentObject private var sharedModel : SharedModel
@@ -46,6 +53,7 @@ struct LCAppSettingsView: View {
     }
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         Form {
             Section {
                 HStack {
@@ -76,7 +84,7 @@ struct LCAppSettingsView: View {
                             Text("lc.appSettings.tweakFolder".loc)
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text(model.uiTweakFolder == nil ? "None" : model.uiTweakFolder!)
+                            Text(model.uiTweakFolder ?? V3Localization.string("None"))
                                 .multilineTextAlignment(.trailing)
                         }
                     }
@@ -405,13 +413,16 @@ struct LCAppSettingsView: View {
         .alert("lc.common.error".loc, isPresented: $errorShow) {
             Button("lc.common.ok".loc, action: {
             })
+            Button("lc.common.copy".loc) {
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .appSettings)
+            }
         } message: {
-            Text(LCNativeErrorPresentation.message(errorInfo, site: .appSettings))
+            V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.appSettings.rawValue))
         }
         
         .textFieldAlert(
             isPresented: $renameFolderInput.show,
-            title: "lc.common.enterNewFolderName".loc,
+            title: "lc.common.enterNewFolderName",
             text: $renameFolderInput.initVal,
             placeholder: "",
             action: { newText in
@@ -494,7 +505,7 @@ struct LCAppSettingsView: View {
             try fm.createDirectory(at: dest, withIntermediateDirectories: false)
         } catch {
             errorShow = true
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             return
         }
         
@@ -509,7 +520,7 @@ struct LCAppSettingsView: View {
             keychainGroupSet.remove(container.keychainGroupId)
         }
         guard let freeKeyChainGroup = keychainGroupSet.randomElement() else {
-            errorInfo = "lc.container.notEnoughKeychainGroup".loc
+            errorDisplay = .localized("lc.container.notEnoughKeychainGroup")
             errorShow = true
             return
         }
@@ -574,7 +585,7 @@ struct LCAppSettingsView: View {
                     keychainGroupSet.remove(container.keychainGroupId)
                 }
                 guard let freeKeyChainGroup = keychainGroupSet.randomElement() else {
-                    errorInfo = "lc.container.notEnoughKeychainGroup".loc
+                    errorDisplay = .localized("lc.container.notEnoughKeychainGroup")
                     errorShow = true
                     return
                 }
@@ -596,7 +607,7 @@ struct LCAppSettingsView: View {
             }
 
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -604,7 +615,7 @@ struct LCAppSettingsView: View {
     func moveToAppGroup() async {
         for container in appInfo.containers {
             if let runningLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {
-                errorInfo = "lc.appSettings.appOpenInOtherLc %@ %@".localizeWithFormat(runningLC, runningLC)
+                errorDisplay = .localized("lc.appSettings.appOpenInOtherLc %@ %@", runningLC, runningLC)
                 errorShow = true
                 return
             }
@@ -661,7 +672,7 @@ struct LCAppSettingsView: View {
             appInfo.isShared = true
             model.uiIsShared = true
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
         
@@ -670,7 +681,7 @@ struct LCAppSettingsView: View {
     func movePrivateDoc() async {
         for container in appInfo.containers {
             if let runningLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {                
-                errorInfo = "lc.appSettings.appOpenInOtherLc %@ %@".localizeWithFormat(runningLC, runningLC)
+                errorDisplay = .localized("lc.appSettings.appOpenInOtherLc %@ %@", runningLC, runningLC)
                 errorShow = true
                 return
             }
@@ -722,7 +733,7 @@ struct LCAppSettingsView: View {
                 container.isShared = false
             }
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
         
@@ -733,7 +744,7 @@ struct LCAppSettingsView: View {
             try model.loadSupportedLanguages()
         } catch {
             errorShow = true
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             return
         }
     }
@@ -753,7 +764,7 @@ struct LCAppSettingsView: View {
         do {
             try await model.forceResign()
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -763,10 +774,8 @@ struct LCAppSettingsView: View {
             return "lc.common.unknown".loc
         }
         
-        let formatter1 = DateFormatter()
-        formatter1.dateStyle = .short
-        formatter1.timeStyle = .medium
-        return formatter1.string(from: date)
+        return V3Localization.legacyDate(date, dateStyle: .short, timeStyle: .medium,
+            language: V3AppLanguage.resolve(dateLocale.identifier))
     
     }
 }
@@ -834,7 +843,7 @@ extension LCAppSettingsView : LCContainerViewDelegate {
             }
 
         } catch {
-            errorInfo = "Cannot create Library/Preferences folder!".loc
+            errorDisplay = .localized("Cannot create Library/Preferences folder!")
             errorShow = true
         }
         return container.containerURL
@@ -845,7 +854,7 @@ extension LCAppSettingsView : LCContainerViewDelegate {
 extension LCAppSettingsView : LCSelectContainerViewDelegate {
     func addContainers(containers: Set<String>) {
         if containers.count + model.uiContainers.count > SharedModel.keychainAccessGroupCount {
-            errorInfo = "lc.container.tooMuchContainers".loc
+            errorDisplay = .localized("lc.container.tooMuchContainers")
             errorShow = true
             return
         }
@@ -863,7 +872,7 @@ extension LCAppSettingsView : LCSelectContainerViewDelegate {
                     keychainGroupSet.remove(container.keychainGroupId)
                 }
                 guard let freeKeyChainGroup = keychainGroupSet.randomElement() else {
-                    errorInfo = "lc.container.notEnoughKeychainGroup".loc
+                    errorDisplay = .localized("lc.container.notEnoughKeychainGroup")
                     errorShow = true
                     return
                 }

@@ -11,6 +11,7 @@ import LocalAuthentication
 import SafariServices
 import Security
 import Combine
+import ObjectiveC
 
 struct SafariView: UIViewControllerRepresentable {
     let url: Binding<URL>
@@ -150,30 +151,34 @@ public struct TextFieldAlertModifier: ViewModifier {
     public func body(content: Content) -> some View {
         content.onChange(of: isPresented) { isPresented in
             if isPresented, alertController == nil {
-                let alertController = makeAlertController()
-                self.alertController = alertController
-                sceneDelegate.window?.rootViewController?.present(alertController, animated: true)
+                guard let presenter = sceneDelegate.window?.rootViewController else { return }
+                V3NativeAlertPresentation.present(from: presenter,
+                    didReplace: { self.alertController = $0 },
+                    onUnavailable: { self.actionCancel(nil); shutdown() }) { language, presentation in
+                    makeAlertController(language: language, presentation: presentation)
+                }
             } else if !isPresented, let alertController = alertController {
-                alertController.dismiss(animated: true)
+                V3NativeAlertPresentation.stop(alertController)
                 self.alertController = nil
             }
         }
     }
 
-    private func makeAlertController() -> UIAlertController {
-        let controller = UIAlertController(title: title, message: nil, preferredStyle: .alert)
+    private func makeAlertController(language: V3AppLanguage, presentation: V3NativeAlertPresentation) -> UIAlertController {
+        let controller = UIAlertController(title: V3DisplayMessage.localized(title).rendered(language: language), message: nil, preferredStyle: .alert)
         controller.addTextField {
             $0.placeholder = self.placeholder
             $0.text = self.text.wrappedValue
             $0.clearButtonMode = .always
         }
-        controller.addAction(UIAlertAction(title: "lc.common.cancel".loc, style: .cancel) { _ in
-            self.actionCancel(nil)
-            shutdown()
+        controller.addAction(UIAlertAction(title: V3Localization.string("lc.common.cancel", language: language), style: .cancel) { [weak controller] _ in
+            guard let controller else { return }
+            presentation.finish(from: controller) { self.actionCancel(nil); shutdown() }
         })
-        controller.addAction(UIAlertAction(title: "lc.common.ok".loc, style: .default) { _ in
-            self.action(controller.textFields?.first?.text)
-            shutdown()
+        controller.addAction(UIAlertAction(title: V3Localization.string("lc.common.ok", language: language), style: .default) { [weak controller] _ in
+            guard let controller else { return }
+            let value = controller.textFields?.first?.text
+            presentation.finish(from: controller) { self.action(value); shutdown() }
         })
         return controller
     }
@@ -334,56 +339,264 @@ struct IconImageView: View {
 }
 
 
+// V3_NATIVE_ALERT_LANGUAGE_V1: rebuild only the presentation; preserve inputs,
+// continuation identity and callbacks. No guest or operation state is recreated.
+@MainActor
+private final class V3NativeAlertPresentation: NSObject, UIAdaptivePresentationControllerDelegate {
+    private static var associationKey: UInt8 = 0
+    private weak var presenter: UIViewController?
+    private weak var controller: UIAlertController?
+    private var observer: NSObjectProtocol?
+    private var sceneObserver: NSObjectProtocol?
+    private var renderedLanguage = V3AppLanguage.selected
+    private var isTransitioning = false
+    private var isFinished = false
+    private var completion: (() -> Void)?
+    private var afterDismissal: [() -> Void] = []
+    @MainActor
+    private struct TextFieldSnapshot {
+        let text: String?
+        let selection: (start: Int, end: Int)?
+        let wasFirstResponder: Bool
+        init(_ field: UITextField) {
+            text = field.text
+            wasFirstResponder = field.isFirstResponder
+            selection = field.selectedTextRange.map {
+                (field.offset(from: field.beginningOfDocument, to: $0.start),
+                 field.offset(from: field.beginningOfDocument, to: $0.end))
+            }
+        }
+        func restoreFocus(in field: UITextField) {
+            if wasFirstResponder { field.becomeFirstResponder() }
+            if let selection,
+               let start = field.position(from: field.beginningOfDocument, offset: selection.start),
+               let end = field.position(from: field.beginningOfDocument, offset: selection.end) {
+                field.selectedTextRange = field.textRange(from: start, to: end)
+            }
+        }
+    }
+    private let build: (V3AppLanguage, V3NativeAlertPresentation) -> UIAlertController
+    private let didReplace: (UIAlertController) -> Void
+    private let onUnavailable: () -> Void
+
+    private init(presenter: UIViewController, didReplace: @escaping (UIAlertController) -> Void,
+                 onUnavailable: @escaping () -> Void,
+                 build: @escaping (V3AppLanguage, V3NativeAlertPresentation) -> UIAlertController) {
+        self.presenter = presenter
+        self.didReplace = didReplace
+        self.onUnavailable = onUnavailable
+        self.build = build
+        super.init()
+        observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification,
+            object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.refreshLanguage() }
+        }
+        let sceneID = presenter.viewIfLoaded?.window?.windowScene?.session.persistentIdentifier
+        sceneObserver = NotificationCenter.default.addObserver(forName: UIScene.didDisconnectNotification,
+            object: nil, queue: .main) { [weak self] notification in
+            guard let scene = notification.object as? UIScene,
+                  scene.session.persistentIdentifier == sceneID else { return }
+            Task { @MainActor [weak self] in self?.cancelUnavailable(forceCompletion: true) }
+        }
+    }
+
+    deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        if let sceneObserver { NotificationCenter.default.removeObserver(sceneObserver) }
+    }
+
+    static func present(from presenter: UIViewController,
+                        didReplace: @escaping (UIAlertController) -> Void = { _ in },
+                        onUnavailable: @escaping () -> Void = {},
+                        build: @escaping (V3AppLanguage, V3NativeAlertPresentation) -> UIAlertController) {
+        let presentation = Self(presenter: presenter, didReplace: didReplace,
+                                onUnavailable: onUnavailable, build: build)
+        presentation.presentController(presentation.makeController(), animated: true)
+    }
+
+    static func stop(_ controller: UIAlertController) {
+        if let presentation = objc_getAssociatedObject(controller, &associationKey) as? V3NativeAlertPresentation {
+            // External SwiftUI dismissal has already resolved its own binding.
+            presentation.finish({})
+        } else { controller.dismiss(animated: true) }
+    }
+
+    static func dismissManaged(_ controller: UIViewController, completion: @escaping () -> Void) -> Bool {
+        guard let alert = controller as? UIAlertController,
+              let presentation = objc_getAssociatedObject(alert, &associationKey) as? V3NativeAlertPresentation else { return false }
+        presentation.afterDismissal.append(completion)
+        if !presentation.isFinished { presentation.finish(presentation.onUnavailable) }
+        else if !presentation.isTransitioning { presentation.dismissAndComplete() }
+        return true
+    }
+
+    private func makeController() -> UIAlertController {
+        renderedLanguage = V3AppLanguage.selected
+        let result = build(renderedLanguage, self)
+        result.view.semanticContentAttribute = renderedLanguage.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        // The alert owns the observer. The observer and presenter never retain it.
+        objc_setAssociatedObject(result, &Self.associationKey, self, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        controller = result
+        return result
+    }
+
+    private func presentController(_ result: UIAlertController, animated: Bool,
+                                   restoring fields: [TextFieldSnapshot] = []) {
+        guard !isFinished, let presenter, presenter.viewIfLoaded?.window != nil,
+              presenter.presentedViewController == nil else {
+            cancelUnavailable()
+            return
+        }
+        isTransitioning = true
+        didReplace(result)
+        presenter.present(result, animated: animated) { [self] in
+            isTransitioning = false
+            if isFinished { dismissAndComplete() } else {
+                for (index, snapshot) in fields.enumerated() where index < (result.textFields?.count ?? 0) {
+                    if let field = result.textFields?[index] { snapshot.restoreFocus(in: field) }
+                }
+                refreshLanguage()
+            }
+        }
+        result.presentationController?.delegate = self
+    }
+
+    /// One terminal action owns the callback/continuation across every replacement.
+    /// Mark it before dismissal so rapid language changes cannot resurrect the alert.
+    func finish(from source: UIAlertController, _ callback: @escaping () -> Void) {
+        // A delayed action belonging to a replaced alert cannot decide a newer one.
+        guard controller === source else { return }
+        finish(callback)
+    }
+
+    func finish(_ callback: @escaping () -> Void) {
+        guard !isFinished else { return }
+        isFinished = true
+        completion = callback
+        if let observer { NotificationCenter.default.removeObserver(observer); self.observer = nil }
+        if !isTransitioning { dismissAndComplete() }
+    }
+
+    private func deliverCompletion() {
+        let callback = completion
+        let pending = afterDismissal
+        completion = nil
+        afterDismissal.removeAll()
+        callback?()
+        pending.forEach { $0() }
+    }
+
+    private func dismissAndComplete() {
+        guard let controller, controller.presentingViewController != nil else {
+            deliverCompletion()
+            return
+        }
+        isTransitioning = true
+        controller.dismiss(animated: true) { [self] in
+            isTransitioning = false
+            deliverCompletion()
+        }
+    }
+
+    private func cancelUnavailable(forceCompletion: Bool = false) {
+        if !isFinished { finish(onUnavailable) }
+        // A disconnected scene cannot finish an animated transition reliably.
+        if forceCompletion || presenter?.viewIfLoaded?.window == nil { deliverCompletion() }
+    }
+
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        cancelUnavailable()
+    }
+
+    private func refreshLanguage() {
+        guard !isFinished, !isTransitioning,
+              V3AppLanguage.selected != renderedLanguage else { return }
+        guard let presenter, let previous = controller,
+              presenter.viewIfLoaded?.window != nil,
+              presenter.presentedViewController === previous else {
+            cancelUnavailable()
+            return
+        }
+        let fields = previous.textFields?.map { TextFieldSnapshot($0) } ?? []
+        isTransitioning = true
+        previous.dismiss(animated: false) { [self] in
+            isTransitioning = false
+            guard !isFinished else { deliverCompletion(); return }
+            guard presenter.viewIfLoaded?.window != nil, presenter.presentedViewController == nil else {
+                cancelUnavailable()
+                return
+            }
+            // Coalesce changes while dismissing; never build a stale replacement.
+            let replacement = makeController()
+            for (index, snapshot) in fields.enumerated() where index < (replacement.textFields?.count ?? 0) {
+                replacement.textFields?[index].text = snapshot.text
+            }
+            presentController(replacement, animated: false, restoring: fields)
+        }
+    }
+}
+
 extension UIViewController {
     func presentConfirmation(
-        title: String,
-        message: String,
-        confirmTitle: String,
-        cancelTitle: String
+        title: V3DisplayMessage,
+        message: V3DisplayMessage,
+        confirmTitle: V3DisplayMessage,
+        cancelTitle: V3DisplayMessage
     ) async -> Bool? {
         guard viewIfLoaded?.window != nil, presentedViewController == nil else {
             return nil
         }
 
         return await withUnsafeContinuation { continuation in
-            let finishConfirmation =  { (result: Bool?, alert: UIAlertController?) in
-                alert?.dismiss(animated: true) {
-                    continuation.resume(returning: result)
-                }
+            V3NativeAlertPresentation.present(from: self,
+                onUnavailable: { continuation.resume(returning: nil) }) { language, presentation in
+                let alert = UIAlertController(title: title.rendered(language: language),
+                    message: message.rendered(language: language), preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: confirmTitle.rendered(language: language), style: .destructive) { [weak alert] _ in
+                    guard let alert else { return }
+                    presentation.finish(from: alert) { continuation.resume(returning: true) }
+                })
+                alert.addAction(UIAlertAction(title: cancelTitle.rendered(language: language), style: .cancel) { [weak alert] _ in
+                    guard let alert else { return }
+                    presentation.finish(from: alert) { continuation.resume(returning: false) }
+                })
+                return alert
             }
-            
-            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: confirmTitle, style: .destructive) { [weak alert] _ in
-                finishConfirmation(true, alert)
-            })
-            alert.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { [weak alert] _ in
-                finishConfirmation(false, alert)
-            })
-            present(alert, animated: true)
         }
     }
 
     func showError(_ message: String) {
-        let details = LCNativeErrorPresentation.details(message, site: .banner)
-        let message = LCNativeErrorPresentation.message(message, site: .banner)
-        guard viewIfLoaded?.window != nil else {
-            return
-        }
+        showError(V3DisplayMessage.raw(message))
+    }
+
+    func showError(_ message: V3DisplayMessage) {
+        let details = LCNativeErrorPresentation.details(message.original, site: .banner)
+        let display = message.appendingDiagnostic(LCNativeErrorSite.banner.rawValue)
+        guard viewIfLoaded?.window != nil else { return }
 
         let presentError = { [weak self] in
-            guard let self else {
-                return
+            guard let self else { return }
+            V3NativeAlertPresentation.present(from: self) { language, presentation in
+                let alert = UIAlertController(title: V3Localization.string("lc.common.error", language: language),
+                    message: display.rendered(language: language), preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: V3Localization.string("lc.common.ok", language: language), style: .default) { [weak alert] _ in
+                    guard let alert else { return }
+                    presentation.finish(from: alert, {})
+                })
+                alert.addAction(UIAlertAction(title: V3Localization.string("lc.common.copy", language: language), style: .default) { [weak alert] _ in
+                    guard let alert else { return }
+                    presentation.finish(from: alert) { UIPasteboard.general.string = details }
+                })
+                return alert
             }
-            let alert = UIAlertController(title: "lc.common.error".loc, message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "lc.common.ok".loc, style: .default))
-            alert.addAction(UIAlertAction(title: "lc.common.copy".loc, style: .default) { _ in
-                UIPasteboard.general.string = details
-            })
-            self.present(alert, animated: true)
         }
 
         if let presentedViewController {
-            presentedViewController.dismiss(animated: true, completion: presentError)
+            // Programmatic dismissal does not invoke the adaptive-dismiss delegate.
+            // Resolve any managed confirmation before replacing it with this error.
+            if !V3NativeAlertPresentation.dismissManaged(presentedViewController, completion: presentError) {
+                presentedViewController.dismiss(animated: true, completion: presentError)
+            }
         } else {
             presentError()
         }

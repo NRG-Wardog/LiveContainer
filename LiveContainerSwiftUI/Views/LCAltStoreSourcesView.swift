@@ -120,7 +120,9 @@ final class AltStoreSourcesViewModel: ObservableObject {
         var source: AltStoreSource?
         var isLoading: Bool
         var error: String?
-        
+        // App-owned origin metadata is separate from the original provider diagnostic.
+        var errorKey: String?
+
         init(url: URL, isLoading: Bool = false, source: AltStoreSource? = nil, error: String? = nil) {
             self.url = url
             self.id = url
@@ -163,13 +165,13 @@ final class AltStoreSourcesViewModel: ObservableObject {
         }
     }
     
-    func addSource(from rawValue: String) async -> String? {
+    func addSource(from rawValue: String) async -> V3DisplayMessage? {
         guard let normalizedURL = normalizeSourceURL(from: rawValue) else {
-            return "lc.sources.error.invalidUrl".loc
+            return .localized("lc.sources.error.invalidUrl")
         }
         
         if sources.contains(where: { $0.url == normalizedURL }) {
-            return "lc.sources.error.duplicate".loc
+            return .localized("lc.sources.error.duplicate")
         }
         
         sources.append(SourceItem(url: normalizedURL, isLoading: true))
@@ -205,6 +207,7 @@ final class AltStoreSourcesViewModel: ObservableObject {
         }
         sources[index].isLoading = true
         sources[index].error = nil
+        sources[index].errorKey = nil
         let previousData = cachedData(for: url)
         do {
             let (source, data) = try await AltStoreSourceLoader.load(from: url)
@@ -221,6 +224,9 @@ final class AltStoreSourcesViewModel: ObservableObject {
         } catch {
             if let sourceIndex = sources.firstIndex(where: { $0.url == url }) {
                 sources[sourceIndex].error = error.localizedDescription
+                let native = error as NSError
+                sources[sourceIndex].errorKey = native.domain == "AltStoreSource" && native.code == 0
+                    ? "lc.sources.error.malformed" : nil
                 sources[sourceIndex].isLoading = false
             }
         }
@@ -481,8 +487,13 @@ private extension Color {
 }
 
 struct LCSourcesView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @StateObject private var viewModel = AltStoreSourcesViewModel()
-    @State private var errorMessage: String?
+    @State private var errorDisplay: V3DisplayMessage?
+    private var errorMessage: String? {
+        get { errorDisplay?.original }
+        nonmutating set { errorDisplay = newValue.map { .raw($0) } }
+    }
     @State private var sourcePendingRemoval: AltStoreSourcesViewModel.SourceItem?
     @ObservedObject public var searchContext: SearchContext = SearchContext()
     @State private var expandedSources: Set<URL> = []
@@ -493,6 +504,7 @@ struct LCSourcesView: View {
     @State private var isViewAppeared = false
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         NavigationView {
             Group {
                 if viewModel.sources.isEmpty {
@@ -564,8 +576,11 @@ struct LCSourcesView: View {
             set: { if !$0 { errorMessage = nil } })
         ) {
             Button("lc.common.ok".loc, role: .cancel) { errorMessage = nil }
+            Button("lc.common.copy".loc) {
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorMessage ?? "", site: .source)
+            }
         } message: {
-            Text(errorMessage.map { LCNativeErrorPresentation.message($0, site: .source) } ?? "")
+            if let errorDisplay { V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.source.rawValue)) }
         }
         .alert("lc.sources.removeConfirmation.title".loc, isPresented: Binding(
             get: { sourcePendingRemoval != nil },
@@ -669,7 +684,7 @@ struct LCSourcesView: View {
         guard !trimmed.isEmpty else { return false }
         let error = await viewModel.addSource(from: trimmed)
         if let error {
-            errorMessage = error
+            errorDisplay = error
             return false
         }
         return true
@@ -678,7 +693,7 @@ struct LCSourcesView: View {
     @MainActor
     private func install(app: AltStoreSourceApp) {
         guard let downloadURL = app.latestVersion?.downloadURL else {
-            errorMessage = "lc.sources.error.missingDownload".loc
+            errorDisplay = .localized("lc.sources.error.missingDownload")
             return
         }
         withAnimation {
@@ -720,6 +735,7 @@ struct LCSourcesView: View {
 }
 
 private struct ManageSourcesSheet: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @ObservedObject var viewModel: AltStoreSourcesViewModel
     @Binding var isPresented: Bool
     let onAdd: (String) async -> Bool
@@ -730,6 +746,7 @@ private struct ManageSourcesSheet: View {
     @FocusState private var isManualFieldFocused: Bool
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         NavigationView {
             List {
                 Section {
@@ -851,6 +868,7 @@ private struct ManageSourcesSheet: View {
 }
 
 private struct AltStoreSourceSectionView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     let item: AltStoreSourcesViewModel.SourceItem
     let filteredApps: [AltStoreSourceApp]
     let isFiltering: Bool
@@ -861,6 +879,7 @@ private struct AltStoreSourceSectionView: View {
     let toggleExpanded: () -> Void
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
                 Button(action: toggleExpanded) {
@@ -905,9 +924,13 @@ private struct AltStoreSourceSectionView: View {
                     Text("lc.sources.section.error".loc)
                         .font(.subheadline)
                         .bold()
-                    Text(LCNativeErrorPresentation.message(error, site: .source))
+                    V3LocalizedText((item.errorKey.map { V3DisplayMessage.localized($0) } ?? .raw(error))
+                        .appendingDiagnostic(LCNativeErrorSite.source.rawValue))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    Button("lc.common.copy".loc) {
+                        UIPasteboard.general.string = LCNativeErrorPresentation.details(error, site: .source)
+                    }.font(.footnote)
                     Button("lc.sources.refresh".loc, action: onRefresh)
                         .font(.footnote)
                 }
@@ -944,6 +967,7 @@ private struct AltStoreSourceSectionView: View {
 }
 
 private struct LCSourceAppBanner: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     let app: AltStoreSourceApp
     let source: AltStoreSource
     let installAction: (AltStoreSourceApp) -> Void
@@ -987,6 +1011,7 @@ private struct LCSourceAppBanner: View {
     }
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         HStack {
             HStack(alignment: .center, spacing: 12) {
                 SourceIconView(url: app.iconURL)
@@ -1049,9 +1074,11 @@ private struct LCSourceAppBanner: View {
 }
 
 private struct SourceIconView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     let url: URL?
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         if let url {
             AsyncImage(url: url) { phase in
                 switch phase {

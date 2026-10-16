@@ -11,6 +11,9 @@ final class LCAppBannerRootView: UIView {
     static let compactBannerHeight: CGFloat = 56
 
     private var layoutStyle: AppLayoutStyle = .list
+    private weak var displayedModel: LCAppModel?
+    private var languageObserver: NSObjectProtocol?
+    private var displayedLanguage = V3AppLanguage.selected
     private var iconSizeConstraints: [NSLayoutConstraint] = []
 
     func applyLayoutStyle(_ style: AppLayoutStyle) {
@@ -57,7 +60,27 @@ final class LCAppBannerRootView: UIView {
         setupView()
     }
 
+    deinit { if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) } }
+
+    private func refreshLocalizedLabels() {
+        semanticContentAttribute = displayedLanguage.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        guard let model = displayedModel else { return }
+        containerLabel.text = model.uiSelectedContainer?.name ?? "lc.appBanner.noDataFolder".loc
+        var parts = [model.displayName, "\(model.version) - \(model.bundleIdentifier)"]
+        if !model.uiRemark.isEmpty { parts.append(model.uiRemark) }
+        parts.append(model.uiSelectedContainer?.name ?? "lc.appBanner.noDataFolder".loc)
+        detailStack.accessibilityLabel = parts.joined(separator: ", ")
+    }
+
     private func setupView() {
+        semanticContentAttribute = displayedLanguage.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
+        languageObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.displayedLanguage != V3AppLanguage.selected else { return }
+                self.displayedLanguage = V3AppLanguage.selected
+                self.refreshLocalizedLabels()
+            }
+        }
         isOpaque = false
         backgroundColor = .clear
         layer.cornerRadius = 22
@@ -152,6 +175,7 @@ final class LCAppBannerRootView: UIView {
         darkModeIcon: Bool,
         traitCollection: UITraitCollection
     ) {
+        displayedModel = model
         let icon = appInfo.iconIsDarkIcon(darkModeIcon) ?? UIImage()
         let mainColor = Self.extractMainHueColor(appInfo: appInfo, icon: icon, darkModeIcon: darkModeIcon)
         let accentColor = dynamicColors ? mainColor : (UIColor(named: "FontColor") ?? .systemBlue)
@@ -338,6 +362,9 @@ final class LCAppBannerRunControl: UIControl {
     private let titleLabel = UILabel()
     private let activityIndicator = UIActivityIndicatorView(style: .medium)
     private var progress = 0.0
+    private var isSigning = false
+    private var languageObserver: NSObjectProtocol?
+    private var displayedLanguage = V3AppLanguage.selected
 
     override var intrinsicContentSize: CGSize {
         CGSize(width: 70, height: 32)
@@ -353,7 +380,30 @@ final class LCAppBannerRunControl: UIControl {
         setupView()
     }
 
+    deinit { if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) } }
+
+    private func refreshLocalizedLabels() {
+        titleLabel.text = "lc.appBanner.run".loc
+        accessibilityLabel = "lc.appBanner.run".loc
+        refreshProgressAccessibility()
+    }
+
+    private func refreshProgressAccessibility() {
+        guard isSigning else { accessibilityValue = nil; return }
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: displayedLanguage.rawValue)
+        formatter.numberStyle = .percent
+        accessibilityValue = formatter.string(from: NSNumber(value: progress))
+    }
+
     private func setupView() {
+        languageObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.displayedLanguage != V3AppLanguage.selected else { return }
+                self.displayedLanguage = V3AppLanguage.selected
+                self.refreshLocalizedLabels()
+            }
+        }
         clipsToBounds = true
         layer.addSublayer(baseLayer)
         layer.addSublayer(progressCircleLayer)
@@ -409,6 +459,7 @@ final class LCAppBannerRunControl: UIControl {
 
     func update(color: UIColor, isSigning: Bool, progress: Double, isEnabled: Bool) {
         self.progress = min(max(progress, 0), 1)
+        self.isSigning = isSigning
         self.isEnabled = isEnabled
 
         baseLayer.backgroundColor = color.withAlphaComponent(isSigning ? 0.2 : 1).cgColor
@@ -417,11 +468,10 @@ final class LCAppBannerRunControl: UIControl {
         titleLabel.isHidden = isSigning
         if isSigning {
             activityIndicator.startAnimating()
-            accessibilityValue = NumberFormatter.localizedString(from: NSNumber(value: self.progress), number: .percent)
         } else {
             activityIndicator.stopAnimating()
-            accessibilityValue = nil
         }
+        refreshProgressAccessibility()
         accessibilityTraits = isEnabled ? .button : [.button, .notEnabled]
         setNeedsLayout()
     }

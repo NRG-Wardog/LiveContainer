@@ -21,6 +21,9 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
     private let bannerView = LCAppBannerRootView()
     private var configuration: LCAppBannerConfiguration
     private var exportTemporaryDirectory: URL?
+    private var languageObserver: NSObjectProtocol?
+    private var displayedLanguage = V3AppLanguage.selected
+    private weak var displayedContextMenu: UIContextMenuInteraction?
     
     init(delegate: LCAppBannerDelegate, config: LCAppBannerConfiguration) {
         self.delegate = delegate
@@ -42,6 +45,16 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         preferredContentSize = CGSize(width: 0, height: configuration.layoutStyle == .compactList ? LCAppBannerRootView.compactBannerHeight : LCAppBannerRootView.bannerHeight)
         bannerView.runControl.addTarget(self, action: #selector(runButtonTapped), for: .touchUpInside)
         bannerView.addInteraction(UIContextMenuInteraction(delegate: self))
+        languageObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification,
+            object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.displayedLanguage != V3AppLanguage.selected else { return }
+                self.displayedLanguage = V3AppLanguage.selected
+                self.displayedContextMenu?.updateVisibleMenu { [weak self] visible in
+                    self?.makeContextMenu() ?? visible
+                }
+            }
+        }
 
         let doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(bannerDoubleTapped))
         doubleTapGesture.numberOfTapsRequired = 2
@@ -57,6 +70,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
     }
 
     deinit {
+        if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) }
         cleanupExportTemporaryDirectory()
     }
 
@@ -128,7 +142,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
                     return
                 }
             } catch {
-                showError(error.localizedDescription)
+                showError(.preserving(error))
                 return
             }
         }
@@ -136,7 +150,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         do {
             try await configuration.model.runApp(multitask: multitask)
         } catch {
-            showError(error.localizedDescription)
+            showError(.preserving(error))
         }
     }
 
@@ -156,14 +170,14 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
                     self?.refreshView()
                 }
             }
-            menuChildren.append(UIMenu(title: "Containers", options: .displayInline, children: containerActions))
+            menuChildren.append(UIMenu(title: V3Localization.prose("Containers"), options: .displayInline, children: containerActions))
         }
 
         // 2. Main Section
         var sectionChildren: [UIMenuElement] = []
         if !model.uiIsShared, model.uiSelectedContainer != nil {
             sectionChildren.append(UIAction(
-                title: "lc.appBanner.openDataFolder".loc,
+                title: V3Localization.prose("lc.appBanner.openDataFolder"),
                 image: UIImage(systemName: "folder")
             ) { [weak self] _ in
                 self?.openDataFolder()
@@ -174,7 +188,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         if #available(iOS 16.0, *) {
             let shouldLaunchInMultitaskMode = model.shouldLaunchInMultitaskMode
             sectionChildren.append(UIAction(
-                title: shouldLaunchInMultitaskMode ? "lc.appBanner.run".loc : "lc.appBanner.multitask".loc,
+                title: V3Localization.prose(shouldLaunchInMultitaskMode ? "lc.appBanner.run" : "lc.appBanner.multitask"),
                 image: UIImage(systemName: shouldLaunchInMultitaskMode ? "play.fill" : "macwindow.badge.plus")
             ) { [weak self] _ in
                 Task { [weak self] in
@@ -184,18 +198,18 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         }
 
         let addToHomeScreenMenu = UIMenu(
-            title: "lc.appBanner.addToHomeScreen".loc,
+            title: V3Localization.prose("lc.appBanner.addToHomeScreen"),
             image: UIImage(systemName: "plus.app"),
             children: [
-                UIAction(title: "lc.appBanner.copyLaunchUrl".loc, image: UIImage(systemName: "link")) { [weak self] _ in
+                UIAction(title: V3Localization.prose("lc.appBanner.copyLaunchUrl"), image: UIImage(systemName: "link")) { [weak self] _ in
                     self?.copyLaunchUrl()
                 },
-                UIAction(title: "lc.appBanner.saveAppIcon".loc, image: UIImage(systemName: "square.and.arrow.down")) { [weak self] _ in
+                UIAction(title: V3Localization.prose("lc.appBanner.saveAppIcon"), image: UIImage(systemName: "square.and.arrow.down")) { [weak self] _ in
                     Task { [weak self] in
                         await self?.saveIcon()
                     }
                 },
-                UIAction(title: "lc.appBanner.createAppClip".loc, image: UIImage(systemName: "appclip")) { [weak self] _ in
+                UIAction(title: V3Localization.prose("lc.appBanner.createAppClip"), image: UIImage(systemName: "appclip")) { [weak self] _ in
                     Task { [weak self] in
                         await self?.createAppClip()
                     }
@@ -205,7 +219,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         sectionChildren.append(addToHomeScreenMenu)
 
         sectionChildren.append(UIAction(
-            title: "lc.tabView.settings".loc,
+            title: V3Localization.prose("lc.tabView.settings"),
             image: UIImage(systemName: "gear")
         ) { [weak self] _ in
             self?.openSettings()
@@ -213,7 +227,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
 
         if !model.uiIsShared {
             sectionChildren.append(UIAction(
-                title: "lc.appBanner.uninstall".loc,
+                title: V3Localization.prose("lc.appBanner.uninstall"),
                 image: UIImage(systemName: "trash"),
                 attributes: .destructive
             ) { [weak self] _ in
@@ -240,6 +254,18 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         }
     }
 
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
+                                willDisplayMenuFor configuration: UIContextMenuConfiguration,
+                                animator: UIContextMenuInteractionAnimating?) {
+        displayedContextMenu = interaction
+    }
+
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
+                                willEndFor configuration: UIContextMenuConfiguration,
+                                animator: UIContextMenuInteractionAnimating?) {
+        if displayedContextMenu === interaction { displayedContextMenu = nil }
+    }
+
     private func openSettings() {
         delegate.openNavigationView(view: AnyView(LCAppSettingsView(model: configuration.model)))
     }
@@ -256,10 +282,10 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         let appInfo = configuration.model.appInfo
         let displayName = appInfo.displayName() ?? configuration.model.displayName
         let shouldUninstall = await presentConfirmation(
-            title: "lc.appBanner.confirmUninstallTitle".loc,
-            message: "lc.appBanner.confirmUninstallMsg %@".localizeWithFormat(displayName),
-            confirmTitle: "lc.appBanner.uninstall".loc,
-            cancelTitle: "lc.common.cancel".loc
+            title: .localized("lc.appBanner.confirmUninstallTitle"),
+            message: .localized("lc.appBanner.confirmUninstallMsg %@", displayName),
+            confirmTitle: .localized("lc.appBanner.uninstall"),
+            cancelTitle: .localized("lc.common.cancel")
         )
         guard shouldUninstall == true else {
             return
@@ -269,10 +295,10 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         let containers = appInfo.containers
         if !containers.isEmpty {
             shouldRemoveAppFolders = await presentConfirmation(
-                title: "lc.appBanner.deleteDataTitle".loc,
-                message: "lc.appBanner.deleteDataMsg %@".localizeWithFormat(displayName),
-                confirmTitle: "lc.common.delete".loc,
-                cancelTitle: "lc.common.no".loc
+                title: .localized("lc.appBanner.deleteDataTitle"),
+                message: .localized("lc.appBanner.deleteDataMsg %@", displayName),
+                confirmTitle: .localized("lc.common.delete"),
+                cancelTitle: .localized("lc.common.no")
             ) == true
         }
 
@@ -294,7 +320,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
                 }
             }
         } catch {
-            showError(error.localizedDescription)
+            showError(.preserving(error))
         }
     }
 
@@ -327,7 +353,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
             let data = try PropertyListSerialization.data(fromPropertyList: profile, format: .xml, options: 0)
             delegate.installMdm(data: data)
         } catch {
-            showError(error.localizedDescription)
+            showError(.preserving(error))
         }
     }
 
@@ -364,7 +390,7 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
             present(documentPicker, animated: true)
         } catch {
             cleanupExportTemporaryDirectory()
-            showError(error.localizedDescription)
+            showError(.preserving(error))
         }
     }
 

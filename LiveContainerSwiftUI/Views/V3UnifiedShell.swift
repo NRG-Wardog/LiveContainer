@@ -7200,7 +7200,12 @@ extension LCAppModel {
 }
 
 struct V3UnifiedShell: View {
-    var body: some View { V3ApplicationRoot(content: V3UnifiedTabs()) }
+    @AppStorage(V3AppLanguage.storageKey, store: V3Localization.hostDefaults) private var language = V3AppLanguage.english.rawValue
+    var body: some View {
+        V3ApplicationRoot(content: V3UnifiedTabs())
+            .environment(\.locale, Locale(identifier: V3AppLanguage.resolve(language).rawValue))
+            .environment(\.layoutDirection, V3AppLanguage.resolve(language).isRightToLeft ? .rightToLeft : .leftToRight)
+    }
 }
 
 struct V3UnifiedTabs: View {
@@ -7311,9 +7316,9 @@ struct V3UnifiedTabs: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             if let recovery = status.unresolvedOperationRecovery {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("A previous \(recovery.kind) may still be running")
+                    V3LocalizedText("A previous \(recovery.kind) may still be running")
                         .font(.subheadline.weight(.semibold))
-                    Text(recovery.phase == .dispatched
+                    V3LocalizedText(recovery.phase == .dispatched
                         ? "Check its status or confirm on the device that the operation has stopped."
                         : "The service prepared an operation but did not confirm dispatch. Check the device before clearing this hold.")
                         .font(.caption)
@@ -7343,12 +7348,12 @@ struct V3UnifiedTabs: View {
                 .padding(.top, 4)
             } else if let direct = status.unresolvedDirectRecovery {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("A previous \(V3DirectRecoveryPresentationPolicy.operationName(direct.operation)) has an unresolved result")
+                    V3LocalizedText("A previous \(V3DirectRecoveryPresentationPolicy.operationName(direct.operation)) has an unresolved result")
                         .font(.subheadline.weight(.semibold))
-                    Text(V3DirectRecoveryPresentationPolicy.explanation(
+                    V3LocalizedText(V3DirectRecoveryPresentationPolicy.explanation(
                         record: direct, postcondition: status.directRecoveryPostcondition))
                         .font(.caption)
-                    Button(status.directRecoveryInspecting ? "Inspecting..." : "Inspect result") {
+                    Button(LocalizedStringKey(status.directRecoveryInspecting ? "Inspecting..." : "Inspect result")) {
                         status.inspectDirectRecovery()
                     }
                     .disabled(status.directRecoveryInspecting)
@@ -7402,9 +7407,9 @@ struct V3UnifiedTabs: View {
                 .padding(.top, 4)
             } else if status.unresolvedRecoveryJournalUnreadable {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(status.recoveryStorageTitle)
+                    V3LocalizedText(status.recoveryStorageTitle)
                         .font(.subheadline.weight(.semibold))
-                    Text(status.recoveryStorageGuidance)
+                    V3LocalizedText(status.recoveryStorageGuidance)
                         .font(.caption)
                     if status.canDiscardUnreadableRecovery {
                         Button("I checked; no SideStore operation is running") {
@@ -7463,7 +7468,7 @@ struct V3UnifiedTabs: View {
             NavigationView { V3PairingView().environmentObject(status) }
                 .navigationViewStyle(StackNavigationViewStyle())
         }
-        .alert(status.issue?.title ?? "SideStore",
+        .alert(LocalizedStringKey(status.issue?.title ?? "SideStore"),
               isPresented: Binding(get: { status.error != nil },
                                    set: { if !$0 { status.clearIssue() } })) {
             // V3_USER_FACING_ISSUE_V1: the primary action is the one the typed
@@ -7475,7 +7480,7 @@ struct V3UnifiedTabs: View {
             // alongside a second "OK" that dismissed, so a refusal to work
             // looked like a choice.
                 if let action = status.issue?.primaryAction, action != .dismiss {
-                Button(action.title) {
+                Button(LocalizedStringKey(action.title)) {
                     if status.performPrimaryIssueAction() {
                         status.clearIssue()
                     }
@@ -7491,16 +7496,16 @@ struct V3UnifiedTabs: View {
             Button("OK", role: .cancel) { status.clearIssue() }
         } message: {
             VStack(alignment: .leading, spacing: 6) {
-                Text(status.issue?.whatHappened ?? status.error ?? "")
+                V3LocalizedText(status.issue?.whatHappened ?? status.error ?? "")
                 if let whatToDo = status.issue?.whatToDo, !whatToDo.isEmpty {
                     Text("What you can do").font(.caption.weight(.semibold))
-                    Text(whatToDo).font(.caption)
+                    V3LocalizedText(whatToDo).font(.caption)
                 }
             }
         }
         .alert("SideStore", isPresented: Binding(get: { status.notice != nil }, set: { if !$0 { status.notice = nil } })) {
             Button("OK", role: .cancel) { status.notice = nil }
-        } message: { Text(status.notice ?? "") }
+        } message: { V3LocalizedText(status.notice ?? "") }
         .alert("Stay Informed About Refreshes", isPresented: $showNotificationsPrompt) {
             Button("Allow Notifications") {
                 Task { await LiveContainerAutoRefreshScheduler.requestNotificationPermissionFromUserAction() }
@@ -7850,7 +7855,7 @@ struct V3RefreshAllButton: View {
             Button(action: start) {
                 HStack(spacing: 8) {
                     if ["starting", "refreshing", "verifying"].contains(phase) { ProgressView() }
-                    Text(buttonTitle)
+                    V3LocalizedText(buttonTitle)
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
                 }
@@ -7867,21 +7872,21 @@ struct V3RefreshAllButton: View {
             if phase == "completed" || phase == "failed" {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("What happened").font(.caption.weight(.semibold))
-                    Text(phase == "failed" ? V3DiagnosticPresentation.label(message, context: .refresh) : message)
+                    V3LocalizedText(phase == "failed" ? V3DiagnosticPresentation.label(message, context: .refresh) : message)
                         .font(.footnote)
                         .foregroundColor(phase == "completed" ? .green : .red)
                         .textSelection(.enabled)
                     if phase == "failed", let terminalFailure {
                         Text("What you can do").font(.caption.weight(.semibold)).padding(.top, 4)
-                        Text(terminalFailure.recommendedAction).font(.footnote)
+                        V3LocalizedText(terminalFailure.recommendedAction).font(.footnote)
                         HStack {
                             if let destination = terminalFailure.recoveryDestination,
                                let action = terminalFailure.recoveryActionTitle {
-                                Button(action) { openFailureRecovery(destination) }
+                                Button(LocalizedStringKey(action)) { openFailureRecovery(destination) }
                             }
                             if [.allowed, .unknown].contains(terminalFailure.retryDisposition) {
-                                Button(terminalFailure.retryDisposition == .unknown
-                                    ? "Retry (retryability unknown)" : "Retry") {
+                                Button(LocalizedStringKey(terminalFailure.retryDisposition == .unknown
+                                    ? "Retry (retryability unknown)" : "Retry")) {
                                         retryFailedAttempt()
                                     }
                                     .disabled(!activeRun.isEmpty || status.presentation != nil || status.loading)
@@ -7893,7 +7898,7 @@ struct V3RefreshAllButton: View {
                     }
                 }
                 HStack {
-                    Button(copied ? "Copied" : "Copy Diagnostics") {
+                    Button(LocalizedStringKey(copied ? "Copied" : "Copy Diagnostics")) {
                         UIPasteboard.general.string = V3DiagnosticCopy.details(visibleMessage: message, technical: diagnostics)
                         copied = true
                     }
@@ -9758,7 +9763,7 @@ struct V3InstalledAppsSection: View {
             if apps.isEmpty {
                 HStack {
                     Spacer()
-                    Text(status.loading ? "Loading apps..." : "No sideloaded apps")
+                    V3LocalizedText(status.loading ? "Loading apps..." : "No sideloaded apps")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -9811,7 +9816,7 @@ struct V3AppActions: View {
         }
         if app.hasUpdate { Button("Update") { action("update", "Update " + app.name) } }
         if !app.isHost {
-            Button(app.isActive ? "Deactivate" : "Activate") { action(app.isActive ? "deactivate" : "activate", app.isActive ? "Deactivate app" : "Activate app") }
+            Button(LocalizedStringKey(app.isActive ? "Deactivate" : "Activate")) { action(app.isActive ? "deactivate" : "activate", app.isActive ? "Deactivate app" : "Activate app") }
             Button("Back Up") { action("backup", "Back up app") }
             Button("Restore Backup") { action("restore", "Restore backup") }
             Button("Enable JIT") { action("jit", "Enable JIT") }
@@ -9822,7 +9827,9 @@ struct V3AppActions: View {
     private func action(_ operation: String, _ title: String) { status.perform(operation, target: app.identifier, title: title) }
 }
 
-struct V3SideStoreAppDetail: View {    @EnvironmentObject private var status: V3SideStoreStatusStore
+struct V3SideStoreAppDetail: View {
+    @Environment(\.locale) private var dateLocale
+    @EnvironmentObject private var status: V3SideStoreStatusStore
     let identifier: String
     private var app: V3SideStoreApp? { status.installedApps.first { $0.identifier == identifier } }
     var body: some View {
@@ -9840,7 +9847,7 @@ struct V3SideStoreAppDetail: View {    @EnvironmentObject private var status: V3
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .textSelection(.enabled)
-                            Text("Version " + app.version)
+                            Text(V3Localization.format("Version %@", app.version))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -9852,20 +9859,20 @@ struct V3SideStoreAppDetail: View {    @EnvironmentObject private var status: V3
                         Label("State", systemImage: "circle.fill")
                             .foregroundColor(app.isActive ? .green : .secondary)
                         Spacer()
-                        Text(app.isActive ? "Active" : "Inactive")
+                        V3LocalizedText(app.isActive ? "Active" : "Inactive")
                             .foregroundColor(.secondary)
                     }
                     HStack {
                         Label("Certificate", systemImage: "signature")
                         Spacer()
-                        Text(app.certificateStatus.capitalized)
+                        V3LocalizedText(app.certificateStatus.capitalized)
                             .foregroundColor(.secondary)
                     }
                     if let expiration = app.expirationDate {
                         HStack {
                             Label("Expires", systemImage: "calendar.badge.clock")
                             Spacer()
-                            Text(expiration.formatted(date: .abbreviated, time: .shortened))
+                            Text(V3Localization.date(expiration, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -9877,7 +9884,7 @@ struct V3SideStoreAppDetail: View {    @EnvironmentObject private var status: V3
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(app?.name ?? "App")
+        .navigationTitle(app?.name ?? V3Localization.string("App"))
     }
 }
 
@@ -9915,7 +9922,7 @@ struct V3SourcesView: View {
             List {
                 if addSucceeded && !notice.isEmpty {
                     Section {
-                        Label(notice, systemImage: V3StatusSeverity.completed.icon)
+                        V3LocalizedLabel(notice, systemImage: V3StatusSeverity.completed.icon)
                             .font(.footnote)
                             .foregroundColor(.green)
                     }
@@ -9923,7 +9930,7 @@ struct V3SourcesView: View {
                     Section {
                         // V3_SOURCE_SEMANTIC_STATE_V1: an informational notice is
                         // neutral, never styled as if it were a result.
-                        Label(notice, systemImage: "info.circle.fill")
+                        V3LocalizedLabel(notice, systemImage: "info.circle.fill")
                             .font(.footnote)
                             .foregroundColor(.secondary)
                     }
@@ -9931,16 +9938,16 @@ struct V3SourcesView: View {
                 if let sourceFailure {
                     Section("What happened") {
                         // A source failure is a failure, and says so.
-                        Label(sourceFailure.whatHappened, systemImage: V3StatusSeverity.failed.icon)
+                        V3LocalizedLabel(sourceFailure.whatHappened, systemImage: V3StatusSeverity.failed.icon)
                             .font(.footnote)
                             .foregroundColor(.red)
                     }
                     Section("What you can do") {
-                        Text(sourceFailure.whatToDo).font(.footnote)
+                        V3LocalizedText(sourceFailure.whatToDo).font(.footnote)
                     }
                     Section {
                         DisclosureGroup("Technical details") {
-                            Text(sourceFailure.technicalDetails)
+                            Text(sourceFailure.technicalDetails).environment(\.layoutDirection, .leftToRight)
                                 .font(.caption2)
                                 .textSelection(.enabled)
                         }
@@ -10003,16 +10010,16 @@ struct V3SourcesView: View {
                         Button {
                             startPreviewSource()
                         } label: {
-                            Label(previewBusy ? "Checking Source..." : "Preview and Add Source", systemImage: "plus.circle.fill")
+                            V3LocalizedLabel(previewBusy ? "Checking Source..." : "Preview and Add Source", systemImage: "plus.circle.fill")
                         }
                         .disabled(status.sourceURL.isEmpty || previewBusy || isSubmissionBlocked(for: status.sourceURL))
                         if let preview {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(preview["name"] as? String ?? "")
                                     .font(.headline)
-                                Text(preview["title"] as? String ?? "")
+                                V3LocalizedText(preview["title"] as? String ?? "")
                                     .font(.subheadline)
-                                Text(preview["message"] as? String ?? "")
+                                V3LocalizedText(preview["message"] as? String ?? "")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -10020,7 +10027,7 @@ struct V3SourcesView: View {
                             Button {
                                 Task { await confirmAdd(url: preview["url"] as? String ?? status.sourceURL) }
                             } label: {
-                                Label((preview["alreadyAdded"] as? Bool ?? false) ? "Already Added" : (addBusy ? "Adding Source..." : "Confirm Add Source"), systemImage: "checkmark.circle.fill")
+                                V3LocalizedLabel((preview["alreadyAdded"] as? Bool ?? false) ? "Already Added" : (addBusy ? "Adding Source..." : "Confirm Add Source"), systemImage: "checkmark.circle.fill")
                             }
                             .disabled((preview["alreadyAdded"] as? Bool ?? false) || addBusy ||
                                 isSubmissionBlocked(for: preview["url"] as? String ?? status.sourceURL))
@@ -10034,7 +10041,7 @@ struct V3SourcesView: View {
                         .accessibilityHint("Opens the source URL form. Nothing is added until you confirm.")
                     }
                 }
-                Section("Sources (\(status.sources.count))") {
+                Section(V3Localization.text("Sources (\(status.sources.count))")) {
                     ForEach(status.sources) { source in
                         NavigationLink(destination: V3CatalogView(source: source)) {
                             HStack(spacing: 12) {
@@ -10044,7 +10051,7 @@ struct V3SourcesView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(source.name)
                                         .font(.headline)
-                                    Text("\(source.appCount) apps")
+                                    V3LocalizedText("\(source.appCount) apps")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -10328,12 +10335,12 @@ struct V3CatalogView: View {
             }
             if let error {
                 Section("What happened") {
-                    Text(failure?.whatHappened ?? error).font(.footnote).foregroundColor(.red)
+                    V3LocalizedText(failure?.whatHappened ?? error).font(.footnote).foregroundColor(.red)
                     if let failure {
                         Text("What you can do").font(.caption.weight(.semibold)).padding(.top, 4)
-                        Text(failure.whatToDo).font(.footnote)
+                        V3LocalizedText(failure.whatToDo).font(.footnote)
                         DisclosureGroup("Technical details") {
-                            Text(failure.technical).font(.caption2).textSelection(.enabled)
+                            Text(failure.technical).environment(\.layoutDirection, .leftToRight).font(.caption2).textSelection(.enabled)
                         }
                         Button("Copy Diagnostics") { UIPasteboard.general.string = failure.technical }
                     }
@@ -10369,7 +10376,7 @@ struct V3CatalogView: View {
                                     Text(app.developer)
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
-                                    Text("Version " + app.version)
+                                    Text(V3Localization.format("Version %@", app.version))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -10519,6 +10526,8 @@ struct V3CatalogView: View {
 }
 
 struct V3AccountSettings: View {
+    @Environment(\.locale) private var dateLocale
+
     @EnvironmentObject private var status: V3SideStoreStatusStore
     private var identityPresentation: V3AccountSessionPresentation {
         V3AccountSessionPresentationPolicy.resolve(authenticated: status.authenticated,
@@ -10543,7 +10552,10 @@ struct V3AccountSettings: View {
                     HStack {
                         Label("Saved Apple ID", systemImage: "person.crop.circle.fill")
                         Spacer()
-                        Text(status.account)
+                        Group {
+                            if status.activeAccountPresent { Text(status.account) }
+                            else { Text("Not available") }
+                        }
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                     }
@@ -10572,7 +10584,10 @@ struct V3AccountSettings: View {
                 HStack {
                     Label("Apple ID", systemImage: "person.crop.circle.fill")
                     Spacer()
-                    Text(status.account)
+                    Group {
+                            if status.activeAccountPresent { Text(status.account) }
+                            else { Text("Not available") }
+                        }
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
@@ -10580,14 +10595,17 @@ struct V3AccountSettings: View {
             HStack {
                 Label("Team", systemImage: "person.2.fill")
                 Spacer()
-                Text(status.team)
+                Group {
+                            if status.activeTeamPresent { Text(status.team) }
+                            else { Text("Not available") }
+                        }
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
             HStack {
                 Label("Signing", systemImage: "signature")
                 Spacer()
-                Text(status.signing)
+                V3LocalizedText(status.signing)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
@@ -10595,7 +10613,7 @@ struct V3AccountSettings: View {
                 HStack {
                     Label("Certificate", systemImage: "doc.plaintext")
                     Spacer()
-                    Text("Expires " + date.formatted(date: .abbreviated, time: .shortened))
+                    Text(V3Localization.format("Expires %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))))
                         .foregroundColor(.secondary)
                 }
             }
@@ -10603,7 +10621,7 @@ struct V3AccountSettings: View {
                 HStack {
                     Label("Host App", systemImage: "app.badge.fill")
                     Spacer()
-                    Text(app.certificateStatus.capitalized + (app.expirationDate.map { " (exp " + $0.formatted(date: .abbreviated, time: .omitted) + ")" } ?? ""))
+                    Text(app.expirationDate.map { V3Localization.format("%@, expires %@", V3Localization.prose(app.certificateStatus.capitalized), V3Localization.date($0, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier))) } ?? V3Localization.prose(app.certificateStatus.capitalized))
                         .foregroundColor(.secondary)
                 }
             }
@@ -10663,7 +10681,7 @@ struct V3AccountSettings: View {
             HStack {
                 Label("Pairing Status", systemImage: "link")
                 Spacer()
-                Text(V3PairingPresentationPolicy.displayText(statusConnected: status.connected,
+                V3LocalizedText(V3PairingPresentationPolicy.displayText(statusConnected: status.connected,
                     pairingStatus: status.pairing))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -10713,7 +10731,7 @@ struct V3AccountSettings: View {
     private func link<Destination: View>(_ title: String, icon: String, @ViewBuilder destination: () -> Destination) -> some View {
         NavigationLink(destination: destination) {
             HStack {
-                Label(title, systemImage: icon)
+                V3LocalizedLabel(title, systemImage: icon)
                 Spacer()
             }
         }
@@ -10737,7 +10755,7 @@ struct V3BoolSettingRow: View {
     @State private var pendingWriteReconciliation = false
     var body: some View {
         Toggle(isOn: Binding(get: { value }, set: { value = $0; save($0) })) {
-            Label(title, systemImage: icon)
+            V3LocalizedLabel(title, systemImage: icon)
         }
         .disabled(status.isStale || !loaded)
         .task { await load() }
@@ -10864,6 +10882,8 @@ extension EnvironmentValues {
 }
 
 struct V3TargetedRefreshSection: View {
+    @Environment(\.locale) private var dateLocale
+
     // Custom key with a nil default: programmatic navigation links can
     // evaluate their destination outside the inherited environment on some
     // iOS versions. A missing store must hide this section, never trap.
@@ -10877,7 +10897,7 @@ struct V3TargetedRefreshSection: View {
                     Label(app.name, systemImage: "app.fill")
                     Spacer()
                     if let date = app.expirationDate {
-                        Text("Expires " + date.formatted(date: .abbreviated, time: .shortened))
+                        Text(V3Localization.format("Expires %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -10896,7 +10916,7 @@ struct V3TargetedRefreshSection: View {
                 Button {
                     status.perform("refreshApp", target: target, title: "Refresh " + app.name)
                 } label: {
-                    Label("Refresh " + app.name, systemImage: "arrow.clockwise")
+                    Label(V3Localization.format("Refresh %@", app.name), systemImage: "arrow.clockwise")
                 }
                 .disabled(V3RefreshPrerequisite.evaluate(statusConnected: status.connected,
                     pairingStatus: status.pairing).blocksTargetedRefresh)
@@ -10907,6 +10927,7 @@ struct V3TargetedRefreshSection: View {
 }
 
 struct V3OperationSheet: View {
+    @Environment(\.locale) private var displayLocale
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @Environment(\.dismiss) private var dismiss
     let request: V3OperationRequest
@@ -10991,7 +11012,7 @@ struct V3OperationSheet: View {
                             Label("Completed", systemImage: "checkmark.circle.fill")
                                 .foregroundColor(.green)
                         } else {
-                            Text(statusText).foregroundColor(.secondary)
+                            V3LocalizedText(statusText).foregroundColor(.secondary)
                         }
                     }
                     if isRunning || state == "completed" {
@@ -11014,27 +11035,27 @@ struct V3OperationSheet: View {
                 }
                 if let offer = sourceOffer {
                     Section("Missing Source") {
-                        Text("\"\((offer["name"] ?? ""))\" is not added. Add it, then the operation retries automatically.")
+                        V3LocalizedText("\"\((offer["name"] ?? ""))\" is not added. Add it, then the operation retries automatically.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                         Button {
                             guard !isTransitioning else { return }
                             Task { await addSourceAndRetry(id: offer["id"] ?? "") }
                         } label: {
-                            Label(sourceAddButtonTitle, systemImage: "plus.circle.fill")
+                            V3LocalizedLabel(sourceAddButtonTitle, systemImage: "plus.circle.fill")
                         }
                         .disabled(isTransitioning || sourceAddRetryBlocked)
                     }
                 }
                 if !message.isEmpty {
                     Section("What happened") {
-                        Text(message)
+                        V3LocalizedText(message)
                             .font(.footnote)
                             .textSelection(.enabled)
                     }
                     if !whatToDo.isEmpty {
                         Section("What you can do") {
-                            Text(whatToDo).font(.footnote)
+                            V3LocalizedText(whatToDo).font(.footnote)
                             if needsDeviceConfirmation, uncertainSessionID != nil {
                                 Button("Reconcile After Checking Device") {
                                     confirmUncertainRetirement = true
@@ -11042,17 +11063,17 @@ struct V3OperationSheet: View {
                             }
                             if let destination = recoveryDestination,
                                let action = recoveryActionTitle(for: destination) {
-                                Button(action) { openRecoveryDestination(destination) }
+                                Button(LocalizedStringKey(action)) { openRecoveryDestination(destination) }
                             }
                             if retryAllowed {
-                                Button(isTransitioning ? "Waiting..." : retryButtonTitle) { retry() }
+                                Button(LocalizedStringKey(isTransitioning ? "Waiting..." : retryButtonTitle)) { retry() }
                                     .buttonStyle(.borderedProminent)
                                     .disabled(isTransitioning)
                             }
                         }
                     } else if retryAllowed {
                         Section("What you can do") {
-                            Button(isTransitioning ? "Waiting..." : retryButtonTitle) { retry() }
+                            Button(LocalizedStringKey(isTransitioning ? "Waiting..." : retryButtonTitle)) { retry() }
                                 .buttonStyle(.borderedProminent)
                                 .disabled(isTransitioning)
                         }
@@ -11060,11 +11081,11 @@ struct V3OperationSheet: View {
                     if !technicalDetails.isEmpty {
                         Section {
                             DisclosureGroup("Technical details") {
-                                Text(technicalDetails)
+                                Text(technicalDetails).environment(\.layoutDirection, .leftToRight)
                                     .font(.caption2)
                                     .textSelection(.enabled)
                             }
-                            Button(copied ? "Copied" : "Copy Diagnostics") {
+                            Button(LocalizedStringKey(copied ? "Copied" : "Copy Diagnostics")) {
                                 UIPasteboard.general.string = V3DiagnosticCopy.details(visibleMessage: message, technical: technicalDetails)
                                 copied = true
                                 Task {
@@ -11078,12 +11099,12 @@ struct V3OperationSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle(request.title)
+            .navigationTitle(V3Localization.prose(request.title, language: .resolve(displayLocale.identifier)))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(isRunning ? (state == "cancelling" ? "Cancelling..." : "Cancel") :
-                        (completionAwaitingSettlement ? "Reconcile" : "Done")) {
+                    Button(LocalizedStringKey(isRunning ? (state == "cancelling" ? "Cancelling..." : "Cancel") :
+                        (completionAwaitingSettlement ? "Reconcile" : "Done"))) {
                         if isRunning {
                             cancelAttempt()
                         } else if completionAwaitingSettlement {
@@ -11918,6 +11939,7 @@ struct V3OperationSheet: View {
 }
 
 struct V3PromptSection: View {
+    @Environment(\.locale) private var displayLocale
     let prompt: [String: Any]
     @Binding var isSubmitting: Bool
     var isSubmissionBlocked = false
@@ -11938,7 +11960,7 @@ struct V3PromptSection: View {
     private var fieldDefs: [[String: String]] {
         (prompt["fields"] as? [[String: Any]] ?? []).compactMap { row in
             guard let key = row["key"] as? String else { return nil }
-            return ["key": key, "label": row["label"] as? String ?? key,
+            return ["key": key, "label": key == "appendTeamID" ? "Append Team ID" : (row["label"] as? String ?? key),
                     "secure": row["secure"] as? String ?? "false",
                     "value": row["value"] as? String ?? ""]
         }
@@ -11961,21 +11983,22 @@ struct V3PromptSection: View {
         return V3TwoFactorStep(rawValue: raw) ?? .chooseDeliveryMethod
     }
     var body: some View {
-        Section(title) {
+        Section(V3Localization.prose(title, language: .resolve(displayLocale.identifier))) {
             if !previousFailureMessage.isEmpty {
-                Text(previousFailureMessage)
+                V3LocalizedText(previousFailureMessage)
                     .font(.footnote).foregroundColor(.orange)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("signin.prompt.previous-error")
                 if !previousFailureDetails.isEmpty {
                     DisclosureGroup("Technical details") {
                         Text(previousFailureDetails)
+                            .environment(\.layoutDirection, .leftToRight)
                             .font(.caption).foregroundColor(.secondary)
                             .textSelection(.enabled)
                             .accessibilityIdentifier("signin.prompt.previous-error-body")
                     }
                     .accessibilityIdentifier("signin.prompt.previous-error-details")
-                    Button(copiedDiagnostic == previousFailureDetails ? "Copied" : "Copy Details") {
+                    Button(LocalizedStringKey(copiedDiagnostic == previousFailureDetails ? "Copied" : "Copy Details")) {
                         copyDiagnostic(previousFailureDetails)
                     }
                         .font(.caption)
@@ -11985,7 +12008,7 @@ struct V3PromptSection: View {
                 }
             }
             if !message.isEmpty {
-                Text(message)
+                V3LocalizedText(message)
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
@@ -12041,7 +12064,7 @@ struct V3PromptSection: View {
                     Label("Verification complete", systemImage: "checkmark.circle.fill")
                         .foregroundColor(.green)
                 case .failed:
-                    Text("Verification could not continue. You can change method or cancel sign-in." + "\nError ID: SS-AUTH-D089")
+                    V3LocalizedText("Verification could not continue. You can change method or cancel sign-in." + "\nError ID: SS-AUTH-D089")
                         .font(.footnote)
                     twoFactorCancelButton()
                 case .cancelled:
@@ -12072,9 +12095,9 @@ struct V3PromptSection: View {
                             .textSelection(.enabled)
                     }
                 } else if field["secure"] == "true" {
-                    SecureField(field["label"] ?? "", text: binding(field["key"] ?? ""))
+                    SecureField(V3Localization.prose(field["label"] ?? "", language: .resolve(displayLocale.identifier)), text: binding(field["key"] ?? ""))
                 } else {
-                    TextField(field["label"] ?? "", text: binding(field["key"] ?? ""))
+                    TextField(V3Localization.prose(field["label"] ?? "", language: .resolve(displayLocale.identifier)), text: binding(field["key"] ?? ""))
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                 }
@@ -12096,7 +12119,7 @@ struct V3PromptSection: View {
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
-                Button(copiedDiagnostic == value ? "Copied" : "Copy Details") {
+                Button(LocalizedStringKey(copiedDiagnostic == value ? "Copied" : "Copy Details")) {
                     copyDiagnostic(value)
                 }
                 .font(.caption)
@@ -12112,7 +12135,9 @@ struct V3PromptSection: View {
                         HStack {
                             Image(systemName: selected.contains(option["id"] ?? "") ? "checkmark.circle.fill" : "circle")
                                 .foregroundColor(.accentColor)
-                            Text(option["label"] ?? "")
+                            if kind == "extensions", let identifier = option["id"], identifier.hasPrefix("remove:") {
+                                V3LocalizedText(.localized("Remove %@", String(identifier.dropFirst("remove:".count))))
+                            } else { Text(option["label"] ?? "") }
                         }
                     }
                     .disabled(isSubmitting || isSubmissionBlocked)
@@ -12144,18 +12169,21 @@ struct V3PromptSection: View {
                         .disabled(isSubmitting)
                     }
                 }
-                Button(kind == "revocation" ? "Revoke Selected" : "Remove Selected", role: .destructive) {
+                Button(LocalizedStringKey(kind == "revocation" ? "Revoke Selected" : "Remove Selected"), role: .destructive) {
                     respond(V3MultiSelectPromptAnswerPolicy.selectedMembersAnswer(
                         kind: kind, selectedIDs: selected, fields: fields))
                 }
                 .disabled(selected.isEmpty || isSubmitting || isSubmissionBlocked)
             } else {
                 ForEach(options.filter { onCancel == nil || $0["id"] != "cancel" }, id: \.self) { option in
-                    Button(option["label"] ?? "", role: (option["id"] == "cancel" || option["id"] == "deny") ? .cancel : .none) {
+                    Button(role: (option["id"] == "cancel" || option["id"] == "deny") ? .cancel : .none) {
                         var answer = fields
                         answer["choice"] = option["id"] ?? ""
                         answer["action"] = option["id"] ?? ""
                         respond(answer)
+                    } label: {
+                        if kind == "team" { Text(option["label"] ?? "") }
+                        else { V3LocalizedText(option["label"] ?? "") }
                     }
                     .disabled(isSubmitting || (isSubmissionBlocked &&
                         !["cancel", "changeMethod"].contains(option["id"] ?? "")))
@@ -12163,7 +12191,7 @@ struct V3PromptSection: View {
             }
             }
             if let onCancel {
-                Button(cancellationTitle, role: .cancel) { onCancel() }
+                Button(LocalizedStringKey(cancellationTitle), role: .cancel) { onCancel() }
                     .frame(minHeight: 44)
                     .disabled(cancellationDisabled)
                     .accessibilityIdentifier("signin.prompt.cancel")
@@ -12213,7 +12241,11 @@ struct V3PromptSection: View {
                 if (option["id"] ?? "").hasPrefix("phone:") {
                     Image(systemName: "phone.fill").foregroundColor(.accentColor)
                 }
-                Text(option["label"] ?? "")
+                if (option["id"] ?? "").hasPrefix("phone:") {
+                    Text(option["label"] ?? "")
+                } else {
+                    V3LocalizedText(option["label"] ?? "")
+                }
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
             }
@@ -13787,7 +13819,7 @@ struct V3SignInLink: View {
         NavigationLink {
             V3SignInView().environmentObject(status)
         } label: {
-            Label(title, systemImage: "person.badge.key.fill")
+            V3LocalizedLabel(title, systemImage: "person.badge.key.fill")
         }
     }
 }
@@ -13843,12 +13875,12 @@ struct V3SignInView: View {
             HStack {
                 Text("Status")
                 Spacer()
-                Text(statusText).foregroundColor(.secondary)
+                V3LocalizedText(statusText).foregroundColor(.secondary)
             }
         }
         if auth.isSignedIn {
             HStack {
-                Label(V3AuthStatusTextPolicy.accountLabel(state: auth.state, isSignedIn: auth.isSignedIn),
+                V3LocalizedLabel(V3AuthStatusTextPolicy.accountLabel(state: auth.state, isSignedIn: auth.isSignedIn),
                       systemImage: "checkmark.circle.fill")
                     .foregroundColor(.green)
                 Spacer()
@@ -13856,10 +13888,10 @@ struct V3SignInView: View {
             }
             if let jitless = jitlessGuidance {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label(jitless.presentation.title, systemImage: jitless.presentation.icon)
+                    V3LocalizedLabel(jitless.presentation.title, systemImage: jitless.presentation.icon)
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(jitless.presentation.tint)
-                    Text(jitless.presentation.detail)
+                    V3LocalizedText(jitless.presentation.detail)
                         .font(.footnote).foregroundColor(.secondary)
                     if jitless.presentation.isOutstandingSetupTask {
                         switch jitless.action {
@@ -13894,7 +13926,7 @@ struct V3SignInView: View {
             }
         }
         if !auth.message.isEmpty {
-            Text(auth.message)
+            V3LocalizedText(auth.message)
                 .font(.footnote)
                 .foregroundColor(auth.state == "resultUnknown" || auth.state == "timedOut" ||
                     auth.state == "cancelled" ? .orange : (auth.isSignedIn ? .green : .red))
@@ -13908,7 +13940,7 @@ struct V3SignInView: View {
                 Text("Sign-in diagnostics")
                     .font(.subheadline.weight(.semibold))
                 DisclosureGroup("Technical details") {
-                    Text(V3AuthStore.failureDetails(from: failure))
+                    Text(V3AuthStore.failureDetails(from: failure)).environment(\.layoutDirection, .leftToRight)
                         .font(.caption2)
                         .textSelection(.enabled)
                 }
@@ -13924,13 +13956,13 @@ struct V3SignInView: View {
                 Text("Sign-in attempt could not be confirmed")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.orange)
-                Text(auth.currentAttemptFailure.message)
+                V3LocalizedText(auth.currentAttemptFailure.message)
                     .font(.footnote)
                     .foregroundColor(.orange)
                     .textSelection(.enabled)
                 if !auth.currentAttemptFailure.technicalDetails.isEmpty {
                     DisclosureGroup("Technical details") {
-                        Text(auth.currentAttemptFailure.technicalDetails)
+                        Text(auth.currentAttemptFailure.technicalDetails).environment(\.layoutDirection, .leftToRight)
                             .font(.caption2)
                             .textSelection(.enabled)
                     }
@@ -13951,13 +13983,13 @@ struct V3SignInView: View {
                 Text("Provisioning could not be completed.")
                     .font(.footnote.weight(.medium))
                     .foregroundColor(.orange)
-                Text(auth.provisioningMessage)
+                V3LocalizedText(auth.provisioningMessage)
                     .font(.footnote)
                     .foregroundColor(.orange)
                     .textSelection(.enabled)
                 if !auth.provisioningTechnical.isEmpty {
                     DisclosureGroup("Technical details") {
-                        Text(auth.provisioningTechnical)
+                        Text(auth.provisioningTechnical).environment(\.layoutDirection, .leftToRight)
                             .font(.caption2)
                             .textSelection(.enabled)
                     }
@@ -13970,11 +14002,11 @@ struct V3SignInView: View {
             }
         }
         if !auth.deliveryProgressMessage.isEmpty {
-            Text(auth.deliveryProgressMessage)
+            V3LocalizedText(auth.deliveryProgressMessage)
                 .font(.footnote.weight(.medium))
                 .foregroundColor(.orange)
         } else if let progress = auth.twoFactorTransientStep?.progressLabel {
-            Text(progress)
+            V3LocalizedText(progress)
                 .font(.footnote.weight(.medium))
                 .foregroundColor(.orange)
         }
@@ -13988,15 +14020,15 @@ struct V3SignInView: View {
             switch auth.terminalFailureAction {
             case .beginNewSignIn(let title):
                 Button { auth.begin() } label: {
-                    Label(title, systemImage: "person.badge.key.fill")
+                    V3LocalizedLabel(title, systemImage: "person.badge.key.fill")
                 }
                 .disabled(!auth.canBegin)
                 if let guidance = auth.terminalFailureGuidance {
-                    Text(guidance).font(.caption).foregroundColor(.secondary)
+                    V3LocalizedText(guidance).font(.caption).foregroundColor(.secondary)
                 }
             case .repairAppleAccount:
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(auth.terminalFailureGuidance ?? "Resolve the account issue shown by Apple before signing in again.")
+                    V3LocalizedText(auth.terminalFailureGuidance ?? "Resolve the account issue shown by Apple before signing in again.")
                         .font(.footnote).foregroundColor(.orange)
                     Link("Open Apple Account", destination: URL(string: "https://account.apple.com")!)
                     Button("Begin Sign-In After Repair") { auth.begin() }
@@ -14004,21 +14036,21 @@ struct V3SignInView: View {
                 }
             case .useAppSpecificPassword:
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(auth.terminalFailureGuidance ?? "Apple requires an app-specific password for this authentication path.")
+                    V3LocalizedText(auth.terminalFailureGuidance ?? "Apple requires an app-specific password for this authentication path.")
                         .font(.footnote).foregroundColor(.orange)
                     Link("Open Apple Account", destination: URL(string: "https://account.apple.com")!)
                     Button("Use App-Specific Password") { auth.begin() }
                         .disabled(!auth.canBegin)
                 }
             case .blocked:
-                Text(auth.terminalFailureGuidance ?? "This failure is not marked safe to retry. Review Diagnostics before another attempt.")
+                V3LocalizedText(auth.terminalFailureGuidance ?? "This failure is not marked safe to retry. Review Diagnostics before another attempt.")
                     .font(.footnote).foregroundColor(.orange)
             }
         }
         if auth.prompt == nil && auth.state != "resultUnknown" && V3AuthCancellationRetryPolicy.canRetry(isCancelling: auth.isCancelling,
             cancellationConfirmed: auth.cancellationConfirmed,
             hasSession: auth.hasSession) {
-            Button(auth.cancellationWasAttempted ? "Retry Cancellation" : "Cancel Unconfirmed Sign-In",
+            Button(LocalizedStringKey(auth.cancellationWasAttempted ? "Retry Cancellation" : "Cancel Unconfirmed Sign-In"),
                    role: .cancel) { auth.cancel() }
         }
         if auth.state == "resultUnknown" {
@@ -14027,11 +14059,11 @@ struct V3SignInView: View {
                 cancellationConfirmed: auth.cancellationConfirmed,
                 hasSession: auth.hasSession) {
             case .cancelSession:
-                Button(auth.cancellationWasAttempted ? "Retry Cancellation" : "Cancel Unconfirmed Sign-In",
+                Button(LocalizedStringKey(auth.cancellationWasAttempted ? "Retry Cancellation" : "Cancel Unconfirmed Sign-In"),
                        role: .cancel) { auth.cancel() }
                     .disabled(auth.isCancelling)
             case .reloadStatus:
-                Button(auth.isCancelling ? "Checking..." : "Reload Status") {
+                Button(LocalizedStringKey(auth.isCancelling ? "Checking..." : "Reload Status")) {
                     auth.reloadAuthoritativeAccountStatus()
                 }
                 .disabled(auth.isCancelling)
@@ -14044,7 +14076,7 @@ struct V3SignInView: View {
             hasSession: auth.hasSession) &&
             (auth.state == "working" || auth.state == "awaitingPrompt" ||
              auth.state == "promptExpired") {
-            Button(auth.isCancelling ? "Cancelling..." : "Cancel Sign In",
+            Button(LocalizedStringKey(auth.isCancelling ? "Cancelling..." : "Cancel Sign In"),
                 role: .cancel) { auth.cancel() }
                 .disabled(auth.isCancelling)
         }
@@ -14052,10 +14084,10 @@ struct V3SignInView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Pending Certificate Recovery")
                     .font(.subheadline.weight(.semibold)).foregroundColor(.orange)
-                Text(auth.pendingCertificateRecoveryState.guidance)
+                V3LocalizedText(auth.pendingCertificateRecoveryState.guidance)
                     .font(.footnote).fixedSize(horizontal: false, vertical: true)
                 if auth.pendingCertificateRecoveryState == .ready {
-                    Button(auth.checkingProvisioningStorage ? "Checking Saved State..." : "Reconcile Pending Certificate") {
+                    Button(LocalizedStringKey(auth.checkingProvisioningStorage ? "Checking Saved State..." : "Reconcile Pending Certificate")) {
                         auth.checkProvisioningStorage()
                     }
                     .disabled(!auth.canCheckPendingCertificateRecovery)
@@ -14079,7 +14111,7 @@ struct V3SignInView: View {
             .accessibilityIdentifier("signin.pending-certificate-recovery")
         }
         if auth.provisioningRecoveryRequiresReconciliation {
-            Button(auth.checkingProvisioningStorage ? "Checking Saved State..." : "Check Saved Signing State") {
+            Button(LocalizedStringKey(auth.checkingProvisioningStorage ? "Checking Saved State..." : "Check Saved Signing State")) {
                 auth.checkProvisioningStorage()
             }
             .disabled(!auth.canCheckProvisioningStorage)
@@ -14107,7 +14139,7 @@ struct V3SignInView: View {
                     .disabled(!auth.canReauthenticateProvisioning)
             }
             if auth.provisioningRecoveryRequiresReconciliation {
-                Text("A local account or certificate save could not be verified. Setup is blocked until that saved state is repaired; another sign-in cannot safely retry it." + "\nError ID: SS-SAVE-D042")
+                V3LocalizedText("A local account or certificate save could not be verified. Setup is blocked until that saved state is repaired; another sign-in cannot safely retry it." + "\nError ID: SS-SAVE-D042")
                     .font(.caption).foregroundColor(.secondary)
             } else if auth.provisioningSessionUnavailable {
                 Text("Sign in again with the same Apple ID to finish setup. Your account and certificate are kept.")
@@ -14124,7 +14156,7 @@ struct V3SignInView: View {
 
         if auth.prompt != nil && !auth.promptResponseDiagnostics.isEmpty {
             DisclosureGroup("Verification response details") {
-                Text(auth.promptResponseDiagnostics)
+                Text(auth.promptResponseDiagnostics).environment(\.layoutDirection, .leftToRight)
                     .font(.caption2).textSelection(.enabled)
             }
             Button("Copy Verification Details", systemImage: "doc.on.doc") {
@@ -14214,6 +14246,8 @@ struct V3CertificateRow: Identifiable {
 }
 
 struct V3CertificatesView: View {
+    @Environment(\.locale) private var dateLocale
+
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @State private var local: [V3CertificateRow] = []
     @State private var portal: [V3CertificateRow] = []
@@ -14229,12 +14263,12 @@ struct V3CertificatesView: View {
         List {
             if !message.isEmpty {
                 Section {
-                    Text(message).font(.footnote).foregroundColor(.red).textSelection(.enabled)
+                    V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled)
                 }
             }
             if !notice.isEmpty {
                 Section {
-                    Text(notice).font(.footnote).foregroundColor(.secondary)
+                    V3LocalizedText(notice).font(.footnote).foregroundColor(.secondary)
                 }
             }
             if status.needsSignIn {
@@ -14242,7 +14276,7 @@ struct V3CertificatesView: View {
                     V3SignInLink(title: "Sign In to Manage Certificates")
                 }
             }
-            Section("On This Device (\(local.count))") {
+            Section(V3Localization.text("On This Device (\(local.count))")) {
                 if loading { ProgressView("Loading certificates...") }
                 ForEach(local) { cert in
                     VStack(alignment: .leading, spacing: 4) {
@@ -14255,12 +14289,12 @@ struct V3CertificatesView: View {
                         }
                         Text(cert.serial).font(.caption).foregroundColor(.secondary).textSelection(.enabled)
                         if let expiry = cert.expiry {
-                            Text("Expires " + expiry.formatted(date: .abbreviated, time: .omitted))
+                            Text(V3Localization.format("Expires %@", V3Localization.date(expiry, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier))))
                                 .font(.caption).foregroundColor(.secondary)
                         }
                         HStack {
                             if !cert.active {
-                                Button(busy == cert.serial ? "Working..." : "Set Active") { setActive(serial: cert.serial) }
+                                Button(LocalizedStringKey(busy == cert.serial ? "Working..." : "Set Active")) { setActive(serial: cert.serial) }
                                     .font(.caption)
                                     .disabled(!busy.isEmpty)
                             }
@@ -14275,7 +14309,7 @@ struct V3CertificatesView: View {
             }
             Section("Developer Portal") {
                 if !portalLoaded {
-                    Button(busy == "portal" ? "Loading Portal Certificates..." : "Load Portal Certificates") { Task { await loadPortal() } }
+                    Button(LocalizedStringKey(busy == "portal" ? "Loading Portal Certificates..." : "Load Portal Certificates")) { Task { await loadPortal() } }
                         .disabled(!busy.isEmpty)
                 } else {
                     ForEach(portal) { cert in
@@ -14283,7 +14317,7 @@ struct V3CertificatesView: View {
                             Text(cert.name).font(.headline)
                             Text(cert.serial).font(.caption).foregroundColor(.secondary).textSelection(.enabled)
                             if let expiry = cert.expiry {
-                                Text("Expires " + expiry.formatted(date: .abbreviated, time: .omitted))
+                                Text(V3Localization.format("Expires %@", V3Localization.date(expiry, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier))))
                                     .font(.caption).foregroundColor(.secondary)
                             }
                             Button("Revoke", role: .destructive) { confirm = ("revoke", cert.serial) }
@@ -14464,7 +14498,7 @@ struct V3DeveloperServicesView: View {
     var body: some View {
         List {
             if !message.isEmpty {
-                Section { Text(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
+                Section { V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
             }
             if status.needsSignIn {
                 Section {
@@ -14476,7 +14510,7 @@ struct V3DeveloperServicesView: View {
                     .disabled(!V3DeveloperDataActionAvailabilityPolicy.isEnabled(
                         authenticated: status.authenticated, isLoading: status.loading || loading))
                     .accessibilityHint("Sign in with Apple ID before syncing App IDs.")
-                Button(loading ? "Loading Developer Data..." : "Reload Developer Data") { Task { await reload() } }
+                Button(LocalizedStringKey(loading ? "Loading Developer Data..." : "Reload Developer Data")) { Task { await reload() } }
                     .disabled(!V3DeveloperDataActionAvailabilityPolicy.isEnabled(
                         authenticated: status.authenticated, isLoading: loading || status.loading))
                     .accessibilityHint("Sign in with Apple ID before loading developer data.")
@@ -14485,11 +14519,11 @@ struct V3DeveloperServicesView: View {
             simpleSection("Devices", rows: devices.map { "\($0["name"] ?? "") · \($0["identifier"] ?? "")" })
             simpleSection("App IDs", rows: appIDs.map { "\($0["name"] ?? "") · \($0["bundleID"] ?? "")" })
             simpleSection("App Groups", rows: groups.map { "\($0["name"] ?? "") · \($0["identifier"] ?? "")" })
-            Section("Provisioning Profiles (\(profiles.count))") {
+            Section(V3Localization.text("Provisioning Profiles (\(profiles.count))")) {
                 if loading { ProgressView() }
                 ForEach(profiles.indices, id: \.self) { index in
                     let row = profiles[index]
-                    let name = row["name"] as? String ?? row["profileName"] as? String ?? "Profile"
+                    let name = row["name"] as? String ?? row["profileName"] as? String ?? V3Localization.string("Profile")
                     let detail = row["bundleID"] as? String ?? row["bundleIdentifier"] as? String ?? ""
                     VStack(alignment: .leading, spacing: 2) {
                         Text(name).font(.headline)
@@ -14528,7 +14562,7 @@ struct V3DeveloperServicesView: View {
         }
     }
     private func simpleSection(_ title: String, rows: [String]) -> some View {
-        Section("\(title) (\(rows.count))") {
+        Section(V3Localization.format("%@ (%@)", V3Localization.text(title), String(rows.count))) {
             if loading { ProgressView() }
             if rows.isEmpty && !loading {
                 Text("None").foregroundColor(.secondary)
@@ -14649,25 +14683,25 @@ struct V3PairingView: View {
                 HStack {
                     Text("Pairing Status")
                     Spacer()
-                    Text(V3PairingPresentationPolicy.displayText(statusConnected: status.connected,
+                    V3LocalizedText(V3PairingPresentationPolicy.displayText(statusConnected: status.connected,
                         pairingStatus: status.pairing)).foregroundColor(.secondary)
                 }
                 if !message.isEmpty {
-                    Text(message).font(.footnote).foregroundColor(.red).textSelection(.enabled)
+                    V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled)
                 }
             }
             if let failure = pairingFailure {
                 Section("Pairing file could not be read or validated") {
-                    Text(failure.safeMessage)
+                    V3LocalizedText(failure.safeMessage)
                         .font(.footnote)
                         .foregroundColor(.red)
                         .textSelection(.enabled)
                     Text("What you can do")
                         .font(.caption.weight(.semibold))
-                    Text(failure.recovery)
+                    V3LocalizedText(failure.recovery)
                         .font(.footnote)
                     DisclosureGroup("Technical details") {
-                        Text(failure.technicalDetails)
+                        Text(failure.technicalDetails).environment(\.layoutDirection, .leftToRight)
                             .font(.caption2)
                             .textSelection(.enabled)
                     }
@@ -14693,7 +14727,7 @@ struct V3PairingView: View {
                     ForEach(Array(Self.pairingPlacementSteps.enumerated()), id: \.offset) { index, step in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text("\(index + 1).").font(.caption).foregroundColor(.secondary)
-                            Text(step).font(.footnote)
+                            V3LocalizedText(step).font(.footnote)
                         }
                     }
                     Text("Other installation tools use different menu names, but they all place the pairing file for the installed app.")
@@ -14707,7 +14741,7 @@ struct V3PairingView: View {
                 }
             } else if pairingState == .unknown {
                 Section("Pairing Status Unknown") {
-                    Text("LiveContainer could not confirm the pairing-file state. Reload status before treating setup as complete." + "\nError ID: SS-PAIR-D043")
+                    V3LocalizedText("LiveContainer could not confirm the pairing-file state. Reload status before treating setup as complete." + "\nError ID: SS-PAIR-D043")
                         .font(.footnote).foregroundColor(.secondary)
                     Button {
                         recheck()
@@ -14735,7 +14769,7 @@ struct V3PairingView: View {
                 Button {
                     pickerPresented = true
                 } label: {
-                    Label(working ? "Importing..." : "Import Pairing File Manually", systemImage: "doc.badge.plus")
+                    V3LocalizedLabel(working ? "Importing..." : "Import Pairing File Manually", systemImage: "doc.badge.plus")
                 }
                 .disabled(working)
                 Text("Use this only if the placement tool did not work. Pick a .mobiledevicepairing or .plist file. This screen owns the picker; the service only validates and stores the file.")
@@ -15018,7 +15052,7 @@ struct V3ToggleRow: View {
     let title: String
     let key: String
     var body: some View {
-        Toggle(title, isOn: Binding(get: { store.bools[key] ?? false },
+        Toggle(LocalizedStringKey(title), isOn: Binding(get: { store.bools[key] ?? false },
                                     set: { store.setBool(key, $0) }))
             .disabled(!store.loaded)
     }
@@ -15032,7 +15066,7 @@ struct V3TextRow: View {
     @State private var seeded = false
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.subheadline)
+            V3LocalizedText(title).font(.subheadline)
             TextField("Not set", text: $text, onCommit: { store.setString(key, text) })
                 .textFieldStyle(.roundedBorder)
                 .autocapitalization(.none)
@@ -15058,7 +15092,7 @@ struct V3ConnectionView: View {
     var body: some View {
         List {
             if !store.message.isEmpty {
-                Section { Text(store.message).font(.footnote).foregroundColor(.red) }
+                Section { V3LocalizedText(store.message).font(.footnote).foregroundColor(.red) }
             }
             Section("Connection") {
                 V3ToggleRow(store: store, title: "Always Show VPN Configuration", key: "alwaysShowWireGuardConfig")
@@ -15108,15 +15142,15 @@ struct V3AnisetteView: View {
     var body: some View {
         List {
             if !message.isEmpty {
-                Section { Text(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
+                Section { V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
             }
             if !notice.isEmpty {
-                Section { Text(notice).font(.footnote).foregroundColor(.secondary) }
+                Section { V3LocalizedText(notice).font(.footnote).foregroundColor(.secondary) }
             }
             if !store.message.isEmpty {
-                Section { Text(store.message).font(.footnote).foregroundColor(.red) }
+                Section { V3LocalizedText(store.message).font(.footnote).foregroundColor(.red) }
             }
-            Section("Servers (\(servers.count))") {
+            Section(V3Localization.text("Servers (\(servers.count))")) {
                 ForEach(servers) { server in
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {
@@ -15150,7 +15184,7 @@ struct V3AnisetteView: View {
                     .padding(.vertical, 2)
                 }
                 HStack {
-                    Button(remoteBusy ? "Working..." : "Sync with Remote") { Task { await remote("anisetteSync") } }
+                    Button(LocalizedStringKey(remoteBusy ? "Working..." : "Sync with Remote")) { Task { await remote("anisetteSync") } }
                         .disabled(remoteBusy)
                     Spacer()
                     Button("Reset to Defaults", role: .destructive) { Task { await remote("anisetteReset") } }
@@ -15225,17 +15259,17 @@ struct V3SideSignView: View {
     var body: some View {
         List {
             if !message.isEmpty {
-                Section { Text(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
+                Section { V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
             }
             if !notice.isEmpty {
-                Section { Text(notice).font(.footnote).foregroundColor(.secondary) }
+                Section { V3LocalizedText(notice).font(.footnote).foregroundColor(.secondary) }
             }
             Section("Configuration JSON") {
                 TextEditor(text: $config)
                     .font(.system(.caption, design: .monospaced))
                     .frame(minHeight: 220)
                 HStack {
-                    Button(busy ? "Saving..." : "Save") { Task { await save() } }
+                    Button(LocalizedStringKey(busy ? "Saving..." : "Save")) { Task { await save() } }
                         .disabled(busy)
                     Spacer()
                     Button("Reset to Defaults", role: .destructive) { Task { await remote("sidesignReset") } }
@@ -15246,7 +15280,7 @@ struct V3SideSignView: View {
             Section("Import / Export") {
                 Button("Import from File") { pickerPresented = true }
                     .disabled(busy)
-                Button(exporting ? "Exporting..." : "Export to File") { Task { await exportConfig() } }
+                Button(LocalizedStringKey(exporting ? "Exporting..." : "Export to File")) { Task { await exportConfig() } }
                     .disabled(busy || exporting)
                 Text("The picker belongs to this screen; the service only parses and stores the file.")
                     .font(.caption)
@@ -15437,7 +15471,7 @@ struct V3CustomizationsView: View {
     var body: some View {
         List {
             if !store.message.isEmpty {
-                Section { Text(store.message).font(.footnote).foregroundColor(.red) }
+                Section { V3LocalizedText(store.message).font(.footnote).foregroundColor(.red) }
             }
             Section("Signing") {
                 V3ToggleRow(store: store, title: "Customize App ID", key: "customizeAppId")
@@ -15615,10 +15649,14 @@ private enum V3JITLessStatusReader {
 }
 
 struct V3HealthView: View {
+    @Environment(\.locale) private var dateLocale
+
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @EnvironmentObject private var sharedModel: SharedModel
     @State private var rows: [(String, String)] = []
+    @State private var opaqueHealthRows: Set<String> = []
     @State private var certRows: [(String, String)] = []
+    @State private var certDates: [String: Date] = [:]
     @State private var message = ""
     @State private var reloadQueue = V3HealthReloadQueue()
 
@@ -15639,28 +15677,32 @@ struct V3HealthView: View {
                 Section { V3SignInLink(title: "Sign In to Check Account Health") }
             }
             if !message.isEmpty {
-                Section { Text(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
+                Section { V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
             }
             Section("Health") {
                 ForEach(rows, id: \.0) { row in
                     HStack {
-                        Text(row.0)
+                        V3LocalizedText(row.0)
                         Spacer()
-                        Text(row.1).foregroundColor(.secondary).multilineTextAlignment(.trailing)
+                        Text(opaqueHealthRows.contains(row.0) || row.0 == "Anisette Servers" ? row.1 : V3Localization.prose(row.1)).foregroundColor(.secondary).multilineTextAlignment(.trailing)
                     }
                     .font(.subheadline)
                 }
             }
             Section {
-                Button(reloadQueue.isChecking ? "Checking..." : "Re-check") { Task { await reload() } }
+                Button(LocalizedStringKey(reloadQueue.isChecking ? "Checking..." : "Re-check")) { Task { await reload() } }
                     .disabled(reloadQueue.isChecking)
             }
             Section("Certificates") {
                 ForEach(certRows, id: \.0) { row in
                     HStack {
-                        Text(row.0)
+                        V3LocalizedText(row.0)
                         Spacer()
-                        Text(row.1).foregroundColor(.secondary).multilineTextAlignment(.trailing)
+                        Text(certDates[row.0].map {
+                            V3Localization.date($0, date: .abbreviated,
+                                time: row.0 == "Active Expiry" ? .omitted : .shortened,
+                                language: V3AppLanguage.resolve(dateLocale.identifier))
+                        } ?? (["Active Serial", "Active Team", "Copy Team"].contains(row.0) ? row.1 : V3Localization.prose(row.1))).foregroundColor(.secondary).multilineTextAlignment(.trailing)
                     }
                     .font(.subheadline)
                 }
@@ -15672,14 +15714,14 @@ struct V3HealthView: View {
                 HStack {
                     Text("Status")
                     Spacer()
-                    Text(jitlessDetail).foregroundColor(.secondary).multilineTextAlignment(.trailing)
+                    V3LocalizedText(jitlessDetail).foregroundColor(.secondary).multilineTextAlignment(.trailing)
                 }
                 if V3JITLessCompletionPolicy.isRequired(osMajor: ProcessInfo.processInfo.operatingSystemVersion.majorVersion) {
                     // V3_JITLESS_PRESENTATION_V1: Health renders the same shared
                     // presentation as Setup Assistant, and adds the certificate
                     // action that actually resolves each distinct state.
                     let jitless = V3JITLessPresentation.present(jitlessReadiness)
-                    Label(jitless.title, systemImage: jitless.icon)
+                    V3LocalizedLabel(jitless.title, systemImage: jitless.icon)
                         .font(.footnote)
                         .foregroundColor(jitless.tint)
                     if !jitless.isOutstandingSetupTask {
@@ -15688,8 +15730,8 @@ struct V3HealthView: View {
                     } else {
                         switch jitlessReadiness {
                         case .setupRequired, .needsCertificateRefresh, .certificateMismatch, .revoked:
-                            Button(jitlessReadiness == .setupRequired
-                                   ? "Set Up JIT-Less" : "Refresh JIT-Less Certificate") {
+                            Button(LocalizedStringKey(jitlessReadiness == .setupRequired
+                                   ? "Set Up JIT-Less" : "Refresh JIT-Less Certificate")) {
                                 openJITLessSetup()
                             }
                         case .certificateImported:
@@ -15704,7 +15746,7 @@ struct V3HealthView: View {
                                 for: .unknown, activeCertificateAvailable: activeCertificateAvailable) {
                                 Button("Open JIT-Less Setup") { openJITLessSetup() }
                             }
-                            Button(reloadQueue.isChecking ? "Checking..." : "Re-check") { Task { await reload() } }
+                            Button(LocalizedStringKey(reloadQueue.isChecking ? "Checking..." : "Re-check")) { Task { await reload() } }
                                 .disabled(reloadQueue.isChecking)
                         case .activeCertificateMissing, .activeCertificateRevoked,
                              .activeCertificateExpired:
@@ -15742,15 +15784,24 @@ struct V3HealthView: View {
 
     private func reloadOnce(factRevision: UInt64) async {
         rows.removeAll(keepingCapacity: true)
+        opaqueHealthRows.removeAll(keepingCapacity: true)
         certRows.removeAll(keepingCapacity: true)
+        certDates.removeAll(keepingCapacity: true)
         message = ""
         do {
             let reply = try await V3ServiceBridge.shared.request(operation: "healthSnapshot")
             guard healthRevisionIsCurrent(factRevision) else { return }
             status.recordInstalledHostSigning(reply, revision: factRevision)
             var result: [(String, String)] = []
-            result.append(("Account", reply["account"] as? String ?? ""))
-            result.append(("Team", reply["team"] as? String ?? ""))
+            // Presence is separate from names: a real name may equal any localized key.
+            let accountPresent = V3ServiceBridge.strictBool(reply["activeAccountPresent"])
+            let teamPresent = V3ServiceBridge.strictBool(reply["activeTeamPresent"])
+            result.append(("Account", accountPresent == true ? (reply["account"] as? String ?? "")
+                : accountPresent == false ? "Not signed in" : "Not available"))
+            result.append(("Team", teamPresent == true ? (reply["team"] as? String ?? "")
+                : teamPresent == false ? "No active team" : "Not available"))
+            if accountPresent == true { opaqueHealthRows.insert("Account") }
+            if teamPresent == true { opaqueHealthRows.insert("Team") }
             result.append(("Certificate", reply["certificate"] as? String ?? ""))
             result.append(("Installed Host Signing", status.installedHostSigningState.detail))
             result.append(("Pairing", reply["pairing"] as? String ?? ""))
@@ -15765,6 +15816,10 @@ struct V3HealthView: View {
             let activeCertificateAvailable = V3ServiceBridge.strictBool(certificateState["active"])
             let readiness = await V3JITLessStatusReader.read(serviceCertificate: certificateState)
             guard healthRevisionIsCurrent(factRevision) else { return }
+            if let expiry = certificateState["expiry"] as? Date { certDates["Active Expiry"] = expiry }
+            if let imported = LCUtils.appGroupUserDefault.object(forKey: "LCCertificateUpdateDate") as? Date {
+                certDates["Copy Imported"] = imported
+            }
             certRows = certComparison(service: certificateState,
                 hasImportedCopy: readiness.hasImportedCopy, localFacts: readiness.certificateFacts)
             // V3_SHARED_JITLESS_FACT_V1: Health is an observer of the same fact,
@@ -15810,7 +15865,7 @@ struct V3HealthView: View {
         if active {
             if !serialSuffix.isEmpty { result.append(("Active Serial", "?\(serialSuffix)")) }
             if !team.isEmpty { result.append(("Active Team", "?\(String(team.suffix(4)))")) }
-            if let expiry { result.append(("Active Expiry", expiry.formatted(date: .abbreviated, time: .omitted))) }
+            if expiry != nil { result.append(("Active Expiry", "")) }
         }
         result.append(("JIT-Less Copy", hasImportedCopy ? "Imported" : "Not imported"))
         let localTeam = localFacts?.teamIdentifier ?? ""
@@ -15818,8 +15873,8 @@ struct V3HealthView: View {
         if !localTeam.isEmpty {
             result.append(("Copy Team", "?\(String(localTeam.suffix(4)))"))
         }
-        if let date = LCUtils.appGroupUserDefault.object(forKey: "LCCertificateUpdateDate") as? Date {
-            result.append(("Copy Imported", date.formatted(date: .abbreviated, time: .shortened)))
+        if certDates["Copy Imported"] != nil {
+            result.append(("Copy Imported", ""))
         }
         let teamVerdict: String
         if !active { teamVerdict = "unknown: no active SideStore certificate" }
@@ -15854,7 +15909,7 @@ struct V3BackupsView: View {
     var body: some View {
         List {
             if !message.isEmpty {
-                Section { Text(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
+                Section { V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled) }
             }
             Section("App Backups") {
                 ForEach(status.installedApps.filter { !$0.isHost }) { app in
@@ -15879,16 +15934,16 @@ struct V3BackupsView: View {
                 SecureField("File Password", text: $exportPassword)
                     .textFieldStyle(.roundedBorder)
                 Toggle("Include Apple Password", isOn: $includeApple)
-                Button(exportBusy ? "Exporting..." : "Export Account File") { Task { await exportAccount() } }
+                Button(LocalizedStringKey(exportBusy ? "Exporting..." : "Export Account File")) { Task { await exportAccount() } }
                     .disabled(exportPassword.isEmpty || exportBusy || importBusy)
             }
             Section("Import Account") {
-                Button(importBusy ? "Importing..." : "Select Backup File") { pickerPresented = true }
+                Button(LocalizedStringKey(importBusy ? "Importing..." : "Select Backup File")) { pickerPresented = true }
                     .disabled(exportBusy || importBusy)
                 SecureField("File Password", text: $importPassword)
                     .textFieldStyle(.roundedBorder)
                 if !importedEmail.isEmpty {
-                    Text("Imported account for \(importedEmail). Sign in with its Apple password to finish.")
+                    V3LocalizedText("Imported account for \(importedEmail). Sign in with its Apple password to finish.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                     Button("Continue to Sign In") { status.signInPresented = true }
@@ -15949,15 +16004,15 @@ struct V3SideJITView: View {
     var body: some View {
         List {
             if !store.message.isEmpty {
-                Section { Text(store.message).font(.footnote).foregroundColor(.red) }
+                Section { V3LocalizedText(store.message).font(.footnote).foregroundColor(.red) }
             }
             Section("Server") {
                 V3ToggleRow(store: store, title: "SideJIT Server Enabled", key: "isSideJITServerEnabled")
                 V3TextRow(store: store, title: "Server Address", key: "textInputSideJITServerurl")
-                Button(testing ? "Checking..." : "Test Reachability") { test() }
+                Button(LocalizedStringKey(testing ? "Checking..." : "Test Reachability")) { test() }
                     .disabled(testing)
                 if !ping.isEmpty {
-                    Text(ping).font(.caption).foregroundColor(.secondary)
+                    V3LocalizedText(ping).font(.caption).foregroundColor(.secondary)
                 }
             }
         }
@@ -15994,7 +16049,7 @@ struct V3ReleaseTrackHostView: View {
     var body: some View {
         List {
             if !store.message.isEmpty {
-                Section { Text(store.message).font(.footnote).foregroundColor(.red) }
+                Section { V3LocalizedText(store.message).font(.footnote).foregroundColor(.red) }
             }
             Section("Update Channel") {
                 V3TextRow(store: store, title: "Beta Track", key: "betaUdpatesTrack")
@@ -16015,7 +16070,7 @@ struct V3DiagnosticsView: View {
     var body: some View {
         List {
             if !store.message.isEmpty {
-                Section { Text(store.message).font(.footnote).foregroundColor(.red) }
+                Section { V3LocalizedText(store.message).font(.footnote).foregroundColor(.red) }
             }
             Section("Logging") {
                 V3ToggleRow(store: store, title: "Verbose Operations", key: "isVerboseOperationsLoggingEnabled")
@@ -16050,12 +16105,12 @@ struct V3LogsView: View {
     var body: some View {
         List {
             if !message.isEmpty {
-                Section { Text(message).font(.footnote).foregroundColor(.red) }
+                Section { V3LocalizedText(message).font(.footnote).foregroundColor(.red) }
             }
             Section {
-                Button(reloading ? "Loading Logs..." : "Reload Logs") { Task { await reload() } }
+                Button(LocalizedStringKey(reloading ? "Loading Logs..." : "Reload Logs")) { Task { await reload() } }
                     .disabled(reloading)
-                Button(copied ? "Copied" : "Copy Logs") {
+                Button(LocalizedStringKey(copied ? "Copied" : "Copy Logs")) {
                     UIPasteboard.general.string = tail
                     copied = true
                     Task {
@@ -16066,7 +16121,7 @@ struct V3LogsView: View {
                 .disabled(reloading || tail.isEmpty)
             }
             Section("Operation Logs") {
-                Text(String(tail.suffix(120_000)))
+                Text(String(tail.suffix(120_000))).environment(\.layoutDirection, .leftToRight)
                     .font(.system(.caption2, design: .monospaced))
                     .textSelection(.enabled)
             }
@@ -16094,7 +16149,7 @@ struct V3ExperimentalView: View {
     var body: some View {
         List {
             if !store.message.isEmpty {
-                Section { Text(store.message).font(.footnote).foregroundColor(.red) }
+                Section { V3LocalizedText(store.message).font(.footnote).foregroundColor(.red) }
             }
             Section("Experimental") {
                 V3ToggleRow(store: store, title: "Cellular Refresh", key: "isCellularRefreshEnabled")
@@ -16120,6 +16175,7 @@ struct V3RefreshDetailView: View {
 struct V3SetupStepState: Equatable {
     var state = "checking"
     var detail = ""
+    var detailIsOpaque = false
 }
 
 @MainActor
@@ -16133,6 +16189,15 @@ final class V3SetupStore: ObservableObject {
     @Published var tunnel = V3SetupStepState()
     @Published var background = V3SetupStepState()
     @Published var schedule = V3SetupStepState()
+    @Published private(set) var scheduleDeadline: Date?
+    @Published private(set) var scheduleFrequency = "interval"
+
+    func localizedScheduleState(language: V3AppLanguage) -> V3SetupStepState {
+        guard schedule.state == "complete", let deadline = scheduleDeadline else { return schedule }
+        let detail = "Scheduled refresh enabled (\(scheduleFrequency)), next expected "
+            + V3Localization.date(deadline, date: .abbreviated, time: .shortened, language: language)
+        return V3SetupStepState(state: schedule.state, detail: detail)
+    }
     @Published var verification = V3SetupStepState()
     // V3_REFRESH_PREREQUISITE_POLICY_V1: the "What you can do" line for a
     // blocked or failed Test Refresh, kept separate from the row detail so the
@@ -16330,7 +16395,7 @@ final class V3SetupStore: ObservableObject {
         } else if status.team == "No active team" {
             account = V3SetupStepState(state: "warning", detail: "Signed in without an active team")
         } else {
-            account = V3SetupStepState(state: "complete", detail: status.account)
+            account = V3SetupStepState(state: "complete", detail: status.account, detailIsOpaque: true)
         }
         if status.installedHostSigningState == .unknown {
             do {
@@ -16410,12 +16475,15 @@ final class V3SetupStore: ObservableObject {
         NSLog("[V3_SETUP] STATUS step=background state=\(background.state)")
         if let defaults = groupDefaults, defaults.bool(forKey: "liveContainerAutoRefreshEnabled") {
             let frequency = defaults.string(forKey: "liveContainerAutoRefreshFrequency") ?? "interval"
+            scheduleFrequency = frequency
+            scheduleDeadline = defaults.object(forKey: "liveContainerAutoRefreshTargetDeadline") as? Date
             var summary = "Scheduled refresh enabled (\(frequency))"
             if let deadline = defaults.object(forKey: "liveContainerAutoRefreshTargetDeadline") as? Date {
                 summary += ", next expected " + deadline.formatted(date: .abbreviated, time: .shortened)
             }
             schedule = V3SetupStepState(state: "complete", detail: summary)
         } else {
+            scheduleDeadline = nil
             schedule = V3SetupStepState(state: "actionRequired", detail: "Scheduled refresh disabled")
         }
         NSLog("[V3_SETUP] STATUS step=schedule state=\(schedule.state)")
@@ -16794,6 +16862,8 @@ final class V3SetupStore: ObservableObject {
 }
 
 struct V3SetupAssistantView: View {
+    @Environment(\.locale) private var dateLocale
+
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @EnvironmentObject private var sharedModel: SharedModel
     @Environment(\.scenePhase) private var scenePhase
@@ -16900,7 +16970,7 @@ struct V3SetupAssistantView: View {
                     Button {
                         openLocalVPN()
                     } label: {
-                        Label(vpnWorking ? "Opening LocalDevVPN…" : "Open / Enable LocalDevVPN", systemImage: "network")
+                        V3LocalizedLabel(vpnWorking ? "Opening LocalDevVPN…" : "Open / Enable LocalDevVPN", systemImage: "network")
                     }
                     .disabled(vpnWorking)
                 }
@@ -16930,7 +17000,7 @@ struct V3SetupAssistantView: View {
             }
             Section("Automatic Refresh") {
                 setupRow(icon: "calendar.badge.clock", title: "Schedule",
-                         state: setup.schedule,
+                         state: setup.localizedScheduleState(language: V3AppLanguage.resolve(dateLocale.identifier)),
                          destination: AnyView(V3RefreshDetailView()))
             }
             Section("Verification") {
@@ -16944,7 +17014,7 @@ struct V3SetupAssistantView: View {
                 if !setup.verificationGuidance.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("What you can do").font(.caption.weight(.semibold))
-                        Text(setup.verificationGuidance).font(.footnote)
+                        V3LocalizedText(setup.verificationGuidance).font(.footnote)
                     }
                 }
                 // V3_REFRESH_PREREQUISITE_POLICY_V1: a structured prerequisite
@@ -16992,7 +17062,7 @@ struct V3SetupAssistantView: View {
                     }
                 }
                 if let date = setup.lastVerified {
-                    Text("Last verified " + date.formatted(date: .abbreviated, time: .shortened))
+                    Text(V3Localization.format("Last verified %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -17003,7 +17073,7 @@ struct V3SetupAssistantView: View {
             if !setup.outstandingSetup(status: status).isEmpty {
                 Section("Still Needed") {
                     ForEach(setup.outstandingSetup(status: status), id: \.self) { item in
-                        Label(item.title, systemImage: V3StatusSeverity.warning.icon)
+                        V3LocalizedLabel(item.title, systemImage: V3StatusSeverity.warning.icon)
                             .font(.footnote)
                             .foregroundColor(.orange)
                     }
@@ -17020,7 +17090,7 @@ struct V3SetupAssistantView: View {
                 }
             }
             Section("Diagnostics") {
-                Button(copiedDiagnostics ? "Copied" : "Copy Setup Diagnostics") {
+                Button(LocalizedStringKey(copiedDiagnostics ? "Copied" : "Copy Setup Diagnostics")) {
                     setup.buildDiagnostics(status: status)
                     UIPasteboard.general.string = V3DiagnosticCopy.details(visibleMessage: setup.verification.detail, technical: setup.diagnostics)
                     copiedDiagnostics = true
@@ -17103,10 +17173,13 @@ struct V3SetupAssistantView: View {
                 .foregroundColor(stateColor(state.state))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(state.detail.isEmpty ? stateLabel(state.state) : state.detail)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                V3LocalizedText(title).font(.headline)
+                Group {
+                    if state.detailIsOpaque { Text(state.detail) }
+                    else { V3LocalizedText(state.detail.isEmpty ? stateLabel(state.state) : state.detail) }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
             }
             Spacer()
             if linked {
@@ -17116,7 +17189,7 @@ struct V3SetupAssistantView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(title + ", " + stateLabel(state.state))
+        .accessibilityLabel(V3Localization.format("%@, %@", V3Localization.prose(title), V3Localization.prose(stateLabel(state.state))))
     }
     private func stateIcon(_ state: String) -> String {
         switch state {
@@ -17201,6 +17274,8 @@ extension V3JITLessPresentation {
 }
 
 struct V3HomeServiceHeader: View {
+    @Environment(\.locale) private var dateLocale
+
     let isConnected: Bool
     let isLoading: Bool
     let updatedAt: Date?
@@ -17237,15 +17312,15 @@ struct V3HomeServiceHeader: View {
                             }
                             // Icon and text both carry the state, so the meaning
                             // does not depend on colour alone.
-                            Label(statusPresentation.title, systemImage: statusPresentation.icon)
+                            V3LocalizedLabel(statusPresentation.title, systemImage: statusPresentation.icon)
                                 .font(.caption)
                                 .foregroundColor(statusPresentation.tint)
                         }
                         if let updatedAt {
-                            Text("Updated " + updatedAt.formatted(date: .omitted, time: .standard))
+                            Text(V3Localization.format("Updated %@", V3Localization.date(updatedAt, date: .omitted, time: .standard, language: V3AppLanguage.resolve(dateLocale.identifier))))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                                .accessibilityLabel("Status last updated " + updatedAt.formatted(date: .abbreviated, time: .shortened))
+                                .accessibilityLabel(V3Localization.format("Status last updated %@", V3Localization.date(updatedAt, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))))
                         }
                     }
                 }
@@ -17253,7 +17328,7 @@ struct V3HomeServiceHeader: View {
             }
             Button(action: onReload) {
                 Label {
-                    Text(isLoading ? "Reloading Status..." : "Reload Status")
+                    V3LocalizedText(isLoading ? "Reloading Status..." : "Reload Status")
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .fixedSize(horizontal: false, vertical: true)
@@ -17272,12 +17347,12 @@ struct V3HomeServiceHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("SideStore status: " + statusPresentation.title
-                            + ", " + statusPresentation.severityName)
+        .accessibilityLabel(V3Localization.format("SideStore status: %@, %@", V3Localization.prose(statusPresentation.title), V3Localization.prose(statusPresentation.severityName)))
     }
 }
 
 private struct V3HomeView: View {
+    @Environment(\.locale) private var dateLocale
     @EnvironmentObject private var sharedModel: SharedModel
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @AppStorage("liveContainerAutoRefreshHealthState", store: V3SharedRefreshStore.defaults) private var refreshState = "UNKNOWN"
@@ -17418,7 +17493,10 @@ private struct V3HomeView: View {
                         HStack {
                             Label("Apple ID", systemImage: "person.crop.circle")
                             Spacer()
-                            Text(status.account)
+                            Group {
+                            if status.activeAccountPresent { Text(status.account) }
+                            else { Text("Not available") }
+                        }
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                         }
@@ -17429,7 +17507,10 @@ private struct V3HomeView: View {
                         HStack {
                             Label("Developer Team", systemImage: "person.2")
                             Spacer()
-                            Text(status.team)
+                            Group {
+                            if status.activeTeamPresent { Text(status.team) }
+                            else { Text("Not available") }
+                        }
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                         }
@@ -17440,7 +17521,7 @@ private struct V3HomeView: View {
                         HStack {
                             Label("Signing Status", systemImage: "signature")
                             Spacer()
-                            Text(status.signing)
+                            V3LocalizedText(status.signing)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                         }
@@ -17451,7 +17532,7 @@ private struct V3HomeView: View {
                         HStack {
                             Label("Pairing Status", systemImage: "link")
                             Spacer()
-                            Text(V3PairingPresentationPolicy.displayText(statusConnected: status.connected,
+                            V3LocalizedText(V3PairingPresentationPolicy.displayText(statusConnected: status.connected,
                                 pairingStatus: status.pairing))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
@@ -17464,7 +17545,7 @@ private struct V3HomeView: View {
                             HStack {
                                 Label("Certificate Expiry", systemImage: "calendar.badge.clock")
                                 Spacer()
-                                Text(date.formatted(date: .abbreviated, time: .shortened))
+                                Text(V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)))
                                     .foregroundColor(.secondary)
                             }
                         }
@@ -17475,14 +17556,14 @@ private struct V3HomeView: View {
                     HStack {
                         Label("Daemon Health", systemImage: "bolt.badge.clock")
                         Spacer()
-                        Text(refreshState.replacingOccurrences(of: "_", with: " ").capitalized)
+                        V3LocalizedText(refreshState.replacingOccurrences(of: "_", with: " ").capitalized)
                             .foregroundColor(.secondary)
                     }
                     if let date = defaults.object(forKey: "liveContainerAutoRefreshLastSuccessfulRefresh") as? Date {
                         HStack {
                             Label("Last Verified Run", systemImage: "checkmark.circle")
                             Spacer()
-                            Text(date.formatted(date: .abbreviated, time: .shortened))
+                            Text(V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -17490,7 +17571,7 @@ private struct V3HomeView: View {
                         HStack {
                             Label("Refresh Deadline", systemImage: "hourglass")
                             Spacer()
-                            Text(date.formatted(date: .abbreviated, time: .shortened))
+                            Text(V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -17499,7 +17580,7 @@ private struct V3HomeView: View {
                             Label("Last Refresh Warning", systemImage: "exclamationmark.triangle")
                                 .foregroundColor(.red)
                                 .font(.caption)
-                            Text(V3DiagnosticPresentation.label(error, context: .refresh))
+                            V3LocalizedText(V3DiagnosticPresentation.label(error, context: .refresh))
                                 .font(.caption2)
                                 .foregroundColor(.red)
                         }

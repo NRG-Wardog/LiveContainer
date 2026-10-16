@@ -63,21 +63,16 @@ static UIColor *LCGuestReturnColor(NSString *key, NSUInteger fallbackRGB) {
     self.button.backgroundColor = UIColor.secondarySystemBackgroundColor;
     self.button.layer.cornerRadius = 22;
     [self.button setImage:[UIImage systemImageNamed:@"arrow.uturn.backward.circle.fill"] forState:UIControlStateNormal];
-    self.button.accessibilityLabel = @"Return to LiveContainer";
-    self.button.accessibilityHint = @"Minimizes this guest without closing it";
-    self.expandedHint = self.button.accessibilityHint;
-    __weak typeof(self) weakControl = self;
-    self.button.menu = [UIMenu menuWithTitle:@"" children:@[
-        [UIAction actionWithTitle:@"Collapse Return Button" image:[UIImage systemImageNamed:@"sidebar.right"] identifier:nil handler:^(__kindof UIAction *action) {
-            [weakControl collapse];
-        }]
-    ]];
+    self.button.accessibilityLabel = @"Return to LiveContainer".loc;
+    self.expandedHint = @"Minimizes this guest without closing it";
+    [self updateLocalizedHostControl];
     [self.button addTarget:self action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
     [self.button addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(drag:)]];
     [self addSubview:self.button];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboard:) name:UIKeyboardWillChangeFrameNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboard:) name:UIKeyboardWillHideNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:NSUserDefaultsDidChangeNotification object:NSUserDefaults.lcSharedDefaults];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:NSUserDefaultsDidChangeNotification object:NSUserDefaults.lcUserDefaults];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:UIApplicationDidBecomeActiveNotification object:nil];
     NSLog(@"[LC_RETURN] CONTROL_SHOWN");
     return self;
@@ -89,11 +84,23 @@ static UIColor *LCGuestReturnColor(NSString *key, NSUInteger fallbackRGB) {
     [self setNeedsLayout];
     NSLog(@"[LC_RETURN] CONTROL_COLLAPSED");
 }
+// Rebuild only host-owned display strings; preserve the guest and return state.
+- (void)updateLocalizedHostControl {
+    self.button.accessibilityLabel = (self.collapsed ? @"Show Return to LiveContainer" : @"Return to LiveContainer").loc;
+    self.button.accessibilityHint = (self.collapsed ? @"Restores the Return button" : self.expandedHint).loc;
+    __weak typeof(self) weakControl = self;
+    self.button.menu = [UIMenu menuWithTitle:@"" children:@[
+        [UIAction actionWithTitle:@"Collapse Return Button".loc image:[UIImage systemImageNamed:@"sidebar.right"] identifier:nil handler:^(__kindof UIAction *action) {
+            [weakControl collapse];
+        }]
+    ]];
+}
 - (void)preferencesChanged:(NSNotification *)note {
     if (!NSThread.isMainThread) {
         dispatch_async(dispatch_get_main_queue(), ^{ [self preferencesChanged:note]; });
         return;
     }
+    [self updateLocalizedHostControl];
     // Appearance can change while a guest is retained. Never reset a user's
     // expanded/collapsed state during layout, keyboard changes, or activation.
     [self setNeedsLayout];
@@ -123,8 +130,8 @@ static UIColor *LCGuestReturnColor(NSString *key, NSUInteger fallbackRGB) {
     // A 44-point target must not be placed outside a tiny resized window.
     self.button.hidden = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCHideReturnControl"] || CGRectIsNull(rect) || rect.size.width < 44 || rect.size.height < 44;
     if (self.button.hidden) return;
-    self.button.accessibilityLabel = self.collapsed ? @"Show Return to LiveContainer" : @"Return to LiveContainer";
-    self.button.accessibilityHint = self.collapsed ? @"Restores the Return button" : self.expandedHint;
+    self.button.accessibilityLabel = (self.collapsed ? @"Show Return to LiveContainer" : @"Return to LiveContainer").loc;
+    self.button.accessibilityHint = (self.collapsed ? @"Restores the Return button" : self.expandedHint).loc;
     BOOL customColors = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCGuestReturnCustomColors"];
     // nil restores the inherited system tint when custom colors are disabled.
     self.button.tintColor = customColors ? LCGuestReturnColor(@"LCGuestReturnTintRGB", 0x007AFF) : nil;

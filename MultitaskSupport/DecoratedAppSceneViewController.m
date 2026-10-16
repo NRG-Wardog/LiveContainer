@@ -16,6 +16,14 @@
 @property(nonatomic) UIBarButtonItem *maximizeButton;
 @property(nonatomic) bool isAppTerminationRequested;
 @property(nonatomic) BOOL lcLaunchSettled;
+@property(nonatomic, weak) UILabel *terminatedLabel;
+@property(nonatomic, strong) UIAlertController *launchErrorAlert;
+@property(nonatomic, copy) NSString *launchErrorMessage;
+@property(nonatomic, copy) NSString *launchErrorDiagnosticID;
+@property(nonatomic, copy) NSString *launchErrorDetails;
+@property(nonatomic, copy) NSString *displayLanguage;
+@property(nonatomic) BOOL launchErrorFinished;
+@property(nonatomic) NSUInteger launchErrorGeneration;
 @end
 
 @implementation DecoratedAppSceneViewController
@@ -40,6 +48,12 @@
     [rootVC addChildViewController:self];
     
     _dataUUID = dataUUID;
+    id savedLanguage = [NSUserDefaults.lcUserDefaults objectForKey:@"V3AppLanguage"];
+    self.displayLanguage = [savedLanguage isKindOfClass:NSString.class] ? savedLanguage : @"en";
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostLanguageChanged:)
+        name:NSUserDefaultsDidChangeNotification object:NSUserDefaults.lcUserDefaults];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostLanguageChanged:)
+        name:UIApplicationDidBecomeActiveNotification object:nil];
     _scaleRatio = 1.0;
     _isMaximized = [NSUserDefaults.lcUserDefaults boolForKey:@"LCLaunchMultitaskMaximized"];
     _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self];
@@ -48,30 +62,13 @@
     
     [MultitaskDockManager.shared addRunningApp:windowName appUUID:dataUUID view:self.view];
     
-    NSArray *menuItems = @[
-        [UIAction actionWithTitle:@"lc.multitask.copyPid".loc image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(UIAction * _Nonnull action) {
-            UIPasteboard.generalPasteboard.string = @(self.appSceneVC.pid).stringValue;
-        }],
-        [UIAction actionWithTitle:@"lc.multitask.enablePip".loc image:[UIImage systemImageNamed:@"pip.enter"] identifier:nil handler:^(UIAction * _Nonnull action) {
-            if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
-                [PiPManager.shared stopPiP];
-            } else {
-                [PiPManager.shared startPiPWithVC:self.appSceneVC];
-            }
-        }],
-        [UICustomViewMenuElement elementWithViewProvider:^UIView *(UICustomViewMenuElement *element) {
-            return [self scaleSliderViewWithTitle:@"lc.multitask.scale".loc min:0.5 max:2.0 value:self.scaleRatio stepInterval:0.01];
-        }]
-    ];
-    
-
     __weak typeof(self) weakSelf = self;
     [self.navigationItem setTitleMenuProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions){
         if(!weakSelf.appSceneVC.isAppRunning) {
-            return [UIMenu menuWithTitle:NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", nil) children:@[]];
+            return [UIMenu menuWithTitle:@"lc.multitaskAppWindow.appTerminated".loc children:@[]];
         } else {
             NSString *pidText = [NSString stringWithFormat:@"PID: %d", weakSelf.pid];
-            return [UIMenu menuWithTitle:pidText children:menuItems];
+            return [UIMenu menuWithTitle:pidText children:[weakSelf localizedTitleMenuItems]];
         }
     }];
     
@@ -107,6 +104,108 @@
     });
 
     return self;
+}
+
+// P2_NATIVE_HOST_LANGUAGE_V1: only host labels and already-known safe guidance
+// are translated. The launch result and diagnostic copy remain unchanged.
+- (NSArray<UIMenuElement *> *)localizedTitleMenuItems {
+    return @[
+        [UIAction actionWithTitle:@"lc.multitask.copyPid".loc image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(UIAction * _Nonnull action) {
+            UIPasteboard.generalPasteboard.string = @(self.appSceneVC.pid).stringValue;
+        }],
+        [UIAction actionWithTitle:@"lc.multitask.enablePip".loc image:[UIImage systemImageNamed:@"pip.enter"] identifier:nil handler:^(UIAction * _Nonnull action) {
+            if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
+                [PiPManager.shared stopPiP];
+            } else {
+                [PiPManager.shared startPiPWithVC:self.appSceneVC];
+            }
+        }],
+        [UICustomViewMenuElement elementWithViewProvider:^UIView *(UICustomViewMenuElement *element) {
+            return [self scaleSliderViewWithTitle:@"lc.multitask.scale".loc min:0.5 max:2.0 value:self.scaleRatio stepInterval:0.01];
+        }]
+    ];
+}
+
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
+
+// Presentation ownership only; guest launch settlement has already completed.
+- (BOOL)finishLaunchErrorAlert:(UIAlertController *)alert generation:(NSUInteger)generation {
+    NSAssert(NSThread.isMainThread, @"Launch error presentation must run on main");
+    if (!alert || self.launchErrorFinished || self.launchErrorAlert != alert ||
+        self.launchErrorGeneration != generation) return NO;
+    self.launchErrorFinished = YES;
+    self.launchErrorGeneration += 1;
+    self.launchErrorAlert = nil;
+    return YES;
+}
+
+- (UIAlertController *)localizedLaunchErrorAlert {
+    NSAssert(NSThread.isMainThread, @"Launch error presentation must run on main");
+    NSUInteger generation = ++self.launchErrorGeneration;
+    NSString *identifier = [NSString stringWithFormat:@"\u2066%@\u2069", self.launchErrorDiagnosticID];
+    NSString *localizedDisplay = [NSString stringWithFormat:@"%@\n%@ %@",
+        self.launchErrorMessage.loc, @"Error ID:".loc, identifier];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"lc.common.error".loc
+        message:localizedDisplay preferredStyle:UIAlertControllerStyleAlert];
+    __weak typeof(self) weakSelf = self;
+    __weak UIAlertController *weakAlert = alert;
+    [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.ok".loc style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+        [weakSelf finishLaunchErrorAlert:weakAlert generation:generation];
+    }]];
+    NSString *details = self.launchErrorDetails;
+    [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.copy".loc style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        if (![weakSelf finishLaunchErrorAlert:weakAlert generation:generation]) return;
+        UIPasteboard.generalPasteboard.string = details;
+    }]];
+    return alert;
+}
+
+- (void)refreshLocalizedLaunchError {
+    NSAssert(NSThread.isMainThread, @"Launch error presentation must run on main");
+    UIAlertController *previous = self.launchErrorAlert;
+    if (self.launchErrorFinished || !previous) return;
+    NSUInteger generation = self.launchErrorGeneration;
+    if (!self.viewIfLoaded.window || self.presentedViewController != previous) {
+        [self finishLaunchErrorAlert:previous generation:generation];
+        return;
+    }
+    if (previous.isBeingDismissed) return;
+    __weak typeof(self) weakSelf = self;
+    if (previous.isBeingPresented && previous.transitionCoordinator) {
+        [previous.transitionCoordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+            typeof(self) strongSelf = weakSelf;
+            if (!strongSelf || strongSelf.launchErrorFinished ||
+                strongSelf.launchErrorGeneration != generation || strongSelf.launchErrorAlert != previous) return;
+            [strongSelf refreshLocalizedLaunchError];
+        }];
+        return;
+    }
+    // UIAlertAction titles are immutable. Replace only the presentation. An
+    // action delivered during dismissal invalidates this completion first.
+    [previous dismissViewControllerAnimated:NO completion:^{
+        typeof(self) strongSelf = weakSelf;
+        if (!strongSelf || strongSelf.launchErrorFinished ||
+            strongSelf.launchErrorGeneration != generation || strongSelf.launchErrorAlert != previous) return;
+        if (strongSelf.presentedViewController || !strongSelf.viewIfLoaded.window) {
+            [strongSelf finishLaunchErrorAlert:previous generation:generation];
+            return;
+        }
+        strongSelf.launchErrorAlert = [strongSelf localizedLaunchErrorAlert];
+        [strongSelf presentViewController:strongSelf.launchErrorAlert animated:NO completion:nil];
+    }];
+}
+
+- (void)hostLanguageChanged:(NSNotification *)notification {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self hostLanguageChanged:notification]; });
+        return;
+    }
+    id saved = [NSUserDefaults.lcUserDefaults objectForKey:@"V3AppLanguage"];
+    NSString *language = [saved isKindOfClass:NSString.class] ? saved : @"en";
+    if ([language isEqualToString:self.displayLanguage]) return;
+    self.displayLanguage = language;
+    self.terminatedLabel.text = @"lc.multitaskAppWindow.appTerminated".loc;
+    [self refreshLocalizedLaunchError];
 }
 
 - (void)setupDecoratedView {
@@ -368,7 +467,8 @@
         label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         label.lineBreakMode = NSLineBreakByWordWrapping;
         label.numberOfLines = 0;
-        label.text = NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", @"");
+        label.text = @"lc.multitaskAppWindow.appTerminated".loc;
+        self.terminatedLabel = label;
         label.textAlignment = NSTextAlignmentCenter;
         [self.view insertSubview:label atIndex:0];
     }
@@ -399,12 +499,12 @@
             NSString *builder = [builderValue isKindOfClass:NSString.class] && [(NSString *)builderValue length] == 40 &&
                 [builderValue rangeOfString:@"^[0-9a-fA-F]{40}$" options:NSRegularExpressionSearch].location != NSNotFound ? [builderValue lowercaseString] : @"unknown";
             NSString *details = [NSString stringWithFormat:@"%@\ndiagnostic_code=%@ stage=guestLaunch underlying_domain=%@ underlying_code=%@ correlation=%@ builder_commit=%@", display, diagnosticID, domain, code, NSUUID.UUID.UUIDString, builder];
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"lc.common.error".loc message:display preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.ok".loc style:UIAlertActionStyleCancel handler:nil]];
-            [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.copy".loc style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-                UIPasteboard.generalPasteboard.string = details;
-            }]];
-            [self presentViewController:alert animated:YES completion:nil];
+            self.launchErrorMessage = safeMessage;
+            self.launchErrorDiagnosticID = diagnosticID;
+            self.launchErrorDetails = details;
+            self.launchErrorFinished = NO; // A new launch-error presentation, never a locale rebuild.
+            self.launchErrorAlert = [self localizedLaunchErrorAlert];
+            [self presentViewController:self.launchErrorAlert animated:YES completion:nil];
         } else {
             self.pid = vc.pid;
             [self updateOriginalFrame];

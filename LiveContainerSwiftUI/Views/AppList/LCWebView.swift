@@ -8,6 +8,7 @@ import SwiftUI
 @preconcurrency import WebKit
 
 struct LCWebView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @State private var webView : WebView
     @State private var didAppear = false
     
@@ -18,13 +19,17 @@ struct LCWebView: View {
     @State private var pageTitle = ""
     
     @State private var runAppAlert = YesNoHelper()
-    @State private var runAppAlertMsg = ""
+    @State private var runAppAlertMsg = V3DisplayMessage.raw("")
     
     @State private var installAppAlert = YesNoHelper()
-    @State private var installAppAlertMsg = ""
+    @State private var installAppAlertMsg = V3DisplayMessage.raw("")
     
     @State private var errorShow = false
-    @State private var errorInfo = ""
+    @State private var errorDisplay = V3DisplayMessage.raw("")
+    private var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     
     @EnvironmentObject private var sharedModel : SharedModel
     
@@ -38,6 +43,7 @@ struct LCWebView: View {
     }
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         
         VStack(spacing: 0) {
             HStack {
@@ -107,7 +113,7 @@ struct LCWebView: View {
                 runAppAlert.close(result: false)
             })
         } message: {
-            Text(runAppAlertMsg)
+            V3LocalizedText(runAppAlertMsg)
         }
         .alert("lc.webView.installApp".loc, isPresented: $installAppAlert.show) {
             Button("lc.common.install".loc, action: {
@@ -117,14 +123,17 @@ struct LCWebView: View {
                 installAppAlert.close(result: false)
             })
         } message: {
-            Text(installAppAlertMsg)
+            V3LocalizedText(installAppAlertMsg)
         }
         
         .alert("lc.common.error".loc, isPresented: $errorShow) {
             Button("lc.common.ok".loc, action: {
             })
+            Button("lc.common.copy".loc) {
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .webDownload)
+            }
         } message: {
-            Text(LCNativeErrorPresentation.message(errorInfo, site: .webDownload))
+            V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.webDownload.rawValue))
         }
         
     }
@@ -152,7 +161,7 @@ struct LCWebView: View {
         do {
             try await app.runApp(urlStr: url.absoluteString)
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -162,7 +171,7 @@ struct LCWebView: View {
         var appListsToConsider = [sharedModel.apps]
         
         if url.scheme == "itms-services", let handler = itmsServicesHandler {
-            installAppAlertMsg = "lc.webView.installAppDesc"
+            installAppAlertMsg = .localized("lc.webView.installAppDesc")
             
             if let doInstall = await installAppAlert.open(), !doInstall {
                 return
@@ -191,7 +200,7 @@ struct LCWebView: View {
     
         
         guard let appToLaunch = appToLaunch else {
-            errorInfo = "lc.appList.schemeCannotOpenError %@".localizeWithFormat(url.scheme!)
+            errorDisplay = .localized("lc.appList.schemeCannotOpenError %@", url.scheme!)
             errorShow = true
             return
         }
@@ -203,13 +212,13 @@ struct LCWebView: View {
                     return
                 }
             } catch {
-                errorInfo = error.localizedDescription
+                errorDisplay = .preserving(error)
                 errorShow = true
                 return
             }
         }
         
-        runAppAlertMsg = "lc.webView.pageLaunch %@".localizeWithFormat(appToLaunch.appInfo.displayName()!)
+        runAppAlertMsg = .localized("lc.webView.pageLaunch %@", appToLaunch.appInfo.displayName()!)
         
         if let doRunApp = await runAppAlert.open(), !doRunApp {
             return
@@ -247,13 +256,13 @@ struct LCWebView: View {
                     return
                 }
             } catch {
-                errorInfo = error.localizedDescription
+                errorDisplay = .preserving(error)
                 errorShow = true
                 return
             }
         }
         
-        runAppAlertMsg = "lc.webView.pageCanBeOpenIn %@".localizeWithFormat(appToLaunch.appInfo.displayName()!)
+        runAppAlertMsg = .localized("lc.webView.pageCanBeOpenIn %@", appToLaunch.appInfo.displayName()!)
         if let doRunApp = await runAppAlert.open(), !doRunApp {
             return
         }

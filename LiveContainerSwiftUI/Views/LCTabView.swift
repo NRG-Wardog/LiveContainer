@@ -9,10 +9,15 @@ import Foundation
 import SwiftUI
 
 struct V3ApplicationRoot<Content: View>: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     let content: Content
     @State var errorShow = false
     @State var crashReportShow = false
-    @State var errorInfo = ""
+    @State var errorDisplay = V3DisplayMessage.raw("")
+    var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     
     @EnvironmentObject var sharedModel : SharedModel
     @EnvironmentObject var sceneDelegate: SceneDelegate
@@ -23,6 +28,7 @@ struct V3ApplicationRoot<Content: View>: View {
     let pub = NotificationCenter.default.publisher(for: UIScene.didDisconnectNotification)
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         content
         .downloadAlert(helper: downloadHelper)
         .environmentObject(downloadHelper)
@@ -33,15 +39,21 @@ struct V3ApplicationRoot<Content: View>: View {
                 UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .root)
             })
         } message: {
-            Text(LCNativeErrorPresentation.message(errorInfo, site: .root))
+            V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.root.rawValue))
         }
         .sheet(isPresented: $crashReportShow) {
             NavigationView {
                 ScrollView {
-                    Text(errorInfo)
-                        .font(.system(size: 12).monospaced())
-                        .fixedSize(horizontal: false, vertical: false)
-                        .textSelection(.enabled)
+                    VStack(alignment: .leading, spacing: 12) {
+                        V3LocalizedText(errorDisplay)
+                        DisclosureGroup("Technical details") {
+                            Text(verbatim: errorInfo)
+                                .environment(\.layoutDirection, .leftToRight)
+                                .font(.system(size: 12).monospaced())
+                                .fixedSize(horizontal: false, vertical: false)
+                                .textSelection(.enabled)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal)
@@ -99,18 +111,18 @@ struct V3ApplicationRoot<Content: View>: View {
     }
     
     func checkLastLaunchError() {
-        var errorStr = UserDefaults.standard.string(forKey: "error")
+        var launchError = UserDefaults.standard.string(forKey: "error").map { V3DisplayMessage.raw($0) }
         
-        if errorStr == nil && UserDefaults.standard.bool(forKey: "SigningInProgress") {
-            errorStr = "lc.signer.crashDuringSignErr".loc
+        if launchError == nil && UserDefaults.standard.bool(forKey: "SigningInProgress") {
+            launchError = .localized("lc.signer.crashDuringSignErr")
             UserDefaults.standard.removeObject(forKey: "SigningInProgress")
         }
         
-        guard let errorStr else {
+        guard let launchError else {
             return
         }
         UserDefaults.standard.removeObject(forKey: "error")
-        errorInfo = errorStr
+        errorDisplay = launchError
         crashReportShow = true
     }
     
@@ -129,7 +141,7 @@ struct V3ApplicationRoot<Content: View>: View {
                 return
             }
             if certificateTeamId != primaryLCTeamId {
-                errorInfo = "lc.settings.multiLC.teamIdMismatch".loc
+                errorDisplay = .localized("lc.settings.multiLC.teamIdMismatch")
                 errorShow = true
                 return
             }
@@ -147,7 +159,7 @@ struct V3ApplicationRoot<Content: View>: View {
                 return
             }
             if currentTeamId != primaryLCTeamId {
-                errorInfo = "lc.settings.multiLC.teamIdMismatch".loc
+                errorDisplay = .localized("lc.settings.multiLC.teamIdMismatch")
                 errorShow = true
                 return
             }
@@ -183,7 +195,7 @@ struct V3ApplicationRoot<Content: View>: View {
         }
         
         if(bundleId != correctBundleId) {
-            errorInfo = "lc.settings.bundleIdMismatch %@ %@".localizeWithFormat(bundleId, correctBundleId)
+            errorDisplay = .localized("lc.settings.bundleIdMismatch %@ %@", bundleId, correctBundleId)
             errorShow = true
         }
         UserDefaults.standard.set(true, forKey: "LCBundleIdChecked")
@@ -192,7 +204,7 @@ struct V3ApplicationRoot<Content: View>: View {
     func checkGetTaskAllow() {
         let task = SecTaskCreateFromSelf(nil)
         guard let value = SecTaskCopyValueForEntitlement(task, "get-task-allow" as CFString, nil), (value.takeRetainedValue() as? NSNumber)?.boolValue ?? false else {
-            errorInfo = "lc.settings.notDevCert".loc
+            errorDisplay = .localized("lc.settings.notDevCert")
             errorShow = true
             return
         }

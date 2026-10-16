@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A17ECAFE2DCA00000000F001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A17ECAFE2DCA00000000F003 /* Localizable.xcstrings */; };
+		A17ECAFE2DCA00000000F002 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A17ECAFE2DCA00000000F007 /* InfoPlist.strings */; };
 	A17ECAFE2DCA000000000001 = {isa = PBXBuildFile; fileRef = 173545A82E2C7913001B3B4C /* SideStoreSupport.framework */; };
 	A17ECAFE2DCA000000000002 = {isa = PBXBuildFile; fileRef = 173545A82E2C7913001B3B4C /* SideStoreSupport.framework */; };
 		173545AF2E2C7913001B3B4C /* SideStoreSupport.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 173545A82E2C7913001B3B4C /* SideStoreSupport.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -157,6 +159,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A17ECAFE2DCA00000000F00A /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "Resources/zh-Hant.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
+		A17ECAFE2DCA00000000F00B /* zh_TW */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh_TW"; path = "Resources/zh_TW.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
+		A17ECAFE2DCA00000000F00C /* zh_HK */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh_HK"; path = "Resources/zh_HK.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
+		A17ECAFE2DCA00000000F009 /* zh_CN */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = zh_CN; path = Resources/zh_CN.lproj/InfoPlist.strings; sourceTree = SOURCE_ROOT; };
+		A17ECAFE2DCA00000000F003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Resources/Localizable.xcstrings; sourceTree = SOURCE_ROOT; };
+		A17ECAFE2DCA00000000F004 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "en"; path = "Resources/en.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
+		A17ECAFE2DCA00000000F005 /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "he"; path = "Resources/he.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
+		A17ECAFE2DCA00000000F006 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "Resources/zh-Hans.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
+
 		172978E8302EAF07004A3E78 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		172CA8542D9D721700CF6989 /* dyld_bypass_validation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = dyld_bypass_validation.m; sourceTree = "<group>"; };
 		172CA8552D9D721700CF6989 /* FoundationPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FoundationPrivate.h; sourceTree = "<group>"; };
@@ -198,7 +209,6 @@
 				"AppIconGrey76x76@2x~ipad.png",
 				Assets.xcassets,
 				DefaultIcon.png,
-				Localizable.xcstrings,
 				Settings.bundle,
 				universal.js,
 			);
@@ -421,6 +431,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A17ECAFE2DCA00000000F008 /* Host Localization */ = {isa = PBXGroup; children = (A17ECAFE2DCA00000000F003 /* Localizable.xcstrings */, A17ECAFE2DCA00000000F007 /* InfoPlist.strings */, ); name = "Host Localization"; sourceTree = "<group>"; };
 		172CA85F2D9D721700CF6989 /* LiveContainer */ = {
 			isa = PBXGroup;
 			children = (
@@ -458,6 +469,7 @@
 		17DCE9942C7067EC00731D42 = {
 			isa = PBXGroup;
 			children = (
+				A17ECAFE2DCA00000000F008 /* Host Localization */,
 				E16D9BA02E1D48DE0068EB63 /* README.md */,
 				17B0F8452DE16FE4008110EA /* xcconfigs */,
 				E1292C242DCA4E6F0065E12D /* MultitaskSupport */,
@@ -822,6 +834,8 @@
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				"zh-Hans",
+				"zh-Hant",
 				en,
 				no,
 				Base,
@@ -911,6 +925,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A17ECAFE2DCA00000000F001 /* Localizable.xcstrings in Resources */,
+				A17ECAFE2DCA00000000F002 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1086,6 +1102,15 @@
 			targetProxy = E1292BE92DCA3B670065E12D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+        A17ECAFE2DCA00000000F007 /* InfoPlist.strings */ = {
+            isa = PBXVariantGroup;
+            children = (A17ECAFE2DCA00000000F004 /* en */, A17ECAFE2DCA00000000F005 /* he */, A17ECAFE2DCA00000000F006 /* zh-Hans */, A17ECAFE2DCA00000000F009 /* zh_CN */, A17ECAFE2DCA00000000F00A /* zh-Hant */, A17ECAFE2DCA00000000F00B /* zh_TW */, A17ECAFE2DCA00000000F00C /* zh_HK */, );
+            name = InfoPlist.strings;
+            sourceTree = "<group>";
+        };
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		173545B12E2C7913001B3B4C /* Debug */ = {

@@ -13,6 +13,7 @@ struct LCFolderPath {
 }
 
 struct LCDataManagementView : View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @State var folderPaths : [LCFolderPath]
     @State var filzaInstalled = false
     @State var appeared = false
@@ -26,9 +27,17 @@ struct LCDataManagementView : View {
 
     
     @State var errorShow = false
-    @State var errorInfo = ""
+    @State var errorDisplay = V3DisplayMessage.raw("")
+    var errorInfo: String {
+        get { errorDisplay.original }
+        nonmutating set { errorDisplay = .raw(newValue) }
+    }
     @State var successShow = false
-    @State var successInfo = ""
+    @State var successDisplay = V3DisplayMessage.raw("")
+    var successInfo: String {
+        get { successDisplay.original }
+        nonmutating set { successDisplay = .raw(newValue) }
+    }
     
     @EnvironmentObject private var sharedModel : SharedModel
     
@@ -41,6 +50,7 @@ struct LCDataManagementView : View {
     }
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
     
         Form {
             Section {
@@ -99,7 +109,7 @@ struct LCDataManagementView : View {
             Section {
                 ForEach(folderPaths, id:\.desc) { path in
                     HStack(spacing: 10) {
-                        Text(path.desc)
+                        V3LocalizedText(path.desc)
                         Spacer()
                         if filzaInstalled {
                             Button {
@@ -122,12 +132,16 @@ struct LCDataManagementView : View {
         .navigationTitle("lc.settings.dataManagement".loc)
         .navigationBarTitleDisplayMode(.inline)
         .alert("lc.common.error".loc, isPresented: $errorShow){
+            Button("lc.common.ok".loc, role: .cancel) {}
+            Button("lc.common.copy".loc) {
+                UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .dataManagement)
+            }
         } message: {
-            Text(LCNativeErrorPresentation.message(errorInfo, site: .dataManagement))
+            V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.dataManagement.rawValue))
         }
         .alert("lc.common.success".loc, isPresented: $successShow){
         } message: {
-            Text(successInfo)
+            V3LocalizedText(successDisplay)
         }
         .alert("lc.settings.cleanDataFolder".loc, isPresented: $appFolderRemovalAlert.show) {
             if folderRemoveCount > 0 {
@@ -241,7 +255,7 @@ struct LCDataManagementView : View {
                 })
             }
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
         
@@ -277,7 +291,7 @@ struct LCDataManagementView : View {
             let tmpItems = try fm.contentsOfDirectory(at: tmpDirectory, includingPropertiesForKeys: nil)
 
             if tmpItems.isEmpty {
-                successInfo = "lc.settings.noTmpToClean".loc
+                successDisplay = .localized("lc.settings.noTmpToClean")
                 successShow = true
                 return
             }
@@ -286,10 +300,10 @@ struct LCDataManagementView : View {
                 try fm.removeItem(at: item)
             }
 
-            successInfo = "lc.settings.cleanTmpComplete".loc
+            successDisplay = .localized("lc.settings.cleanTmpComplete")
             successShow = true
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -333,13 +347,13 @@ struct LCDataManagementView : View {
             }
 
             if cleanedCount == 0 {
-                successInfo = "lc.settings.noCacheToClean".loc
+                successDisplay = .localized("lc.settings.noCacheToClean")
             } else {
-                successInfo = "lc.settings.cleanCacheComplete".loc
+                successDisplay = .localized("lc.settings.cleanCacheComplete")
             }
             successShow = true
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -397,11 +411,11 @@ struct LCDataManagementView : View {
                 try fm.moveItem(at: LCPath.lcGroupTweakPath.appendingPathComponent(tweakFolderInUse), to: LCPath.tweakPath.appendingPathComponent(tweakFolderInUse))
                 movedTweakFolderCount += 1
             }
-            successInfo = "lc.settings.moveDanglingFolderComplete %lld %lld".localizeWithFormat(movedDataFolderCount,movedTweakFolderCount)
+            successDisplay = .localized("lc.settings.moveDanglingFolderComplete %lld %lld", movedDataFolderCount,movedTweakFolderCount)
             successShow = true
             
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -419,18 +433,18 @@ struct LCDataManagementView : View {
             let privateFolderContents = try fm.contentsOfDirectory(at: LCPath.appGroupPath, includingPropertiesForKeys: nil)
             let sharedFolderContents = try fm.contentsOfDirectory(at: LCPath.lcGroupAppGroupPath, includingPropertiesForKeys: nil)
             if privateFolderContents.count > 0 {
-                errorInfo = "lc.settings.appGroupExistPrivate".loc
+                errorDisplay = .localized("lc.settings.appGroupExistPrivate")
                 errorShow = true
                 return
             }
             for file in sharedFolderContents {
                 try fm.moveItem(at: file, to: LCPath.appGroupPath.appendingPathComponent(file.lastPathComponent))
             }
-            successInfo = "lc.settings.appGroup.moveSuccess".loc
+            successDisplay = .localized("lc.settings.appGroup.moveSuccess")
             successShow = true
             
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -448,18 +462,18 @@ struct LCDataManagementView : View {
             let privateFolderContents = try fm.contentsOfDirectory(at: LCPath.appGroupPath, includingPropertiesForKeys: nil)
             let sharedFolderContents = try fm.contentsOfDirectory(at: LCPath.lcGroupAppGroupPath, includingPropertiesForKeys: nil)
             if sharedFolderContents.count > 0 {
-                errorInfo = "lc.settings.appGroupExist Shared".loc
+                errorDisplay = .localized("lc.settings.appGroupExist Shared")
                 errorShow = true
                 return
             }
             for file in privateFolderContents {
                 try fm.moveItem(at: file, to: LCPath.lcGroupAppGroupPath.appendingPathComponent(file.lastPathComponent))
             }
-            successInfo = "lc.settings.appGroup.moveSuccess".loc
+            successDisplay = .localized("lc.settings.appGroup.moveSuccess")
             successShow = true
             
         } catch {
-            errorInfo = error.localizedDescription
+            errorDisplay = .preserving(error)
             errorShow = true
         }
     }
@@ -476,7 +490,7 @@ struct LCDataManagementView : View {
                     return app.appInfo.bundleIdentifier() == "com.tigisoftware.Filza"
                 })?.runApp(urlStr: launchURLStr)
             } catch {
-                successInfo = error.localizedDescription
+                successDisplay = .preserving(error)
                 successShow = true
             }
         }

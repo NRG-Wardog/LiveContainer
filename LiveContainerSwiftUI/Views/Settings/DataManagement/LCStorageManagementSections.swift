@@ -18,17 +18,17 @@ private struct LCStorageSummaryDisplayItem: Identifiable {
     var title: String {
         switch category {
         case .appBundle:
-            return "lc.storage.appBundle".loc
+            return "lc.storage.appBundle"
         case .containers:
-            return "lc.storage.containers".loc
+            return "lc.storage.containers"
         case .appGroup:
-            return "lc.storage.appGroupData".loc
+            return "lc.storage.appGroupData"
         case .tweaks:
-            return "lc.storage.tweaks".loc
+            return "lc.storage.tweaks"
         case .temporaryFiles:
-            return "lc.storage.temporaryFiles".loc
+            return "lc.storage.temporaryFiles"
         case .other:
-            return "lc.storage.other".loc
+            return "lc.storage.other"
         }
     }
 
@@ -86,11 +86,13 @@ private struct LCStorageSummaryBarView: View {
 }
 
 struct LCStorageSummarySection: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     let breakdown: LCStorageBreakdown?
     let isCalculating: Bool
     let errorInfo: String?
 
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         Section("lc.storage.totalStorage".loc) {
             VStack(alignment: .leading, spacing: 12) {
                 if isCalculating {
@@ -109,9 +111,12 @@ struct LCStorageSummarySection: View {
                 }
 
                 if let errorInfo {
-                    Text(LCNativeErrorPresentation.message(errorInfo, site: .storage))
+                    V3LocalizedText(V3DisplayMessage.raw(errorInfo).appendingDiagnostic(LCNativeErrorSite.storage.rawValue))
                         .font(.footnote)
                         .foregroundStyle(.red)
+                    Button("lc.common.copy".loc) {
+                        UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .storage)
+                    }
                 }
 
                 if let breakdown {
@@ -211,7 +216,7 @@ struct LCStorageSummarySection: View {
                     .opacity(color == nil ? 0 : 1)
                     .accessibilityHidden(true)
 
-                Text(title)
+                V3LocalizedText(title)
             }
 
             Spacer(minLength: 12)
@@ -225,6 +230,7 @@ struct LCStorageSummarySection: View {
 }
 
 struct LCInstalledAppsSection: View {
+    @Environment(\.locale) private var dateLocale
     @AppStorage("darkModeIcon", store: LCUtils.appGroupUserDefault) var darkModeIcon = false
     let breakdown: LCStorageBreakdown?
 
@@ -262,7 +268,7 @@ struct LCInstalledAppsSection: View {
                         .truncationMode(.tail)
 
                     if let lastUsedAt = appItem.appModel.appInfo.lastLaunched {
-                        Text("lc.appList.sort.lastLaunched".loc + ": \(formatStorageDate(lastUsedAt))")
+                        Text("lc.appList.sort.lastLaunched".loc + ": \(formatStorageDate(lastUsedAt, language: V3AppLanguage.resolve(dateLocale.identifier)))")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -386,11 +392,8 @@ private func appContainerRow(_ container: LCAppStorageContainerItem) -> some Vie
     .padding(.vertical, 2)
 }
 
-private func formatStorageDate(_ date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .none
-    return formatter.string(from: date)
+private func formatStorageDate(_ date: Date, language: V3AppLanguage) -> String {
+    V3Localization.legacyDate(date, dateStyle: .short, timeStyle: .none, language: language)
 }
 
 private func formatStorageSize(_ size: Int64) -> String {
