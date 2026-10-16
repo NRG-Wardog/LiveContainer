@@ -35,9 +35,9 @@ scope remains unsigned-in credentials at a 320-point viewport, default/largest
 Dynamic Type, copy-safe diagnostics, submission, and cancellation.
 
 A separate targeted fixture then runs five cases per phone/tablet (ten tests,
-26 additional screenshots): feedback timeout, prompt replacement, dismiss/reopen,
+30 additional screenshots): feedback timeout, prompt replacement, dismiss/reopen,
 and four recovery branches at default/largest Dynamic Type. Copy lifetimes are
-measured from passive pasteboard-event timestamps. A pass requires the actual
+measured from monotonic pasteboard-event timestamps and a bounded passive observer of the actual production accessibility identifier, label and visible frame. No fixture-maintained copied-state flag is admitted. A pass requires the actual
 Copied label at least 1.5 seconds into its own lifetime, expiry within five
 seconds, replacement/dismissal during the old two-second task lifetime, and a
 new copy 0.75–2 seconds after the old copy. Its minimum-lifetime observation
@@ -51,6 +51,22 @@ verbatim; all four representative recovery branches must leave navigation
 visible, hittable and usable (Open/Back) on each device at default and AX5.
 Recovery uses full device width, not the separate 320-point credentials viewport.
 This is isolated modifier evidence, not a full V3UnifiedTabs/backend claim.
+The corrected recovery root matches the production outer TabView with navigation
+children. Each recovery size includes a no-banner control proving real Open/Back
+navigation before the four recovery branches. Prior failed captures remain failed.
+
+The overlap phase starts with a genuine XCTest Copy tap. A public
+`accessibilityActivate()` on the freshly located, reset production Copy element
+provides the second event inside the old two-second window; success and a distinct
+pasteboard change are required. Afterward a separate normal XCTest hittability
+check and tap supplies event 3, with its own real-label lifetime/expiry observation.
+Event 3 cannot satisfy event 1/2 timing. Raw exported passive traces and case
+summaries must agree. Missing/ambiguous AX hierarchy, invalid/offscreen frames,
+missing reset, early expiry or missing physical interaction fails closed.
+
+The targeted stage runs before the unchanged full baseline matrix to fail fast;
+only a complete successful run can produce a reviewable complete candidate.
+
 No real account/ADI operation, physical-device test, signing, refresh, IPA, or
 release-readiness claim is made. Dependency validation is explicitly inherited
 from unchanged, hash-verified P0 receipts and is not represented as a fresh run.

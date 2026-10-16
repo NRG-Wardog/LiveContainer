@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 150
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-      APPROVED_P1_INPUTS_SHA256: 'f748cacc870eb2556b6db3b8ebdd6ace2f593083bd91c979ffe387ee6fba927a'
+      APPROVED_P1_INPUTS_SHA256: 'bb1e20078787cc59a0eab5ea5588e012db733506e885757895c67ad36abaf85c'
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
       GIT_CONFIG_NOSYSTEM: '1'
@@ -40,6 +40,7 @@ jobs:
             --host-root "$GITHUB_WORKSPACE/validation"
           python3 -B -m unittest discover -s validation/ci/p1/tests -p test_capture_gate.py -v
           python3 -B -m unittest discover -s validation/ci/p1/tests -p test_behavior_capture.py -v
+          python3 -B -m unittest discover -s validation/ci/p1/tests -p test_feedback_trace.py -v
       - name: Fresh P1 unsigned host build and exact-source UI capture
         run: |
           set -euo pipefail

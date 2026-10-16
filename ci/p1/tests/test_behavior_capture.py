@@ -7,6 +7,7 @@ import struct
 import tempfile
 import unittest
 import zlib
+from test_feedback_trace import observations
 
 HERE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('p1_behavior', HERE / 'behavior_capture.py')
@@ -46,22 +47,34 @@ class BehaviorExportTests(unittest.TestCase):
                         'bannerContentFrame': [0, 0, 100, 50], 'navigationFrame': [0, 60, 50, 20],
                         'navigationBarFrame': [0, 60, 100, 20], 'contentFrame': [0, 90, 100, 30],
                         'viewportFrame': [0, 0, 100, 200], 'screenshot': screenshot})
-                case['observations'] = {'largestDynamicType': largest, 'branches': branches}
+                control = {'kind': 'none', 'largestDynamicType': largest, 'recoveryBannerAbsent': True,
+                    'navigationHittable': True, 'navigationOpenedDestination': True, 'navigationBackRestoredRoot': True,
+                    'navigationFrame': [0, 60, 50, 20], 'navigationBarFrame': [0, 60, 100, 20],
+                    'contentFrame': [0, 90, 100, 30], 'viewportFrame': [0, 0, 100, 200],
+                    'screenshot': 'p1-' + name + '-no-banner'}
+                names.append(control['screenshot'])
+                case['observations'] = {'largestDynamicType': largest, 'branches': branches,
+                    'containerTopology': 'TabView>NavigationView', 'noBannerControl': control}
             else:
-                case['observations'] = {'minimumLifetimeSeconds': 1.5, 'feedbackObservedSeconds': 1.6,
-                    'observedExpirySeconds': 2.2, 'transitionDelaySeconds': 0.75, 'copyEventSpacingSeconds': 1.5}
+                case['observations'] = observations(name)
             self.cases.append(case)
         self.manifest = [{'attachmentName': name, 'exportedFileName': str(i) + '.png'} for i, name in enumerate(names)]
         for row in self.manifest: (self.root / row['exportedFileName']).write_bytes(png())
 
     def verify(self, directory=None):
-        for i, case in enumerate(self.cases): (self.root / (str(i) + '-case.json')).write_text(json.dumps(case))
+        for i, case in enumerate(self.cases):
+            (self.root / (str(i) + '-case.json')).write_text(json.dumps(case))
+            observations = case['observations']
+            if 'passiveTrace' in observations:
+                (self.root / (str(i) + '-trace.json')).write_text(json.dumps(observations['passiveTrace']))
+            if 'normalTapObservation' in observations:
+                (self.root / (str(i) + '-normal-trace.json')).write_text(json.dumps(observations['normalTapObservation']['passiveTrace']))
         (self.root / 'manifest.json').write_text(json.dumps(self.manifest))
         return behavior.verify_export(self.root if directory is None else directory, self.summary, Decoder)
 
-    def test_exact_five_cases_and_thirteen_screenshots(self):
+    def test_exact_five_cases_and_fifteen_screenshots(self):
         result = self.verify()
-        self.assertEqual(result['test_count'], 5); self.assertEqual(len(result['screenshots']), 13)
+        self.assertEqual(result['test_count'], 5); self.assertEqual(len(result['screenshots']), 15)
 
     def test_accepts_canonicalized_parent_alias(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -69,7 +82,7 @@ class BehaviorExportTests(unittest.TestCase):
             alias.symlink_to(self.root.parent, target_is_directory=True)
             result = self.verify(alias / self.root.name)
         self.assertEqual(result['test_count'], 5)
-        self.assertEqual(len(result['screenshots']), 13)
+        self.assertEqual(len(result['screenshots']), 15)
         self.assertTrue(all(not Path(item['path']).is_absolute() and
             (self.root / item['path']).is_file() for item in result['screenshots'].values()))
 
@@ -138,6 +151,18 @@ class BehaviorExportTests(unittest.TestCase):
 
     def test_rejects_unhittable_navigation(self):
         self.cases[3]['observations']['branches'][0]['navigationHittable'] = False
+        with self.assertRaises(ValueError): self.verify()
+
+    def test_rejects_wrong_recovery_topology(self):
+        self.cases[3]['observations']['containerTopology'] = 'NavigationView'
+        with self.assertRaises(ValueError): self.verify()
+
+    def test_rejects_missing_no_banner_control(self):
+        self.cases[3]['observations'].pop('noBannerControl')
+        with self.assertRaises(ValueError): self.verify()
+
+    def test_rejects_no_banner_navigation_failure(self):
+        self.cases[3]['observations']['noBannerControl']['navigationOpenedDestination'] = False
         with self.assertRaises(ValueError): self.verify()
 
     def test_rejects_wrong_dynamic_type(self):

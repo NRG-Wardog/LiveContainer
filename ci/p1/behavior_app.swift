@@ -6,11 +6,7 @@
     @State private var submitting = false
     @State private var fieldsState = "unobserved"
     @State private var clipboardState = "unobserved"
-    @State private var transitionDelay = "unobserved"
-    @State private var transitionScheduled = false
-    @State private var firstCopyTime = "0"
-    @State private var lastCopyTime = "0"
-    @State private var copyCount = 0
+    @StateObject private var observation = P1FeedbackObserver()
     private var diagnostic: String { "p1-safe-diagnostic-\(generation)" }
     private var prompt: [String: Any] {
         ["id": "p1-credentials-\(generation)", "kind": "credentials", "title": "P1 Credentials",
@@ -55,10 +51,9 @@
                         Text(String(generation)).accessibilityIdentifier("p1-generation")
                         Text(fieldsState).accessibilityIdentifier("p1-fields-state")
                         Text(clipboardState).accessibilityIdentifier("p1-clipboard-state")
-                        Text(transitionDelay).accessibilityIdentifier("p1-transition-delay")
-                        Text(firstCopyTime).accessibilityIdentifier("p1-first-copy-time")
-                        Text(lastCopyTime).accessibilityIdentifier("p1-last-copy-time")
-                        Text(String(copyCount)).accessibilityIdentifier("p1-copy-count")
+                        Text(observation.reportJSON.isEmpty ? "Observing" : "Observed")
+                            .accessibilityIdentifier("p1-observation-report")
+                            .accessibilityValue(observation.reportJSON)
                     }.font(.system(size: 9))
                 }
                 .padding(6).background(Color(.systemBackground))
@@ -67,25 +62,14 @@
         .onReceive(NotificationCenter.default.publisher(for: UIPasteboard.changedNotification)) { _ in
             let value = UIPasteboard.general.string ?? ""
             clipboardState = value == diagnostic ? "exact-safe-diagnostic" : "other"
-            if value == diagnostic {
-                lastCopyTime = String(Date().timeIntervalSince1970)
-                if copyCount == 0 { firstCopyTime = lastCopyTime }
-                copyCount += 1
-            }
-            let arguments = ProcessInfo.processInfo.arguments
-            guard value == diagnostic, !transitionScheduled,
-                  arguments.contains("--replace-on-copy") || arguments.contains("--dismiss-on-copy") else { return }
-            transitionScheduled = true
-            let started = Date()
-            // Fixture-owned incoming prompt/dismissal, scheduled inside the actual
-            // 2-second production feedback lifetime after a real XCTest Copy tap.
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 750_000_000)
-                transitionDelay = String(Date().timeIntervalSince(started))
-                fieldsState = "unobserved"
-                if arguments.contains("--replace-on-copy") { generation += 1 }
-                else { shown = false }
-            }
+            observation.copyEvent(value: value, expected: diagnostic,
+                changeCount: UIPasteboard.general.changeCount,
+                context: { (generation, shown) },
+                transition: {
+                    fieldsState = "unobserved"
+                    if ProcessInfo.processInfo.arguments.contains("--replace-on-copy") { generation += 1 }
+                    else { shown = false }
+                }, reopen: { shown = true; fieldsState = "unobserved" })
         }
     }
 }

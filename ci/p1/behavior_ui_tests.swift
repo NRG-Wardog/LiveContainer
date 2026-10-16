@@ -11,6 +11,7 @@ final class P0SignInUITests: XCTestCase {
         return app
     }
     @MainActor func p1Wait(_ predicate: @escaping () -> Bool, timeout: TimeInterval = 5) -> Bool {
+        if predicate() { return true }
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in predicate() }, object: nil)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
@@ -29,16 +30,15 @@ final class P0SignInUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
-    @MainActor func p1Copy(_ app: XCUIApplication) -> XCUIElement {
+    @MainActor func p1CopyTap(_ app: XCUIApplication) {
         let copy = app.buttons["signin.prompt.copy-details"]
         XCTAssertTrue(copy.waitForExistence(timeout: 10))
         if !copy.isHittable { app.swipeDown() }
         XCTAssertTrue(copy.isHittable)
         XCTAssertEqual(copy.label, "Copy Details")
+        // Transient feedback is observed passively inside the app while XCTest
+        // waits for idling after this genuine UI tap. Never infer it from pasteboard.
         copy.tap()
-        XCTAssertTrue(p1Wait({ copy.label == "Copied" }, timeout: 1), "Actual P1 copy action did not show feedback")
-        XCTAssertEqual(app.staticTexts["p1-clipboard-state"].label, "exact-safe-diagnostic")
-        return copy
     }
     @MainActor func p1Fill(_ app: XCUIApplication) {
         XCTAssertTrue(app.staticTexts["p1-ready"].waitForExistence(timeout: 10))
@@ -59,79 +59,118 @@ final class P0SignInUITests: XCTestCase {
         XCTAssertTrue(submit.isHittable)
         submit.tap()
     }
-    @MainActor func p1Lifetime(_ app: XCUIApplication, copy: XCUIElement) -> [String: Any] {
-        let started = Double(app.staticTexts["p1-last-copy-time"].label) ?? 0
-        XCTAssertGreaterThan(started, 0)
-        // Observation stays outside production code. Missing the finite window
-        // is an inconclusive test failure, never an inferred timer pass.
-        while Date().timeIntervalSince1970 - started < 1.5 { Thread.sleep(forTimeInterval: 0.01) }
-        let samplingStarted = Date().timeIntervalSince1970 - started
-        XCTAssertEqual(copy.label, "Copied", "New feedback expired before its own minimum lifetime")
-        let sampled = Date().timeIntervalSince1970 - started
-        XCTAssertGreaterThanOrEqual(samplingStarted, 1.5)
-        XCTAssertLessThan(sampled, 3, "Accessibility observation missed the feedback window")
-        XCTAssertTrue(p1Wait({ copy.label == "Copy Details" }, timeout: 5), "P1 feedback did not expire")
-        let expiry = Date().timeIntervalSince1970 - started
-        XCTAssertGreaterThanOrEqual(expiry, 1.5)
-        XCTAssertLessThan(expiry, 5)
-        return ["minimumLifetimeSeconds": samplingStarted, "feedbackObservedSeconds": sampled,
-                "observedExpirySeconds": expiry]
+    @MainActor func p1Trace(_ app: XCUIApplication, phase: String, ordinals: [Int]) -> [String: Any] {
+        let value = app.staticTexts["p1-observation-report"]
+        var trace: [String: Any] = [:]
+        let ready = p1Wait({
+            guard let raw = value.value as? String, let data = raw.data(using: .utf8),
+                  let candidate = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let events = candidate["events"] as? [[String: Any]] else { return false }
+            trace = candidate
+            return candidate["phase"] as? String == phase && events.compactMap({ $0["ordinal"] as? Int }) == ordinals
+        }, timeout: 12)
+        let attachment = XCTAttachment(data: try! JSONSerialization.data(withJSONObject: trace,
+            options: [.prettyPrinted, .sortedKeys]), uniformTypeIdentifier: "public.json")
+        attachment.name = "p1-passive-" + phase
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        XCTAssertTrue(ready, "Missing complete passive production-label observation")
+        XCTAssertEqual(trace["schema"] as? String, "p1-passive-ax-trace-v1")
+        let events = trace["events"] as? [[String: Any]] ?? []
+        XCTAssertEqual(events.count, ordinals.count)
+        XCTAssertTrue(events.allSatisfy { $0["clipboardExact"] as? Bool == true })
+        let changes = events.compactMap { $0["changeCount"] as? Int }
+        XCTAssertEqual(Set(changes).count, events.count)
+        return trace
     }
-    @MainActor func p1Overlap(_ app: XCUIApplication) -> Double {
-        XCTAssertEqual(app.staticTexts["p1-copy-count"].label, "2")
-        let first = Double(app.staticTexts["p1-first-copy-time"].label) ?? 0
-        let last = Double(app.staticTexts["p1-last-copy-time"].label) ?? 0
-        let interval = last - first
-        XCTAssertGreaterThanOrEqual(interval, 0.75, "New copy must place its minimum-lifetime sample beyond the old deadline")
-        XCTAssertLessThan(interval, 2, "New copy missed the old task lifetime; stale-timer overlap was not exercised")
-        return interval
+    @MainActor func p1Timing(_ trace: [String: Any], overlap: Bool) -> [String: Any] {
+        let events = trace["events"] as? [[String: Any]] ?? []
+        let samples = trace["samples"] as? [[String: Any]] ?? []
+        XCTAssertGreaterThan(samples.count, 10); XCTAssertLessThanOrEqual(samples.count, 160)
+        XCTAssertFalse(samples.contains { $0["traversalExhausted"] as? Bool != false })
+        func time(_ item: [String: Any]) -> Double { item["time"] as? Double ?? -1 }
+        func label(_ item: [String: Any], _ expected: String) -> Bool {
+            guard item["identifier"] as? String == "signin.prompt.copy-details",
+                  item["matchCount"] as? Int == 1, item["label"] as? String == expected,
+                  let frame = item["frame"] as? [Double], frame.count == 4,
+                  frame.allSatisfy({ $0.isFinite }), frame[2] > 0, frame[3] > 0,
+                  let viewport = item["viewport"] as? [Double], viewport.count == 4,
+                  viewport.allSatisfy({ $0.isFinite }), viewport[2] > 0, viewport[3] > 0 else { return false }
+            return frame[0] >= viewport[0] - 1 && frame[1] >= viewport[1] - 1 &&
+                frame[0] + frame[2] <= viewport[0] + viewport[2] + 1 &&
+                frame[1] + frame[3] <= viewport[1] + viewport[3] + 1
+        }
+        let start = events.last.map(time) ?? -1
+        XCTAssertGreaterThanOrEqual(start, 0)
+        let copied = samples.filter { label($0, "Copied") && time($0) >= start }
+        let late = copied.first { time($0) - start >= 1.5 && time($0) - start < 3 }
+        XCTAssertNotNil(late, "Actual rendered feedback lacks its own minimum lifetime")
+        let lastCopied = late.map(time) ?? -1
+        let expiry = samples.first { label($0, "Copy Details") && time($0) > lastCopied && time($0) - start < 5 }
+        XCTAssertNotNil(expiry, "Actual feedback expiry was not observed")
+        var result: [String: Any] = ["minimumLifetimeSeconds": lastCopied - start,
+            "feedbackObservedSeconds": lastCopied - start, "observedExpirySeconds": (expiry.map(time) ?? -1) - start,
+            "passiveTrace": trace]
+        if overlap {
+            XCTAssertEqual(events.count, 2)
+            XCTAssertEqual(events.first?["driver"] as? String, "XCTest-tap")
+            XCTAssertEqual(events.last?["driver"] as? String, "public-accessibilityActivate")
+            let spacing = start - (events.first.map(time) ?? -1)
+            XCTAssertGreaterThanOrEqual(spacing, 0.75); XCTAssertLessThan(spacing, 2)
+            XCTAssertGreaterThanOrEqual(lastCopied - (events.first.map(time) ?? -1), 2.25)
+            let transitions = trace["transitions"] as? [[String: Any]] ?? []
+            let transition = transitions.first.map(time) ?? -1
+            XCTAssertGreaterThan(transition, 0); XCTAssertLessThan(transition, 2)
+            XCTAssertTrue(samples.contains { label($0, "Copied") && time($0) < transition })
+            XCTAssertTrue(samples.contains { label($0, "Copy Details") && time($0) >= transition && time($0) < start })
+            let activations = trace["activations"] as? [[String: Any]] ?? []
+            XCTAssertEqual(activations.count, 1)
+            XCTAssertEqual(activations.first?["success"] as? Bool, true)
+            if trace["scenario"] as? String == "dismiss-reopen" {
+                XCTAssertTrue(samples.contains { $0["shown"] as? Bool == false && $0["matchCount"] as? Int == 0 })
+            }
+            result["transitionDelaySeconds"] = transition
+            result["copyEventSpacingSeconds"] = spacing
+        } else {
+            XCTAssertEqual(events.count, 1)
+            XCTAssertEqual(events.first?["driver"] as? String, "XCTest-tap")
+        }
+        return result
     }
     @MainActor func testP1FeedbackTimeout() {
         let app = p1Launch()
         XCTAssertTrue(app.staticTexts["p1-ready"].waitForExistence(timeout: 10))
-        let copy = p1Copy(app)
-        let timing = p1Lifetime(app, copy: copy)
+        p1CopyTap(app)
+        let trace = p1Trace(app, phase: "overlap", ordinals: [1])
+        let timing = p1Timing(trace, overlap: false)
         p1Record("feedback-timeout", checks: ["copied-label", "safe-clipboard", "minimum-feedback-lifetime", "feedback-timeout"],
                  observations: timing)
     }
-    @MainActor func testP1PromptReplacement() {
-        let app = p1Launch(["--replace-on-copy"])
+    @MainActor func p1Lifecycle(_ name: String, argument: String, checks: [String]) {
+        let app = p1Launch([argument])
         p1Fill(app)
-        _ = p1Copy(app)
-        XCTAssertTrue(p1Wait({ app.staticTexts["p1-generation"].label == "1" }))
-        let copy = p1Copy(app)
-        let timing = p1Lifetime(app, copy: copy)
-        let overlap = p1Overlap(app)
-        let transitionDelay = Double(app.staticTexts["p1-transition-delay"].label) ?? -1
-        XCTAssertGreaterThan(transitionDelay, 0)
-        XCTAssertLessThan(transitionDelay, 2)
+        p1CopyTap(app)
+        let trace = p1Trace(app, phase: "overlap", ordinals: [1, 2])
+        var timing = p1Timing(trace, overlap: true)
         p1Submit(app)
-        XCTAssertEqual(app.staticTexts["p1-fields-state"].label, "empty", "Synthetic credentials crossed prompt identity")
-        p1Record("prompt-replacement", checks: ["copied-label", "replacement-clears-feedback", "replacement-clears-fields",
-            "replacement-safe-clipboard", "replacement-feedback-timeout", "replacement-during-feedback",
-            "replacement-minimum-lifetime", "replacement-old-timer-overlap"], observations: timing.merging([
-                "transitionDelaySeconds": transitionDelay, "copyEventSpacingSeconds": overlap
-            ]) { _, new in new })
+        XCTAssertEqual(app.staticTexts["p1-fields-state"].label, "empty", "Synthetic credentials survived prompt lifecycle")
+        // Separate physical-interaction coverage on the replacement/reopened UI.
+        // This third event must never satisfy the first/second overlap proof.
+        p1CopyTap(app)
+        let normal = p1Trace(app, phase: "normal-xctest-tap", ordinals: [3])
+        timing["normalTapObservation"] = p1Timing(normal, overlap: false)
+        timing["inputDrivers"] = ["XCTest-tap", "public-accessibilityActivate", "XCTest-tap"]
+        p1Record(name, checks: checks + ["normal-replacement-copy-hittable-and-tapped"], observations: timing)
+    }
+    @MainActor func testP1PromptReplacement() {
+        p1Lifecycle("prompt-replacement", argument: "--replace-on-copy", checks: ["copied-label",
+            "replacement-clears-feedback", "replacement-clears-fields", "replacement-safe-clipboard",
+            "replacement-feedback-timeout", "replacement-during-feedback", "replacement-minimum-lifetime",
+            "replacement-old-timer-overlap"])
     }
     @MainActor func testP1DismissReopen() {
-        let app = p1Launch(["--dismiss-on-copy"])
-        p1Fill(app)
-        _ = p1Copy(app)
-        XCTAssertTrue(app.staticTexts["p1-dismissed"].waitForExistence(timeout: 3))
-        XCTAssertFalse(app.buttons["signin.prompt.copy-details"].exists)
-        app.buttons["p1-toggle"].tap()
-        let copy = p1Copy(app)
-        let timing = p1Lifetime(app, copy: copy)
-        let overlap = p1Overlap(app)
-        let transitionDelay = Double(app.staticTexts["p1-transition-delay"].label) ?? -1
-        XCTAssertGreaterThan(transitionDelay, 0)
-        XCTAssertLessThan(transitionDelay, 2)
-        p1Submit(app)
-        XCTAssertEqual(app.staticTexts["p1-fields-state"].label, "empty", "Dismissed prompt retained synthetic credentials")
-        p1Record("dismiss-reopen", checks: ["copied-label", "dismiss-removes-prompt", "reopen-clears-feedback",
-            "reopen-clears-fields", "reopen-safe-clipboard", "reopen-feedback-timeout", "dismiss-during-feedback",
-            "reopen-minimum-lifetime", "reopen-old-timer-overlap"], observations: timing.merging([
-                "transitionDelaySeconds": transitionDelay, "copyEventSpacingSeconds": overlap
-            ]) { _, new in new })
+        p1Lifecycle("dismiss-reopen", argument: "--dismiss-on-copy", checks: ["copied-label",
+            "dismiss-removes-prompt", "reopen-clears-feedback", "reopen-clears-fields", "reopen-safe-clipboard",
+            "reopen-feedback-timeout", "dismiss-during-feedback", "reopen-minimum-lifetime", "reopen-old-timer-overlap"])
     }
 }

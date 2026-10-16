@@ -118,6 +118,14 @@ class CaptureGateTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'macOS'): capture.execute()
             self.assertFalse((Path(tmp) / 'evidence').exists())
 
+    def test_recovery_extraction_receives_exact_single_source_argument(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = gate.Capture(self.data, self.raw, self.approved, HOST, Path(tmp) / 'work', Path(tmp) / 'evidence')
+            with patch.object(capture, 'run', side_effect=RuntimeError('stop before native')) as run:
+                with self.assertRaisesRegex(RuntimeError, 'stop before native'): capture.targeted_behavior()
+            self.assertEqual(run.call_args.args, ('p1-recovery-extraction-tests',
+                [gate.sys.executable, '-B', HOST / 'ci/p1/recovery_source_tests.py', capture.live / gate.SHELL]))
+
     def test_preserves_curated_ui_evidence_without_build_products(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

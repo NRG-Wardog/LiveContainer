@@ -30,9 +30,9 @@ RENDER_BASELINE = {'commit': '7d8ae12905f8baa6e0ecc4dbdd3f25e2aa0e43fa',
 P0_REVIEW = '34d12b14364d4db4ed24ee80bf206332d383c27e958b497d6f5cd1c9d28cc6dc'
 ADAPTERS = {'ci/p1/native_gate.py', 'ci/p1/tests/test_v3_signin_screen_cleanup.py',
             'ci/p1/tests/test_capture_gate.py', 'ci/p1/tests/test_behavior_capture.py',
-            'ci/p1/behavior_capture.py', 'ci/p1/behavior_app.swift', 'ci/p1/behavior_ui_tests.swift',
+            'ci/p1/behavior_capture.py', 'ci/p1/behavior_app.swift', 'ci/p1/behavior_observer.swift', 'ci/p1/behavior_ui_tests.swift',
             'ci/p1/recovery_source.py', 'ci/p1/recovery_app.swift', 'ci/p1/recovery_ui_tests.swift',
-            'ci/p1/recovery_source_tests.py',
+            'ci/p1/recovery_source_tests.py', 'ci/p1/feedback_trace.py', 'ci/p1/tests/test_feedback_trace.py',
             'ci/p0/native_gate.py', 'ci/p0/source_primitives.py',
             'ci/p0/run_unittest_suite.py', 'prepare_candidate_inventory.py'}
 
@@ -212,7 +212,10 @@ class Capture:
         require(result['passed'] is True and result['source_sha256'] == SHELL_HASH and
             result['device_classes'] == ['phone', 'tablet'] and result['test_count'] == 10 and
             result['cases_per_device'] == 5 and result['case_ids'] == list(behavior.CHECKS) and
-            result['screenshot_count'] == 26 and len(result['reports']) == 2, 'targeted P1 matrix incomplete')
+            result['screenshot_count'] == 30 and len(result['reports']) == 2 and
+            result['observation_mode'] == 'passive-production-accessibility-v1' and
+            result['input_drivers'] == ['XCTest-tap', 'public-accessibilityActivate', 'XCTest-tap'] and
+            result['recovery_topology'] == 'TabView>NavigationView' and result['no_banner_control_required'] is True, 'targeted P1 matrix incomplete')
         renderer = load_renderer(self.builder)
         require({r['device_class'] for r in result['reports']} == {'phone', 'tablet'}, 'targeted P1 device identity differs')
         for report in result['reports']:
@@ -267,7 +270,7 @@ class Capture:
             self.stage = 'toolchain'
             require('Xcode 26.4.1' in self.run('xcode-version', ['xcodebuild', '-version']), 'unreviewed Xcode')
             self.run('swift-version', ['swift', '--version'])
-            self.acquire(); self.cleanup_tests(); self.native_build(); self.rendering(); self.targeted_behavior()
+            self.acquire(); self.cleanup_tests(); self.native_build(); self.targeted_behavior(); self.rendering()
             p0.dump(self.evidence / 'provenance/source-after.json', self.source_proof())
             self.stage = 'captured'; self.state['status'] = 'CAPTURED_FOR_REVIEW'
         finally:

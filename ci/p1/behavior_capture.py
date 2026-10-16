@@ -17,15 +17,16 @@ SOURCE_SHA256 = '3c40aab6667431d0ecb502d49a38416b9e76250ddf6e66dc1037e60d4594e0b
 METHODS = ['testP1FeedbackTimeout', 'testP1PromptReplacement', 'testP1DismissReopen',
            'testP1RecoveryNavigationDefault', 'testP1RecoveryNavigationLargest']
 RECOVERY_CHECKS = ['recovery-all-four-branches-visible', 'recovery-content-above-navigation',
-    'recovery-navigation-hittable', 'recovery-navigation-tap-opens-destination', 'recovery-navigation-back-restores-root']
+    'recovery-navigation-hittable', 'recovery-navigation-tap-opens-destination', 'recovery-navigation-back-restores-root',
+    'recovery-no-banner-control']
 CHECKS = {
     'feedback-timeout': ['copied-label', 'safe-clipboard', 'minimum-feedback-lifetime', 'feedback-timeout'],
     'prompt-replacement': ['copied-label', 'replacement-clears-feedback', 'replacement-clears-fields',
         'replacement-safe-clipboard', 'replacement-feedback-timeout', 'replacement-during-feedback',
-        'replacement-minimum-lifetime', 'replacement-old-timer-overlap'],
+        'replacement-minimum-lifetime', 'replacement-old-timer-overlap', 'normal-replacement-copy-hittable-and-tapped'],
     'dismiss-reopen': ['copied-label', 'dismiss-removes-prompt', 'reopen-clears-feedback', 'reopen-clears-fields',
         'reopen-safe-clipboard', 'reopen-feedback-timeout', 'dismiss-during-feedback',
-        'reopen-minimum-lifetime', 'reopen-old-timer-overlap'],
+        'reopen-minimum-lifetime', 'reopen-old-timer-overlap', 'normal-replacement-copy-hittable-and-tapped'],
     'recovery-navigation-default': RECOVERY_CHECKS,
     'recovery-navigation-largest': RECOVERY_CHECKS,
 }
@@ -67,7 +68,7 @@ def prepare(output, source, builder, command):
     require(original_app.count(main) == 1, 'baseline fixture app marker changed')
     # Retain baseline service stubs only; run a separate P1 fixture entry point.
     original_app = original_app.replace(main, '@MainActor struct P0SignInApp: App')
-    extracted['p0_signin_app.swift'] = original_app + '\n' + (HERE / 'behavior_app.swift').read_text() + '\n' + recovery.generate_recovery_source(source.read_text())
+    extracted['p0_signin_app.swift'] = original_app + '\n' + (HERE / 'behavior_observer.swift').read_text() + '\n' + (HERE / 'behavior_app.swift').read_text() + '\n' + recovery.generate_recovery_source(source.read_text())
     extracted['p0_signin_ui_tests.swift'] = (HERE / 'behavior_ui_tests.swift').read_text() + '\n' + (HERE / 'recovery_ui_tests.swift').read_text()
     for name, content in extracted.items():
         (sources / name).write_text(content)
@@ -122,7 +123,7 @@ def verify_export(directory, summary, renderer):
     require(summary.get('result') == 'Passed' and all(type(summary.get(k)) is int for k in
         ['passedTests', 'failedTests', 'skippedTests', 'totalTestCount']) and
         [summary['passedTests'], summary['failedTests'], summary['skippedTests'], summary['totalTestCount']] == [5, 0, 0, 5], 'P1 requires exactly five passed XCTest methods, zero skips')
-    cases, manifests, artifacts = [], [], {}
+    cases, manifests, artifacts, traces = [], [], {}, []
     for path in sorted(directory.rglob('*')):
         require(not path.is_symlink(), 'linked UI artifact')
         if not path.is_file(): continue
@@ -132,7 +133,12 @@ def verify_export(directory, summary, renderer):
         except (UnicodeDecodeError, ValueError): continue
         if path.name == 'manifest.json': manifests.append(item)
         if isinstance(item, dict) and item.get('schema') == 'p1-behavior-case-v1': cases.append(item)
+        if isinstance(item, dict) and item.get('schema') == 'p1-passive-ax-trace-v1': traces.append(item)
     require(len(cases) == 5 and {c.get('case') for c in cases} == set(CHECKS), 'missing/duplicate P1 cases')
+    trace_keys = {(name, phase) for name in ('feedback-timeout', 'prompt-replacement', 'dismiss-reopen')
+        for phase in (['overlap'] if name == 'feedback-timeout' else ['overlap', 'normal-xctest-tap'])}
+    require(len(traces) == 5 and {(t.get('scenario'), t.get('phase')) for t in traces} == trace_keys,
+            'raw passive AX trace exports missing or duplicated')
     required = []
     for case in cases:
         name = case['case']
@@ -141,6 +147,11 @@ def verify_export(directory, summary, renderer):
         require(case.get('screenshot') == 'p1-' + name, 'wrong case screenshot')
         required.append(case['screenshot'])
         observations = case.get('observations', {})
+        if name in ('feedback-timeout', 'prompt-replacement', 'dismiss-reopen'):
+            load('p1_passive_trace', HERE / 'feedback_trace.py').verify_observations(observations, name)
+            expected_traces = [observations['passiveTrace']]
+            if name != 'feedback-timeout': expected_traces.append(observations['normalTapObservation']['passiveTrace'])
+            require(all(t in traces for t in expected_traces), 'case differs from raw passive trace export')
         if name in ('feedback-timeout', 'prompt-replacement', 'dismiss-reopen'):
             minimum = observations.get('minimumLifetimeSeconds')
             sampled = observations.get('feedbackObservedSeconds')
@@ -158,6 +169,21 @@ def verify_export(directory, summary, renderer):
             require(type(delay) in (float, int) and 0 <= delay < 5, 'feedback timeout unobserved')
         else:
             largest = name.endswith('-largest')
+            require(observations.get('containerTopology') == 'TabView>NavigationView', 'wrong recovery container topology')
+            control = observations.get('noBannerControl', {})
+            require(control.get('kind') == 'none' and control.get('largestDynamicType') is largest and
+                all(control.get(k) is True for k in ['recoveryBannerAbsent', 'navigationHittable',
+                    'navigationOpenedDestination', 'navigationBackRestoredRoot']), 'missing no-banner navigation control')
+            nav, bar, content, viewport = [frame(control.get(k)) for k in
+                ['navigationFrame', 'navigationBarFrame', 'contentFrame', 'viewportFrame']]
+            require(bar[1] + bar[3] <= content[1] + 1, 'no-banner content overlaps navigation')
+            for value in (nav, bar, content):
+                require(value[0] >= viewport[0] - 1 and value[1] >= viewport[1] - 1 and
+                    value[0] + value[2] <= viewport[0] + viewport[2] + 1 and
+                    value[1] + value[3] <= viewport[1] + viewport[3] + 1, 'no-banner control outside viewport')
+            expected_control = 'p1-' + name + '-no-banner'
+            require(control.get('screenshot') == expected_control, 'missing no-banner screenshot')
+            required.append(expected_control)
             branches = observations.get('branches', [])
             require(observations.get('largestDynamicType') is largest and len(branches) == 4 and
                     {b.get('kind') for b in branches} == {'operation', 'direct', 'refresh', 'unreadable'}, 'incomplete recovery branch/size matrix')
@@ -175,7 +201,7 @@ def verify_export(directory, summary, renderer):
                 require(branch.get('screenshot') == expected, 'missing recovery branch screenshot')
                 required.append(expected)
     exported = list(rows(manifests)); seen = set(); screenshots = {}
-    require(len(required) == len(set(required)) == 13, 'P1 screenshot matrix differs')
+    require(len(required) == len(set(required)) == 15, 'P1 screenshot matrix differs')
     for name in required:
         matches = [row for row in exported if row.get('attachmentName') == name or
             isinstance(row.get('suggestedHumanReadableName'), str) and
@@ -196,7 +222,10 @@ def run(builder, source, output):
     rendering.COMMAND_LOG = output / 'command-diagnostics.jsonl'
     result = {'passed': False, 'source_sha256': SOURCE_SHA256, 'device_classes': ['phone', 'tablet'],
         'case_ids': list(CHECKS), 'cases_per_device': 5, 'test_count': 0, 'reports': [],
-        'physical_device_execution': False, 'backend_execution': False}
+        'physical_device_execution': False, 'backend_execution': False,
+        'observation_mode': 'passive-production-accessibility-v1',
+        'input_drivers': ['XCTest-tap', 'public-accessibilityActivate', 'XCTest-tap'],
+        'recovery_topology': 'TabView>NavigationView', 'no_banner_control_required': True}
     try:
         xctestrun, renderer, identity = prepare(output, source, builder, rendering.command)
         devices = rendering.available_devices()
@@ -229,7 +258,7 @@ def run(builder, source, output):
                 result['reports'].append(report)
             finally:
                 if not booted: rendering.command('xcrun', 'simctl', 'shutdown', device)
-        result.update(passed=True, test_count=10, screenshot_count=26,
+        result.update(passed=True, test_count=10, screenshot_count=30,
             source_identity_sha256=digest(output / 'source-identity.json'))
     finally:
         write(output / 'behavior-verification.json', result)
