@@ -55,6 +55,40 @@ class CaptureGateTests(unittest.TestCase):
         self.data['builder']['commit'] = 'f' * 40
         with self.assertRaisesRegex(ValueError, 'renderer'): self.validate(self.data)
 
+    def test_rejects_historical_render_baseline_drift(self):
+        for key in self.data['render_baseline']:
+            with self.subTest(key=key):
+                data = copy.deepcopy(self.data)
+                data['render_baseline'][key] = 'unreviewed'
+                with self.assertRaisesRegex(ValueError, 'historical rendering baseline'): self.validate(data)
+
+    def test_verifies_actual_render_baseline_object(self):
+        row = dict(gate.RENDER_BASELINE, sha256=gate.p0.sha(b'fixture bytes'))
+        record = ('100644', 'blob', row['blob'])
+        with patch.object(gate, 'git', side_effect=[row['commit'].encode(), row['tree'].encode(), b'fixture bytes']), \
+             patch.object(gate.p0.primitives, 'entries', return_value={row['path']: record}):
+            self.assertEqual(gate.verify_render_baseline(HOST, row), row)
+
+    def test_rejects_actual_render_baseline_tree_drift(self):
+        row = gate.RENDER_BASELINE
+        with patch.object(gate, 'git', side_effect=[row['commit'].encode(), b'wrong tree']):
+            with self.assertRaisesRegex(ValueError, 'commit/tree differs'): gate.verify_render_baseline(HOST, row)
+
+    def test_rejects_actual_render_baseline_missing_or_changed_blob(self):
+        row = gate.RENDER_BASELINE
+        for records in ({}, {row['path']: ('120000', 'blob', row['blob'])}):
+            with self.subTest(records=records), \
+                 patch.object(gate, 'git', side_effect=[row['commit'].encode(), row['tree'].encode()]), \
+                 patch.object(gate.p0.primitives, 'entries', return_value=records):
+                with self.assertRaisesRegex(ValueError, 'grid blob differs'): gate.verify_render_baseline(HOST, row)
+
+    def test_rejects_actual_render_baseline_bytes_drift(self):
+        row = gate.RENDER_BASELINE
+        record = ('100644', 'blob', row['blob'])
+        with patch.object(gate, 'git', side_effect=[row['commit'].encode(), row['tree'].encode(), b'altered']), \
+             patch.object(gate.p0.primitives, 'entries', return_value={row['path']: record}):
+            with self.assertRaisesRegex(ValueError, 'grid bytes differ'): gate.verify_render_baseline(HOST, row)
+
     def test_rejects_child_pin_drift(self):
         self.data['submodules']['LiveContainer/litehook']['commit'] = 'f' * 40
         with self.assertRaisesRegex(ValueError, 'child pins'): self.validate(self.data)

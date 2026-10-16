@@ -13,6 +13,7 @@ The ordinary build is excluded only for this validation branch.
 - Only changed source: `LiveContainerSwiftUI/Views/V3UnifiedShell.swift`
 - Exact shell SHA256: `3c40aab6667431d0ecb502d49a38416b9e76250ddf6e66dc1037e60d4594e0be`
 - Unchanged renderer/fixtures: audit builder `7e5062114f3ba8c1fe1990389ae9a008ce4d8c1f`
+- Historical layout baseline: `7d8ae12905f8baa6e0ecc4dbdd3f25e2aa0e43fa`, fetched explicitly as in the frozen audit workflow; its full tree and consumed grid blob/hash are verified before and after capture.
 - Inherited P0 reviewed approval SHA256: `34d12b14364d4db4ed24ee80bf206332d383c27e958b497d6f5cd1c9d28cc6dc`
 
 `inputs.json` seals the source delta, child commit/tree/URL pins, adapter hashes,

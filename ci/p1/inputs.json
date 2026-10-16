@@ -6,13 +6,13 @@
     "ci/p1/behavior_app.swift": "5c5f30a1cb7d656805c57c5a370bf4e541d31c7cf03d3fece53522de609e70ae",
     "ci/p1/behavior_capture.py": "d9cca109504feb368c6128c6b4d3b26d997e870fc0ce2bdc79df9f5932e3882c",
     "ci/p1/behavior_ui_tests.swift": "dcc357ec5f0ef56d059e3e26e02039fe1eb8a8e33e65dd24d8c9ae8259a29cc9",
-    "ci/p1/native_gate.py": "47ea5b83aab4a23bd0f88ce448da9990bfae131d9d862e664b314c45297c9fc6",
+    "ci/p1/native_gate.py": "b5d187b0cdbba4b6f0e9668c804700de00fb42078afa47a7db1fef6d9e662c16",
     "ci/p1/recovery_app.swift": "4ed196fde2e1332cef6f1b2a3bf8deb16d6d5cb96cf4eb122a32917898d79c4d",
     "ci/p1/recovery_source.py": "025bae6533b96af819c6a634cacb3823f936971ec630f2347f0d9d3eac15d2db",
     "ci/p1/recovery_source_tests.py": "85ac3446454c91c719d9241c95384a0c7a3e4e3531a1f5130ff4ec09b1695382",
     "ci/p1/recovery_ui_tests.swift": "b4ae4bcf2b78aab53926842ae6d69f49e025c0499f0c426108ec012bb4159e16",
     "ci/p1/tests/test_behavior_capture.py": "c3c8cd6edc5ad6a6c829db218f4095a8340e94d1c52d1b124c68b7da87188246",
-    "ci/p1/tests/test_capture_gate.py": "277659052b7bbab0103ea493558a33a844c6f7520be37a8c4e404e86e10e4504",
+    "ci/p1/tests/test_capture_gate.py": "c3aae4fc5a5273b564e0a903ec5e95949026ab23f75e861571804c3ad2289cbc",
     "ci/p1/tests/test_v3_signin_screen_cleanup.py": "c769e8c39984af1dfe1c78dbc38af9230d676da8d65bba947f53d98c9ed31212",
     "prepare_candidate_inventory.py": "90e8bd00abf49a695057949dc28dcf3ad1747a7d220913a0463b0b253b9e134a"
   },
@@ -53,6 +53,13 @@
     "parent": "00546cec351adad1fa1cad5590da4f06e612db8f",
     "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
     "tree": "3d3efc14415db6d28ede216965f83fa5924e9e9c"
+  },
+  "render_baseline": {
+    "blob": "d3d2fb912aad314c70cbd87cd717594dcd794d27",
+    "commit": "7d8ae12905f8baa6e0ecc4dbdd3f25e2aa0e43fa",
+    "path": "scripts/templates/livecontainer_grid_app_cell.swift",
+    "sha256": "b18f8483db39f908cb7de779c0bafb084d8507a45e4797404c65a93df6c89973",
+    "tree": "6996e0f5b0ea0d98760f5749528b27992c150240"
   },
   "schema_version": 1,
   "source_basis": "p1-ui-feedback-v1",

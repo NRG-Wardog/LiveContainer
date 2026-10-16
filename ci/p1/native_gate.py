@@ -22,6 +22,11 @@ TREE = '3d3efc14415db6d28ede216965f83fa5924e9e9c'
 SHELL = 'LiveContainerSwiftUI/Views/V3UnifiedShell.swift'
 SHELL_HASH = '3c40aab6667431d0ecb502d49a38416b9e76250ddf6e66dc1037e60d4594e0be'
 BUILDER = '7e5062114f3ba8c1fe1990389ae9a008ce4d8c1f'
+RENDER_BASELINE = {'commit': '7d8ae12905f8baa6e0ecc4dbdd3f25e2aa0e43fa',
+    'tree': '6996e0f5b0ea0d98760f5749528b27992c150240',
+    'path': 'scripts/templates/livecontainer_grid_app_cell.swift',
+    'blob': 'd3d2fb912aad314c70cbd87cd717594dcd794d27',
+    'sha256': 'b18f8483db39f908cb7de779c0bafb084d8507a45e4797404c65a93df6c89973'}
 P0_REVIEW = '34d12b14364d4db4ed24ee80bf206332d383c27e958b497d6f5cd1c9d28cc6dc'
 ADAPTERS = {'ci/p1/native_gate.py', 'ci/p1/tests/test_v3_signin_screen_cleanup.py',
             'ci/p1/tests/test_capture_gate.py', 'ci/p1/tests/test_behavior_capture.py',
@@ -35,7 +40,7 @@ ADAPTERS = {'ci/p1/native_gate.py', 'ci/p1/tests/test_v3_signin_screen_cleanup.p
 def validate(raw, approved, host):
     require(p0.sha(raw) == p0.digest(approved), 'unreviewed input bytes')
     data = p0.parse(raw)
-    require(set(data) == {'schema_version', 'source_basis', 'livecontainer', 'builder', 'submodules',
+    require(set(data) == {'schema_version', 'source_basis', 'livecontainer', 'builder', 'render_baseline', 'submodules',
                          'adapter_files', 'expected_test_ids', 'inherited_p0_review_sha256'}, 'unexpected input schema')
     require(data['schema_version'] == 1 and data['source_basis'] == BASIS, 'wrong P1 basis')
     source = data['livecontainer']
@@ -47,6 +52,7 @@ def validate(raw, approved, host):
         'sha256': SHELL_HASH}, 'P1 delta differs')
     require(data['builder'] == {'repository': 'https://github.com/NRG-Wardog/sidestore-auto-refresh.git',
                                'commit': BUILDER, 'tree': '70c4bc332a925dd608d37f39e8803a13451add33'}, 'unreviewed renderer')
+    require(data['render_baseline'] == RENDER_BASELINE, 'unreviewed historical rendering baseline')
     require(data['inherited_p0_review_sha256'] == P0_REVIEW, 'unreviewed P0 inheritance')
     original = p0.parse(p0.ordinary(host, 'ci/p0/inputs-sidestore.json').read_bytes())
     require(data['submodules'] == {k: v for k, v in original['submodules'].items() if k.startswith('LiveContainer/')}, 'child pins differ from P0')
@@ -64,6 +70,17 @@ def load_renderer(builder):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def verify_render_baseline(builder, row):
+    require(git(builder, 'rev-parse', row['commit'] + '^{commit}').decode().strip() == row['commit'] and
+            git(builder, 'rev-parse', row['commit'] + '^{tree}').decode().strip() == row['tree'],
+            'historical rendering baseline commit/tree differs')
+    require(p0.primitives.entries(builder, row['commit']).get(row['path']) ==
+            ('100644', 'blob', row['blob']), 'historical rendering grid blob differs')
+    require(p0.sha(git(builder, 'cat-file', 'blob', row['blob'])) == row['sha256'],
+            'historical rendering grid bytes differ')
+    return dict(row)
 
 
 class Capture:
@@ -91,6 +108,7 @@ class Capture:
             root = self.sources / path
             require(git(root, 'rev-parse', 'HEAD^{tree}').decode().strip() == row['tree'], 'child tree differs')
             proof[path] = p0.primitives.verify_origin(root, row['repository'], row['commit'])
+        proof['render_baseline'] = verify_render_baseline(self.builder, self.data['render_baseline'])
         actual = snapshot(self.live, PARENT, COMMIT)
         require(actual['changes'] == self.data['livecontainer']['changes'] and actual['tree'] == TREE, 'source delta differs')
         require(git(self.live, 'rev-parse', 'HEAD^').decode().strip() == PARENT, 'P1 direct parent differs')
@@ -101,6 +119,10 @@ class Capture:
         self.stage = 'fetch'
         self.clone('p1-livecontainer', self.data['livecontainer'], self.live)
         self.clone('reviewed-builder', self.data['builder'], self.builder)
+        # The frozen audit workflow also fetches this non-branch historical input.
+        # Keep the builder checkout/renderer unchanged and prove the consumed blob.
+        self.run('fetch-render-baseline', ['git', '-C', self.builder, 'fetch', '--no-tags',
+            '--no-recurse-submodules', 'origin', self.data['render_baseline']['commit']])
         links = {path: row['git_object'] for path, row in entries(self.live, COMMIT).items() if row['type'] == 'commit'}
         require(set(links) == {Path(k).name for k in self.data['submodules']}, 'unreviewed child dependency')
         modules = configparser.ConfigParser(interpolation=None)
