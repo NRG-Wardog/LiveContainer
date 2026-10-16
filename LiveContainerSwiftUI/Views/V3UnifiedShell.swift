@@ -7308,7 +7308,7 @@ struct V3UnifiedTabs: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
-        .overlay(alignment: .top) {
+        .safeAreaInset(edge: .top, spacing: 0) {
             if let recovery = status.unresolvedOperationRecovery {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("A previous \(recovery.kind) may still be running")
@@ -11930,7 +11930,7 @@ struct V3PromptSection: View {
     let onAnswer: ([String: String]) -> Void
     @State private var fields: [String: String] = [:]
     @State private var selected: Set<String> = []
-    @State private var copiedDetails = false
+    @State private var copiedDiagnostic: String?
     @State private var repairURL: URL?
     private var kind: String { prompt["kind"] as? String ?? "" }
     private var title: String { prompt["title"] as? String ?? "Input Needed" }
@@ -11975,7 +11975,9 @@ struct V3PromptSection: View {
                             .accessibilityIdentifier("signin.prompt.previous-error-body")
                     }
                     .accessibilityIdentifier("signin.prompt.previous-error-details")
-                    Button("Copy Details") { UIPasteboard.general.string = previousFailureDetails }
+                    Button(copiedDiagnostic == previousFailureDetails ? "Copied" : "Copy Details") {
+                        copyDiagnostic(previousFailureDetails)
+                    }
                         .font(.caption)
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("signin.prompt.copy-details")
@@ -12094,13 +12096,8 @@ struct V3PromptSection: View {
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
-                Button(copiedDetails ? "Copied" : "Copy Details") {
-                    UIPasteboard.general.string = value
-                    copiedDetails = true
-                    Task {
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)
-                        copiedDetails = false
-                    }
+                Button(copiedDiagnostic == value ? "Copied" : "Copy Details") {
+                    copyDiagnostic(value)
                 }
                 .font(.caption)
             }
@@ -12177,9 +12174,27 @@ struct V3PromptSection: View {
             Task { await loadRepairURL() }
         }
         .onChange(of: prompt["id"] as? String ?? "") { _ in
+            copiedDiagnostic = nil
             loadFields()
             Task { await loadRepairURL() }
         }
+        .task(id: copiedDiagnostic) {
+            guard copiedDiagnostic != nil else { return }
+            do { try await Task.sleep(nanoseconds: 2_000_000_000) }
+            catch { return }
+            guard !Task.isCancelled else { return }
+            copiedDiagnostic = nil
+        }
+        .onDisappear {
+            copiedDiagnostic = nil
+            fields = [:]
+            selected = []
+            repairURL = nil
+        }
+    }
+    private func copyDiagnostic(_ value: String) {
+        UIPasteboard.general.string = value
+        copiedDiagnostic = value
     }
     private func loadFields() {
         fields = [:]
