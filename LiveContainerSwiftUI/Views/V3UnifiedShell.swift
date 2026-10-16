@@ -5224,13 +5224,17 @@ enum V3AuthFailureDiagnosticsPolicy {
         let accountDetails = " source_step=\(step) typed_error=\(fields["typed_error"] ?? "unknown") server_code=\(fields["server_code"] ?? "unknown") http_status=\(fields["http_status"] ?? "unavailable")"
         let nativeDetails = fields["typed_error"] == "anisetteKitADIError"
             ? " native_code=\(fields["native_code"] ?? "unknown") native_phase=\(fields["native_phase"] ?? "unknown") native_subcode=\(fields["native_subcode"] ?? "unknown")" : ""
+        let initializerDetails = ["native_init_kind", "native_init_reason", "native_init_engine",
+            "native_init_library", "native_init_initializer"].compactMap { key in
+                fields[key].map { " \(key)=\($0)" }
+            }.joined()
         let attemptDetails = fields["anisette_blob_state"].map {
             " anisette_blob_state=\($0) anisette_recovery=\(fields["anisette_recovery"] ?? "notAttempted")"
         } ?? ""
         let probeDetails = fields["probe_native_code"].map {
             " probe_native_code=\($0) probe_native_phase=\(fields["probe_native_phase"] ?? "unknown") probe_native_subcode=\(fields["probe_native_subcode"] ?? "unknown")"
         } ?? ""
-        return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + nativeDetails + attemptDetails + probeDetails +
+        return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + nativeDetails + initializerDetails + attemptDetails + probeDetails +
             (fields[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))?.technicalDetails ?? "") +
             (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "")
     }
