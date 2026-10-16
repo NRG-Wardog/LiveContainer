@@ -2,6 +2,8 @@ name: Xcode - Build
 
 on: 
   push:
+    branches-ignore: [validation/p0-constructor-diagnostics]
+    tags: ['**']
   pull_request:
   workflow_dispatch:
     inputs: 
