@@ -54,14 +54,36 @@ class BehaviorExportTests(unittest.TestCase):
         self.manifest = [{'attachmentName': name, 'exportedFileName': str(i) + '.png'} for i, name in enumerate(names)]
         for row in self.manifest: (self.root / row['exportedFileName']).write_bytes(png())
 
-    def verify(self):
+    def verify(self, directory=None):
         for i, case in enumerate(self.cases): (self.root / (str(i) + '-case.json')).write_text(json.dumps(case))
         (self.root / 'manifest.json').write_text(json.dumps(self.manifest))
-        return behavior.verify_export(self.root, self.summary, Decoder)
+        return behavior.verify_export(self.root if directory is None else directory, self.summary, Decoder)
 
     def test_exact_five_cases_and_thirteen_screenshots(self):
         result = self.verify()
         self.assertEqual(result['test_count'], 5); self.assertEqual(len(result['screenshots']), 13)
+
+    def test_accepts_canonicalized_parent_alias(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            alias = Path(temporary) / 'parent'
+            alias.symlink_to(self.root.parent, target_is_directory=True)
+            result = self.verify(alias / self.root.name)
+        self.assertEqual(result['test_count'], 5)
+        self.assertEqual(len(result['screenshots']), 13)
+        self.assertTrue(all(not Path(item['path']).is_absolute() and
+            (self.root / item['path']).is_file() for item in result['screenshots'].values()))
+
+    def test_rejects_linked_export_root(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            alias = Path(temporary) / 'root'
+            alias.symlink_to(self.root, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, 'linked/missing UI export root'):
+                self.verify(alias)
+
+    def test_rejects_linked_export_artifact(self):
+        (self.root / 'linked.png').symlink_to(self.root / '0.png')
+        with self.assertRaisesRegex(ValueError, 'linked UI artifact'):
+            self.verify()
 
     def test_rejects_skipped_or_failed_native_test(self):
         for key in ('failedTests', 'skippedTests'):

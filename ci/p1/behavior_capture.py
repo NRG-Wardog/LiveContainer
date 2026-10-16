@@ -115,6 +115,10 @@ def frame(value):
 
 
 def verify_export(directory, summary, renderer):
+    require(directory.is_dir() and not directory.is_symlink(), 'linked/missing UI export root')
+    # macOS temporary paths can use /var while resolved files use /private/var.
+    # Reject a linked export root before canonicalizing its parent aliases.
+    directory = directory.resolve()
     require(summary.get('result') == 'Passed' and all(type(summary.get(k)) is int for k in
         ['passedTests', 'failedTests', 'skippedTests', 'totalTestCount']) and
         [summary['passedTests'], summary['failedTests'], summary['skippedTests'], summary['totalTestCount']] == [5, 0, 0, 5], 'P1 requires exactly five passed XCTest methods, zero skips')
@@ -178,7 +182,7 @@ def verify_export(directory, summary, renderer):
             (row['suggestedHumanReadableName'] in (name, name + '.png') or row['suggestedHumanReadableName'].startswith(name + '_'))]
         require(len(matches) == 1 and isinstance(matches[0].get('exportedFileName'), str), 'missing/duplicate screenshot: ' + name)
         path = (directory / matches[0]['exportedFileName']).resolve()
-        require(path.is_relative_to(directory.resolve()) and path.is_file() and path not in seen and
+        require(path.is_relative_to(directory) and path.is_file() and path not in seen and
                 renderer.valid_png(path.read_bytes()), 'invalid/reused screenshot: ' + name)
         seen.add(path); screenshots[name] = {'path': str(path.relative_to(directory)), 'sha256': digest(path)}
     return {'passed': True, 'cases': cases, 'artifact_sha256': artifacts, 'screenshots': screenshots,
