@@ -7,6 +7,7 @@
 @import ObjectiveC;
 #import "utils.h"
 #import "UIKitPrivate+MultitaskSupport.h"
+#include "LCGuestSafeAreaGeometry.h"
 
 static BOOL LCHasRemoteSheetProviderSelector;
 
@@ -47,13 +48,24 @@ void hook_FBScene_performUpdateWithoutActivation(FBScene* self, SEL _cmd, void (
     _UISceneHostingView *view = controller.sceneView;
     id wrappedBlock = ^(UIMutableApplicationSceneSettings *settings, FBSSceneTransitionContext *context) {
         updateBlock(settings, context);
+        // During attachment/teardown no host safe area is authoritative. Keep
+        // the original block's settings until this particular view is attached.
+        UIView *container = view.superview;
+        if (!container || !view.window) return;
         CGAffineTransform transform = view.transform;
-        UIEdgeInsets orig = view.superview.safeAreaInsets;
+        UIEdgeInsets orig = container.safeAreaInsets;
+        // Validate before the existing landscape adjustment so that it cannot
+        // hide an invalid host inset. No fallback insets are invented here.
+        LCGuestSafeAreaInsets source = {orig.top, orig.left, orig.bottom, orig.right};
+        if (!LCGuestSafeAreaInsetsAreValid(source)) return;
         if(LCHasRemoteSheetProviderSelector && UIInterfaceOrientationIsLandscape(settings.interfaceOrientation)) {
             // apps with glass has an extra top safe area space, so clear it (will it cause inconsistencies?)
-            orig.top = 0;
+            source.top = 0;
         }
-        UIEdgeInsets insets = UIEdgeInsetsMake(orig.top / transform.d, orig.left / transform.a, orig.bottom / transform.d, orig.right / transform.a);
+        LCGuestSafeAreaInsets scaled;
+        LCGuestSafeAreaTransform scale = {transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty};
+        if (!LCGuestScaleSafeAreaInsets(source, scale, &scaled)) return;
+        UIEdgeInsets insets = UIEdgeInsetsMake(scaled.top, scaled.left, scaled.bottom, scaled.right);
         if(@available(iOS 19.0, *)) {
             settings.safeAreaEdgeInsets = insets;
             // fix orientation
