@@ -7203,6 +7203,61 @@ struct V3UnifiedShell: View {
     var body: some View { V3ApplicationRoot(content: V3UnifiedTabs()) }
 }
 
+// A TabView's UIKit navigation children can ignore a top safe-area inset. Give
+// recovery its own bounded layout space instead of drawing over those children.
+private struct V3RecoveryBannerHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct V3RecoveryBannerLayout<Banner: View>: ViewModifier {
+    let isPresented: Bool
+    let banner: Banner
+    @State private var naturalHeight: CGFloat = 0
+
+    init(isPresented: Bool, @ViewBuilder banner: () -> Banner) {
+        self.isPresented = isPresented
+        self.banner = banner()
+    }
+
+    func body(content: Content) -> some View {
+        GeometryReader { geometry in
+            // Keep most of the safe-area viewport for navigation, content and
+            // tabs, including compact heights and accessibility text sizes.
+            let limit = min(CGFloat(320), max(0, geometry.size.height) * 0.4)
+            VStack(spacing: 0) {
+                if isPresented {
+                    ScrollView(.vertical, showsIndicators: true) {
+                        banner
+                            .fixedSize(horizontal: false, vertical: true)
+                            .background(GeometryReader { bannerGeometry in
+                                Color.clear.preference(key: V3RecoveryBannerHeightKey.self,
+                                    value: bannerGeometry.size.height)
+                            })
+                    }
+                    .frame(height: min(naturalHeight > 0 ? naturalHeight : limit, limit))
+                    .contentShape(Rectangle())
+                    .clipped()
+                    .accessibilityIdentifier("v3.recovery.region")
+                }
+                // The same content stays in the same structural position when
+                // recovery changes, so tab selection and navigation survive.
+                content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+            .onPreferenceChange(V3RecoveryBannerHeightKey.self) { measuredHeight in
+                guard measuredHeight.isFinite, measuredHeight >= 0 else { return }
+                if naturalHeight != measuredHeight { naturalHeight = measuredHeight }
+            }
+            .onChange(of: isPresented) { presented in
+                if !presented { naturalHeight = 0 }
+            }
+        }
+    }
+}
+
 struct V3UnifiedTabs: View {
     @EnvironmentObject private var sharedModel: SharedModel
     @StateObject private var status = V3SideStoreStatusStore()
@@ -7308,7 +7363,9 @@ struct V3UnifiedTabs: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
+        .modifier(V3RecoveryBannerLayout(isPresented:
+            status.unresolvedOperationRecovery != nil || status.unresolvedDirectRecovery != nil ||
+            status.unresolvedRefreshRecoveryRunID != nil || status.unresolvedRecoveryJournalUnreadable) {
             if let recovery = status.unresolvedOperationRecovery {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("A previous \(recovery.kind) may still be running")
@@ -7433,7 +7490,7 @@ struct V3UnifiedTabs: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 4)
             }
-        }
+        })
         .fullScreenCover(item: $status.presentation, onDismiss: {
             status.operationCoverDidDismiss()
             operationSheetDidDismiss()
