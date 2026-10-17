@@ -1,6 +1,6 @@
-name: P1 native host and UI candidate capture
+name: P1 diagnostic pixel and topology probe
 
-# Separate evidence lane. P0 artifacts and its source gate remain immutable.
+# Diagnostic collection only. A green job never grants native/UI admission.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -13,10 +13,10 @@ jobs:
   p1-native-ui:
     if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
     runs-on: macos-26
-    timeout-minutes: 150
+    timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-      APPROVED_P1_INPUTS_SHA256: 'bb1e20078787cc59a0eab5ea5588e012db733506e885757895c67ad36abaf85c'
+      APPROVED_P1_PROBE_INPUTS_SHA256: '3a22bb86d56974fee37600491dc6ea3f50a969487c82716e1600ff4c8d13f1a7'
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
       GIT_CONFIG_NOSYSTEM: '1'
@@ -31,30 +31,28 @@ jobs:
           path: validation
           persist-credentials: false
           set-safe-directory: false
-      - name: Fail closed on altered P1 capture inputs
+      - name: Verify sealed diagnostic-only inputs
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/native_gate.py \
-            --inputs validation/ci/p1/inputs.json \
-            --approved-inputs-sha256 "$APPROVED_P1_INPUTS_SHA256" \
+          python3 -B validation/ci/p1/probe/capture.py \
+            --inputs validation/ci/p1/probe/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_PROBE_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation"
-          python3 -B -m unittest discover -s validation/ci/p1/tests -p test_capture_gate.py -v
-          python3 -B -m unittest discover -s validation/ci/p1/tests -p test_behavior_capture.py -v
-          python3 -B -m unittest discover -s validation/ci/p1/tests -p test_feedback_trace.py -v
-      - name: Fresh P1 unsigned host build and exact-source UI capture
+          python3 -B -m unittest discover -s validation/ci/p1/probe -p test_probe.py -v
+      - name: Collect diagnostic pixels and topology only
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/native_gate.py \
-            --inputs validation/ci/p1/inputs.json \
-            --approved-inputs-sha256 "$APPROVED_P1_INPUTS_SHA256" \
+          python3 -B validation/ci/p1/probe/capture.py \
+            --inputs validation/ci/p1/probe/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_PROBE_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
-            --work "$RUNNER_TEMP/p1-work" --evidence "$GITHUB_WORKSPACE/p1-evidence" \
+            --work "$RUNNER_TEMP/p1-probe-work" --evidence "$GITHUB_WORKSPACE/p1-probe-evidence" \
             --execute
-      - name: Preserve actual P1 evidence for independent review
+      - name: Preserve diagnostic evidence for independent review
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-native-ui-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-evidence/**
+          name: p1-diagnostic-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-probe-evidence/**
           if-no-files-found: error
           retention-days: 30

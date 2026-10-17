@@ -1,0 +1,25 @@
+{
+  "adapter_files": {
+    "ci/p1/probe/README.md": "d8e895ebc4e93427d3b9b71557050a14f2db9aa9de1feaf5c432b414175575bf",
+    "ci/p1/probe/app.swift": "14ee4160d2e9a9d6f053050241295b157ef43e8e503a5a6db6ce9a9d01f28734",
+    "ci/p1/probe/capture.py": "a3c6dd2e614ad9aff1032793d28c51cd16d42bcb1a2285648c03d54002de1f0e",
+    "ci/p1/probe/recovery.swift": "16c219ca62aa4758e1e83426b9372fa44fd3e9cca7929f5567a5ec4ad08db9cf",
+    "ci/p1/probe/test_probe.py": "c48dc51fe12127e8eebf970a9272a077f934a153e445f04ce0e253bd92a2ac33",
+    "ci/p1/probe/ui_tests.swift": "0535e70ad66868d0c247694de70cc39cb3a299a9c6d4cb81d4b4b62595e583be",
+    "ci/p1/probe/vision.swift": "c95312dc2e2f2e80d571bd7a6f2686c84edd2dab7374c32574bdd1cc3a53268a",
+    "ci/p1/recovery_source.py": "025bae6533b96af819c6a634cacb3823f936971ec630f2347f0d9d3eac15d2db"
+  },
+  "builder": {
+    "commit": "7e5062114f3ba8c1fe1990389ae9a008ce4d8c1f",
+    "repository": "https://github.com/NRG-Wardog/sidestore-auto-refresh.git",
+    "tree": "70c4bc332a925dd608d37f39e8803a13451add33"
+  },
+  "livecontainer": {
+    "commit": "fbaafb939bfd3b7c08fdc8ff4b8d2aae43526ece",
+    "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
+    "tree": "3d3efc14415db6d28ede216965f83fa5924e9e9c"
+  },
+  "schema": "p1-diagnostic-inputs-v1",
+  "scope": "diagnostic-only-no-admission",
+  "source_sha256": "3c40aab6667431d0ecb502d49a38416b9e76250ddf6e66dc1037e60d4594e0be"
+}
