@@ -76,3 +76,26 @@ account data are captured; all UI data are the reviewed synthetic fixtures.
 The prior full workflow and inputs remain in immutable commit `b45fabeb`; a
 future full run needs a separately reviewed successor and current seals. This
 workflow does not activate those older inputs after recovery harness changes.
+
+
+## Failure diagnostics when payload transport is unsafe
+
+Command receipts retain the primary spawn/wait/exit exception separately from
+cleanup exceptions. A cleanup EPERM never means that a group disappeared and
+never replaces the original command failure. Termination classification also
+rejects any unresolved command cleanup failure. Setup timeouts and the existing
+17/20/35-minute budgets are unchanged.
+
+On a failed process-group operation, a bounded read-only process-table snapshot
+records only PID, PPID, PGID, UID, state and command name (not arguments or
+environment). The snapshot uses a one-second collection bound plus a one-second cleanup
+bound, 256 KiB and 32 matching rows. Its direct read-only child is killed/waited
+on; failed snapshot or cleanup remains unknown.
+No privileged termination or permission changes are attempted.
+
+P1_CAPABILITY_DIAGNOSTIC lines preserve safe typed command/phase failures and the
+outer quiescence rejection in the ordinary Actions job log before the packaging
+gate. Each JSON payload is at most 32 KiB. Arbitrary exception arguments are excluded;
+only fixed harness gate reasons are printed verbatim. Phase-summary booleans are
+explicitly unverified diagnostics, not raw XCTest evidence or admission receipts.
+They do not permit indexing or archiving a potentially growing evidence tree.

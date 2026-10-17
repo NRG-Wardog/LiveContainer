@@ -1,4 +1,7 @@
 import copy
+import contextlib
+import errno
+import io
 import hashlib
 import importlib.util
 import json
@@ -404,5 +407,266 @@ class CleanupAndDeadlineTests(unittest.TestCase):
             scope=mock.Mock();scope.close.side_effect=RuntimeError('still writing');result={'errors':[],'capabilities_passed':True,'collection_complete':True}
             capture.finalize(Path(tmp),result,None,scope,None,False)
             self.assertFalse(result['collection_complete']);self.assertIn('quiescence: still writing',result['errors']);self.assertTrue((Path(tmp)/'capability-result.json').exists())
+
+class FailureDiagnosticTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name);self.command_count=0
+    def diagnostics(self,text):
+        prefix='P1_CAPABILITY_DIAGNOSTIC '
+        rows=[json.loads(line[len(prefix):]) for line in text.splitlines() if line.startswith(prefix)]
+        for row in rows:
+            self.assertEqual(row['schema'],'p1-capability-console-diagnostic-v1');self.assertIs(row['admissionEligible'],False)
+        return rows
+    def group_error(self,operation='SIGTERM',pgid=4321):
+        snapshot={'available':True,'pgid':pgid,'rows':[{'pid':pgid,'ppid':2,'pgid':pgid,'uid':501,'state':'S','comm':'fixture'}],'truncated':False}
+        with mock.patch.object(process_scope,'membership_snapshot',return_value=snapshot),mock.patch.object(process_scope,'emit_diagnostic'):
+            return process_scope.GroupOperationError(operation,pgid,PermissionError(errno.EPERM,'private exception detail'))
+    def command_result(self,primary=None,cleanup=None,receipt=False,allow_failure=False,returncode=0,spawn_error=None):
+        self.command_count+=1;logs=self.root/str(self.command_count);logs.mkdir()
+        process=mock.Mock(pid=4321,returncode=returncode);process.wait.side_effect=primary
+        scope=mock.Mock();scope.remaining.return_value=7.5;scope.spawn.return_value=process
+        scope.spawn.side_effect=spawn_error;scope.settle.side_effect=cleanup
+        command=process_scope.Commands(scope,logs);console=io.StringIO();result=None;raised=None
+        with contextlib.redirect_stdout(console):
+            try:result=command('fixture-command',timeout=30,receipt=receipt,allow_failure=allow_failure)
+            except Exception as error:raised=error
+        rows=[json.loads(line) for line in (logs/'commands.jsonl').read_text().splitlines()]
+        self.assertEqual(len(rows),1)
+        return result,raised,rows[0],self.diagnostics(console.getvalue()),scope
+    def test_command_cleanup_does_not_mask_primary_exception(self):
+        primary=process_scope.subprocess.TimeoutExpired(['private-argv'],7.5);cleanup=self.group_error()
+        _,raised,row,diagnostics,scope=self.command_result(primary,cleanup)
+        self.assertIs(raised,primary);self.assertEqual(row['error'],str(primary));scope.settle.assert_called_once()
+        self.assertEqual(row['primary_error'],{'type':'TimeoutExpired','timeout_seconds':7.5})
+        self.assertEqual(row['cleanup_errors'],[cleanup.diagnostic])
+        self.assertEqual(diagnostics[0]['phase'],'command-failure');self.assertEqual(diagnostics[0]['primary_error'],row['primary_error'])
+        self.assertEqual(diagnostics[0]['cleanup_errors'],row['cleanup_errors']);self.assertNotIn('private-',json.dumps(diagnostics))
+    def test_command_receipt_retains_primary_and_cleanup(self):
+        primary=PermissionError(errno.EPERM,'wait denied');cleanup=self.group_error('probe')
+        receipt,raised,row,diagnostics,_=self.command_result(primary,cleanup,receipt=True)
+        self.assertIsNone(raised);self.assertEqual(receipt['failure_type'],'PermissionError')
+        self.assertEqual(receipt['primary_error'],{'type':'PermissionError','errno':errno.EPERM})
+        self.assertEqual(receipt['cleanup_errors'],[cleanup.diagnostic])
+        self.assertEqual(receipt['primary_error'],row['primary_error']);self.assertEqual(receipt['cleanup_errors'],row['cleanup_errors'])
+        self.assertEqual(diagnostics[0]['pgid'],4321)
+    def test_command_primary_only_has_empty_cleanup(self):
+        primary=RuntimeError('primary wait failed')
+        _,raised,row,_,_=self.command_result(primary)
+        self.assertIs(raised,primary);self.assertEqual(row['primary_error'],{'type':'RuntimeError'});self.assertEqual(row['cleanup_errors'],[])
+    def test_command_nonzero_exit_retains_returncode(self):
+        receipt,raised,row,_,_=self.command_result(returncode=23,receipt=True)
+        self.assertIsNone(raised);self.assertEqual(receipt['failure_type'],'CalledProcessError')
+        self.assertEqual(row['primary_error'],{'type':'CalledProcessError','returncode':23});self.assertEqual(row['cleanup_errors'],[])
+    def test_command_cleanup_only_is_failure(self):
+        cleanup=self.group_error('wait')
+        _,raised,row,_,_=self.command_result(cleanup=cleanup)
+        self.assertIs(raised,cleanup);self.assertIsNone(row['primary_error']);self.assertEqual(row['cleanup_errors'],[cleanup.diagnostic])
+        receipt,raised,row,_,_=self.command_result(cleanup=cleanup,receipt=True)
+        self.assertIsNone(raised);self.assertEqual(receipt['failure_type'],'GroupOperationError');self.assertEqual(receipt['cleanup_errors'],row['cleanup_errors'])
+    def test_command_success_has_no_failure_diagnostics(self):
+        receipt,raised,row,diagnostics,_=self.command_result(receipt=True)
+        self.assertIsNone(raised);self.assertIsNone(receipt['failure_type']);self.assertIsNone(receipt['primary_error']);self.assertEqual(receipt['cleanup_errors'],[])
+        self.assertIsNone(row['error']);self.assertIsNone(row['primary_error']);self.assertEqual(row['cleanup_errors'],[]);self.assertEqual(diagnostics,[])
+    def test_allowed_failure_still_retains_both_errors(self):
+        primary=process_scope.subprocess.TimeoutExpired('private-command',7.5);cleanup=self.group_error()
+        result,raised,row,diagnostics,_=self.command_result(primary,cleanup,allow_failure=True)
+        self.assertEqual(result,'');self.assertIsNone(raised);self.assertTrue(row['allowed_failure'])
+        self.assertEqual(row['primary_error']['type'],'TimeoutExpired');self.assertEqual(row['cleanup_errors'],[cleanup.diagnostic]);self.assertEqual(len(diagnostics),1)
+    def test_command_spawn_failure_does_not_invent_cleanup(self):
+        primary=FileNotFoundError(errno.ENOENT,'missing private path')
+        _,raised,row,diagnostics,scope=self.command_result(spawn_error=primary)
+        self.assertIs(raised,primary);scope.settle.assert_not_called();self.assertIsNone(row['exit_code']);self.assertIsNone(diagnostics[0]['pgid'])
+        self.assertEqual(row['primary_error'],{'type':'FileNotFoundError','errno':errno.ENOENT});self.assertEqual(row['cleanup_errors'],[])
+    def test_eperm_probe_never_means_group_absent(self):
+        console=io.StringIO();snapshot={'available':False,'pgid':4321,'rows':[],'truncated':False}
+        with mock.patch.object(process_scope.os,'killpg',side_effect=PermissionError(errno.EPERM,'denied')) as killpg,mock.patch.object(process_scope,'membership_snapshot',return_value=snapshot),contextlib.redirect_stdout(console):
+            with self.assertRaises(process_scope.GroupOperationError) as raised:process_scope.stop_group(4321)
+        killpg.assert_called_once_with(4321,0)
+        self.assertEqual(raised.exception.errno,errno.EPERM);self.assertEqual(raised.exception.diagnostic,{'type':'PermissionError','errno':errno.EPERM,'operation':'probe','pgid':4321,'membership':snapshot})
+        self.assertEqual(self.diagnostics(console.getvalue())[0]['phase'],'process-group-failure')
+    def test_eperm_signals_preserve_operation(self):
+        for operation in ['SIGTERM','SIGKILL']:
+            with self.subTest(operation=operation):
+                calls=[];console=io.StringIO()
+                def killpg(group,kind):
+                    calls.append((group,kind))
+                    if kind==getattr(process_scope.signal,operation):raise PermissionError(errno.EPERM,'denied')
+                with mock.patch.object(process_scope,'alive',return_value=True),mock.patch.object(process_scope.os,'killpg',side_effect=killpg),mock.patch.object(process_scope.time,'monotonic',side_effect=[0,3]),mock.patch.object(process_scope,'membership_snapshot',return_value={'available':False,'rows':[]}),contextlib.redirect_stdout(console):
+                    with self.assertRaises(process_scope.GroupOperationError) as raised:process_scope.stop_group(4321)
+                self.assertEqual(raised.exception.diagnostic['operation'],operation);self.assertEqual(raised.exception.diagnostic['errno'],errno.EPERM)
+                self.assertEqual(calls[-1],(4321,getattr(process_scope.signal,operation)));self.assertEqual(len(self.diagnostics(console.getvalue())),1)
+    def test_eperm_wait_preserves_operation(self):
+        process=mock.Mock();process.wait.side_effect=PermissionError(errno.EPERM,'wait denied')
+        with mock.patch.object(process_scope,'alive',return_value=False),mock.patch.object(process_scope,'membership_snapshot',return_value={'available':False,'rows':[]}),contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(process_scope.GroupOperationError) as raised:process_scope.stop_group(4321,process)
+        process.wait.assert_called_once_with(timeout=5);self.assertEqual(raised.exception.diagnostic['operation'],'wait');self.assertEqual(raised.exception.diagnostic['errno'],errno.EPERM)
+    def test_esrch_still_means_group_absent(self):
+        with mock.patch.object(process_scope.os,'killpg',side_effect=ProcessLookupError(errno.ESRCH,'gone')),mock.patch.object(process_scope,'membership_snapshot') as snapshot:
+            self.assertFalse(process_scope.alive(4321));self.assertTrue(process_scope.stop_group(4321));snapshot.assert_not_called()
+    def test_membership_snapshot_is_bounded_and_sanitized(self):
+        process=mock.Mock(returncode=0);process.poll.return_value=0
+        payload=('invalid row\n999 1 999 501 S other-group\n'+''.join(f'{pid} 2 4321 501 {"S"*20} /fixture/\x1b'+('x'*200)+'\n' for pid in range(100,135))).encode()
+        with mock.patch.object(process_scope.subprocess,'Popen',return_value=process) as popen,mock.patch.object(process_scope.select,'select',return_value=([process.stdout],[],[])),mock.patch.object(process_scope.os,'read',side_effect=[payload,b'']):
+            row=process_scope.membership_snapshot(4321)
+        self.assertTrue(row['available']);self.assertTrue(row['truncated']);self.assertEqual(len(row['rows']),32)
+        for member in row['rows']:
+            self.assertEqual(set(member),{'pid','ppid','pgid','uid','state','comm'});self.assertEqual(member['pgid'],4321)
+            self.assertLessEqual(len(member['state']),16);self.assertLessEqual(len(member['comm']),160);self.assertNotIn('\x1b',member['comm'])
+        self.assertEqual(popen.call_args.args[0],['/bin/ps','-axo','pid=,ppid=,pgid=,uid=,state=,comm=']);process.stdout.close.assert_called_once()
+    def test_membership_snapshot_output_limit_fails_closed(self):
+        process=mock.Mock(returncode=0);process.poll.return_value=None
+        with mock.patch.object(process_scope.subprocess,'Popen',return_value=process),mock.patch.object(process_scope.select,'select',return_value=([process.stdout],[],[])),mock.patch.object(process_scope.os,'read',return_value=b'x'*(256*1024+1)):
+            row=process_scope.membership_snapshot(4321)
+        self.assertFalse(row['available']);self.assertEqual(row['error'],{'type':'ValueError'});self.assertEqual(row['rows'],[]);process.kill.assert_called_once();process.wait.assert_called_once_with(timeout=1)
+    def test_membership_snapshot_timeout_reaps_reader(self):
+        process=mock.Mock(returncode=0);process.poll.return_value=None
+        with mock.patch.object(process_scope.subprocess,'Popen',return_value=process),mock.patch.object(process_scope.select,'select',return_value=([],[],[])):
+            row=process_scope.membership_snapshot(4321)
+        self.assertFalse(row['available']);self.assertEqual(row['error'],{'type':'TimeoutError'});process.kill.assert_called_once();process.wait.assert_called_once_with(timeout=1)
+    def test_error_info_omits_private_exception_text(self):
+        for error in [ValueError('private-token'),PermissionError(errno.EPERM,'private-token'),process_scope.subprocess.CalledProcessError(3,['private-token']),process_scope.subprocess.TimeoutExpired(['private-token'],10)]:
+            with self.subTest(error=type(error).__name__):self.assertNotIn('private-token',json.dumps(process_scope.error_info(error)))
+        self.assertEqual(process_scope.error_info(process_scope.subprocess.TimeoutExpired('private-token',float('inf'))),{'type':'TimeoutExpired'})
+    def test_budget_wait_failure_and_cleanup_failure_are_both_retained(self):
+        for primary in [PermissionError(errno.EPERM,'wait denied'),process_scope.subprocess.TimeoutExpired('private-command',1200)]:
+            with self.subTest(primary=type(primary).__name__):
+                root=self.root/type(primary).__name__;process=mock.Mock(pid=4321,returncode=None);process.wait.side_effect=primary;cleanup=self.group_error();console=io.StringIO()
+                with mock.patch.object(budget.subprocess,'Popen',return_value=process),mock.patch.object(process_scope,'stop_group',side_effect=cleanup),mock.patch.object(budget,'verify_quiescence') as verify,mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
+                    self.assertEqual(budget.run(['fixture-command'],root),1)
+                verify.assert_not_called();index.assert_not_called();self.assertFalse((root/'evidence-index.json').exists())
+                row=protocol.parse(root/'outer-budget.json');self.assertFalse(row['transport_safe']);self.assertEqual(row['error'],str(primary));self.assertEqual(row['primary_error'],process_scope.error_info(primary));self.assertEqual(row['cleanup_errors'],[cleanup.diagnostic])
+                diagnostic=next(r for r in self.diagnostics(console.getvalue()) if r['phase']=='outer-budget-result')
+                self.assertEqual(diagnostic['primary_error'],row['primary_error']);self.assertEqual(diagnostic['cleanup_errors'],row['cleanup_errors']);self.assertFalse(diagnostic['transport_safe'])
+                self.assertEqual(diagnostic['collector_phase'],'collector-timeout-cleanup' if isinstance(primary,process_scope.subprocess.TimeoutExpired) else 'collector-error-cleanup')
+    def test_unowned_fixture_rejection_logs_exact_reason_before_result_write(self):
+        root=self.root/'e';root.mkdir();reason='backstop cannot establish cleanup of pre-existing simulator'
+        put(root/'process-registry.json',{'schema':'p1-capability-process-scope-v1','session':SESSION,'closing':False,'groups':[],
+            'fixture':{'device':'12345678-1234-1234-1234-123456789abc','owned_boot':False,'stopped':False,'bundle_ids':[capture.APP_ID,capture.RUNNER_ID]}})
+        process=mock.Mock(pid=4321,returncode=0);process.wait.return_value=0;console=io.StringIO();original_atomic=process_scope.atomic
+        def write(path,value):
+            if path.name=='outer-budget.json':
+                diagnostic=next(r for r in self.diagnostics(console.getvalue()) if r['phase']=='outer-budget-result')
+                self.assertEqual(diagnostic['primary_error'],{'type':'ValueError','reason':reason});self.assertEqual(diagnostic['collector_phase'],'verify-quiescence')
+            original_atomic(path,value)
+        with mock.patch.object(budget.uuid,'uuid4',return_value=mock.Mock(hex=SESSION)),mock.patch.object(budget.subprocess,'Popen',return_value=process),mock.patch.object(process_scope,'atomic',side_effect=write),mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
+            self.assertEqual(budget.run(['fixture-command'],root),1)
+        index.assert_not_called();self.assertFalse((root/'evidence-index.json').exists());self.assertFalse((root/'quiescence.json').exists())
+        outcome=protocol.parse(root/'outer-budget.json');self.assertFalse(outcome['transport_safe']);self.assertEqual(outcome['primary_error']['reason'],reason)
+    def test_package_rejections_log_exact_reason_before_raising(self):
+        for incomplete in ['quiescence','registry']:
+            with self.subTest(incomplete=incomplete):
+                put(self.root/'outer-budget.json',{'transport_safe':incomplete!='quiescence','session':SESSION})
+                put(self.root/'quiescence.json',{'quiescent':True,'outerVerified':True,'session':SESSION})
+                put(self.root/'process-registry.json',{'session':SESSION,'groups':[{'settled':False}]})
+                reason='packaging blocked: '+('quiescence unproved' if incomplete=='quiescence' else 'writer registry incomplete');console=io.StringIO()
+                with contextlib.redirect_stdout(console):
+                    try:budget.check_package(self.root)
+                    except ValueError as error:
+                        self.assertEqual(str(error),reason)
+                        self.assertEqual(self.diagnostics(console.getvalue()),[{'schema':'p1-capability-console-diagnostic-v1','phase':'package-gate-failure','admissionEligible':False,'error':{'type':'ValueError','reason':reason}}])
+                    else:self.fail('unknown quiescence allowed packaging')
+    def test_package_missing_metadata_logs_errno_without_path(self):
+        console=io.StringIO()
+        with contextlib.redirect_stdout(console),self.assertRaises(FileNotFoundError):budget.check_package(self.root)
+        diagnostic=self.diagnostics(console.getvalue())[0];self.assertEqual(diagnostic['phase'],'package-gate-failure');self.assertEqual(diagnostic['error'],{'type':'FileNotFoundError','errno':errno.ENOENT});self.assertNotIn(str(self.root),console.getvalue())
+    def test_cleanup_failure_rejects_zero_and_already_stopped_receipts(self):
+        identifier=capture.APP_ID;cleanup=self.group_error().diagnostic
+        text=(f'An error was encountered processing the command (domain=NSPOSIXErrorDomain, code=3):\nSimulator device failed to terminate {identifier}.\nfound nothing to terminate\nUnderlying error (domain=NSPOSIXErrorDomain, code=3):\n\tThe request to terminate "{identifier}" failed. found nothing to terminate\n\tfound nothing to terminate\n')
+        for row in [dict(exit_code=0,failure_type=None),dict(exit_code=3,failure_type='CalledProcessError',stdout='',stderr=text)]:
+            self.assertTrue(capture.stopped_response(row,identifier));row['cleanup_errors']=[cleanup];self.assertFalse(capture.stopped_response(row,identifier))
+    def test_spawn_registration_cleanup_cannot_mask_persist_error(self):
+        scope=process_scope.Scope(self.root);process=mock.Mock(pid=4321,returncode=None)
+        primary=OSError(errno.ENOSPC,'registry full');cleanup=self.group_error();console=io.StringIO()
+        with (self.root/'stdout').open('wb') as out,mock.patch.object(scope,'persist',side_effect=primary),mock.patch.object(process_scope.subprocess,'Popen',return_value=process),mock.patch.object(process_scope,'stop_group',side_effect=cleanup),mock.patch.object(process_scope.os,'write') as release,contextlib.redirect_stdout(console):
+            with self.assertRaises(OSError) as raised:scope.spawn(['fixture-command'],out)
+        self.assertIs(raised.exception,primary);release.assert_not_called();self.assertFalse(scope.rows[0]['settled'])
+        self.assertEqual(scope.rows[0]['primary_error'],{'type':'OSError','errno':errno.ENOSPC});self.assertEqual(scope.rows[0]['cleanup_errors'],[cleanup.diagnostic])
+        diagnostics=self.diagnostics(console.getvalue());self.assertEqual([r['phase'] for r in diagnostics],['spawn-registration-failure','spawn-cleanup-failure'])
+        self.assertEqual(diagnostics[0]['primary_error'],scope.rows[0]['primary_error']);self.assertEqual(diagnostics[1]['cleanup_error'],cleanup.diagnostic)
+    def test_backstop_wait_and_cleanup_failures_reach_outer_receipt(self):
+        root=self.root/'e';root.mkdir();registry={'schema':'p1-capability-process-scope-v1','session':SESSION,'closing':False,'groups':[],
+            'fixture':{'device':'12345678-1234-1234-1234-123456789abc','owned_boot':True,'stopped':False,'bundle_ids':[capture.APP_ID,capture.RUNNER_ID]}}
+        put(root/'process-registry.json',registry)
+        primary=process_scope.subprocess.TimeoutExpired('private-simulator-command',20);cleanup=self.group_error()
+        simulator=mock.Mock(pid=4321,returncode=None);simulator.wait.side_effect=primary;console=io.StringIO()
+        with mock.patch.object(budget.subprocess,'Popen',return_value=simulator),mock.patch.object(process_scope,'stop_group',side_effect=cleanup),contextlib.redirect_stdout(console):
+            with self.assertRaises(process_scope.subprocess.TimeoutExpired) as raised:budget.verify_quiescence(root,SESSION,force=True)
+        self.assertIs(raised.exception,primary);self.assertEqual(primary._p1_cleanup_diagnostics,[cleanup.diagnostic])
+        self.assertFalse((root/'quiescence.json').exists());self.assertFalse(protocol.parse(root/'process-registry.json')['fixture']['stopped'])
+        diagnostic=self.diagnostics(console.getvalue())[0];self.assertEqual(diagnostic['phase'],'backstop-simulator-cleanup');self.assertEqual(diagnostic['primary_error'],{'type':'TimeoutExpired','timeout_seconds':20});self.assertEqual(diagnostic['cleanup_errors'],[cleanup.diagnostic])
+        collector=mock.Mock(pid=1234,returncode=0);collector.wait.return_value=0;console=io.StringIO()
+        with mock.patch.object(budget.uuid,'uuid4',return_value=mock.Mock(hex=SESSION)),mock.patch.object(budget.subprocess,'Popen',side_effect=[collector,simulator]),mock.patch.object(process_scope,'stop_group',side_effect=cleanup),mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
+            self.assertEqual(budget.run(['fixture-command'],root),1)
+        index.assert_not_called();row=protocol.parse(root/'outer-budget.json')
+        self.assertFalse(row['transport_safe']);self.assertEqual(row['error'],str(primary));self.assertEqual(row['primary_error'],diagnostic['primary_error']);self.assertEqual(row['cleanup_errors'],[cleanup.diagnostic])
+        phases=[r['phase'] for r in self.diagnostics(console.getvalue())];self.assertLess(phases.index('backstop-simulator-cleanup'),phases.index('outer-budget-result'))
+    def test_command_receipt_write_failure_logs_then_preserves_primary(self):
+        logs=self.root/'logs';logs.mkdir();primary=process_scope.subprocess.TimeoutExpired('private-command',7.5)
+        process=mock.Mock(pid=4321,returncode=None);process.wait.side_effect=primary
+        scope=mock.Mock();scope.remaining.return_value=7.5;scope.spawn.return_value=process;command=process_scope.Commands(scope,logs)
+        console=io.StringIO();original_open=Path.open;events=[]
+        def open_file(path,*args,**kwargs):
+            if path.name=='commands.jsonl':
+                events.extend(r['phase'] for r in self.diagnostics(console.getvalue()))
+                raise PermissionError(errno.EACCES,'private-log-path')
+            return original_open(path,*args,**kwargs)
+        with mock.patch.object(Path,'open',open_file),contextlib.redirect_stdout(console):
+            with self.assertRaises(process_scope.subprocess.TimeoutExpired) as raised:command('fixture-command')
+        self.assertIs(raised.exception,primary);self.assertEqual(events,['command-failure']);self.assertFalse((logs/'commands.jsonl').exists())
+        diagnostics=self.diagnostics(console.getvalue());self.assertEqual([r['phase'] for r in diagnostics],['command-failure','command-receipt-write-failure'])
+        self.assertEqual(diagnostics[1]['error'],{'type':'PermissionError','errno':errno.EACCES});self.assertEqual(diagnostics[1]['primary_error'],{'type':'TimeoutExpired','timeout_seconds':7.5});self.assertNotIn('private-',json.dumps(diagnostics))
+    def test_console_diagnostic_is_bounded(self):
+        console=io.StringIO()
+        with contextlib.redirect_stdout(console):process_scope.emit_diagnostic('command-failure',detail='x'*40000)
+        row=self.diagnostics(console.getvalue())[0];self.assertTrue(row['diagnostic_truncated']);self.assertNotIn('detail',row);self.assertLess(len(console.getvalue()),32768)
+    def test_console_write_failure_does_not_raise(self):
+        with mock.patch('builtins.print',side_effect=OSError(errno.EPIPE,'closed pipe')):process_scope.emit_diagnostic('command-failure',primary_error={'type':'TimeoutExpired'})
+    def test_phase_summary_fifo_is_rejected_without_blocking(self):
+        path=self.root/'capability-result.json';os.mkfifo(path);original_open=os.open;flags_seen=[];console=io.StringIO()
+        def open_summary(path,flags,*args,**kwargs):
+            flags_seen.append(flags)
+            if not flags&os.O_NONBLOCK:raise AssertionError('FIFO diagnostic open would block')
+            return original_open(path,flags,*args,**kwargs)
+        with mock.patch.object(budget.os,'open',side_effect=open_summary),contextlib.redirect_stdout(console):budget.phase_summaries(self.root)
+        self.assertEqual(len(flags_seen),1);self.assertTrue(flags_seen[0]&os.O_NONBLOCK)
+        self.assertEqual(self.diagnostics(console.getvalue())[0]['phase'],'phase-summary-unavailable')
+    def test_phase_summary_never_prints_arbitrary_payload(self):
+        put(self.root/'capability-result.json',{'collection_complete':False,'capabilities_passed':False,'errors':['private-token'],'argv':['private-token'],'environment':{'secret':'private-token'},
+            'calibration':{'calibration_feasible':True,'errors':['private-token']},'recovery':{'full_matrix_complete':False,'errors':['private-token'],'collection_complete':'private-token'}})
+        console=io.StringIO()
+        with contextlib.redirect_stdout(console):budget.phase_summaries(self.root)
+        rows=self.diagnostics(console.getvalue());self.assertEqual([r['component'] for r in rows],['collector','calibration','recovery'])
+        self.assertNotIn('private-token',console.getvalue());self.assertNotIn('argv',console.getvalue());self.assertNotIn('environment',console.getvalue())
+        for row in rows:self.assertTrue(row['unverified_summary']);self.assertEqual(row['error_count'],1)
+        self.assertIs(rows[0]['collection_complete'],False);self.assertIs(rows[1]['calibration_feasible'],True);self.assertNotIn('collection_complete',rows[2])
+    def test_phase_summary_oversized_file_is_rejected(self):
+        (self.root/'capability-result.json').write_text('{"errors":["'+'private-token'*6000+'"]}');console=io.StringIO()
+        with contextlib.redirect_stdout(console):budget.phase_summaries(self.root)
+        self.assertEqual(self.diagnostics(console.getvalue())[0]['phase'],'phase-summary-unavailable');self.assertNotIn('private-token',console.getvalue())
+    def test_false_stop_reports_wait_and_disappearance_pgid(self):
+        snapshot={'available':True,'pgid':4321,'rows':[],'truncated':False}
+        for operation in ['wait','disappearance']:
+            with self.subTest(operation=operation):
+                console=io.StringIO();process=mock.Mock();process.wait.side_effect=process_scope.subprocess.TimeoutExpired('private-command',5)
+                with mock.patch.object(process_scope,'alive',return_value=operation=='disappearance'),mock.patch.object(process_scope,'signal_group'),mock.patch.object(process_scope.time,'monotonic',side_effect=[0,3,3,9]),mock.patch.object(process_scope,'membership_snapshot',return_value=snapshot),contextlib.redirect_stdout(console):
+                    self.assertFalse(process_scope.stop_group(4321,process if operation=='wait' else None))
+                diagnostic=self.diagnostics(console.getvalue())[0]
+                self.assertEqual(diagnostic['phase'],'process-group-unsettled');self.assertEqual(diagnostic['pgid'],4321);self.assertEqual(diagnostic['operation'],operation);self.assertIs(diagnostic['result'],False);self.assertEqual(diagnostic['membership'],snapshot)
+    def test_false_settle_retains_pgid_and_unsettled_registry(self):
+        scope=process_scope.Scope(self.root);process=mock.Mock(pid=4321,returncode=0);scope.rows.append({'pid':4321,'pgid':4321,'settled':False});console=io.StringIO()
+        with mock.patch.object(process_scope,'stop_group',return_value=False),contextlib.redirect_stdout(console):
+            with self.assertRaisesRegex(RuntimeError,'child group did not become quiescent'):scope.settle(process)
+        diagnostic=self.diagnostics(console.getvalue())[0];self.assertEqual(diagnostic['phase'],'process-group-unsettled');self.assertEqual(diagnostic['operation'],'settle');self.assertEqual(diagnostic['pgid'],4321);self.assertIs(diagnostic['result'],False)
+        self.assertFalse(protocol.parse(self.root/'process-registry.json')['groups'][0]['settled'])
+    def test_false_writer_stop_logs_pgid_and_blocks_index(self):
+        root=self.root/'e';root.mkdir();put(root/'process-registry.json',{'schema':'p1-capability-process-scope-v1','session':SESSION,'closing':False,'groups':[{'pid':4321,'pgid':4321,'settled':False}]})
+        process=mock.Mock(pid=1234,returncode=0);process.wait.return_value=0;console=io.StringIO()
+        with mock.patch.object(budget.uuid,'uuid4',return_value=mock.Mock(hex=SESSION)),mock.patch.object(budget.subprocess,'Popen',return_value=process),mock.patch.object(process_scope,'stop_group',return_value=False) as stop,mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
+            self.assertEqual(budget.run(['fixture-command'],root),1)
+        stop.assert_called_once_with(4321);index.assert_not_called();self.assertFalse((root/'evidence-index.json').exists());self.assertFalse((root/'quiescence.json').exists())
+        diagnostics=self.diagnostics(console.getvalue());group=next(r for r in diagnostics if r['phase']=='writer-group-unsettled')
+        self.assertEqual(group['pgid'],4321);self.assertEqual(group['operation'],'stop_group');self.assertIs(group['result'],False)
+        outcome=protocol.parse(root/'outer-budget.json');self.assertFalse(outcome['transport_safe']);self.assertEqual(outcome['primary_error'],{'type':'ValueError','reason':'writer group quiescence unproved'})
+        self.assertLess([r['phase'] for r in diagnostics].index('writer-group-unsettled'),[r['phase'] for r in diagnostics].index('outer-budget-result'))
 
 if __name__=='__main__':unittest.main()

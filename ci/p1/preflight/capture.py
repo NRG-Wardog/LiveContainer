@@ -158,6 +158,7 @@ def verify_exports(directory,summary,tests,runner,device,session,valid_png):
 
 
 def stopped_response(receipt,identifier):
+    if receipt.get('cleanup_errors'):return False
     if receipt.get('exit_code')==0 and receipt.get('failure_type') is None:return True
     expected=(f'An error was encountered processing the command (domain=NSPOSIXErrorDomain, code=3):\n'
         f'Simulator device failed to terminate {identifier}.\nfound nothing to terminate\n'
@@ -228,7 +229,7 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
                 runner.request('complete',appStripCompleteSHA256=sha(roots['app']/'strip-complete.json'),hostVerifiedStripComplete=True)
                 future.result(timeout=command.scope.remaining(60))
             except Exception as error:
-                report['errors'].append('protocol: '+str(error))
+                report['errors'].append('protocol: '+str(error));process_scope.emit_diagnostic('calibration-protocol-failure',error=process_scope.error_info(error))
                 if not future.done():command('xcrun','simctl','terminate',device,APP_ID,allow_failure=True,timeout=10,cleanup=True)
         # Stop only these disposable fixture processes before reading channels.
         fixture_stopped=stop_fixture(command,device,folder)
@@ -250,8 +251,8 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
         command('swift',HERE/'decode.swift',folder/'decode-input.json',folder/'decoded-frames',folder/'decoded.json',timeout=180)
         report['collection_complete']=not report['errors']
         try:report['analysis']=analysis.inspect(folder,session,parse(folder/'decoded.json'),events,strip);report['calibration_feasible']=True
-        except Exception as error:report['feasibility_failure']=str(error)
-    except Exception as error:report['errors'].append(str(error))
+        except Exception as error:report['feasibility_failure']=str(error);process_scope.emit_diagnostic('calibration-feasibility-failure',error=process_scope.error_info(error))
+    except Exception as error:report['errors'].append(str(error));process_scope.emit_diagnostic('phase-collection-failure',scope=report['scope'],error=process_scope.error_info(error))
     finally:
         if not fixture_stopped:
             try:fixture_stopped=stop_fixture(command,device,folder)
@@ -291,7 +292,7 @@ def run_layout(command,candidate,device,kind,folder,valid_png):
             write(folder/'xctest-summary.json',summary);write(folder/'xctest-tests.json',tests);base.inventory(directory)
             report['validation']=video.layout_exports.verify_capabilities(directory,summary,tests,device,kind,parse,ordinary,valid_png)
             report['collection_complete']=not report['errors']
-    except Exception as error:report['errors'].append(str(error))
+    except Exception as error:report['errors'].append(str(error));process_scope.emit_diagnostic('phase-collection-failure',scope=report['scope'],error=process_scope.error_info(error))
     finally:write(folder/'collection-report.json',report)
     return report
 
@@ -344,7 +345,7 @@ def execute(host,work,output,inputs,approved,kind):
         require(parse(output/'source-before.json')==parse(output/'source-after.json') and sha(live/base.SHELL)==SOURCE_SHA,'source drift')
         result['collection_complete']=result['calibration']['collection_complete'] and result['recovery']['collection_complete']
         result['capabilities_passed']=result['collection_complete'] and result['calibration']['calibration_feasible']
-    except Exception as error:result['errors'].append(str(error))
+    except Exception as error:result['errors'].append(str(error));process_scope.emit_diagnostic('collector-failure',error=process_scope.error_info(error))
     finally:finalize(output,result,command,scope,device,booted_here)
     return result['capabilities_passed']
 
