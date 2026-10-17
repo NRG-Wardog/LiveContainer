@@ -14,10 +14,10 @@ def frame(row):
 
 def input_receipt(row,scenario):
     require(row.get('schema')=='p1-video-input-v1' and row.get('scenario')==scenario,'input identity mismatch')
-    keys=['firstBefore','firstAfter'];drivers={'firstDriver':'normal-XCTest-tap'}
+    keys=['baselineBefore','baselineAfter','firstBefore','firstAfter'];drivers={'baselineDriver':'normal-XCTest-fixture-ready-tap','firstDriver':'normal-XCTest-tap'}
     if scenario!='timeout':
         keys+=['secondDelayBefore','secondDelayAfter','secondBefore','secondAfter','thirdBefore','thirdAfter'];drivers.update(secondDriver='experimental-XCTest-coordinate-tap',thirdDriver='normal-XCTest-third-tap')
-        require(row.get('secondDelayRequested')==1.10,'changed second-input schedule')
+        require(row.get('secondDelayRequested')==0.90,'changed second-input schedule')
         require(row.get('thirdHittable') is True and row.get('thirdLabelBefore')=='Copy Details','ordinary third tap unavailable')
     else:require(not any(k.startswith(('second','third')) for k in row),'timeout has extra input')
     require(all(row.get(k)==v for k,v in drivers.items()),'input driver mismatch')

@@ -14,6 +14,117 @@ private func p1SizeCategoryReceipt(_ size: ContentSizeCategory) -> String {
     return "sizeCategory=other"
 }
 
+// Passive fixture-only measurement. The production modifier above stays byte
+// identical. No geometry is inferred from content size or device constants.
+@MainActor private final class P1LayoutReceiptView: UIView {
+    var offeredFrame = CGRect.zero
+    var offeredSize = CGSize.zero
+    var offeredInsets = EdgeInsets()
+    var selectedTab = 0
+    private var observationSequence = 0
+    private static let processSession = UUID().uuidString
+    private weak var observedWindow: UIWindow?
+    private var windowObservationID = UUID().uuidString
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        isAccessibilityElement = true
+        accessibilityIdentifier = "p1-layout-metrics"
+        accessibilityLabel = "Passive layout geometry"
+        backgroundColor = .clear
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func rect(_ value: CGRect) -> [Any] {
+        [value.minX, value.minY, value.width, value.height].map { $0.isFinite ? Double($0) as Any : "non-finite" as Any }
+    }
+    private func insets(_ value: UIEdgeInsets) -> [Double] {
+        [value.top, value.left, value.bottom, value.right].map(Double.init)
+    }
+    private func identity(_ view: UIView, window: UIWindow) -> [String: Any] {
+        let origin = view.convert(CGPoint.zero, to: window)
+        let x = view.convert(CGPoint(x: 1, y: 0), to: window)
+        let y = view.convert(CGPoint(x: 0, y: 1), to: window)
+        return ["class": String(describing: type(of: view)), "identifier": view.accessibilityIdentifier ?? "",
+         "frame": rect(view.convert(view.bounds, to: window)), "bounds": rect(view.bounds),
+         "localToWindow": [Double(x.x-origin.x), Double(x.y-origin.y), Double(y.x-origin.x), Double(y.y-origin.y), Double(origin.x), Double(origin.y)],
+         "clips": view.clipsToBounds, "hidden": view.isHidden, "alpha": Double(view.alpha)]
+    }
+
+    override var accessibilityValue: String? {
+        get {
+            guard let window = window else { return nil }
+            if observedWindow !== window { observedWindow = window; windowObservationID = UUID().uuidString }
+            observationSequence += 1
+            let started = ProcessInfo.processInfo.systemUptime
+            var scrolls: [[String: Any]] = []
+            var count = 0
+            func visit(_ view: UIView, path: String, ancestors: [UIView], visible: Bool) {
+                count += 1
+                guard count <= 4096 else { return }
+                let shown = visible && !view.isHidden && view.alpha > 0.01
+                if let scroll = view as? UIScrollView, shown {
+                    let bounds = scroll.convert(scroll.bounds, to: window)
+                    let safe = scroll.convert(scroll.safeAreaLayoutGuide.layoutFrame, to: window)
+                    var clipped = bounds.intersection(window.bounds)
+                    for ancestor in ancestors where ancestor.clipsToBounds {
+                        clipped = clipped.intersection(ancestor.convert(ancestor.bounds, to: window))
+                    }
+                    let viewport = safe.intersection(clipped).intersection(offeredFrame)
+                    scrolls.append([
+                        "path": path, "view": identity(scroll, window: window),
+                        "safeAreaFrame": rect(safe), "localSafeAreaFrame": rect(scroll.safeAreaLayoutGuide.layoutFrame),
+                        "safeAreaInsets": insets(scroll.safeAreaInsets),
+                        "adjustedContentInset": insets(scroll.adjustedContentInset),
+                        "clippedBounds": rect(clipped), "safeClippingViewport": rect(viewport),
+                        "ancestors": ancestors.map { identity($0, window: window) },
+                        "scrollEnabled": scroll.isScrollEnabled,
+                        "contentOffset": [Double(scroll.contentOffset.x), Double(scroll.contentOffset.y)]
+                    ])
+                }
+                for (index, child) in view.subviews.enumerated() {
+                    visit(child, path: path + "/" + String(index), ancestors: ancestors + [view], visible: shown)
+                }
+            }
+            visit(window, path: "window", ancestors: [], visible: true)
+            let value: [String: Any] = [
+                "schema": "p1-layout-metrics-v1", "processSession": Self.processSession, "windowObservationID": windowObservationID,
+                "observationSequence": observationSequence, "startedUptime": started,
+                "finishedUptime": ProcessInfo.processInfo.systemUptime,
+                "complete": count <= 4096, "viewCount": count,
+                "applicationActive": UIApplication.shared.applicationState == .active,
+                "interfaceOrientation": window.windowScene?.interfaceOrientation.rawValue ?? 0,
+                "windowBounds": rect(window.bounds), "windowFrame": rect(window.frame),
+                "windowSafeAreaFrame": rect(window.safeAreaLayoutGuide.layoutFrame),
+                "windowSafeAreaInsets": insets(window.safeAreaInsets), "screenScale": Double(window.screen.scale),
+                "offeredFrame": rect(offeredFrame),
+                "offeredSize": [Double(offeredSize.width), Double(offeredSize.height)],
+                "offeredInsets": [Double(offeredInsets.top), Double(offeredInsets.leading), Double(offeredInsets.bottom), Double(offeredInsets.trailing)],
+                "selectedTab": selectedTab, "scrollViews": scrolls
+            ]
+            guard JSONSerialization.isValidJSONObject(value),
+                  let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) else { return nil }
+            return String(data: data, encoding: .utf8)
+        }
+        set { }
+    }
+}
+
+@MainActor private struct P1LayoutReceipt: UIViewRepresentable {
+    let offeredFrame: CGRect
+    let offeredSize: CGSize
+    let offeredInsets: EdgeInsets
+    let selectedTab: Int
+    func makeUIView(context: Context) -> P1LayoutReceiptView { P1LayoutReceiptView(frame: .zero) }
+    func updateUIView(_ view: P1LayoutReceiptView, context: Context) {
+        view.offeredFrame = offeredFrame
+        view.offeredSize = offeredSize
+        view.offeredInsets = offeredInsets
+        view.selectedTab = selectedTab
+    }
+}
+
 private struct P1RecoveryOperation {
     enum Phase { case prepared, dispatched }
     let kind = "install"
@@ -94,18 +205,23 @@ private struct P1RecoveryOperation {
         // The exact reviewed modifier is applied to this outer TabView.
         TabView(selection: $selectedTab) {
             P1RecoveryNavigationRoot(status: status)
-                .tabItem { Label("Home", systemImage: "house.fill") }.tag(0)
+                .tabItem { Label("Home", systemImage: "house.fill").accessibilityIdentifier("p1-tab-Home") }.tag(0)
             P1RecoveryPlaceholderTab(title: "Apps")
-                .tabItem { Label("Apps", systemImage: "square.stack.3d.up.fill") }.tag(1)
+                .tabItem { Label("Apps", systemImage: "square.stack.3d.up.fill").accessibilityIdentifier("p1-tab-Apps") }.tag(1)
             P1RecoveryPlaceholderTab(title: "Sources")
-                .tabItem { Label("Sources", systemImage: "books.vertical") }.tag(2)
+                .tabItem { Label("Sources", systemImage: "books.vertical").accessibilityIdentifier("p1-tab-Sources") }.tag(2)
             P1RecoveryPlaceholderTab(title: "Settings")
-                .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(3)
+                .tabItem { Label("Settings", systemImage: "gearshape.fill").accessibilityIdentifier("p1-tab-Settings") }.tag(3)
         }
         // Inactive production predecessors, explicitly synthetic substitutes.
         .safeAreaInset(edge: .bottom) { EmptyView() }
         .overlay(Color.clear.frame(width: 1, height: 1).allowsHitTesting(false).accessibilityHidden(true))
 __P1_RECOVERY_MODIFIER__
+        .background(GeometryReader { offered in
+            P1LayoutReceipt(offeredFrame: offered.frame(in: .global), offeredSize: offered.size,
+                            offeredInsets: offered.safeAreaInsets, selectedTab: selectedTab)
+                .frame(width: 1, height: 1).allowsHitTesting(false)
+        })
         .environment(\.sizeCategory, status.largest ? .accessibilityExtraExtraExtraLarge : .large)
         .onReceive(NotificationCenter.default.publisher(for: UIPasteboard.changedNotification)) { _ in
             let expected = "diagnostic_code=\(status.recoveryStorageDiagnosticCode) builder_commit=\(V3DiagnosticBuild.commit)\n" + status.recoveryStorageDiagnostics

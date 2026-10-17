@@ -1,7 +1,6 @@
-name: P1 original evidence transport only
+name: P1 host compile and conditional video diagnostics
 
-# Temporary evidence transport. The native/UI workflow is preserved at a6ea69fc.
-# This job never builds, executes test fixtures, extracts, or rewrites the ZIP.
+# Two independent evidence jobs. Neither grants full native/UI admission.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -10,83 +9,241 @@ permissions:
 concurrency:
   group: p1-native-${{ github.ref }}
   cancel-in-progress: false
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+  APPROVED_P1_VIDEO_INPUTS_SHA256: 'fe8fa1b393433ff5ad7caf02dac5cd9f05b5660d14509d50d9aafeee8710accf'
+  PYTHONDONTWRITEBYTECODE: '1'
+  GIT_TERMINAL_PROMPT: '0'
+  GIT_CONFIG_NOSYSTEM: '1'
+  GIT_CONFIG_GLOBAL: /dev/null
+  GIT_CONFIG_COUNT: '0'
 jobs:
-  p1-evidence-transport:
+  p1-actual-host:
     if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      actions: read  # Read one exact existing cross-run artifact, no Actions write.
-    env:
-      PYTHONDONTWRITEBYTECODE: '1'
-      TRANSPORT_HELPER_SHA256: '93298ca490f752c00fe7e38c4ff25435c35297c5e854ad93682e9d9b91121afb'
-      TRANSPORT_TEST_SHA256: '179927a634fbadc5ce21988d77a2738ad589efc1cf50a2d735e46886c8152685'
+    runs-on: macos-26
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          path: validation
           persist-credentials: false
           set-safe-directory: false
-      - name: Verify reviewed transport bytes and adversarial tests
+      - name: Fresh unsigned actual P1 host compile only
         run: |
           set -euo pipefail
-          printf '%s  %s\n' "$TRANSPORT_HELPER_SHA256" ci/p1/evidence_transport.py | sha256sum -c -
-          printf '%s  %s\n' "$TRANSPORT_TEST_SHA256" ci/p1/test_evidence_transport.py | sha256sum -c -
-          python3 -B -m unittest discover -s ci/p1 -p test_evidence_transport.py -v
-      - name: Download and verify original ZIP, then split identical bytes
+          python3 -B validation/ci/p1/video/host_build.py \
+            --inputs validation/ci/p1/video/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --work "$RUNNER_TEMP/p1-host-work" --evidence "$GITHUB_WORKSPACE/p1-host-evidence"
+      - name: Preserve independent actual-host evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-actual-host-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-host-evidence/**
+          if-no-files-found: error
+          retention-days: 30
+  p1-video-diagnostic:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
+    runs-on: macos-26
+    timeout-minutes: 110
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Verify sealed diagnostic-only inputs
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p1/video/capture.py \
+            --inputs validation/ci/p1/video/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation"
+          python3 -B -m unittest discover -s validation/ci/p1/video -p test_intervals.py -v
+          python3 -B -m unittest discover -s validation/ci/p1/video -p test_transport.py -v
+      - name: Collect conditional video and strict isolated layout evidence
+        id: collect
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p1/video/capture.py \
+            --inputs validation/ci/p1/video/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --work "$RUNNER_TEMP/p1-video-work" --evidence "$GITHUB_WORKSPACE/p1-video-evidence" \
+            --execute
+      - name: Package every original evidence byte into bounded parts
+        id: package
+        if: always()
         env:
-          GH_TOKEN: ${{ github.token }}
+          COLLECTION_OUTCOME: ${{ steps.collect.outcome }}
         run: |
           set -euo pipefail
-          python3 -B ci/p1/evidence_transport.py \
-            --work "$RUNNER_TEMP/p1-original-evidence" --output "$GITHUB_WORKSPACE/p1-evidence-parts"
-      - name: Preserve reconstruction manifest
+          python3 -B validation/ci/p1/video/capture.py \
+            --inputs validation/ci/p1/video/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation"
+          mkdir -p "$GITHUB_WORKSPACE/p1-video-evidence"
+          python3 -B validation/ci/p1/video/package_evidence.py pack \
+            --source "$GITHUB_WORKSPACE/p1-video-evidence" \
+            --output "$GITHUB_WORKSPACE/p1-video-parts" \
+            --collection-outcome "$COLLECTION_OUTCOME" --max-parts 16
+      - name: Preserve original-byte reconstruction manifest
+        if: always() && steps.package.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-original-12105047622-manifest-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-evidence-parts/manifest.json
+          name: p1-video-manifest-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/manifest.json
           if-no-files-found: error
           retention-days: 30
-      - name: Preserve original ZIP part 000
+      - name: Preserve original-byte part 000
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-000.bin') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-original-12105047622-part-000-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-evidence-parts/part-000.bin
+          name: p1-video-part-000-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-000.bin
           compression-level: 0
           if-no-files-found: error
           retention-days: 30
-      - name: Preserve original ZIP part 001
+      - name: Preserve original-byte part 001
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-001.bin') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-original-12105047622-part-001-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-evidence-parts/part-001.bin
+          name: p1-video-part-001-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-001.bin
           compression-level: 0
           if-no-files-found: error
           retention-days: 30
-      - name: Preserve original ZIP part 002
+      - name: Preserve original-byte part 002
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-002.bin') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-original-12105047622-part-002-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-evidence-parts/part-002.bin
+          name: p1-video-part-002-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-002.bin
           compression-level: 0
           if-no-files-found: error
           retention-days: 30
-      - name: Preserve original ZIP part 003
+      - name: Preserve original-byte part 003
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-003.bin') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-original-12105047622-part-003-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-evidence-parts/part-003.bin
+          name: p1-video-part-003-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-003.bin
           compression-level: 0
           if-no-files-found: error
           retention-days: 30
-      - name: Preserve original ZIP part 004
+      - name: Preserve original-byte part 004
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-004.bin') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-original-12105047622-part-004-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-evidence-parts/part-004.bin
+          name: p1-video-part-004-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-004.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 005
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-005.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-005-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-005.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 006
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-006.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-006-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-006.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 007
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-007.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-007-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-007.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 008
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-008.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-008-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-008.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 009
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-009.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-009-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-009.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 010
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-010.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-010-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-010.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 011
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-011.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-011-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-011.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 012
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-012.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-012-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-012.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 013
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-013.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-013-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-013.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 014
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-014.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-014-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-014.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 015
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-video-parts/part-015.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-video-part-015-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-parts/part-015.bin
           compression-level: 0
           if-no-files-found: error
           retention-days: 30

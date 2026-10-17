@@ -11,6 +11,10 @@ private final class P1VideoJournal {
     private var sequence = 0
     private var previousRequest = 0
     private var costs: [[String: Any]] = []
+    private var stripRows: [[String: Any]] = []
+    private var stripBatch = 0
+    private var stripCount = 0
+    private var stripWriteCosts: [[String: Any]] = []
     var request: (([String: Any]) -> Void)?
     init(scenario: String) throws {
         precondition(["timeout", "replacement", "dismissal"].contains(scenario))
@@ -39,6 +43,44 @@ private final class P1VideoJournal {
             }
         }
     }
+    // Small immutable draw receipts are batched on the background queue. This
+    // avoids a main-thread file write and quadratic prior-write inventories.
+    func stripDraw(_ row: [String: Any]) {
+        let enqueued = ProcessInfo.processInfo.systemUptime
+        queue.async {
+            var value = row; value["enqueuedUptime"] = enqueued
+            value["journalStartUptime"] = ProcessInfo.processInfo.systemUptime
+            self.stripRows.append(value); self.stripCount += 1
+            if self.stripRows.count == 30 { self.flushStrip() }
+        }
+    }
+    private func flushStrip() {
+        guard !stripRows.isEmpty else { return }
+        let before = ProcessInfo.processInfo.systemUptime
+        stripBatch += 1
+        do {
+            let value: [String: Any] = ["schema": "p1-strip-batch-v1", "batch": stripBatch,
+                "writeBeforeUptime": before, "draws": stripRows]
+            let bytes = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+            try bytes.write(to: root.appendingPathComponent(String(format: "strip-%04d.json", stripBatch)), options: .atomic)
+            stripWriteCosts.append(["batch": stripBatch, "beforeUptime": before,
+                                    "afterUptime": ProcessInfo.processInfo.systemUptime])
+            stripRows.removeAll(keepingCapacity: true)
+        } catch {
+            try? "strip journal failure".write(to: root.appendingPathComponent("journal-error.txt"), atomically: true, encoding: .utf8)
+        }
+    }
+    func stripStopped(_ uptime: Double) {
+        queue.async {
+            self.flushStrip()
+            let value: [String: Any] = ["schema": "p1-strip-complete-v1", "drawCount": self.stripCount,
+                "batches": self.stripBatch, "stoppedUptime": uptime, "writeCosts": self.stripWriteCosts,
+                "journalCompleteUptime": ProcessInfo.processInfo.systemUptime, "admissionEligible": false]
+            if let bytes = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) {
+                try? bytes.write(to: self.root.appendingPathComponent("strip-complete.json"), options: .atomic)
+            }
+        }
+    }
     func start() {
         let t = DispatchSource.makeTimerSource(queue: queue)
         // Polling is background-only; requests are absent during critical taps.
@@ -48,7 +90,7 @@ private final class P1VideoJournal {
                   let data = try? Data(contentsOf: self.root.appendingPathComponent("request.json")),
                   let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let id = value["id"] as? Int, id > self.previousRequest,
-                  ["clock", "marker", "ready", "mid", "third", "post", "finish"].contains(value["kind"] as? String ?? "") else { return }
+                  ["clock", "ready", "mid", "third", "post", "finish"].contains(value["kind"] as? String ?? "") else { return }
             let received = ProcessInfo.processInfo.systemUptime
             self.previousRequest = id
             if value["kind"] as? String == "clock" {
@@ -74,7 +116,7 @@ private final class P1VideoJournal {
 
 @MainActor final class P1VideoProbe: ObservableObject {
     @Published var phase = "starting"
-    @Published var marker = 0
+    @Published var stripRunning = false
     private var journal: P1VideoJournal?
     private var ordinal = 0
     private var scenario = ""
@@ -93,7 +135,7 @@ private final class P1VideoJournal {
             journal.request = { [weak self] value in
                 Task { @MainActor in self?.receive(value) }
             }
-            phase = "calibrating-pre"
+            phase = "waiting-baseline"; stripRunning = true
             journal.append(["type": "start", "uptime": now, "scenario": scenario,
                 "schema": "p1-video-events-v1", "admissionEligible": false])
             journal.start()
@@ -103,22 +145,30 @@ private final class P1VideoJournal {
         guard let id = row["id"] as? Int, let kind = row["kind"] as? String else { return }
         let before = now
         switch kind {
-        case "marker":
-            guard let value = row["marker"] as? Int, value > 0 && value < 65536,
-                  phase.hasPrefix("calibrating-") else { return }
-            marker = value
         case "ready": guard phase == "calibrating-pre" else { return }; phase = "ready"
         case "mid": guard phase == "awaiting-mid" else { return }; phase = "calibrating-mid"
         case "third": guard phase == "calibrating-mid" else { return }; phase = "third-ready"
         case "post": guard phase == "awaiting-post" else { return }; phase = "calibrating-post"
-        case "finish": guard phase == "calibrating-post" else { return }; phase = "finished"
+        case "finish":
+            guard phase == "calibrating-post" else { return }; phase = "finished"
+            // Keep continuous pixels past the predetermined evidence boundary.
+            // This never extends or changes a production feedback timer.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.stripRunning = false }
         default: return
         }
         journal?.append(["type": "command", "id": id, "kind": kind, "uptime": before,
-                         "afterUptime": now, "phase": phase, "marker": marker])
-        journal?.respond(["id": id, "phase": phase, "marker": marker,
+                         "afterUptime": now, "phase": phase])
+        journal?.respond(["id": id, "phase": phase,
                            "appReceive": before, "appSend": now])
     }
+    func baselineReady() {
+        guard phase == "waiting-baseline" else { return }
+        let before = now; phase = "calibrating-pre"
+        journal?.append(["type": "baseline-ready", "uptime": before, "afterUptime": now,
+                          "driver": "normal-XCTest-fixture-ready-tap"])
+    }
+    func stripDraw(_ row: [String: Any]) { journal?.stripDraw(row) }
+    func stripStopped(_ uptime: Double) { journal?.stripStopped(uptime) }
     func clipboard(_ value: String, expected: String, changeCount: Int) {
         guard ["ready", "active", "third-ready"].contains(phase), let context = context else { return }
         let before = now; let snapshot = context(); ordinal += 1
@@ -176,19 +226,67 @@ private final class P1VideoJournal {
     }
 }
 
-private struct P1VideoMarker: View {
-    let value: Int
-    private var bits: [Bool] {
-        [false, true, false, true] + (0..<16).map { (value >> $0) & 1 == 1 } + [true, false, true, false]
+// The strip changes only its own UIKit pixels. No SwiftUI body/state update is
+// performed per frame, and neither production label nor timer state is read.
+@MainActor private final class P1ClockStripView: UIView {
+    var receipt: (([String: Any]) -> Void)?
+    var stopped: ((Double) -> Void)?
+    private var link: CADisplayLink?
+    private var running = false
+    private var identifier = 0
+    private var tickBefore = 0.0
+    private var tickAfter = 0.0
+    private var displayTimestamp = 0.0
+    override init(frame: CGRect) {
+        super.init(frame: frame); isOpaque = true; backgroundColor = .black
+        isAccessibilityElement = true; accessibilityLabel = "Calibration clock strip"
+        accessibilityIdentifier = "p1-video-marker"
     }
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<24, id: \.self) { index in
-                Rectangle().fill(bits[index] ? Color.white : Color.black).frame(width: 8, height: 16)
-            }
-        }.frame(width: 192, height: 16).accessibilityElement(children: .ignore)
-            .accessibilityLabel("Calibration marker").accessibilityIdentifier("p1-video-marker")
+    required init?(coder: NSCoder) { fatalError("fixture-only initializer") }
+    func setRunning(_ active: Bool) {
+        guard active != running else { return }; running = active
+        if active {
+            tickBefore = ProcessInfo.processInfo.systemUptime; tickAfter = tickBefore
+            let value = CADisplayLink(target: self, selector: #selector(tick(_:)))
+            value.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 30, preferred: 30)
+            value.add(to: .main, forMode: .common); link = value
+        } else {
+            link?.invalidate(); link = nil; stopped?(ProcessInfo.processInfo.systemUptime)
+        }
     }
+    @objc private func tick(_ sender: CADisplayLink) {
+        tickBefore = ProcessInfo.processInfo.systemUptime
+        displayTimestamp = sender.timestamp // diagnostic scheduler metadata only
+        setNeedsDisplay()
+        tickAfter = ProcessInfo.processInfo.systemUptime
+    }
+    override func draw(_ rect: CGRect) {
+        guard let context = UIGraphicsGetCurrentContext() else { return }
+        let before = ProcessInfo.processInfo.systemUptime
+        if running { identifier += 1 }
+        guard identifier < 18000 else { setRunning(false); return }
+        let bits = [false, true, false, true] + (0..<16).map { (identifier >> $0) & 1 == 1 } + [true, false, true, false]
+        for index in 0..<24 {
+            context.setFillColor((bits[index] ? UIColor.white : UIColor.black).cgColor)
+            context.fill(CGRect(x: CGFloat(index) * bounds.width / 24, y: 0, width: bounds.width / 24, height: bounds.height))
+        }
+        let after = ProcessInfo.processInfo.systemUptime
+        if running {
+            receipt?(["id": identifier, "drawBeforeUptime": before, "drawAfterUptime": after,
+                "tickBeforeUptime": tickBefore, "tickAfterUptime": tickAfter,
+                "displayLinkTimestamp": displayTimestamp])
+        }
+    }
+}
+@MainActor private struct P1VideoMarker: UIViewRepresentable {
+    let running: Bool
+    let receipt: ([String: Any]) -> Void
+    let stopped: (Double) -> Void
+    func makeUIView(context: Context) -> P1ClockStripView { P1ClockStripView(frame: .zero) }
+    func updateUIView(_ view: P1ClockStripView, context: Context) {
+        view.receipt = receipt; view.stopped = stopped; view.setRunning(running)
+    }
+    static func dismantleUIView(_ view: P1ClockStripView, coordinator: ()) { view.setRunning(false) }
 }
 
 @MainActor struct P1VideoPromptScreen: View {
@@ -217,7 +315,8 @@ private struct P1VideoMarker: View {
             }.navigationTitle("P1 video probe")
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 4) {
-                    P1VideoMarker(value: probe.marker)
+                    P1VideoMarker(running: probe.stripRunning, receipt: probe.stripDraw, stopped: probe.stripStopped)
+                        .frame(width: 192, height: 16)
                         .background(GeometryReader { geometry in
                             Color.clear.onAppear { probe.markerGeometry(geometry.frame(in: .global)) }
                                 .onChange(of: probe.phase) { phase in
@@ -225,6 +324,9 @@ private struct P1VideoMarker: View {
                                 }
                         })
                     Text(probe.phase).accessibilityIdentifier("p1-video-phase")
+                    Button("Baseline ready", action: probe.baselineReady)
+                        .accessibilityIdentifier("p1-video-baseline-ready")
+                        .disabled(probe.phase != "waiting-baseline")
                 }.padding(4).background(Color(.systemBackground))
             }
         }.navigationViewStyle(.stack)

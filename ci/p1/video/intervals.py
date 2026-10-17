@@ -80,14 +80,14 @@ def mapping(exchanges, markers):
             'admissionEligible': False}
 
 
-def frame_times(frames, offset):
+def frame_times(frames, offset, check_gaps=True):
     require(isinstance(frames, list) and 2 <= len(frames) <= 18000, 'missing/unbounded video frames')
     last = None; result = []
     for frame in frames:
         pts, end = interval(frame['pts'], frame['endPTS'])
         require(end > pts, 'zero/negative video frame duration')
         require(last is None or pts > last, 'duplicate/reordered presentation timestamps')
-        if last is not None: require(pts - last <= FRAME_GAP_MAX, 'video presentation gap exceeds fixed limit')
+        if check_gaps and last is not None: require(pts - last <= FRAME_GAP_MAX, 'video presentation gap exceeds fixed limit')
         last = pts
         result.append((pts + offset[0], end + offset[1]))
     return result
@@ -135,3 +135,21 @@ def lifetime(frames, offset, event, old_event=None):
     return {'firstCopiedBounds': times[first], 'lifetimeWitnessBounds': times[witness],
             'resetBounds': times[reset], 'minimumLifetimeSeconds': times[witness][0] - event,
             'expiryUpperSeconds': times[reset][1] - event, 'conditionalOnly': True, 'admissionEligible': False}
+
+
+def evidence_window(frames, offset, start, end):
+    """Protocol-fixed baseline-ready through completed post calibration.
+
+    All raw PTS remain globally validated. Include every potentially overlapping
+    boundary frame under the full clock interval, never trim an interior gap.
+    """
+    frame_times(frames, (0, 0), check_gaps=False)
+    require(finite(start) and finite(end) and start < end, 'invalid protocol window')
+    for left, right in zip(frames, frames[1:]):
+        require(abs(left['endPTS'] - right['pts']) < 1e-6, 'discontinuous video frame inventory')
+    lo, hi = start-offset[1], end-offset[0]
+    require(frames[0]['pts'] <= lo and frames[-1]['endPTS'] >= hi, 'video does not cover protocol window')
+    selected = [f for f in frames if f['endPTS'] >= lo and f['pts'] <= hi]
+    frame_times(selected, offset)
+    require(all(f['endPTS']-f['pts'] <= FRAME_GAP_MAX for f in selected), 'boundary/interior frame duration exceeds fixed limit')
+    return selected, (lo, hi)

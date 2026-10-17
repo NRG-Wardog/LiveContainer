@@ -91,6 +91,7 @@ for (index,row) in (input["independentScreenshots"] as! [[String: Any]]).enumera
     guard let source = CGImageSourceCreateWithURL(url as CFURL,nil), let image = CGImageSourceCreateImageAtIndex(source,0,nil) else { throw NSError(domain:"P1Video",code:4) }
     var result = try inspect(image,index:20001+index)
     result["phase"] = row["phase"]; result["path"] = row["path"]
+    result["decodedMarker"] = markerID(image) as Any? ?? NSNull()
     independent.append(result)
 }
 let asset = AVURLAsset(url: URL(fileURLWithPath: input["video"] as! String))

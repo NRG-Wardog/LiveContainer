@@ -54,14 +54,12 @@ class Channel:
                 'hostAfter':row['hostAfter'],'appReceive':response['appReceive'],'appSend':response['appSend']})
         for _ in range(3):
             marker=len(self.markers)+1
-            row=self.request('marker',marker=marker)
-            require(row['response'].get('marker')==marker,'marker acknowledgement mismatch')
             name=f'marker-{marker:03d}.png'
             before=time.monotonic()
             self.command('xcrun','simctl','io',self.device,'screenshot',self.output/name,timeout=20)
             after=time.monotonic()
             self.markers.append({'id':marker,'stage':stage,'hostBefore':before,'hostAfter':after,
-                'screenshot':name,'markerCommandID':row['id']})
+                'screenshot':name,'matching':'actual screenshot strip ID; never request ordinal'})
             self.persist()
         self.persist()
     def events(self):

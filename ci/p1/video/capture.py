@@ -32,7 +32,7 @@ SOURCE_SHA=extract.SOURCE_SHA256
 BUILDER=base.BUILDER
 APP_ID='org.sidestore.fixture.p1video'
 METHODS={'timeout':'testProbeTimeoutPixels','replacement':'testProbeReplacementPixels','dismissal':'testProbeDismissalPixels'}
-ADAPTERS={'ci/p0/source_primitives.py', 'ci/p1/video/analyze.py', 'ci/p1/video/test_intervals.py', 'ci/p1/video/capture.py', 'ci/p1/video/recovery_ui_tests.swift', 'ci/p1/video/intervals.py', 'ci/p1/video/test_v3_signin_screen_cleanup.py', 'ci/p1/video/test_capture.py', 'ci/p1/video/recovery.swift', 'ci/p1/video/ui_tests.swift', 'ci/p1/video/transport.py', 'ci/p1/video/host_build.py', 'ci/p1/video/test_host_build.py', 'ci/p1/video/app.swift', 'prepare_candidate_inventory.py', 'ci/p1/video/README.md', 'ci/p1/video/test_recovery_layout_source.py', 'ci/p1/video/exports.py', 'ci/p1/video/extract.py', 'ci/p0/native_gate.py', 'ci/p1/video/test_analyze.py', 'ci/p1/video/layout_exports.py', 'ci/p1/video/test_exports.py', 'ci/p1/video/test_extract.py', 'ci/p1/video/test_layout_exports.py', 'ci/p1/video/test_transport.py', 'ci/p1/video/decode.swift', 'ci/p0/inputs-sidestore.json', 'ci/p1/native_gate.py', 'ci/p1/probe/capture.py'}
+ADAPTERS={'ci/p1/video/test_layout_observer_source.py', 'ci/p1/video/package_evidence.py', 'ci/p1/video/test_package_evidence.py', 'ci/p1/video/test_strip.py', 'ci/p0/source_primitives.py', 'ci/p1/video/analyze.py', 'ci/p1/video/test_intervals.py', 'ci/p1/video/capture.py', 'ci/p1/video/recovery_ui_tests.swift', 'ci/p1/video/intervals.py', 'ci/p1/video/test_v3_signin_screen_cleanup.py', 'ci/p1/video/test_capture.py', 'ci/p1/video/recovery.swift', 'ci/p1/video/ui_tests.swift', 'ci/p1/video/transport.py', 'ci/p1/video/host_build.py', 'ci/p1/video/test_host_build.py', 'ci/p1/video/app.swift', 'prepare_candidate_inventory.py', 'ci/p1/video/README.md', 'ci/p1/video/test_recovery_layout_source.py', 'ci/p1/video/exports.py', 'ci/p1/video/extract.py', 'ci/p0/native_gate.py', 'ci/p1/video/test_analyze.py', 'ci/p1/video/layout_exports.py', 'ci/p1/video/test_exports.py', 'ci/p1/video/test_extract.py', 'ci/p1/video/test_layout_exports.py', 'ci/p1/video/test_transport.py', 'ci/p1/video/decode.swift', 'ci/p0/inputs-sidestore.json', 'ci/p1/native_gate.py', 'ci/p1/probe/capture.py'}
 
 
 def validate(host,inputs,approved):
@@ -91,9 +91,26 @@ def read_events(root):
         require(path.name==f'event-{i:03d}.json' and not path.is_symlink(),'stale/missing/linked journal event')
         rows.append(parse(path))
     require(not (root/'journal-error.txt').exists(),'journal reported failure')
-    require({p.name for p in root.iterdir()}<={p.name for p in files}|{'request.json','response.json'},'unexpected raw journal member')
+    require(all(p.name in {f.name for f in files}|{'request.json','response.json','strip-complete.json'} or re.fullmatch(r'strip-[0-9]{4}\.json',p.name) for p in root.iterdir()),'unexpected raw journal member')
     return rows
 
+
+
+def read_strip(root):
+    complete=parse(ordinary(root,'strip-complete.json'))
+    require(complete.get('schema')=='p1-strip-complete-v1' and complete.get('admissionEligible') is False,'incomplete strip journal')
+    files=sorted(root.glob('strip-[0-9][0-9][0-9][0-9].json'))
+    require(type(complete.get('batches')) is int and 0<len(files)<=600 and len(files)==complete['batches'],'strip batch count differs')
+    rows=[]
+    for i,path in enumerate(files,1):
+        require(path.name==f'strip-{i:04d}.json','strip batch sequence gap')
+        data=parse(ordinary(root,path.name))
+        require(data.get('schema')=='p1-strip-batch-v1' and type(data.get('batch')) is int and data['batch']==i,'wrong strip batch identity')
+        batch=data.get('draws');require(isinstance(batch,list) and 1<=len(batch)<=30 and (i==len(files) or len(batch)==30),'partial interior strip batch')
+        require(base.number(data.get('writeBeforeUptime')) and all(base.number(r.get('journalStartUptime')) and r['journalStartUptime']<=data['writeBeforeUptime'] for r in batch),'strip write order invalid')
+        rows.extend(batch)
+    require(type(complete.get('drawCount')) is int and len(rows)==complete['drawCount'],'strip draw count differs')
+    return {'complete':complete,'draws':rows}
 
 def export_case(command,bundle,folder,scenario,device,valid_png):
     directory=folder/'attachments'
@@ -129,10 +146,13 @@ def run_case(command,candidate,device,scenario,folder,valid_png):
             require(root is not None,'fixture channel was never created')
             channel=transport.Channel(root,folder,device,command)
             try:
-                channel.await_event('start',10);channel.calibrate('pre');channel.request('ready')
+                channel.await_event('start',10);channel.await_event('baseline-ready',90);channel.calibrate('pre');channel.request('ready')
                 channel.await_event('window-end');channel.request('mid');channel.calibrate('mid');channel.request('third')
                 channel.await_event('post-ready');channel.request('post');channel.calibrate('post');channel.request('finish')
                 future.result(timeout=60)
+                strip_deadline=time.monotonic()+10
+                while time.monotonic()<strip_deadline and not (root/'strip-complete.json').is_file():time.sleep(.05)
+                require((root/'strip-complete.json').is_file(),'clock strip did not finalize')
             except Exception as error:report['errors'].append('interaction/calibration: '+str(error))
             finally:
                 # A failed protocol must not leave an unrelated long-running
@@ -142,7 +162,7 @@ def run_case(command,candidate,device,scenario,folder,valid_png):
         if root is not None and root.exists():shutil.copytree(root,folder/'raw-events')
         video.stop();video=None
         controls,inputs,screenshots=export_case(command,bundle,folder,scenario,device,valid_png)
-        events=read_events(folder/'raw-events')
+        events=read_events(folder/'raw-events');strip=read_strip(folder/'raw-events');write(folder/'strip-journal.json',strip)
         geometry=[r for r in events if r.get('type')=='marker-geometry'];require(geometry,'missing marker geometry')
         rect=geometry[-1]['rect'];points=geometry[-1]['screenPoints'];scale=geometry[-1]['scale']
         require(len(rect)==4 and len(points)==2 and all(base.number(v) and v>0 for v in points+[scale]),'invalid geometry')
@@ -157,7 +177,7 @@ def run_case(command,candidate,device,scenario,folder,valid_png):
         command('swift',HERE/'decode.swift',folder/'decode-input.json',folder/'decoded-frames',folder/'decoded.json',timeout=600)
         report['collection_complete']=not report['errors']
         try:
-            report['feasibility']=analyze.inspect(calibration,parse(folder/'decoded.json'),events,scenario,inputs)
+            report['feasibility']=analyze.inspect(calibration,parse(folder/'decoded.json'),events,scenario,inputs,strip)
             report['conditional_feasibility']=True
         except Exception as error:report['feasibility_failure']=str(error)
     except Exception as error:report['errors'].append(str(error))

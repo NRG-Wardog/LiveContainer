@@ -33,18 +33,24 @@ final class P0SignInUITests: XCTestCase {
         attach(["schema": "p1-video-controls-v1", "scenario": scenario, "copyFrame": rect(copyFrame),
             "markerFrame": rect(markerFrame), "windowFrame": rect(windowFrame),
             "copyLabel": copy.label, "copyHittable": copy.isHittable], "video-\(scenario)-controls")
+        let baselineReady = app.buttons["p1-video-baseline-ready"]
+        XCTAssertTrue(baselineReady.exists && baselineReady.isHittable)
+        let baselineBefore = ProcessInfo.processInfo.systemUptime; baselineReady.tap()
+        let baselineAfter = ProcessInfo.processInfo.systemUptime
         XCTAssertTrue(phase(app, "ready"), "External pre-calibration did not finish")
         let firstBefore = ProcessInfo.processInfo.systemUptime
         copy.tap()
         let firstAfter = ProcessInfo.processInfo.systemUptime
         var input: [String: Any] = ["schema": "p1-video-input-v1", "scenario": scenario,
-            "firstBefore": firstBefore, "firstAfter": firstAfter, "firstDriver": "normal-XCTest-tap"]
+            "firstBefore": firstBefore, "firstAfter": firstAfter, "firstDriver": "normal-XCTest-tap",
+            "baselineBefore": baselineBefore, "baselineAfter": baselineAfter,
+            "baselineDriver": "normal-XCTest-fixture-ready-tap"]
         if scenario != "timeout" {
             // Public normal physical input; no assumption about quiescence or
             // delivery time. Actual app events decide whether overlap occurred.
-            input["secondDelayRequested"] = 1.10
+            input["secondDelayRequested"] = 0.90
             input["secondDelayBefore"] = ProcessInfo.processInfo.systemUptime
-            Thread.sleep(forTimeInterval: 1.10)
+            Thread.sleep(forTimeInterval: 0.90)
             input["secondDelayAfter"] = ProcessInfo.processInfo.systemUptime
             input["secondBefore"] = ProcessInfo.processInfo.systemUptime
             target.tap()

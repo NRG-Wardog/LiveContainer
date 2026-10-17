@@ -15,33 +15,72 @@ records externally; decoding and OCR happen after interaction. It introduces no
 private XCTest API, synthetic copied-state flag, direct production action call,
 or change to the production two-second timer.
 
+## Reviewed protocol window and live strip
+
+Run 39041266465 recovered readable feedback pixels and real overlap on three of
+four lifecycle cases, but held visual markers produced 0.643–4.152 second stage
+uncertainty and the variable-frame video contained long static intervals. That
+run remains failed; none of its timing criteria have been retrospectively waived.
+
+The fixture now draws a tiny 192×16 point binary UIKit strip at a requested 30 Hz.
+Each actual draw receives a new ID, independent of every production label,
+clipboard payload and feedback state. No SwiftUI state/body is refreshed per
+frame. Immutable draw/tick brackets and background enqueue/write receipts are
+batched in groups of 30; completion binds the exact contiguous ID inventory.
+Measured draw/tick brackets must each stay ≤ 5 ms and their summed cost ≤ 10% of
+the draw span. These CPU brackets exclude final receipt enqueue, compositor and
+indirect scheduling costs. A draw bracket is never a presentation timestamp.
+
+XCTest first verifies the actual Copy control and takes its independent baseline
+screenshot, then physically taps the separate fixture Baseline ready button.
+Only its actual app receipt starts pre-calibration. The strip runs before this
+handshake and for 2 seconds after completed post-calibration, giving live pixels
+around the fixed measurement boundaries. It never changes a production timer.
+
+All raw video and PTS are retained and validated for finite values, ordering and
+continuous frame inventory. The ≤ 120 ms frame-gap and duration limits apply to the
+entire protocol-defined window from the baseline-ready receipt through the
+finish receipt after post-calibration, including every possible boundary frame
+under the full clock uncertainty. Every tap, replacement/reopen, reset and
+settling interval is inside. No interior gap can be removed, and no label outside
+this fixed window can establish a lifetime. Launch/teardown pixels cannot supply
+an assertion. This is an explicit measurement-boundary change, not a claim that
+an earlier run passed.
+
 ## Conditional calibration model
 
-A bounded file request/response exchange gives app-minus-host monotonic offset
-in [appSend-hostReceive, appReceive-hostSend]. Every exchange is retained. Three
-pre/mid/post calibration sets must independently constrain offset to at most
-20 ms and share an intersection. The middle set occurs after the overlap window,
-before the separate ordinary third tap. There are no marker changes during taps.
+A file request/response exchange gives app-minus-host monotonic offset in
+[appSend-hostReceive,appReceive-hostSend]. Every exchange is retained. Exactly
+8 exchanges at each pre/mid/post stage must independently constrain offset to at
+most 20 ms and share an intersection. Stage boundaries are bound to exact actual
+protocol commands and their clocks, not inferred from friendly case names. All
+29 ordered request/response records are bound to the 24 exact clock exchanges
+and five app command events, including strict IDs, response shapes and clocks.
+Host and app ordering are checked separately; their raw clocks are never equated.
 
-Each independent simctl screenshot retains host request/return times and an
-actual fixture-only binary marker. Match every plausible occurrence of that ID
-in the video, enclosing the entire presentation interval. Alternatives are
-unioned/enclosed; only independent screenshot constraints are intersected.
-Video-minus-host calibration uncertainty must be at most 120 ms in each set,
-with a shared pre/mid/post intersection. No nominal frame rate is used. Duplicate
-or reordered PTS, presentation gaps above 120 ms, absent calibration, ambiguous
-geometry, or wide/disjoint bounds fail conditional feasibility.
+Exactly 3 independent simctl screenshots per stage retain request/return brackets.
+The decoder reads the real live-strip ID in each screenshot, then encloses ALL
+matching video intervals in a hull. The screenshot ordinal is never a pixel ID.
+Draw IDs/times are provenance and causal cross-checks only; they cannot shrink
+the screenshot-derived uncertainty. Independent constraints may intersect, but
+alternative matches are enclosed. Each stage must constrain video/host offset
+to ≤ 120 ms, with a shared intersection. Long screenshot latency may still fail.
 
-These constraints assume continuous clocks with a stable unit rate during the
-short scenario and a continuous video timeline. Calibration does not prove
-arbitrary nonlinear clock behavior or a compositor latency bound. Screenshots
-and raw video are retained for independent visual assessment. Therefore even a
-positive numerical result is conditional feasibility, never admission.
+Every used video frame must contain an ordered, actually journaled strip ID.
+OCR observations bind exact raw-frame index/PTS/endPTS, and only recognizable
+actual production-label pixels count. Independent before/after screenshots must
+show the actual control and clock IDs bracketing calibration. No frame rate is
+assumed from the requested rate. Missing/ambiguous boundaries, unknown strip
+pixels, reordered IDs, excessive gaps or wide/disjoint mapping fail closed.
+
+This still assumes continuous clocks with a stable unit rate during the short
+scenario. Screenshot and draw receipts do not prove an arbitrary compositor
+latency bound. A positive result is conditional capability only, never admission.
 
 ## Input and observation
 
 The first input is a normal XCTest element tap. The second is a previously
-located coordinate tap, attempted after a 1.10 s sleep in the XCTest runner following the first call return;
+located coordinate tap, attempted after a 0.90 s sleep in the XCTest runner following the first call return;
 there is no claim that XCTest will schedule it in time. Actual clipboard event
 ordinals, payloads, generation and monotonic timestamps must show 0.75–<2 s
 spacing. A late/missing input fails independently of pixel calibration. A normal
@@ -92,8 +131,28 @@ Both devices run four strict XCTest methods: the five-kind matrix at default
 portrait, AX5 portrait, AX5 landscape, then state/size/orientation transitions.
 Raw evidence must include 15 primary and 12 named transition observations,
 21 actual scrolled-action/callback pairs, 21 after-action geometries, 12
-confirmation screenshots, and all associated primary/action/transition images.
+confirmation screenshots, the two actual Apps/Home tab-roundtrip screenshots,
+and all associated primary/action/transition images.
 Additional scroll attempts are retained. Actual production banner identity,
 fixture current kind, inherited text-size receipt, viewport orientation, real
 navigation-action frame and actual four tab controls are validated. Callbacks
 are synthetic fixture observations, never proof of service recovery effects.
+
+## Bounded original-byte evidence packaging
+
+After collection, including a failed or partial run, a separate always-run step
+creates one deterministic stored ZIP64 archive of all regular evidence files and
+empty directories. It never imports or executes evidence. The original file
+bytes/hashes and collector receipts are preserved; packaging cannot claim UI
+success. A strict manifest binds the complete member inventory, whole ZIP size
+and SHA256, ordered offsets and per-part hashes. The archive is capped during
+writing at 16 × 256 MiB, including ZIP overhead; overflow fails without truncation.
+
+The manifest and EACH ≤ 256 MiB byte part are uploaded separately to this same
+Actions repository, so every downloadable artifact is below 512 MiB. No credential
+or new external destination is introduced. A consumer must authenticate artifact
+digests, reconstruct in ordinal order, verify the exact whole ZIP identity and
+all indexed members before interpreting the evidence. The original archive is
+never uploaded as one oversized combined artifact. The independent host artifact
+remains unchanged. The temporary evidence-only transport workflow is restored to
+this diagnostic workflow only in the reviewed successor commit.
