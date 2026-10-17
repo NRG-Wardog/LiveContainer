@@ -1,6 +1,7 @@
-name: P1 host compile and conditional video diagnostics
+name: P1 original evidence transport only
 
-# Two independent evidence jobs. Neither grants full native/UI admission.
+# Temporary evidence transport. The native/UI workflow is preserved at a6ea69fc.
+# This job never builds, executes test fixtures, extracts, or rewrites the ZIP.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -9,80 +10,83 @@ permissions:
 concurrency:
   group: p1-native-${{ github.ref }}
   cancel-in-progress: false
-env:
-  DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_VIDEO_INPUTS_SHA256: '406730355e1e78cddd96f0a65fac267822e8c47465817f8ca8a1dde4cd1839ea'
-  PYTHONDONTWRITEBYTECODE: '1'
-  GIT_TERMINAL_PROMPT: '0'
-  GIT_CONFIG_NOSYSTEM: '1'
-  GIT_CONFIG_GLOBAL: /dev/null
-  GIT_CONFIG_COUNT: '0'
 jobs:
-  p1-actual-host:
+  p1-evidence-transport:
     if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
-    runs-on: macos-26
-    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read  # Read one exact existing cross-run artifact, no Actions write.
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      TRANSPORT_HELPER_SHA256: '93298ca490f752c00fe7e38c4ff25435c35297c5e854ad93682e9d9b91121afb'
+      TRANSPORT_TEST_SHA256: '179927a634fbadc5ce21988d77a2738ad589efc1cf50a2d735e46886c8152685'
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          path: validation
           persist-credentials: false
           set-safe-directory: false
-      - name: Fresh unsigned actual P1 host compile only
+      - name: Verify reviewed transport bytes and adversarial tests
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/video/host_build.py \
-            --inputs validation/ci/p1/video/inputs.json \
-            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
-            --host-root "$GITHUB_WORKSPACE/validation" \
-            --work "$RUNNER_TEMP/p1-host-work" --evidence "$GITHUB_WORKSPACE/p1-host-evidence"
-      - name: Preserve independent actual-host evidence
-        if: always()
+          printf '%s  %s\n' "$TRANSPORT_HELPER_SHA256" ci/p1/evidence_transport.py | sha256sum -c -
+          printf '%s  %s\n' "$TRANSPORT_TEST_SHA256" ci/p1/test_evidence_transport.py | sha256sum -c -
+          python3 -B -m unittest discover -s ci/p1 -p test_evidence_transport.py -v
+      - name: Download and verify original ZIP, then split identical bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -B ci/p1/evidence_transport.py \
+            --work "$RUNNER_TEMP/p1-original-evidence" --output "$GITHUB_WORKSPACE/p1-evidence-parts"
+      - name: Preserve reconstruction manifest
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-actual-host-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-host-evidence/**
+          name: p1-original-12105047622-manifest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-evidence-parts/manifest.json
           if-no-files-found: error
           retention-days: 30
-  p1-video-diagnostic:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
-    runs-on: macos-26
-    timeout-minutes: 110
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          path: validation
-          persist-credentials: false
-          set-safe-directory: false
-      - name: Verify sealed diagnostic-only inputs
-        run: |
-          set -euo pipefail
-          python3 -B validation/ci/p1/video/capture.py \
-            --inputs validation/ci/p1/video/inputs.json \
-            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
-            --host-root "$GITHUB_WORKSPACE/validation"
-          python3 -B -m unittest discover -s validation/ci/p1/video -p test_intervals.py -v
-          python3 -B -m unittest discover -s validation/ci/p1/video -p test_transport.py -v
-      - name: Collect conditional video and strict isolated layout evidence
-        run: |
-          set -euo pipefail
-          python3 -B validation/ci/p1/video/capture.py \
-            --inputs validation/ci/p1/video/inputs.json \
-            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
-            --host-root "$GITHUB_WORKSPACE/validation" \
-            --work "$RUNNER_TEMP/p1-video-work" --evidence "$GITHUB_WORKSPACE/p1-video-evidence" \
-            --execute
-      - name: Preserve raw video and diagnostic evidence
-        if: always()
+      - name: Preserve original ZIP part 000
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-video-diagnostic-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-video-evidence/**
+          name: p1-original-12105047622-part-000-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-evidence-parts/part-000.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original ZIP part 001
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-original-12105047622-part-001-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-evidence-parts/part-001.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original ZIP part 002
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-original-12105047622-part-002-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-evidence-parts/part-002.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original ZIP part 003
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-original-12105047622-part-003-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-evidence-parts/part-003.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original ZIP part 004
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-original-12105047622-part-004-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-evidence-parts/part-004.bin
+          compression-level: 0
           if-no-files-found: error
           retention-days: 30
