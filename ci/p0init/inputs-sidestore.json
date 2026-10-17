@@ -236,9 +236,9 @@
         },
         "tests/init_diagnostics/pipeline_harness.swift": {
           "after": {
-            "git_object": "25a8b900236f4e9118bcbf4dc719b355ff81f225",
+            "git_object": "ce8a71f3558747c563312d97ad1b1e100fa66b6c",
             "mode": "100644",
-            "sha256": "902d0ed41a2833e3386d7ca61d60ec23bb235af6793992cea3197501ca8d3ceb",
+            "sha256": "b1a46066f24a9cda5654e74aaa789b1f5d775da7cc6fbbf6f30c7febfa5039ae",
             "type": "blob"
           },
           "before": null
@@ -253,9 +253,9 @@
           "before": null
         }
       },
-      "commit": "fb376d0ccd8b845576b529dd36d9940843a55794",
+      "commit": "1df50257f6255522e6ff48db226508fe74d6b17d",
       "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
-      "tree": "cc05168422bfd866982eaefdb9d75dc57021a08f"
+      "tree": "205350ead530a22f4d04eb762e8b47fa27063879"
     },
     "SideSign": {
       "changes": {
@@ -349,9 +349,9 @@
         },
         "tests/init_diagnostics/pipeline_harness.swift": {
           "after": {
-            "git_object": "25a8b900236f4e9118bcbf4dc719b355ff81f225",
+            "git_object": "ce8a71f3558747c563312d97ad1b1e100fa66b6c",
             "mode": "100644",
-            "sha256": "902d0ed41a2833e3386d7ca61d60ec23bb235af6793992cea3197501ca8d3ceb",
+            "sha256": "b1a46066f24a9cda5654e74aaa789b1f5d775da7cc6fbbf6f30c7febfa5039ae",
             "type": "blob"
           },
           "before": null
@@ -366,9 +366,9 @@
           "before": null
         }
       },
-      "commit": "5c1f63f89f6b1d441cc3874928ae88e2e5e88201",
+      "commit": "b1013534f4b9be78e56b44c977dcaff2805d636b",
       "repository": "https://github.com/NRG-Wardog/SideStore.git",
-      "tree": "bf64ca15d011eb7e9a5107fb6a7a1805e14e7cc1"
+      "tree": "e3f2195b7dc11fdeec98ff5e038aa005371cf64e"
     },
     "idevice": {
       "changes": {},
@@ -551,7 +551,7 @@
         "ci/p0init/tests/init_diagnostics/README.md": "ac387746654346f54e4625f032c7f13c6d5ee6e86e01f6874b2fba3955458f01",
         "ci/p0init/tests/init_diagnostics/host_harness.swift": "0fb86b7bf3dfe4677292971c41d7d226c4cb6c1395035612b101948f5e8004a9",
         "ci/p0init/tests/init_diagnostics/native_fixture.cpp": "b1dfcd27822ee7e4ec9c203b956b25d8fdd8ed6afe961ad12547ffe4244187a0",
-        "ci/p0init/tests/init_diagnostics/pipeline_harness.swift": "902d0ed41a2833e3386d7ca61d60ec23bb235af6793992cea3197501ca8d3ceb",
+        "ci/p0init/tests/init_diagnostics/pipeline_harness.swift": "b1a46066f24a9cda5654e74aaa789b1f5d775da7cc6fbbf6f30c7febfa5039ae",
         "ci/p0init/tests/init_diagnostics/test_contract.py": "0cd8d339e7629ef07a2b743193ff193eb64722432ad50d70d5cb359597f50196"
       },
       "id": "initializer-diagnostics",

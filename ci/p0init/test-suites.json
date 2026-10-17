@@ -124,7 +124,7 @@
       "ci/p0init/tests/init_diagnostics/README.md": "ac387746654346f54e4625f032c7f13c6d5ee6e86e01f6874b2fba3955458f01",
       "ci/p0init/tests/init_diagnostics/host_harness.swift": "0fb86b7bf3dfe4677292971c41d7d226c4cb6c1395035612b101948f5e8004a9",
       "ci/p0init/tests/init_diagnostics/native_fixture.cpp": "b1dfcd27822ee7e4ec9c203b956b25d8fdd8ed6afe961ad12547ffe4244187a0",
-      "ci/p0init/tests/init_diagnostics/pipeline_harness.swift": "902d0ed41a2833e3386d7ca61d60ec23bb235af6793992cea3197501ca8d3ceb",
+      "ci/p0init/tests/init_diagnostics/pipeline_harness.swift": "b1a46066f24a9cda5654e74aaa789b1f5d775da7cc6fbbf6f30c7febfa5039ae",
       "ci/p0init/tests/init_diagnostics/test_contract.py": "0cd8d339e7629ef07a2b743193ff193eb64722432ad50d70d5cb359597f50196"
     },
     "modules": [

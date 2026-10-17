@@ -20,7 +20,7 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       P0_PHASE: sidestore
       # Exact candidate input digest; requires independent review before publication.
-      APPROVED_P0_INPUTS_SHA256: '52e8aab72dcc168444fb0986a97d6e73397881f3f46beba3facfe75f8819427e'
+      APPROVED_P0_INPUTS_SHA256: '97e46c0324b78769c9bf7dc4fd4f6a99cd711435d981851b27eee99ae55ff6a5'
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
       GIT_CONFIG_NOSYSTEM: '1'
