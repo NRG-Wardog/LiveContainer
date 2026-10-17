@@ -342,7 +342,7 @@ struct IconImageView: View {
 // V3_NATIVE_ALERT_LANGUAGE_V1: rebuild only the presentation; preserve inputs,
 // continuation identity and callbacks. No guest or operation state is recreated.
 @MainActor
-private final class V3NativeAlertPresentation: NSObject, UIAdaptivePresentationControllerDelegate {
+private final class V3NativeAlertPresentation: NSObject {
     private static var associationKey: UInt8 = 0
     private weak var presenter: UIViewController?
     private weak var controller: UIAlertController?
@@ -458,7 +458,6 @@ private final class V3NativeAlertPresentation: NSObject, UIAdaptivePresentationC
                 refreshLanguage()
             }
         }
-        result.presentationController?.delegate = self
     }
 
     /// One terminal action owns the callback/continuation across every replacement.
@@ -502,10 +501,6 @@ private final class V3NativeAlertPresentation: NSObject, UIAdaptivePresentationC
         if !isFinished { finish(onUnavailable) }
         // A disconnected scene cannot finish an animated transition reliably.
         if forceCompletion || presenter?.viewIfLoaded?.window == nil { deliverCompletion() }
-    }
-
-    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        cancelUnavailable()
     }
 
     private func refreshLanguage() {
