@@ -1,6 +1,6 @@
-name: P1 diagnostic pixel and topology probe
+name: P1 host compile and conditional video diagnostics
 
-# Diagnostic collection only. A green job never grants native/UI admission.
+# Two independent evidence jobs. Neither grants full native/UI admission.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -9,19 +9,48 @@ permissions:
 concurrency:
   group: p1-native-${{ github.ref }}
   cancel-in-progress: false
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+  APPROVED_P1_VIDEO_INPUTS_SHA256: 'fa0dfc94f6c1dba236ef99dd800e336deb477e3b6ba58a8db751055188d32cf0'
+  PYTHONDONTWRITEBYTECODE: '1'
+  GIT_TERMINAL_PROMPT: '0'
+  GIT_CONFIG_NOSYSTEM: '1'
+  GIT_CONFIG_GLOBAL: /dev/null
+  GIT_CONFIG_COUNT: '0'
 jobs:
-  p1-native-ui:
+  p1-actual-host:
     if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
     runs-on: macos-26
-    timeout-minutes: 60
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-      APPROVED_P1_PROBE_INPUTS_SHA256: '3a22bb86d56974fee37600491dc6ea3f50a969487c82716e1600ff4c8d13f1a7'
-      PYTHONDONTWRITEBYTECODE: '1'
-      GIT_TERMINAL_PROMPT: '0'
-      GIT_CONFIG_NOSYSTEM: '1'
-      GIT_CONFIG_GLOBAL: /dev/null
-      GIT_CONFIG_COUNT: '0'
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Fresh unsigned actual P1 host compile only
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p1/video/host_build.py \
+            --inputs validation/ci/p1/video/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --work "$RUNNER_TEMP/p1-host-work" --evidence "$GITHUB_WORKSPACE/p1-host-evidence"
+      - name: Preserve independent actual-host evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-actual-host-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-host-evidence/**
+          if-no-files-found: error
+          retention-days: 30
+  p1-video-diagnostic:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
+    runs-on: macos-26
+    timeout-minutes: 110
     defaults:
       run:
         shell: bash
@@ -34,25 +63,26 @@ jobs:
       - name: Verify sealed diagnostic-only inputs
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/probe/capture.py \
-            --inputs validation/ci/p1/probe/inputs.json \
-            --approved-inputs-sha256 "$APPROVED_P1_PROBE_INPUTS_SHA256" \
+          python3 -B validation/ci/p1/video/capture.py \
+            --inputs validation/ci/p1/video/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation"
-          python3 -B -m unittest discover -s validation/ci/p1/probe -p test_probe.py -v
-      - name: Collect diagnostic pixels and topology only
+          python3 -B -m unittest discover -s validation/ci/p1/video -p test_intervals.py -v
+          python3 -B -m unittest discover -s validation/ci/p1/video -p test_transport.py -v
+      - name: Collect conditional video and strict isolated layout evidence
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/probe/capture.py \
-            --inputs validation/ci/p1/probe/inputs.json \
-            --approved-inputs-sha256 "$APPROVED_P1_PROBE_INPUTS_SHA256" \
+          python3 -B validation/ci/p1/video/capture.py \
+            --inputs validation/ci/p1/video/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_VIDEO_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
-            --work "$RUNNER_TEMP/p1-probe-work" --evidence "$GITHUB_WORKSPACE/p1-probe-evidence" \
+            --work "$RUNNER_TEMP/p1-video-work" --evidence "$GITHUB_WORKSPACE/p1-video-evidence" \
             --execute
-      - name: Preserve diagnostic evidence for independent review
+      - name: Preserve raw video and diagnostic evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-diagnostic-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: p1-probe-evidence/**
+          name: p1-video-diagnostic-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-video-evidence/**
           if-no-files-found: error
           retention-days: 30
