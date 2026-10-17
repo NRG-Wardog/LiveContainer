@@ -1,12 +1,19 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
 import capture
+
+def swift_leading_dot_fractions(text):
+    # Tuple members (snapshot.0) and ranges (0..<16) are valid Swift. A numeric
+    # fraction without its integer part, after whitespace/operator/punctuation,
+    # is not. This targeted guard supplements, never replaces, native compilation.
+    return re.findall(r"(?<![\w.])\.[0-9]+",text)
 
 class Capture(unittest.TestCase):
     def setUp(self):
@@ -65,6 +72,9 @@ class Capture(unittest.TestCase):
     def test_raw_events_error(self):
         (self.root/'event-001.json').write_text('{}');(self.root/'journal-error.txt').write_text('failed')
         with self.assertRaisesRegex(ValueError,'journal reported'):capture.read_events(self.root)
+    def test_fraction_guard_reproduces_native_syntax_error(self):
+        self.assertEqual(swift_leading_dot_fractions('deadline: .now() + .75; CGVector(dx: .5, dy: .5)'),['.75','.5','.5'])
+        self.assertEqual(swift_leading_dot_fractions('deadline: .now() + 0.75; CGVector(dx: 0.5, dy: 0.5); snapshot.0; 0..<16'),[])
     def test_exact_source_generation(self):
         source=Path(os.environ['MAINTAINED_LIVE_CONTAINER_TEST_SOURCE'])/'LiveContainerSwiftUI/Views/V3UnifiedShell.swift'
         builder=Path(os.environ['P1_FROZEN_BUILDER_TEST_SOURCE'])
@@ -73,6 +83,8 @@ class Capture(unittest.TestCase):
         generated=(output/'sources/p0_signin_app.swift').read_text()
         self.assertEqual(generated.count('@main'),1)
         for fragment in capture.extract.fragments(source.read_text()).values():self.assertIn(fragment.rstrip('\n'),generated)
+        for path in sorted((output/'sources').glob('*.swift')):
+            self.assertEqual(swift_leading_dot_fractions(path.read_text()),[],str(path))
         self.assertNotIn('drawHierarchy',generated)
         self.assertNotIn('pngData()',generated)
         self.assertIn('V3PromptSection(prompt: prompt',generated)

@@ -134,7 +134,7 @@ private final class P1VideoJournal {
         phase = "active"
         if ordinal == 1 {
             if scenario != "timeout" {
-                DispatchQueue.main.asyncAfter(deadline: .now() + .75) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
                     guard let self = self else { return }
                     self.transition?(); self.record(self.scenario == "replacement" ? "replace" : "dismiss")
                 }

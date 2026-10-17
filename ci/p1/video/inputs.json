@@ -7,7 +7,7 @@
     "ci/p1/probe/capture.py": "a3c6dd2e614ad9aff1032793d28c51cd16d42bcb1a2285648c03d54002de1f0e",
     "ci/p1/video/README.md": "dc635403eeaf3b6059fd9b473e4fe50c8f2c1132eac2582482ed1f6927273b92",
     "ci/p1/video/analyze.py": "34df0c4f0dbc2cecb5efd0f2c0bb356247251364d35589a887d2108bbdd1f0c7",
-    "ci/p1/video/app.swift": "3a783e092da3a62e9fed665494158157864480af6e03a678e58c361d2bbc76c7",
+    "ci/p1/video/app.swift": "e11280ceca73b61fe3485999e6be81b7700e9b35f495542f57042a391e9ddd3a",
     "ci/p1/video/capture.py": "7e4ba5a9a904d071e061d7ea29dadd9884907e63367e93e38374f61905372c72",
     "ci/p1/video/decode.swift": "37a7ac6d08770b1f8a9b5732c906b9d843401ded341912a3b87b70a6609c6db7",
     "ci/p1/video/exports.py": "6e0beb735b4eadbca42711f2f9a1e6a497bfffc056d03db33ac66829d8f71dfc",
@@ -18,7 +18,7 @@
     "ci/p1/video/recovery.swift": "24e0de18402d474d9e0333f9f5f7e6984f8d01c25ec056b180899371548e71cb",
     "ci/p1/video/recovery_ui_tests.swift": "585b0dc28111ded2be2e9381ceb7162cde368aa935150e646306776722086e55",
     "ci/p1/video/test_analyze.py": "4387680c2ff63ed3e1b3f540b7a49bfcb6b98dd9540283a3ed37d6f01557db67",
-    "ci/p1/video/test_capture.py": "0a9bce0500f9b150641a459c5cec406c187ca666d7dcda3106833f5832359de6",
+    "ci/p1/video/test_capture.py": "3d4bbca074d4d250b5a8718349b3654390eaf93a3fb23333cfa16c7d8e74edf6",
     "ci/p1/video/test_exports.py": "e8aab6db8c149256997bf9dcdae55bcf6a66cc322476ec641235dbbcadbf0194",
     "ci/p1/video/test_extract.py": "c452b8a9962f90288cf2ee3052dd63abebcd04a2bde50adb0e537d00098de9e6",
     "ci/p1/video/test_host_build.py": "272a01fe2a341846f818887a7b11a822d53afca8196ed9f591376e89e76f2702",
@@ -28,7 +28,7 @@
     "ci/p1/video/test_transport.py": "82da33aff67ec754f20368be28b90e76a95584b52f163c918f4005eda15badd9",
     "ci/p1/video/test_v3_signin_screen_cleanup.py": "1b76a8d63fa004a3ad54a1284906455eab3a4d3fea28b514fde28f8778528805",
     "ci/p1/video/transport.py": "a7becb7fee4915be17390dceeee8510de573884141edd9806055c3a8379c3650",
-    "ci/p1/video/ui_tests.swift": "15e677ad93106738e82ff8b42cf7ae7eedfae216c0374a78d4ffa5fa254c7e14",
+    "ci/p1/video/ui_tests.swift": "37c12327de3cc09b064b285013497c4d280b1f68d8c5bcf584fdff87368f49ed",
     "prepare_candidate_inventory.py": "90e8bd00abf49a695057949dc28dcf3ad1747a7d220913a0463b0b253b9e134a"
   },
   "builder": {

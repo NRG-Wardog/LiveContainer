@@ -28,7 +28,7 @@ final class P0SignInUITests: XCTestCase {
         let marker = app.otherElements["p1-video-marker"]
         XCTAssertTrue(marker.exists)
         let copyFrame = copy.frame; let markerFrame = marker.frame; let windowFrame = app.windows.firstMatch.frame
-        let target = copy.coordinate(withNormalizedOffset: CGVector(dx: .5, dy: .5))
+        let target = copy.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         screenshot(app, "video-\(scenario)-before")
         attach(["schema": "p1-video-controls-v1", "scenario": scenario, "copyFrame": rect(copyFrame),
             "markerFrame": rect(markerFrame), "windowFrame": rect(windowFrame),
