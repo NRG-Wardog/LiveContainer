@@ -1,5 +1,6 @@
 import copy
 import json
+import re
 import struct
 from pathlib import Path
 import tempfile
@@ -7,20 +8,42 @@ import unittest
 import layout_exports as layout
 import capture
 
-def metric(viewport,region=None,selected=0):
+SEQUENCE=0
+
+def metric(viewport,region=None,selected=0,kind='operation',largest=False):
+    global SEQUENCE
+    SEQUENCE+=4
+    sequence=SEQUENCE
     x,y,w,h=viewport;offered=[x,y+20,w,h-40]
     out=dict(schema='p1-layout-metrics-v1',complete=True,applicationActive=True,viewCount=10,selectedTab=selected,
         startedUptime=1.0,finishedUptime=1.001,windowBounds=viewport,offeredFrame=offered,offeredSize=offered[2:],
-        interfaceOrientation=3 if w>h else 1,screenScale=1,scrollViews=[],observationSequence=2,
+        interfaceOrientation=3 if w>h else 1,screenScale=1,scrollViews=[],observationSequence=sequence,
+        recoveryKind=kind,largestText=largest,
         processSession='fixture-session',windowObservationID='fixture-window')
     if region:
         safe=[region[0],region[1]+20,region[2],region[3]-20]
         out['scrollViews']=[dict(path='window/0',view=dict(frame=region,bounds=region,localToWindow=[1,0,0,1,0,0],hidden=False,alpha=1.0),scrollEnabled=True,
             ancestors=[dict(frame=viewport,bounds=viewport,localToWindow=[1,0,0,1,0,0],hidden=False,alpha=1.0,clips=True)],clippedBounds=region,
-            safeAreaFrame=safe,localSafeAreaFrame=safe,safeAreaInsets=[20,0,0,0],safeClippingViewport=safe)]
-    previous=copy.deepcopy(out);previous['observationSequence']=1
-    out.update(causalPrevious=previous,probeValueReadCount=2,runnerRequestBracket=[10,10.1])
+            safeAreaFrame=safe,localSafeAreaFrame=safe,safeAreaInsets=[20,0,0,0],safeClippingViewport=safe,contentOffset=[0,0])]
+    previous=copy.deepcopy(out);previous['observationSequence']=sequence-1
+    out.update(causalPrevious=previous,probeValueReadCount=2,runnerRequestBracket=[sequence,sequence+.1])
     return out
+
+def inferred_context(name):
+    match=re.match(r'(layout-(?:none|operation|direct|refresh|unreadable)-(?:default|AX5)-(?:portrait|landscape))',name)
+    return layout.context(match[1] if match else name) or ('operation',False,False,'Home')
+
+def inventory(tabs,viewport,nested=False):
+    groups=[]
+    for index,tab in enumerate(tabs):
+        attrs={k:copy.deepcopy(tab[k]) for k in ['identifier','label','elementType','frame','selected']}
+        root=dict(path=[],identifier='',label='Application',elementType=2,frame=viewport,selected=False)
+        parent=dict(attrs,path=[index]);leaf=dict(attrs,path=[index,0])
+        rows=[dict(path=[index],ancestors=[root],snapshot=parent,observed=copy.deepcopy(tab))]
+        if nested:rows.append(dict(path=[index,0],ancestors=[root,parent],snapshot=leaf,observed=copy.deepcopy(tab)))
+        groups.append(dict(title=tab['label'],identifier=tab['identifier'],candidates=rows,queryCount=len(rows),
+                           selectedPath=[index,0] if nested else [index],snapshotComplete=True,snapshotNodeCount=10))
+    return groups
 
 def png(width,height):return b'\x89PNG\r\n\x1a\n'+b'\x00\x00\x00\x0dIHDR'+struct.pack('>II',width,height)
 
@@ -38,7 +61,7 @@ class LayoutExports(unittest.TestCase):
                 viewport=observed([0,0,400,800]),navigationBar=observed([0,210,400,50]),
                 tabs=[observed([i*100,750,90,40],label) for i,label in enumerate(['Home','Apps','Sources','Settings'])],
                 region=observed([0,0,400,200]) if banner else dict(exists=False),content=observed([20,300,300,60]),admissionEligible=False)
-            ctx=layout.context(name)
+            ctx=layout.context(name) or inferred_context(name)
             row['navigationAction']=observed([330,215,60,40])
             if ctx:
                 kind,largest,landscape,title=ctx
@@ -50,14 +73,17 @@ class LayoutExports(unittest.TestCase):
                     row.update(viewport=observed([0,0,800,400]),navigationBar=observed([0,130,800,50]),navigationAction=observed([730,135,60,40]),
                         tabs=[observed([i*100,350,90,40],label) for i,label in enumerate(['Home','Apps','Sources','Settings'])],
                         region=observed([0,0,800,120]) if banner else dict(exists=False),content=observed([20,200,300,60]))
-            row.update(predicateFailures=[],screenshotSource='XCUIScreen.main',layoutMetrics=metric(row['viewport']['frame'],row['region'].get('frame')))
+            row.update(predicateFailures=[],screenshotSource='XCUIScreen.main',layoutMetrics=metric(row['viewport']['frame'],row['region'].get('frame'),kind=inferred_context(name)[0],largest=inferred_context(name)[1]))
             for t in row['tabs']:t.update(identifier='p1-tab-'+t['label'],elementType=9,selected=t['label']=='Home')
-            row['tabCandidates']=[dict(title=t['label'],identifier=t['identifier'],candidates=[copy.deepcopy(t)]) for t in row['tabs']]
+            row['tabCandidates']=inventory(row['tabs'],row['viewport']['frame'])
             self.add(method,name+'-geometry',row);self.rows[name]=row
         for name,(method,callback) in actions.items():
             row=dict(schema='p1-layout-action-v1',case=name,driver='ordinary-XCTest-visible-coordinate-tap',scrollAttempts=1,
                 button=observed([10,50,300,50]),visibleIntersection=[10,50,300,50],region=observed([0,0,400,200]),admissionEligible=False)
-            row.update(layoutMetrics=metric([0,0,400,800],row['region']['frame']),clippingViewport=[0,20,400,180])
+            landscape=inferred_context(name)[2]
+            viewport=[0,0,800,400] if landscape else [0,0,400,800]
+            if landscape:row['region']['frame']=[0,0,800,120]
+            row.update(layoutMetrics=metric(viewport,row['region']['frame'],kind=inferred_context(name)[0],largest=inferred_context(name)[1]),clippingViewport=[0,20,800,100] if landscape else [0,20,400,180])
             self.add(method,name+'-input',row);self.rows[name+'-input']=row
             row=dict(schema='p1-layout-callback-v1',case=name,expected=callback,actual=observed([0,300,300,50],callback+':1'),admissionEligible=False)
             self.add(method,name+'-callback-value',row);self.rows[name+'-callback']=row
@@ -72,15 +98,17 @@ class LayoutExports(unittest.TestCase):
             selected=1 if name=='transition-apps-tab' else 0
             self.add(method,name,png(viewport[2],viewport[3]))
             row=dict(schema='p1-layout-screen-v1',case=name,source='XCUIScreen.main',pixelWidth=viewport[2],pixelHeight=viewport[3],
-                imageOrientation=0,viewport=observed(viewport),metrics=metric(viewport,selected=selected),admissionEligible=False)
+                imageOrientation=0,viewport=observed(viewport),metrics=metric(viewport,selected=selected,kind=inferred_context(name)[0],largest=inferred_context(name)[1]),admissionEligible=False)
             self.add(method,name+'-screen-receipt',row);self.rows[name+'-screen']=row
         receipt=metric([0,0,400,800],[0,0,400,200])
         drag=dict(schema='p1-layout-drag-v1',case='layout-interior-drag-1',viewport=[0,0,400,800],metrics=receipt,
             element=dict(frame=[0,0,400,200],identifier='v3.recovery.region'),visibleBounds=[0,20,400,180],interiorBounds=[12,32,376,156],
-            start=[200,71],end=[200,149],admissionEligible=False)
+            start=[200,71],end=[200,149],admissionEligible=False,direction='down',scrollPath='window/0',offsetBefore=[0,0],
+            driver='ordinary-XCTest-controlled-coordinate-drag',velocity=80,pressDuration=.05,holdDuration=.2,
+            navigationBars=[dict(exists=True,frame=[0,210,400,50])],tabs=[dict(exists=True,frame=[i*100,750,90,40]) for i in range(4)])
         self.add(layout.METHODS[0],'drag-input',drag);self.rows['drag']=drag
-        after=dict(schema='p1-layout-drag-after-v1',case='layout-interior-drag-1',foreground=True,metrics=receipt,
-            viewport=dict(frame=[0,0,400,800]),admissionEligible=False)
+        after=dict(schema='p1-layout-drag-after-v1',case='layout-interior-drag-1',foreground=True,metrics=metric([0,0,400,800],[0,0,400,200]),
+            viewport=dict(frame=[0,0,400,800]),admissionEligible=False,scrollPath='window/0',offsetAfter=[0,0],offsetDelta=0,progress=False)
         self.add(layout.METHODS[0],'drag-after',after);self.rows['drag-after']=after
         self.save()
     def add(self,method,name,value):
@@ -131,7 +159,7 @@ class LayoutExports(unittest.TestCase):
         self.rows['layout-direct-AX5-landscape']['geometryPassed']=False
         with self.assertRaises(ValueError):self.verify()
     def test_top_tab_overlap(self):
-        row=self.rows['layout-operation-AX5-portrait'];row['tabs'][0]['frame']=[0,100,90,40];row['tabCandidates'][0]['candidates'][0]['frame']=[0,100,90,40]
+        row=self.rows['layout-operation-AX5-portrait'];row['tabs'][0]['frame']=[0,100,90,40];row['tabCandidates']=inventory(row['tabs'],row['viewport']['frame'])
         with self.assertRaisesRegex(ValueError,'covers navigation'):self.verify()
     def test_banner_navigation_overlap(self):
         self.rows['layout-operation-default-portrait']['region']['frame']=[0,0,400,240]
@@ -211,7 +239,7 @@ class LayoutExports(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'inventory'):self.verify()
     def test_ambiguous_tab_candidates(self):
         c=self.rows['layout-none-default-portrait']['tabCandidates'][0];c['candidates'].append(copy.deepcopy(c['candidates'][0]))
-        with self.assertRaisesRegex(ValueError,'ambiguous actual tab'):self.verify()
+        with self.assertRaisesRegex(ValueError,'inventory differs|duplicate tab ancestry'):self.verify()
     def test_tab_identity_is_not_sufficient_without_actual_selection(self):
         row=self.rows['transition-apps-tab-selection'];row['actual']['selectedTab']=0
         with self.assertRaisesRegex(ValueError,'selected tab'):self.verify()
@@ -235,7 +263,7 @@ class LayoutExports(unittest.TestCase):
         with self.assertRaises(ValueError):self.verify()
     def test_missing_drag_after_receipt(self):
         self.rows['drag-after']['case']='different'
-        with self.assertRaisesRegex(ValueError,'foreground'):self.verify()
+        with self.assertRaisesRegex(ValueError,'after method'):self.verify()
     def test_cached_getter_receipt(self):
         m=self.rows['layout-none-default-portrait']['layoutMetrics'];m['observationSequence']=m['causalPrevious']['observationSequence']
         with self.assertRaisesRegex(ValueError,'noncausal'):self.verify()
@@ -252,7 +280,12 @@ class LayoutExports(unittest.TestCase):
         self.rows['layout-none-default-portrait']['layoutMetrics'].pop('runnerRequestBracket')
         with self.assertRaisesRegex(ValueError,'request-duration'):self.verify()
     def test_app_and_runner_clocks_need_not_match(self):
-        m=self.rows['layout-none-default-portrait']['layoutMetrics'];m['runnerRequestBracket']=[900000,900000.4]
+        seen=set()
+        for row in self.rows.values():
+            for key in ['layoutMetrics','metrics','actual']:
+                m=row.get(key,{})
+                if isinstance(m,dict) and 'runnerRequestBracket' in m and id(m) not in seen:
+                    seen.add(id(m));m['runnerRequestBracket']=[x+900000 for x in m['runnerRequestBracket']]
         self.assertTrue(self.verify()['collection_complete'])
     def test_missing_full_screen_receipt(self):
         self.rows['layout-none-default-portrait-screen']['source']='app.screenshot'

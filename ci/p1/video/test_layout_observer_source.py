@@ -36,7 +36,7 @@ class LayoutObserverSource(unittest.TestCase):
         self.assertNotIn('viewport.height * 0.4',UI)
     def test_unique_correspondence_is_required(self):
         self.assertIn('matched.count == 1',UI)
-        self.assertIn('sameFrame(frame, region.frame)',UI)
+        self.assertIn('sameFrame(frame, element.frame)',UI)
         self.assertIn('sameFrame(viewport, safe.intersection(clipped).intersection(offered))',UI)
     def test_clock_domains_are_not_subtracted(self):
         self.assertNotIn('systemUptime - finished',UI)
@@ -51,7 +51,9 @@ class LayoutObserverSource(unittest.TestCase):
     def test_existing_labels_receive_only_ids(self):
         for title,symbol in [('Home','house.fill'),('Apps','square.stack.3d.up.fill'),('Sources','books.vertical'),('Settings','gearshape.fill')]:
             self.assertIn('Label("'+title+'", systemImage: "'+symbol+'").accessibilityIdentifier("p1-tab-'+title+'")',FIXTURE)
-        self.assertIn('found.count == 1',UI)
+        self.assertIn('leaves.count == 1',UI)
+        self.assertIn('chosen.path.starts(with: $0.path)',UI)
+        self.assertIn('app.snapshot()',UI)
         self.assertIn('actualTabs[1].tap()',UI)
         self.assertIn('returnTabs[0].tap()',UI)
         self.assertIn('Actual Apps tab selection did not change',UI)

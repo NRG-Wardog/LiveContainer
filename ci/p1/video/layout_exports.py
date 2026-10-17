@@ -5,6 +5,7 @@ import struct
 from exports import require,frame,leaves
 
 METHODS=['testRecoveryBranchesDefault','testRecoveryBranchesLargest','testRecoveryCompactLandscape','testRecoveryStateAndSizeTransitions']
+CAPABILITY_METHODS={'tablet':['testCapabilityNestedTabSelection','testCapabilityNoBannerRotation'],'phone':['testCapabilityLandscapeTargets']}
 KINDS=['none','operation','direct','refresh','unreadable']
 ACTIONS={'operation':{'resume':'resume-operation','confirm':'reconcile-operation'},
     'direct':{'inspect':'inspect-direct','confirm':'reconcile-direct'},'refresh':{'confirm':'reconcile-refresh'},
@@ -15,6 +16,9 @@ IDENTITIES={'operation':'A previous install may still be running','direct':'A pr
     'refresh':'A previous refresh may still be running','unreadable':'SideStore paused changes because its recovery record is malformed\nError ID: SS-STATUS-FIXTURE'}
 
 def context(name):
+    if name.startswith('capability-tabs-'):return 'none',False,False,'Home' if name.endswith('initial') else 'Details'
+    if name.startswith('capability-rotation-'):return 'none',False,name.endswith('landscape'),'Home'
+    if name.startswith('capability-targets-'):return ('direct' if name.endswith('next') else 'operation'),True,True,'Details' if name.endswith('next') else 'Home'
     match=re.fullmatch(r'layout-(none|operation|direct|refresh|unreadable)-(default|AX5)-(portrait|landscape)',name)
     if match:return match[1],match[2]=='AX5',match[3]=='landscape','Home'
     if not name.startswith('transition-'):return None
@@ -55,6 +59,7 @@ def metric_basis(metrics,viewport,selected=0):
     for key in ['processSession','windowObservationID']:
         require(isinstance(metrics.get(key),str) and bool(metrics[key]) and previous.get(key)==metrics[key],'getter session/window changed')
     require(previous.get('interfaceOrientation')==metrics.get('interfaceOrientation') and previous.get('offeredSize')==metrics.get('offeredSize'),'getter orientation/offered size changed')
+    require(metrics.get('recoveryKind') in KINDS and type(metrics.get('largestText')) is bool and previous.get('recoveryKind')==metrics['recoveryKind'] and previous.get('largestText') is metrics['largestText'],'missing/changed measured branch/size')
     bracket=metrics.get('runnerRequestBracket');require(isinstance(bracket,list) and len(bracket)==2 and all(finite(x) for x in bracket) and 0<=bracket[0]<=bracket[1],'missing runner request-duration bracket')
     start=metrics.get('startedUptime');finish=metrics.get('finishedUptime')
     require(finite(start) and finite(finish) and 0<=start<=finish,'invalid layout observation times')
@@ -65,7 +70,7 @@ def metric_basis(metrics,viewport,selected=0):
     require(type(orientation) is int and orientation in ([3,4] if window[2]>window[3] else [1,2]),'native interface orientation differs')
     return offered,size
 
-def clipping_viewport(metrics,viewport,region):
+def clipping_viewport(metrics,viewport,region,enforce_cap=True):
     offered,size=metric_basis(metrics,viewport)
     rows=metrics.get('scrollViews');require(isinstance(rows,list),'missing UIKit scroll inventory')
     matches=[]
@@ -97,7 +102,7 @@ def clipping_viewport(metrics,viewport,region):
     require(near(converted_frame(mapping),safe) and inside(safe,frame(view['frame'])),'safe viewport coordinate conversion differs')
     effective=intersection(intersection(safe,clipped),offered)
     require(near(effective,frame(row.get('safeClippingViewport'))),'measured clipping viewport differs')
-    require(effective[3]<=min(320,size[1]*.4)+1,'measured safe viewport exceeds cap')
+    if enforce_cap:require(effective[3]<=min(320,size[1]*.4)+1,'measured safe viewport exceeds cap')
     return effective
 
 def check_screen(row,png):
@@ -126,14 +131,140 @@ def expected():
     return geometries,actions,screens
 
 
+def same_context(before,after,rotation=False,state_change=False,tab_change=False):
+    for key in ['processSession','windowObservationID']:
+        require(before.get(key)==after.get(key),'stale/wrong process or window')
+    require(before['observationSequence']<after['causalPrevious']['observationSequence'],'stale/reused observation sequence')
+    require(before['runnerRequestBracket'][1]<=after['runnerRequestBracket'][0],'reordered runner observation')
+    if not rotation:
+        require(before['interfaceOrientation']==after['interfaceOrientation'] and near(frame(before['windowBounds']),frame(after['windowBounds'])),'context orientation/window changed')
+    if not state_change:
+        require(before.get('recoveryKind')==after.get('recoveryKind') and before.get('largestText')==after.get('largestText'),'context branch/size changed')
+    if not tab_change:require(before['selectedTab']==after['selectedTab'],'context tab changed')
+
+
+def validate_tab_inventory(inventory,tabs=None,require_nested=False):
+    titles=['Home','Apps','Sources','Settings']
+    require(isinstance(inventory,list) and len(inventory)==4 and {c.get('identifier') for c in inventory}=={'p1-tab-'+t for t in titles},'missing adaptive tab inventory')
+    chosen=[]
+    for group in inventory:
+        title=group.get('title');identifier=group.get('identifier');rows=group.get('candidates')
+        require(title in titles and identifier=='p1-tab-'+title,'wrong tab inventory title')
+        require(group.get('snapshotComplete') is True and type(group.get('snapshotNodeCount')) is int and 0<group['snapshotNodeCount']<=4096,'incomplete tab snapshot')
+        require(isinstance(rows,list) and rows and type(group.get('queryCount')) is int and group['queryCount']==len(rows),'tab query/snapshot inventory differs')
+        paths=[]
+        for row in rows:
+            path=row.get('path');ancestors=row.get('ancestors');snap=row.get('snapshot');live=row.get('observed')
+            require(isinstance(path,list) and path and all(type(i) is int and i>=0 for i in path),'invalid tab ancestry path')
+            require(path not in paths,'duplicate tab ancestry path');paths.append(path)
+            require(isinstance(ancestors,list) and len(ancestors)==len(path),'incomplete tab ancestry')
+            for index,ancestor in enumerate(ancestors):
+                require(isinstance(ancestor,dict) and ancestor.get('path')==path[:index],'broken tab ancestry path')
+                require(type(ancestor.get('elementType')) is int and isinstance(ancestor.get('identifier'),str) and isinstance(ancestor.get('label'),str) and type(ancestor.get('selected')) is bool,'missing ancestry attributes')
+                frame(ancestor.get('frame'))
+            require(isinstance(snap,dict) and isinstance(live,dict) and snap.get('path')==path,'missing snapshot/live tab pair')
+            require(live.get('exists') is True and live.get('hittable') is True,'tab unavailable')
+            for key in ['identifier','label','elementType','selected']:
+                require(snap.get(key)==live.get(key),'tab snapshot/live changed')
+            require(live.get('identifier')==identifier and live.get('label')==title and live.get('elementType')==9 and type(live.get('selected')) is bool,'wrong actual tab identity/type')
+            require(near(frame(snap.get('frame')),frame(live.get('frame'))),'tab snapshot/live frame changed')
+        for row in rows:
+            for ancestor in row['ancestors']:
+                if ancestor['identifier']==identifier:
+                    matches=[r for r in rows if r['path']==ancestor['path']]
+                    require(len(matches)==1 and matches[0]['snapshot']==ancestor,'omitted/mismatching ancestor candidate')
+        leaves=[p for p in paths if not any(len(q)>len(p) and q[:len(p)]==p for q in paths)]
+        require(len(leaves)==1 and group.get('selectedPath')==leaves[0],'ambiguous actual tab candidate')
+        leaf=leaves[0];selected=rows[paths.index(leaf)]['observed']
+        for row,path in zip(rows,paths):
+            require(leaf[:len(path)]==path,'unrelated duplicate tab controls')
+            live=row['observed']
+            require(all(live.get(k)==selected.get(k) for k in ['identifier','label','elementType','selected']) and near(frame(live['frame']),frame(selected['frame'])),'nested duplicate tab attributes differ')
+            if path!=leaf:
+                ancestor=rows[paths.index(leaf)]['ancestors'][len(path)]
+                require(ancestor==row['snapshot'],'candidate ancestry attributes differ')
+        if require_nested:require(len(rows)>=2,'nested tab capability not exercised')
+        if tabs is not None:
+            matches=[t for t in tabs if t.get('identifier')==identifier]
+            require(len(matches)==1 and matches[0]==selected,'selected tab candidate differs')
+        chosen.append(selected)
+    return chosen
+
+
+def scroll_record(metrics,element,enforce_cap):
+    viewport=frame(metrics.get('windowBounds'));region=frame(element.get('frame'))
+    clip=clipping_viewport(metrics,viewport,region,enforce_cap)
+    rows=[r for r in metrics['scrollViews'] if near(frame(r['view']['frame']),region)]
+    require(len(rows)==1,'ambiguous actual scroll')
+    row=rows[0];offset=row.get('contentOffset')
+    require(isinstance(offset,list) and len(offset)==2 and all(finite(v) for v in offset),'missing measured scroll offset')
+    return clip,row
+
+
+def validate_drag(row,after):
+    viewport=frame(row.get('viewport'));metrics=row.get('metrics',{});metric_basis(metrics,viewport)
+    element=row.get('element',{});recovery=element.get('identifier')=='v3.recovery.region'
+    require(element.get('identifier') in ['v3.recovery.region','p1-fixture-details-list'],'wrong scroll target')
+    clip,scroll=scroll_record(metrics,element,recovery)
+    visible=frame(row.get('visibleBounds'));interior=frame(row.get('interiorBounds'))
+    require(near(visible,clip) and inside(interior,visible),'drag outside measured clipping viewport')
+    require(near(interior,[visible[0]+12,visible[1]+12,visible[2]-24,visible[3]-24]),'drag edge margin differs')
+    target=row.get('target')
+    if isinstance(target,dict) and target.get('exists') is True:
+        target_frame=frame(target.get('frame'));needed=min(44,target_frame[3])
+        if target_frame[1]+target_frame[3]<clip[1]+needed:require(row.get('direction')=='down','drag goes away from target above')
+        elif target_frame[1]>clip[1]+clip[3]-needed:require(row.get('direction')=='up','drag goes away from target below')
+    require(row.get('driver')=='ordinary-XCTest-controlled-coordinate-drag' and row.get('velocity')==80 and row.get('pressDuration')==0.05 and row.get('holdDuration')==0.2,'unsafe drag input recipe')
+    require(isinstance(row.get('tabs'),list) and len(row['tabs'])==4 and isinstance(row.get('navigationBars'),list) and row['navigationBars'],'missing drag navigation inventory')
+    for control in row['tabs']+row['navigationBars']:
+        require(control.get('exists') is True and disjoint(interior,frame(control.get('frame'))),'drag overlaps navigation/tabs')
+    for point in [row.get('start'),row.get('end')]:
+        require(isinstance(point,list) and len(point)==2 and all(finite(x) for x in point) and interior[0]<=point[0]<=interior[0]+interior[2] and interior[1]<=point[1]<=interior[1]+interior[3],'drag endpoint touches unsafe area')
+    start,end=row['start'],row['end'];distance=abs(end[1]-start[1])
+    require(start[0]==end[0] and 8<=distance<=interior[3]*0.6+1 and row.get('direction')==('down' if end[1]>start[1] else 'up'),'unsafe drag direction/distance')
+    require(after.get('foreground') is True,'drag left foreground app')
+    after_metrics=after.get('metrics');metric_basis(after_metrics,frame(after.get('viewport',{}).get('frame')))
+    same_context(metrics,after_metrics)
+    _,after_scroll=scroll_record(after_metrics,element,recovery)
+    require(row.get('scrollPath')==scroll['path']==after.get('scrollPath')==after_scroll['path'],'scroll correspondence changed')
+    require(row.get('offsetBefore')==scroll['contentOffset'] and after.get('offsetAfter')==after_scroll['contentOffset'],'offset receipt differs')
+    delta=after_scroll['contentOffset'][1]-scroll['contentOffset'][1]
+    require(finite(after.get('offsetDelta')) and abs(after['offsetDelta']-delta)<=1e-6 and after.get('progress') is (abs(delta)>0.5),'false drag progress receipt')
+
+
+def capability_expected(device_class):
+    methods=CAPABILITY_METHODS[device_class];geometries={};actions={};screens={}
+    if device_class=='tablet':
+        for name in ['capability-tabs-initial','capability-tabs-returned']:geometries[name]=(methods[0],False)
+        for suffix in ['portrait','landscape','returned']:geometries['capability-rotation-'+suffix]=(methods[1],False)
+        screens.update({'capability-tabs-apps':methods[0],'capability-tabs-home':methods[0]})
+    else:
+        for name in ['capability-targets-initial','capability-targets-resume-after','capability-targets-next']:geometries[name]=(methods[0],True)
+        actions['capability-targets-resume']=(methods[0],'resume-operation')
+        screens.update({n:methods[0] for n in ['capability-targets-resume-visible','capability-targets-resume-callback']})
+    screens.update({n:m for n,(m,_) in geometries.items()})
+    return geometries,actions,screens
+
+
+def verify_capabilities(root,summary,tests,device,device_class,parse,ordinary,valid_png):
+    require(device_class in CAPABILITY_METHODS,'unknown capability device class')
+    return _verify(root,summary,tests,device,parse,ordinary,valid_png,device_class)
+
+
 def verify(root,summary,tests,device,parse,ordinary,valid_png):
+    return _verify(root,summary,tests,device,parse,ordinary,valid_png,None)
+
+
+def _verify(root,summary,tests,device,parse,ordinary,valid_png,capability):
+    methods=CAPABILITY_METHODS[capability] if capability else METHODS
+    count=len(methods)
     keys=['passedTests','failedTests','skippedTests','totalTestCount','expectedFailures']
-    require(summary.get('result')=='Passed' and all(type(summary.get(k)) is int for k in keys) and [summary[k] for k in keys]==[4,0,0,4,0],'four passed/zero skipped layout tests required')
+    require(summary.get('result')=='Passed' and all(type(summary.get(k)) is int for k in keys) and [summary[k] for k in keys]==[count,0,0,count,0],'exact passed/zero skipped layout tests required')
     configurations=summary.get('devicesAndConfigurations')
     require(isinstance(configurations,list) and len(configurations)==1 and configurations[0].get('device',{}).get('deviceId')==device,'layout device differs')
-    cases=list(leaves(tests));identifiers={'P1RecoveryLayoutUITests/'+m+'()' for m in METHODS}
-    require(len(cases)==4 and {r.get('nodeIdentifier') for r in cases}==identifiers and all(r.get('result')=='Passed' for r in cases),'wrong layout XCTest methods')
-    manifest=parse(ordinary(root,'manifest.json'));require(isinstance(manifest,list) and len(manifest)==4,'wrong layout attachment inventory')
+    cases=list(leaves(tests));identifiers={'P1RecoveryLayoutUITests/'+m+'()' for m in methods}
+    require(len(cases)==count and {r.get('nodeIdentifier') for r in cases}==identifiers and all(r.get('result')=='Passed' for r in cases),'wrong layout XCTest methods')
+    manifest=parse(ordinary(root,'manifest.json'));require(isinstance(manifest,list) and len(manifest)==count,'wrong layout attachment inventory')
     records={};screens={};seen=set();seen_methods=set()
     for group in manifest:
         identifier=group.get('testIdentifier');require(identifier in identifiers and identifier not in seen_methods,'wrong/duplicate layout attachment method');seen_methods.add(identifier)
@@ -150,7 +281,7 @@ def verify(root,summary,tests,device,parse,ordinary,valid_png):
             if valid_png(path.read_bytes()):
                 name=row.get('suggestedHumanReadableName',row.get('attachmentName'))
                 require(isinstance(name,str),'unnamed screenshot');require(name not in screens,'duplicate layout screenshot name');screens[name]=(method,path.name)
-    geometries,actions,expected_screens=expected()
+    geometries,actions,expected_screens=capability_expected(capability) if capability else expected()
     for name,(method,banner) in geometries.items():
         actual_method,row=records.get(('p1-layout-observation-v1',name),(None,{}))
         require(actual_method==method and row.get('geometryPassed') is True and row.get('bannerExpected') is banner and row.get('predicateFailures')==[],'missing/failed layout geometry: '+name)
@@ -164,6 +295,7 @@ def verify(root,summary,tests,device,parse,ordinary,valid_png):
         if expected_context:
             kind,largest,landscape,title=expected_context
             require(row.get('expectedKind')==kind and row.get('navigationTitle')==title and row.get('expectedLargest') is largest and row.get('expectedLandscape') is landscape,'wrong branch/trait expectation')
+            require(row['layoutMetrics'].get('recoveryKind')==kind and row['layoutMetrics'].get('largestText') is largest,'actual metric branch/size differs')
             size=row.get('inheritedSizeCategory',{})
             require(size.get('exists') is True and size.get('accessibilityValue')==('sizeCategory=AX5' if largest else 'sizeCategory=default'),'inherited text size differs')
             require(viewport[2]>viewport[3] if landscape else viewport[3]>viewport[2],'actual viewport orientation differs')
@@ -175,14 +307,7 @@ def verify(root,summary,tests,device,parse,ordinary,valid_png):
                 passive=row.get('passiveCurrentKind',{})
                 require(passive.get('exists') is True and passive.get('label')==kind,'actual fixture kind differs')
         tabs=row.get('tabs');require(isinstance(tabs,list) and len(tabs)==4 and {t.get('identifier') for t in tabs}=={'p1-tab-'+title for title in ['Home','Apps','Sources','Settings']},'actual tabs missing')
-        inventory=row.get('tabCandidates');require(isinstance(inventory,list) and len(inventory)==4,'missing adaptive tab inventory')
-        require({c.get('identifier') for c in inventory}=={t['identifier'] for t in tabs},'adaptive tab inventory differs')
-        for candidate in inventory:
-            found=candidate.get('candidates');require(isinstance(found,list),'missing tab candidates')
-            eligible=[c for c in found if c.get('exists') is True and c.get('hittable') is True]
-            require(len(eligible)==1,'ambiguous actual tab candidate')
-            chosen=next(t for t in tabs if t['identifier']==candidate['identifier'])
-            require(eligible[0]==chosen and type(chosen.get('elementType')) is int,'selected tab candidate differs')
+        validate_tab_inventory(row.get('tabCandidates'),tabs,require_nested=capability=='tablet' and name.startswith('capability-tabs-'))
         tab_frames=[]
         for tab in tabs:
             require(tab.get('exists') is True and tab.get('hittable') is True,'tab unavailable');f=frame(tab.get('frame'));require(inside(f,viewport),'tab outside viewport');tab_frames.append(f)
@@ -195,33 +320,44 @@ def verify(root,summary,tests,device,parse,ordinary,valid_png):
     for name,(method,callback) in actions.items():
         actual_method,row=records.get(('p1-layout-action-v1',name),(None,{}))
         require(actual_method==method and row.get('driver')=='ordinary-XCTest-visible-coordinate-tap' and type(row.get('scrollAttempts')) is int and 0<=row['scrollAttempts']<12,'missing actual scrolled input')
+        primary=re.fullmatch(r'(layout-(?:operation|direct|refresh|unreadable)-(?:default|AX5)-(?:portrait|landscape))-(resume|confirm|inspect|copy)',name)
+        if primary:
+            kind,largest,landscape,_=context(primary[1]);m=row.get('layoutMetrics',{});window=frame(m.get('windowBounds'))
+            require(m.get('recoveryKind')==kind and m.get('largestText') is largest and (window[2]>window[3]) is landscape,'action branch/size/orientation differs')
         button=frame(row.get('button',{}).get('frame'));visible=frame(row.get('visibleIntersection'));region=frame(row.get('region',{}).get('frame'))
         measured=clipping_viewport(row.get('layoutMetrics'),frame(row.get('layoutMetrics',{}).get('windowBounds')),region)
         require(near(measured,frame(row.get('clippingViewport'))) and inside(visible,measured),'input outside measured clipping viewport')
         require(row['button'].get('hittable') is True and inside(visible,region) and inside(visible,button) and visible[2]>=min(44,button[2]) and visible[3]>=min(44,button[3]),'control clipped/unreachable')
         actual_method,row=records.get(('p1-layout-callback-v1',name),(None,{}));actual=row.get('actual',{})
         require(actual_method==method and row.get('expected')==callback and actual.get('exists') is True and re.fullmatch(re.escape(callback)+r':[1-9][0-9]*',actual.get('label','')),'missing synthetic callback proof')
-    for name,selected in [('transition-apps-tab',1),('transition-home-tab',0)]:
+    selections=[('capability-tabs-apps',1),('capability-tabs-home',0)] if capability=='tablet' else [] if capability else [('transition-apps-tab',1),('transition-home-tab',0)]
+    for name,selected in selections:
         method,row=records.get(('p1-layout-tab-selection-v1',name),(None,{}))
-        require(method==METHODS[3] and row.get('expectedTab')==selected and row.get('driver')=='ordinary-XCTest-tap','missing actual tab input')
+        require(method==(methods[0] if capability else METHODS[3]) and row.get('expectedTab')==selected and row.get('driver')=='ordinary-XCTest-tap','missing actual tab input')
         metrics=row.get('actual',{});metric_basis(metrics,frame(metrics.get('windowBounds')),selected)
         control=row.get('control',{});require(control.get('exists') is True and control.get('hittable') is True and control.get('identifier')=='p1-tab-'+('Apps' if selected else 'Home'),'wrong actual tab control')
         content=row.get('content',{});require(content.get('exists') is True,'actual tab content missing')
+        if capability:
+            before=row.get('before',{});metric_basis(before,frame(before.get('windowBounds')),1-selected)
+            same_context(before,metrics,tab_change=True)
+            resolved_tabs=validate_tab_inventory(row.get('tabCandidates'),require_nested=True)
+            chosen=next(t for t in resolved_tabs if t['identifier']==control['identifier'])
+            require(row.get('controlBefore')==chosen,'tab input differs from structural leaf')
+            require(all(chosen.get(k)==control.get(k) for k in ['identifier','label','elementType']) and inside(frame(control.get('frame')),frame(metrics['windowBounds'])),'wrong post-selection control')
+            require(control.get('selected') is True,'ordinary tab input did not select control')
+            require(content.get('label')==('Synthetic Apps content' if selected else 'Synthetic destination'),'wrong tab response content')
     drags={name:(method,row) for (schema,name),(method,row) in records.items() if schema=='p1-layout-drag-v1'}
-    require(bool(drags),'actual interior drag evidence missing')
+    if not capability or capability=='phone':require(bool(drags),'actual interior drag evidence missing')
     for name,(method,row) in drags.items():
-        viewport=frame(row.get('viewport'));metrics=row.get('metrics',{});metric_basis(metrics,viewport)
-        visible=frame(row.get('visibleBounds'));interior=frame(row.get('interiorBounds'))
-        require(inside(visible,viewport) and inside(visible,frame(metrics.get('offeredFrame'))) and inside(visible,frame(row.get('element',{}).get('frame'))) and inside(interior,visible),'drag outside actual viewport')
-        if row.get('element',{}).get('identifier')=='v3.recovery.region':
-            clip=clipping_viewport(metrics,viewport,frame(row['element']['frame']));require(inside(visible,clip),'drag outside measured recovery clipping viewport')
-        require(near(interior,[visible[0]+12,visible[1]+12,visible[2]-24,visible[3]-24]),'drag edge margin differs')
-        for point in [row.get('start'),row.get('end')]:
-            require(isinstance(point,list) and len(point)==2 and all(finite(x) for x in point) and interior[0]<=point[0]<=interior[0]+interior[2] and interior[1]<=point[1]<=interior[1]+interior[3],'drag endpoint touches unsafe area')
         after_method,after=records.get(('p1-layout-drag-after-v1',name),(None,{}))
-        require(after_method==method and after.get('foreground') is True,'drag left foreground app')
-        metric_basis(after.get('metrics'),frame(after.get('viewport',{}).get('frame')))
-        require(near(viewport,frame(after['viewport']['frame'])),'drag changed actual viewport')
+        require(after_method==method,'wrong/missing drag after method');validate_drag(row,after)
+    for (schema,name),(method,row) in records.items():
+        require(schema not in ['p1-layout-failure-v1','p1-layout-target-failure-v1'],'retained layout failure in successful collection')
+        if schema=='p1-layout-target-v1':validate_target(row)
+        if schema=='p1-layout-fixture-input-v1':
+            validate_fixture_input(row);expected_screens[name]=method
+    if capability:
+        validate_capability_records(records,capability)
     found={}
     for name,method in expected_screens.items():
         matches=[(m,p) for n,(m,p) in screens.items() if n==name or n.startswith(name+'_')]
@@ -229,5 +365,95 @@ def verify(root,summary,tests,device,parse,ordinary,valid_png):
         screen_method,receipt=records.get(('p1-layout-screen-v1',name),(None,{}))
         require(screen_method==method,'missing screenshot orientation receipt')
         check_screen(receipt,ordinary(root,matches[0][1]).read_bytes())
-    return {'collection_complete':True,'test_count':4,'method_ids':sorted(identifiers),'geometry_count':len(geometries),
+        # Bind pixels to the same native scene and state as their raw geometry/input.
+        bound=records.get(('p1-layout-observation-v1',name),(None,{}))[1].get('layoutMetrics')
+        if bound is None and name.endswith('-visible'):
+            bound=records.get(('p1-layout-action-v1',name[:-8]),(None,{}))[1].get('layoutMetrics')
+        if bound is not None:same_context(bound,receipt['metrics'])
+    return {'collection_complete':True,'scope':'recovery-capability-only' if capability else 'recovery-full-diagnostic',
+        'full_matrix_complete':capability is None,'test_count':count,'method_ids':sorted(identifiers),'geometry_count':len(geometries),
         'action_count':len(actions),'required_screenshots':found,'admissionEligible':False,'full_application':False}
+
+
+def validate_target(row):
+    metrics=row.get('layoutMetrics',{});viewport=frame(metrics.get('windowBounds'));metric_basis(metrics,viewport)
+    element=row.get('element',{});clip,scroll=scroll_record(metrics,element,element.get('identifier')=='v3.recovery.region')
+    require(near(clip,frame(row.get('clippingViewport'))) and row.get('scrollPath')==scroll['path'] and row.get('offset')==scroll['contentOffset'],'target clipping/offset receipt differs')
+    require(isinstance(row.get('search'),str) and bool(row['search']) and type(row.get('attempt')) is int and 0<=row['attempt']<12,'invalid bounded target attempt')
+    require(row.get('case')==row['search']+'-target-'+str(row['attempt']),'target attempt identity differs')
+    target=row.get('target');require(isinstance(target,dict) and type(target.get('exists')) is bool,'missing target observation')
+    if target['exists']:frame(target.get('frame'))
+
+
+def validate_fixture_input(row):
+    metrics=row.get('layoutMetrics',{});viewport=frame(metrics.get('windowBounds'));metric_basis(metrics,viewport)
+    require(row.get('driver')=='ordinary-XCTest-visible-coordinate-tap' and type(row.get('scrollAttempts')) is int and 0<=row['scrollAttempts']<12,'unsafe fixture input')
+    element=row.get('element',{});require(element.get('identifier')=='p1-fixture-details-list','wrong fixture scroll element')
+    clip,_=scroll_record(metrics,element,False)
+    button=row.get('button',{});f=frame(button.get('frame'));visible=frame(row.get('visibleIntersection'))
+    require(button.get('exists') is True and button.get('hittable') is True and button.get('identifier')==row.get('identifier'),'wrong actual fixture control')
+    require(near(clip,frame(row.get('clippingViewport'))) and inside(visible,clip) and inside(visible,f)
+            and visible[2]>=min(44,f[2]) and visible[3]>=min(44,f[3]),'fixture target clipped/unreachable')
+    require(isinstance(row.get('tabs'),list) and len(row['tabs'])==4 and isinstance(row.get('navigationBars'),list) and row['navigationBars'],'missing fixture navigation inventory')
+    require(all(t.get('exists') is True and disjoint(visible,frame(t.get('frame'))) for t in row['tabs']+row['navigationBars']),'fixture input overlaps navigation/tabs')
+
+
+def validate_capability_records(records,device_class):
+    def record(schema,name):
+        require((schema,name) in records,'missing capability record: '+name)
+        return records[(schema,name)][1]
+    def geometry(name):return record('p1-layout-observation-v1',name)['layoutMetrics']
+    def contextual(metrics,kind,largest,landscape):
+        window=frame(metrics.get('windowBounds'));metric_basis(metrics,window)
+        require(metrics['recoveryKind']==kind and metrics['largestText'] is largest,'wrong capability branch/size')
+        require((window[2]>window[3]) is landscape,'wrong capability orientation')
+    if device_class=='tablet':
+        initial=geometry('capability-tabs-initial');returned=geometry('capability-tabs-returned')
+        apps=record('p1-layout-tab-selection-v1','capability-tabs-apps')
+        home=record('p1-layout-tab-selection-v1','capability-tabs-home')
+        same_context(initial,apps['before'])
+        require(apps['actual']==home['before'],'tab roundtrip continuity differs')
+        same_context(home['actual'],returned)
+        prior=None
+        for suffix in ['portrait','landscape','returned']:
+            current=geometry('capability-rotation-'+suffix)
+            contextual(current,'none',False,suffix=='landscape')
+            if prior:same_context(prior,current,rotation=True)
+            prior=current
+    else:
+        initial=geometry('capability-targets-initial');after=geometry('capability-targets-resume-after');changed=geometry('capability-targets-next')
+        action=record('p1-layout-action-v1','capability-targets-resume')
+        contextual(action['layoutMetrics'],'operation',True,True)
+        require(action.get('label')=='Resume Status Check','wrong overshoot target')
+        same_context(initial,action['layoutMetrics']);same_context(action['layoutMetrics'],after)
+        inputs=[r for (schema,_),(method,r) in records.items() if schema=='p1-layout-fixture-input-v1']
+        require(len(inputs)==1 and inputs[0].get('identifier')=='p1-fixture-next-recovery','missing/duplicate next-kind input')
+        fixture=inputs[0];validate_fixture_input(fixture)
+        contextual(fixture['layoutMetrics'],'operation',True,True)
+        same_context(after,fixture['layoutMetrics']);same_context(fixture['layoutMetrics'],changed,state_change=True)
+        contextual(changed,'direct',True,True)
+        callback=record('p1-layout-callback-v1','capability-targets-resume')
+        require(callback.get('actual',{}).get('label')=='resume-operation:1','unexpected synthetic action sequence')
+        # Every search attempt is raw and consecutive; match the final visible
+        # target to the exact input receipt, not merely a friendly case name.
+        for name,input_row,target_key in [('capability-targets-resume',action,'button'),(fixture.get('search'),fixture,'button')]:
+            attempts=[r for (schema,_),(_,r) in records.items() if schema=='p1-layout-target-v1' and r.get('search')==name]
+            attempts.sort(key=lambda r:r.get('attempt',-1))
+            require([r['attempt'] for r in attempts]==list(range(input_row['scrollAttempts']+1)),'missing/duplicate target attempt')
+            for target in attempts:validate_target(target);contextual(target['layoutMetrics'],'operation',True,True)
+            final=attempts[-1]
+            require(final['layoutMetrics']==input_row['layoutMetrics'] and final['target']==input_row[target_key],'input not bound to final target observation')
+            previous=None
+            for target in attempts:
+                if previous:same_context(previous,target['layoutMetrics'])
+                previous=target['layoutMetrics']
+
+            for index,target in enumerate(attempts[:-1]):
+                pairs=[(n,r) for (schema,n),(_,r) in records.items() if schema=='p1-layout-drag-v1' and r.get('search')==name and r.get('attempt')==index]
+                require(len(pairs)==1,'missing/duplicate target-controlled drag')
+                drag_name,drag=pairs[0];after_drag=record('p1-layout-drag-after-v1',drag_name)
+                require(drag.get('target')==target['target'],'drag target differs from search observation')
+                same_context(target['layoutMetrics'],drag['metrics'])
+                same_context(after_drag['metrics'],attempts[index+1]['layoutMetrics'])
+                require(near(after_drag['offsetAfter'],attempts[index+1]['offset']),'unobserved scroll after controlled drag')
+            require(not any(r.get('search')==name and (type(r.get('attempt')) is not int or r['attempt']>=input_row['scrollAttempts']) for (schema,_),(_,r) in records.items() if schema=='p1-layout-drag-v1'),'extra target-controlled drag')

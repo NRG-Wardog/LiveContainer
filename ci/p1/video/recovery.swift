@@ -21,6 +21,8 @@ private func p1SizeCategoryReceipt(_ size: ContentSizeCategory) -> String {
     var offeredSize = CGSize.zero
     var offeredInsets = EdgeInsets()
     var selectedTab = 0
+    var recoveryKind = "none"
+    var largestText = false
     private var observationSequence = 0
     private static let processSession = UUID().uuidString
     private weak var observedWindow: UIWindow?
@@ -101,7 +103,7 @@ private func p1SizeCategoryReceipt(_ size: ContentSizeCategory) -> String {
                 "offeredFrame": rect(offeredFrame),
                 "offeredSize": [Double(offeredSize.width), Double(offeredSize.height)],
                 "offeredInsets": [Double(offeredInsets.top), Double(offeredInsets.leading), Double(offeredInsets.bottom), Double(offeredInsets.trailing)],
-                "selectedTab": selectedTab, "scrollViews": scrolls
+                "selectedTab": selectedTab, "recoveryKind": recoveryKind, "largestText": largestText, "scrollViews": scrolls
             ]
             guard JSONSerialization.isValidJSONObject(value),
                   let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) else { return nil }
@@ -116,12 +118,16 @@ private func p1SizeCategoryReceipt(_ size: ContentSizeCategory) -> String {
     let offeredSize: CGSize
     let offeredInsets: EdgeInsets
     let selectedTab: Int
+    let recoveryKind: String
+    let largestText: Bool
     func makeUIView(context: Context) -> P1LayoutReceiptView { P1LayoutReceiptView(frame: .zero) }
     func updateUIView(_ view: P1LayoutReceiptView, context: Context) {
         view.offeredFrame = offeredFrame
         view.offeredSize = offeredSize
         view.offeredInsets = offeredInsets
         view.selectedTab = selectedTab
+        view.recoveryKind = recoveryKind
+        view.largestText = largestText
     }
 }
 
@@ -219,7 +225,8 @@ private struct P1RecoveryOperation {
 __P1_RECOVERY_MODIFIER__
         .background(GeometryReader { offered in
             P1LayoutReceipt(offeredFrame: offered.frame(in: .global), offeredSize: offered.size,
-                            offeredInsets: offered.safeAreaInsets, selectedTab: selectedTab)
+                            offeredInsets: offered.safeAreaInsets, selectedTab: selectedTab,
+                            recoveryKind: status.kind, largestText: status.largest)
                 .frame(width: 1, height: 1).allowsHitTesting(false)
         })
         .environment(\.sizeCategory, status.largest ? .accessibilityExtraExtraExtraLarge : .large)
