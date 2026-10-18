@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '76cfd3752ca55da87a3d3b46fb4f221e9b37e6ec46faf5dcd85fbcccbcf30d6c'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '89daa2d78b99a9a7402ef9f9de7abc97ec98e9cf3336c7fc685eb58a043a225e'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'

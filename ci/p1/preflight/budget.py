@@ -20,6 +20,15 @@ def verify_quiescence(evidence,session,force=False,command_factory=None):
     registry=json.loads(path.read_text());groups=registry.get('groups')
     if registry.get('schema')!='p1-capability-process-scope-v1' or registry.get('session')!=session or not isinstance(groups,list):raise ValueError('wrong process registry identity')
     incomplete=registry.get('closing') is not True or any(g.get('settled') is not True for g in groups) or (registry.get('fixture') is not None and registry['fixture'].get('stopped') is not True)
+    creation=registry.get('creation_intent')
+    if creation is not None:
+        import fresh_device
+        fixture=registry.get('fixture')
+        if not isinstance(fixture,dict):raise ValueError('creation outcome unknown; cleanup ownership unproved')
+        proof=fixture.get('owned_created');fresh_device.validate(proof,session,fixture.get('device'))
+        if any(proof.get(k)!=v for k,v in creation.items()):raise ValueError('created proof differs from persisted intent')
+        incomplete |= fixture.get('deleted') is not True
+    elif registry.get('fixture') and registry['fixture'].get('owned_created') is not None:raise ValueError('created fixture has no persisted intent')
     pids=set()
     for row in groups:
         pid=row.get('pid')
@@ -63,17 +72,24 @@ def verify_quiescence(evidence,session,force=False,command_factory=None):
             process_scope.emit_diagnostic('backstop-simulator-cleanup',pgid=child.pid,exit_code=child.returncode,
                 primary_error=row['primary_error'],cleanup_errors=row['cleanup_errors'])
             return row
-        if command_factory is not None:command=command_factory(evidence,errors,unsettled,SanitizedCommandError)
-        shutdown=simulator_cleanup.confirm_shutdown(command,device,True)
+        if creation is not None:
+            command=fresh_device.backstop(evidence,errors,unsettled,SanitizedCommandError,proof)
+            shutdown=fresh_device.cleanup(command,proof,lambda:not unsettled)
+            if not shutdown['deleted']:raise ValueError('created simulator deletion unproved')
+            registry['fixture']['deleted']=True
+        else:
+            if command_factory is not None:command=command_factory(evidence,errors,unsettled,SanitizedCommandError)
+            shutdown=simulator_cleanup.confirm_shutdown(command,device,True)
         process_scope.atomic(evidence/'backstop-simulator-shutdown.json',shutdown)
         # A later simulator-state observation never settles an earlier host
         # writer. Preserve its primary timeout alongside unresolved cleanup.
         if unsettled:raise errors[0] if errors else unsettled[0]
-        if not shutdown['observed_shutdown']:
+        if not shutdown['observed_shutdown'] and not (creation is not None and shutdown.get('deleted') is True):
             if errors:raise errors[0]
             raise ValueError('simulator shutdown not confirmed')
         registry['backstop_fixture_shutdown']=True;registry['fixture']['stopped']=True
         registry['backstop_cleanup_command_failed']=shutdown['command_failed']
+    if creation is not None and (registry['fixture'].get('deleted') is not True or registry['fixture'].get('stopped') is not True):raise ValueError('created simulator obligations incomplete')
     process_scope.atomic(path,registry)
     process_scope.atomic(evidence/'quiescence.json',{'schema':'p1-capability-quiescence-v1','session':session,'quiescent':True,'groups':len(groups),'outerVerified':True,'admissionEligible':False})
 
@@ -193,6 +209,11 @@ def check_package(evidence):
         row=json.loads((evidence/'outer-budget.json').read_text());q=json.loads((evidence/'quiescence.json').read_text())
         if row.get('transport_safe') is not True or q.get('quiescent') is not True or q.get('outerVerified') is not True or row.get('session')!=q.get('session'):raise ValueError('packaging blocked: quiescence unproved')
         registry=json.loads((evidence/'process-registry.json').read_text())
+        if registry.get('creation_intent') is not None:
+            import fresh_device
+            fixture=registry.get('fixture') or {};proof=fixture.get('owned_created')
+            fresh_device.validate(proof,row['session'],fixture.get('device'))
+            if fixture.get('deleted') is not True or any(proof.get(k)!=v for k,v in registry['creation_intent'].items()):raise ValueError('created simulator packaging obligations incomplete')
         if registry.get('session')!=row['session'] or not all(g.get('settled') is True for g in registry.get('groups',[])) or (registry.get('fixture') is not None and registry['fixture'].get('stopped') is not True):raise ValueError('packaging blocked: writer registry incomplete')
     except Exception as error:
         process_scope.emit_diagnostic('package-gate-failure',error=failure_info(error));raise

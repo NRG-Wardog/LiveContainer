@@ -294,14 +294,30 @@ class Scope:
         self.session=os.environ.get('P1_PROCESS_SCOPE_SESSION') or uuid.uuid4().hex
         started=time.monotonic()
         self.deadline=started+(360 if stall_diagnostic else seconds);self.cleanup_deadline=started+480 if stall_diagnostic else None
-        self.closing=False;self.fixture=None
+        self.closing=False;self.fixture=None;self.creation_intent=None
         if self.path.exists():raise ValueError('fresh process registry required')
         self.persist()
     def persist(self):
-        atomic(self.path,{'schema':'p1-capability-process-scope-v1','session':self.session,'collector_pid':os.getpid(),'deadline':self.deadline,'closing':self.closing,'fixture':self.fixture,'groups':self.rows,'admissionEligible':False})
+        atomic(self.path,{'schema':'p1-capability-process-scope-v1','session':self.session,'collector_pid':os.getpid(),'deadline':self.deadline,'closing':self.closing,'fixture':self.fixture,'creation_intent':self.creation_intent,'groups':self.rows,'admissionEligible':False})
     def fixture_identity(self,device,owned_boot):
         with self.lock:
             self.fixture={'device':device,'owned_boot':owned_boot,'stopped':False,'bundle_ids':['org.sidestore.fixture.p1video','org.sidestore.fixture.p1video.uitests.xctrunner']};self.persist()
+    def begin_creation(self,proof):
+        import fresh_device
+        fresh_device.validate(proof,self.session)
+        with self.lock:
+            if self.creation_intent is not None or self.fixture is not None:raise ValueError('one fresh creation only')
+            self.creation_intent=proof.copy();self.persist()
+    def fixture_created(self,proof):
+        import fresh_device
+        fresh_device.validate(proof,self.session,proof.get('device'))
+        with self.lock:
+            if self.creation_intent is None or any(proof.get(k)!=v for k,v in self.creation_intent.items()):raise ValueError('created proof differs from intent')
+            self.fixture={'device':proof['device'],'owned_boot':True,'owned_created':proof.copy(),'stopped':False,'deleted':False,'bundle_ids':['org.sidestore.fixture.p1video','org.sidestore.fixture.p1video.uitests.xctrunner']};self.persist()
+    def fixture_deleted(self,deleted):
+        with self.lock:
+            if self.fixture is None or not self.fixture.get('owned_created'):raise ValueError('created fixture required')
+            self.fixture['deleted']=bool(deleted);self.persist()
     def fixture_stopped(self,stopped):
         with self.lock:
             if self.fixture is not None:self.fixture['stopped']=bool(stopped);self.persist()
@@ -418,6 +434,7 @@ class Scope:
                 try:self.settle(process)
                 except Exception:ok=False
             ok=ok and (self.fixture is None or self.fixture.get('stopped') is True)
+            if self.creation_intent is not None:ok=ok and self.fixture is not None and self.fixture.get('deleted') is True
             atomic(self.root/'quiescence.json',{'schema':'p1-capability-quiescence-v1','session':self.session,'quiescent':ok and all(r['settled'] for r in self.rows),'groups':len(self.rows),'admissionEligible':False})
             if not ok:raise RuntimeError('host writer quiescence unproved')
 
