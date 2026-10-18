@@ -138,3 +138,19 @@ def create_for_ui(scope,root):
     state=require(commands.run('created-state',['xcrun','simctl','list','devices','--json'],state_parser(device,kind=proof['device_type'])))
     if state['devices'][boot.RUNTIME][0]['state']!='Shutdown':raise ValueError('fresh initial Shutdown required')
     return proof
+
+def begin_install(scope,device):
+    """Skip old-app removal only once on an exactly owned pristine device."""
+    with scope.lock:
+        fixture=scope.fixture
+        if not isinstance(fixture,dict):raise ValueError('fresh installation ownership missing')
+        proof=fixture.get('owned_created');validate(proof,scope.session,device)
+        if fixture.get('device')!=device or fixture.get('owned_boot') is not True or fixture.get('deleted') is not False or fixture.get('installation_attempted') is not False:raise ValueError('fresh installation already attempted or unavailable')
+        intent=scope.creation_intent
+        validate(intent,scope.session)
+        if any(proof.get(k)!=v for k,v in intent.items()):raise ValueError('fresh installation creation intent unproved')
+        if not all(row.get('settled') is True for row in scope.rows):raise ValueError('fresh installation writer settlement unproved')
+        # Persist before allowing install. A failed/unknown install can never
+        # reuse the pristine-device exemption, including after interruption.
+        fixture['installation_attempted']=True;scope.persist()
+        return {'device':device,'uninstalls_skipped':True,'reason':'exact-owned-created-no-prior-install','admissionEligible':False}

@@ -734,7 +734,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
                       uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False):
         from types import SimpleNamespace
         host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text('{}')
-        device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[];scope.deadline=time.monotonic()+1020
+        device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[];scope.session=SESSION;scope.deadline=time.monotonic()+1020
         scope.remaining.side_effect=lambda requested,cleanup=False:float(requested)
         if cleanup_failure:scope.close.side_effect=ValueError('unsettled fixture writer')
         def command_result(*args,**kwargs):
@@ -778,6 +778,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         def create_device(owner,path):
             proof=created_proof();proof['device']=device
             owner.fixture={'device':device,'owned_boot':True,'owned_created':proof,'stopped':False,'deleted':False}
+            if uninstall_failure is not None or missing_app:owner.fixture={'device':device,'owned_boot':True}
             return proof
         recovery={'scope':'recovery-capability-only','collection_complete':recovery_passed,'errors':[] if recovery_passed else ['test failure'],'full_matrix_complete':False,'admissionEligible':False}
         with contextlib.ExitStack() as stack:
@@ -785,6 +786,8 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(capture.process_scope,'Scope',return_value=scope))
             stack.enter_context(mock.patch.object(capture.process_scope,'Commands',side_effect=commands))
             stack.enter_context(mock.patch.object(fresh_device,'create_for_ui',side_effect=create_device))
+            stack.enter_context(mock.patch.object(fresh_device,'begin_install',return_value={'uninstalls_skipped':True}))
+            stack.enter_context(mock.patch.object(capture.simulator_cleanup,'confirm_shutdown',return_value={'observed_shutdown':True,'command_failed':False}))
             stack.enter_context(mock.patch.object(fresh_device,'Commands'))
             stack.enter_context(mock.patch.object(fresh_device,'cleanup',return_value={'observed_shutdown':True,'deleted':True,'command_failed':False}))
             native=stack.enter_context(mock.patch.object(capture.request_reader_gate,'run',return_value={'passed':True,'case_ids':['native-gate']}))
@@ -825,6 +828,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         passed,row,command=self.execute_phone();self.assertTrue(passed);self.assertTrue(row['capabilities_passed']);self.assertTrue(row['collection_complete'])
         self.assertEqual(row['schema'],'p1-phone-recovery-collection-v1');self.assertEqual(row['scope'],'phone-recovery-capability-only')
         self.assertEqual(row['device_class'],'phone');self.assertNotIn('calibration',row)
+        self.assertFalse(any(c.args[:3]==('xcrun','simctl','uninstall') for c in command.call_args_list))
         for key in ['calibration_executed','tablet_executed','feedback_lifetime_established','input_overlap_established','admission_eligible','production_ready','full_matrix_complete','full_native_lane_executed']:self.assertIs(row[key],False)
         self.assertIs(row['prior_context']['used_for_current_pass'],False)
         boot=[c for c in command.call_args_list if c.args[:3]==('xcrun','simctl','bootstatus')];self.assertEqual(len(boot),1);self.assertEqual(boot[0].kwargs['timeout'],120)

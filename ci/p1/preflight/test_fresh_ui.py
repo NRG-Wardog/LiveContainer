@@ -78,6 +78,32 @@ class FreshUI(unittest.TestCase):
             command=mock.Mock(side_effect=rows);command.scope=scope
             self.assertTrue(capture.stop_fixture(command,DEVICE,Path(tmp)))
             self.assertFalse(scope.fixture.get('cleanup_command_failed',False));scope.close()
+    def test_fresh_install_skips_once_and_persists_before_return(self):
+        with tempfile.TemporaryDirectory() as tmp,mock.patch.dict('os.environ',{'P1_PROCESS_SCOPE_SESSION':SESSION}):
+            root=Path(tmp);scope=process_scope.Scope(root);p=proof();scope.begin_creation({k:v for k,v in p.items() if k not in ('device','create_complete')});scope.fixture_created(p)
+            command=mock.Mock();command.scope=scope
+            result=capture.prepare_install(command,DEVICE)
+            self.assertTrue(result['uninstalls_skipped']);command.assert_not_called()
+            self.assertTrue(json.loads(scope.path.read_text())['fixture']['installation_attempted'])
+            with self.assertRaises(ValueError):capture.prepare_install(command,DEVICE)
+    def test_fresh_install_rejects_unknown_wrong_or_unsettled_ownership(self):
+        for kind in ('session','device','intent','unsettled','missing-attempt','deleted'):
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as tmp,mock.patch.dict('os.environ',{'P1_PROCESS_SCOPE_SESSION':SESSION}):
+                scope=process_scope.Scope(Path(tmp));p=proof();scope.begin_creation({k:v for k,v in p.items() if k not in ('device','create_complete')});scope.fixture_created(p)
+                if kind=='session':scope.fixture['owned_created']['session']='b'*32
+                if kind=='device':scope.fixture['device']=fresh.boot.DEVICE
+                if kind=='intent':scope.creation_intent=None
+                if kind=='unsettled':scope.rows.append({'settled':False})
+                if kind=='missing-attempt':scope.fixture.pop('installation_attempted')
+                if kind=='deleted':scope.fixture['deleted']=True
+                with self.assertRaises(ValueError):fresh.begin_install(scope,DEVICE)
+    def test_fresh_install_persist_failure_cannot_return_exemption(self):
+        with tempfile.TemporaryDirectory() as tmp,mock.patch.dict('os.environ',{'P1_PROCESS_SCOPE_SESSION':SESSION}):
+            scope=process_scope.Scope(Path(tmp));p=proof();scope.begin_creation({k:v for k,v in p.items() if k not in ('device','create_complete')});scope.fixture_created(p)
+            with mock.patch.object(scope,'persist',side_effect=OSError('write')):
+                with self.assertRaises(OSError):fresh.begin_install(scope,DEVICE)
+            self.assertTrue(scope.fixture['installation_attempted'])
+            with self.assertRaises(ValueError):fresh.begin_install(scope,DEVICE)
     def test_original_ui_assertions_and_deadlines_retained(self):
         text=Path(capture.__file__).read_text()
         self.assertNotIn('runner.available_devices()',text)

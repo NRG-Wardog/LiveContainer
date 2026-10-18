@@ -357,6 +357,20 @@ def finalize(output,result,command,scope,device,booted_here):
     # Outer budget owner verifies group quiescence again before indexing.
 
 
+def prepare_install(command,device):
+    scope=command.scope
+    fixture=scope.fixture
+    if isinstance(fixture,dict) and fixture.get('owned_created') is not None:
+        import fresh_device
+        return fresh_device.begin_install(command.scope,device)
+    for identifier in [APP_ID,RUNNER_ID]:
+        uninstall=command('xcrun','simctl','uninstall',device,identifier,allow_failure=True,timeout=15,receipt=True)
+        # A missing app is optional; unresolved cleanup or a failed registry
+        # persistence is not. Final cleanup still runs through finally.
+        require(not uninstall['cleanup_errors'] and all(row.get('settled') is True for row in scope.rows),
+                'optional uninstall writer settlement unproved')
+    return {'device':device,'uninstalls_skipped':False,'admissionEligible':False}
+
 def execute(host,work,output,inputs,approved,kind):
     require(kind=='phone' and not work.exists() and not output.exists(),'fresh paths and phone-only device class required');work.mkdir(parents=True);output.mkdir(parents=True)
     result={'schema':'p1-phone-recovery-collection-v1','scope':'phone-recovery-capability-only','admission_eligible':False,'production_ready':False,'full_native_lane_executed':False,'full_matrix_complete':False,
@@ -389,12 +403,7 @@ def execute(host,work,output,inputs,approved,kind):
         write(output/'selected-device.json',{'device_class':kind,'simulator_udid':device,'runtime':runtime,'owned_created':proof})
         command('xcrun','simctl','boot',device,timeout=30)
         command('xcrun','simctl','bootstatus',device,'-b',timeout=120)
-        for identifier in [APP_ID,RUNNER_ID]:
-            uninstall=command('xcrun','simctl','uninstall',device,identifier,allow_failure=True,timeout=15,receipt=True)
-            # A missing app is optional; unresolved cleanup or a failed registry
-            # persistence is not. Final cleanup still runs through finally.
-            require(not uninstall['cleanup_errors'] and all(row.get('settled') is True for row in scope.rows),
-                    'optional uninstall writer settlement unproved')
+        write(output/'install-preparation.json',prepare_install(command,device))
         command('xcrun','simctl','install',device,apps[0],timeout=30)
         result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png)
         write(output/'source-after.json',{'LiveContainer':base.checkout_proof(live,SOURCE,command),'builder':base.checkout_proof(builder,BUILDER,command)})

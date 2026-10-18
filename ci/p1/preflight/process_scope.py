@@ -314,7 +314,7 @@ class Scope:
         fresh_device.validate(proof,self.session,proof.get('device'))
         with self.lock:
             if self.creation_intent is None or any(proof.get(k)!=v for k,v in self.creation_intent.items()):raise ValueError('created proof differs from intent')
-            self.fixture={'device':proof['device'],'owned_boot':True,'owned_created':proof.copy(),'stopped':False,'deleted':False,'bundle_ids':['org.sidestore.fixture.p1video','org.sidestore.fixture.p1video.uitests.xctrunner']};self.persist()
+            self.fixture={'device':proof['device'],'owned_boot':True,'owned_created':proof.copy(),'stopped':False,'deleted':False,'installation_attempted':False,'bundle_ids':['org.sidestore.fixture.p1video','org.sidestore.fixture.p1video.uitests.xctrunner']};self.persist()
     def fixture_deleted(self,deleted):
         with self.lock:
             if self.fixture is None or not self.fixture.get('owned_created'):raise ValueError('created fixture required')
