@@ -11,11 +11,69 @@ FIXTURE=(HERE/'recovery.swift').read_text()
 UI=(HERE/'recovery_ui_tests.swift').read_text()
 SOURCE=(Path(os.environ['MAINTAINED_LIVE_CONTAINER_TEST_SOURCE'])/'LiveContainerSwiftUI/Views/V3UnifiedShell.swift').read_text()
 
+PRIOR_FIXTURE_SHA256='8ba20f1577bd8617e2a6d5562402657fa314fe05fd814759d3cae8c3e7f31615'
+PRIOR_DETAILS_PREFIX = """            Text(status.kind).accessibilityIdentifier("p1-recovery-current-kind")
+                .accessibilityValue(p1SizeCategoryReceipt(actualSizeCategory))
+            Text("Synthetic destination").accessibilityIdentifier("p1-recovery-destination")
+            Text(status.lastAction).accessibilityIdentifier("p1-recovery-last-action")
+            Button("Fixture Show Recovery") { status.kind = status.configuredKind }
+                .accessibilityIdentifier("p1-fixture-show-recovery")
+            Button("Fixture Next Recovery") { status.nextRecoveryKind() }
+                .accessibilityIdentifier("p1-fixture-next-recovery")
+"""
+REORDERED_DETAILS_PREFIX = """            // Synthetic test receipt/control first, so AX5 setup does not spend
+            // the product-action budget traversing unrelated fixture rows.
+            Text(status.lastAction).accessibilityIdentifier("p1-recovery-last-action")
+            Button("Fixture Next Recovery") { status.nextRecoveryKind() }
+                .accessibilityIdentifier("p1-fixture-next-recovery")
+            Text(status.kind).accessibilityIdentifier("p1-recovery-current-kind")
+                .accessibilityValue(p1SizeCategoryReceipt(actualSizeCategory))
+            Text("Synthetic destination").accessibilityIdentifier("p1-recovery-destination")
+            Button("Fixture Show Recovery") { status.kind = status.configuredKind }
+                .accessibilityIdentifier("p1-fixture-show-recovery")
+"""
+
 class LayoutObserverSource(unittest.TestCase):
     def test_production_fragments_remain_exact(self):
         rendered=extract.render(SOURCE,FIXTURE)
         for fragment in extract.fragments(SOURCE).values():self.assertIn(fragment.rstrip('\n'),rendered)
         self.assertEqual(hashlib.sha256(SOURCE.encode()).hexdigest(),extract.SOURCE_SHA256)
+    def test_fixture_only_receipt_and_next_control_lead_details(self):
+        details=FIXTURE.split('private struct P1RecoveryDestination:',1)[1]
+        identifiers=['p1-recovery-last-action','p1-fixture-next-recovery','p1-recovery-current-kind',
+                     'p1-recovery-destination','p1-fixture-show-recovery','p1-fixture-clear-recovery',
+                     'p1-fixture-largest','p1-fixture-standard']
+        positions=[details.index('"'+identifier+'"') for identifier in identifiers]
+        self.assertEqual(positions,sorted(positions))
+        for identifier in identifiers:self.assertEqual(details.count('"'+identifier+'"'),1)
+        self.assertIn('Button("Fixture Next Recovery") { status.nextRecoveryKind() }',details)
+    def test_fixture_reordering_is_exactly_reversible(self):
+        current=REORDERED_DETAILS_PREFIX
+        self.assertEqual(FIXTURE.count(current),1)
+        restored=FIXTURE.replace(current,PRIOR_DETAILS_PREFIX)
+        self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(),PRIOR_FIXTURE_SHA256)
+    def test_fixture_next_control_retains_actual_input_and_transition(self):
+        fixture_tap=UI.split('private func fixtureTap(',1)[1].split('func testRecoveryStateAndSizeTransitions',1)[0]
+        self.assertIn('seekTarget(app, element: list, target: button',fixture_tap)
+        self.assertIn('ordinary-XCTest-visible-coordinate-tap',fixture_tap)
+        self.assertIn('button.coordinate(withNormalizedOffset:',fixture_tap)
+        self.assertIn('fixtureTap(app, id: "p1-fixture-next-recovery")',UI)
+        self.assertIn('expectedKind: "direct"',UI)
+    def test_details_readiness_binds_container_and_context_not_lazy_row(self):
+        readiness=UI.split('private func openDetails(',1)[1].split('private func backHome(',1)[0]
+        self.assertNotIn('p1-recovery-destination',readiness)
+        for text in ['open.exists && open.isHittable','open.tap()', 'app.navigationBars["Details"]',
+                     'bar.waitForExistence(timeout: 5)','matching(identifier: "p1-fixture-details-list")',
+                     'lists.count == 1','lists.element(boundBy: 0).exists','back.exists && back.isHittable',
+                     'app.state == .runningForeground','sequence > priorSequence','sameFrame(oldWindow, window)',
+                     'retainLayoutFailure','XCTFail']:
+            self.assertIn(text,readiness)
+        for key in ['processSession','windowObservationID','interfaceOrientation','selectedTab','recoveryKind','largestText']:
+            self.assertIn('before["'+key+'"]',readiness)
+            self.assertIn('after["'+key+'"]',readiness)
+        # Destination readiness does not replace later actual kind/size evidence.
+        self.assertIn('"passiveCurrentKind": observe(app.staticTexts["p1-recovery-current-kind"])',UI)
+        self.assertIn('expectedKind: "direct"',UI)
     def test_probe_is_outside_exact_modifier(self):
         self.assertLess(FIXTURE.index('__P1_RECOVERY_MODIFIER__'),FIXTURE.index('.background(GeometryReader { offered in'))
         self.assertIn('offered.frame(in: .global)',FIXTURE)

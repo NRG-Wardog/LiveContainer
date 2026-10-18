@@ -291,14 +291,16 @@ __P1_RECOVERY_MODIFIER__
     @Environment(\.sizeCategory) private var actualSizeCategory
     var body: some View {
         List {
+            // Synthetic test receipt/control first, so AX5 setup does not spend
+            // the product-action budget traversing unrelated fixture rows.
+            Text(status.lastAction).accessibilityIdentifier("p1-recovery-last-action")
+            Button("Fixture Next Recovery") { status.nextRecoveryKind() }
+                .accessibilityIdentifier("p1-fixture-next-recovery")
             Text(status.kind).accessibilityIdentifier("p1-recovery-current-kind")
                 .accessibilityValue(p1SizeCategoryReceipt(actualSizeCategory))
             Text("Synthetic destination").accessibilityIdentifier("p1-recovery-destination")
-            Text(status.lastAction).accessibilityIdentifier("p1-recovery-last-action")
             Button("Fixture Show Recovery") { status.kind = status.configuredKind }
                 .accessibilityIdentifier("p1-fixture-show-recovery")
-            Button("Fixture Next Recovery") { status.nextRecoveryKind() }
-                .accessibilityIdentifier("p1-fixture-next-recovery")
             Button("Fixture Clear Recovery") { status.kind = "none" }
                 .accessibilityIdentifier("p1-fixture-clear-recovery")
             Button("Fixture Use Largest Text") { status.largest = true }

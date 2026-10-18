@@ -29,6 +29,27 @@ unchanged. Calibration code and its strict 20/120 ms gates remain preserved but
 are not invoked. A later mapping strategy needs separate review and genuine
 capability evidence before feedback timing can be admitted.
 
+## Synthetic Details ordering correction
+
+[Phone-only run 39120745869](https://github.com/NRG-Wardog/LiveContainer/actions/runs/39120745869)
+on `fe05598803a342742b7125d0ad0d341d8d253e2e` verified the fresh
+`resume-operation:1` callback after the visible ordinary Resume tap. The method
+still failed its unchanged 180-second allowance later while scrolling to the
+synthetic Next Recovery control. Its complete failed evidence remains retained.
+
+This successor moves only the synthetic callback receipt and Next Recovery row
+to the beginning of the Details List. The controls, actions, identifiers, List
+container and styles are unchanged, and reversing that prefix reproduces the
+exact historical fixture hash. Actual recovery controls and the Next Recovery
+tap still require the same visible 44-point slice, ordinary physical input and
+strict transition receipts. No elapsed-time, geometry or input criterion changes;
+the phone-only runtime result must establish whether this setup correction works.
+After the actual Open tap, destination readiness now observes the Details bar,
+unique fixture List and usable Back control instead of waiting for an offscreen
+lazy Text row. The same five-second bar wait and fresh foreground/session/window/
+orientation/tab/kind/size checks bind readiness to the current navigation action.
+Later branch/size observations, return navigation and real input gates remain.
+
 ## Preserved two-device calibration design (not executed here)
 
 The preceding checkpoint restored the two short phone/tablet capability jobs after

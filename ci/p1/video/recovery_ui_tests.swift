@@ -518,11 +518,33 @@ final class P1RecoveryLayoutUITests: XCTestCase {
 
     @MainActor private func openDetails(_ app: XCUIApplication) -> Bool {
         let open = app.buttons["p1-recovery-navigation"]
-        guard open.exists && open.isHittable else { XCTFail("Navigation action unavailable"); return false }
+        guard open.exists && open.isHittable, let before = metrics(app) else {
+            XCTFail("Navigation action unavailable"); return false
+        }
         open.tap()
-        let arrived = app.staticTexts["p1-recovery-destination"].waitForExistence(timeout: 5)
-        XCTAssertTrue(arrived, "Navigation did not open the destination")
-        return arrived
+        // The actual pushed container proves arrival; a lazy offscreen Text row
+        // is not a prerequisite for beginning a bounded fixture-control search.
+        let bar = app.navigationBars["Details"]
+        let arrived = bar.waitForExistence(timeout: 5)
+        let lists = app.descendants(matching: .any).matching(identifier: "p1-fixture-details-list")
+        let back = bar.buttons.element(boundBy: 0)
+        guard arrived, lists.count == 1, lists.element(boundBy: 0).exists,
+              back.exists && back.isHittable, app.state == .runningForeground,
+              let after = metrics(app),
+              let priorSequence = before["observationSequence"] as? Int,
+              let sequence = after["observationSequence"] as? Int, sequence > priorSequence,
+              let oldWindow = measuredRect(before["windowBounds"]),
+              let window = measuredRect(after["windowBounds"]), sameFrame(oldWindow, window),
+              let session = before["processSession"] as? String, after["processSession"] as? String == session,
+              let windowID = before["windowObservationID"] as? String, after["windowObservationID"] as? String == windowID,
+              let orientation = before["interfaceOrientation"] as? Int, after["interfaceOrientation"] as? Int == orientation,
+              let tab = before["selectedTab"] as? Int, after["selectedTab"] as? Int == tab,
+              let kind = before["recoveryKind"] as? String, after["recoveryKind"] as? String == kind,
+              let largest = before["largestText"] as? Bool, after["largestText"] as? Bool == largest else {
+            retainLayoutFailure(app, reason: "Navigation did not open the same-session Details container")
+            XCTFail("Navigation did not open the same-session Details container"); return false
+        }
+        return true
     }
 
     @MainActor private func backHome(_ app: XCUIApplication) -> Bool {
