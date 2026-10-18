@@ -316,7 +316,7 @@ def _verify(root,summary,tests,device,parse,ordinary,valid_png,capability):
             try:value=parse(path)
             except (ValueError,UnicodeDecodeError):value=None
             if isinstance(value,dict) and str(value.get('schema','')).startswith('p1-layout-'):
-                key=(value['schema'],value.get('case'));require(key not in records,'duplicate layout report')
+                key=(value['schema'],(method,value.get('case')) if value['schema'] in {'p1-layout-drag-v1','p1-layout-drag-after-v1'} else value.get('case'));require(key not in records,'duplicate layout report')
                 require(value.get('admissionEligible') is False,'admission-shaped layout report');reject_observation_errors(value);records[key]=(method,value)
             if valid_png(path.read_bytes()):
                 name=row.get('suggestedHumanReadableName',row.get('attachmentName'))
@@ -501,7 +501,7 @@ def validate_fixture_input(row):
 
 def validate_capability_records(records,device_class):
     def record(schema,name):
-        require((schema,name) in records,'missing capability record: '+name)
+        require((schema,name) in records,'missing capability record: '+str(name))
         return records[(schema,name)][1]
     def geometry(name):return record('p1-layout-observation-v1',name)['layoutMetrics']
     def contextual(metrics,kind,largest,landscape):

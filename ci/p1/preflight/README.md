@@ -1,3 +1,5 @@
+Retained full phone recovery run39171542931 passed all four native methods. Original workflow failed only global drag-report key collision. Corrected exporter namespaces drag pairs by XCTest method; retained1834 original indexed files revalidate48geometry checks,21actions and112screenshots. The separate revalidation record preserves historical workflow failure and does not establish complete P1 or production readiness. No native rerun is required for this report-index correction.
+
 Prospective infrastructure change: only exact current-session owned-created simulator shutdown may wait up to30 seconds, bounded by the existing cleanup deadline. Queries, deletion and legacy cleanup remain capped at15 seconds. Prior timed-out runs retain their failed status.
 
 Current run restores original four phone recovery methods using fresh per-observation AX snapshots. Live existence, hittability and identity checks remain; snapshot errors fail native and exported validation. No metric getter or geometry predicate changes.
