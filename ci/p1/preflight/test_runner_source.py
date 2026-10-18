@@ -135,9 +135,11 @@ class RunnerSourceContracts(unittest.TestCase):
         self.assertIn("Task { @MainActor in", poll)
 
     def test_acquisition_bracket_contains_only_public_screenshot(self):
-        self.assertEqual(SOURCE.count("app.screenshot()"), 1)
+        self.assertNotIn("app.screenshot()", SOURCE)
+        self.assertEqual(SOURCE.count("XCUIScreen.main.screenshot()"), 1)
+        self.assertEqual(SOURCE.count("guard app.state == .runningForeground"), 2)
         bracket = between("let acquisitionBefore = try capabilityNow()", "let acquisitionAfter = try capabilityNow()")
-        self.assertEqual(bracket.strip(), "let screenshot = app.screenshot()")
+        self.assertEqual(bracket.strip(), "let screenshot = XCUIScreen.main.screenshot()")
         encoding = between("let encodingBefore = try capabilityNow()", "let encodingAfter = try capabilityNow()")
         self.assertEqual(encoding.strip(), "let png = screenshot.pngRepresentation")
         self.assertNotIn("XCTAttachment(screenshot:", SOURCE)
@@ -182,7 +184,7 @@ class RunnerSourceContracts(unittest.TestCase):
     def test_no_production_state_private_api_or_timing_claim(self):
         for forbidden in ["copiedGeneration", "copiedUntil", "copyDetails(", "UIPasteboard", "XCUIDevice.shared.perform",
                           "performSelector", "NSSelectorFromString", "value(forKey:", "XCEventGenerator",
-                          "XCUIScreen", "UIGraphics", "layer.render", "drawHierarchy", "usleep(", "sleep(forTimeInterval"]:
+                          "UIGraphics", "layer.render", "drawHierarchy", "usleep(", "sleep(forTimeInterval"]:
             self.assertNotIn(forbidden, SOURCE)
         self.assertIn('"clockEquivalenceAssumed": false', SOURCE)
         self.assertIn('"admissionEligible": false', SOURCE)

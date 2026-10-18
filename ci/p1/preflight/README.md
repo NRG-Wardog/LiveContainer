@@ -1,3 +1,5 @@
+Retained full phone recovery run39171542931 passed all four native methods. Original workflow failed only global drag-report key collision. Corrected exporter namespaces drag pairs by XCTest method; retained1834 original indexed files revalidate48geometry checks,21actions and112screenshots. The separate revalidation record preserves historical workflow failure and does not establish complete P1 or production readiness. No native rerun is required for this report-index correction.
+
 Prospective infrastructure change: only exact current-session owned-created simulator shutdown may wait up to30 seconds, bounded by the existing cleanup deadline. Queries, deletion and legacy cleanup remain capped at15 seconds. Prior timed-out runs retain their failed status.
 
 Current run restores original four phone recovery methods using fresh per-observation AX snapshots. Live existence, hittability and identity checks remain; snapshot errors fail native and exported validation. No metric getter or geometry predicate changes.
@@ -562,3 +564,9 @@ For a current-session, exclusively owned-created simulator, fixture stopping now
 ### Same-observation query reuse
 
 The phone method in run39156182775 reached real UI and passed initial/post-Resume geometry, then exceeded its original180-second allowance. Query reuse captures frames once inside each geometry call or target-search attempt and uses one freshly validated tab snapshot for each final attachment. No observations survive a tap, drag, rotation, or new attempt. The original method sequence, geometry predicates, tab uniqueness/leaf-chain validation, live hittability checks, two causal metrics getter calls, search bounds, screenshot evidence, and UI deadlines remain unchanged.
+
+## Isolated direct-screen calibration
+
+The phone-calibration-only profile tests whether the public XCUIScreen.main screenshot path reduces acquisition uncertainty. It requires the fixture to be foreground before and after acquisition, preserves the original nine screenshots, three phases, clock exchange, pixel association and 120 ms limit. It is not recovery, tablet, feedback lifetime or input-overlap acceptance. A successful XCTest alone is insufficient: calibration_feasible must pass strict retained-data analysis and cleanup.
+
+The owned video recorder is stopped and settled after protocol/XCTest completion and before exact-owned simulator shutdown; channels are copied only after shutdown proof. The run retains native 240 s, command 360 s and ordinary 1020/1140/1200 s observation/cleanup/outer budgets. Previous app-capture uncertainty failures remain historical failures.

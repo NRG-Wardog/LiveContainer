@@ -367,9 +367,9 @@ class CollectorRoutes(unittest.TestCase):
         self.assertIn('shutdown-state', [c[0] for c in calls])
     def test_workflow_restores_phone_route_and_unchanged_outer_budget(self):
         workflow = (Path(__file__).resolve().parents[3] / '.github/workflows/p1-native-candidate.yml').read_text()
-        block = workflow.split('      - name: Collect short phone recovery capability', 1)[1].split('      - name: Package', 1)[0]
+        block = workflow.split('      - name: Collect bounded phone screen calibration', 1)[1].split('      - name: Package', 1)[0]
         self.assertIn('preflight/capture.py', block); self.assertIn('preflight/budget.py --evidence', block)
-        self.assertIn('--execute', block); self.assertNotIn('--install-completion-diagnostic',block); self.assertIn('timeout-minutes: 22', block)
+        self.assertIn('--execute --calibration-only', block); self.assertNotIn('--install-completion-diagnostic',block); self.assertIn('timeout-minutes: 22', block)
         self.assertNotIn('boot_diagnostic.py', block); self.assertNotIn('--boot-diagnostic', workflow)
 
 

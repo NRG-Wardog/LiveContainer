@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '2cf842f3a0b8f164c96fe2360b03be076d590e38e0af1aba961df6961680224f'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'f2bb25cf1ec9bc22df8c3d6b2bdc8bc905c29147d6a5e8dd865f4573940ca480'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -25,7 +25,7 @@ jobs:
       matrix:
         device: [phone]
     runs-on: macos-26
-    timeout-minutes: 65
+    timeout-minutes: 35
     defaults:
       run:
         shell: bash
@@ -49,18 +49,19 @@ jobs:
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_full_recovery.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_structural_tabs.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_observation_snapshot.py -v
-      - name: Collect original full phone recovery matrix
+          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_screen_calibration.py -v
+      - name: Collect bounded phone screen calibration
         id: collect
-        timeout-minutes: 55
+        timeout-minutes: 22
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/preflight/budget.py --full-recovery --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
+          python3 -B validation/ci/p1/preflight/budget.py --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
             python3 -B validation/ci/p1/preflight/capture.py \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
             --work "$RUNNER_TEMP/p1-capability-work" --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
-            --device-class '${{ matrix.device }}' --execute --full-recovery
+            --device-class '${{ matrix.device }}' --execute --calibration-only
       - name: Package every original evidence byte into bounded parts
         id: package
         if: always()

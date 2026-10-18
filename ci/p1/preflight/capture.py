@@ -31,7 +31,7 @@ METHOD='testScreenshotCalibrationCapability'
 CLASS='P1ScreenshotCapabilityUITests'
 RUNNER_ID=analysis.RUNNER_ID
 # Fixed list, independent of the supplied manifest. Updated only by reviewed source.
-ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py','test_query_reuse.py','test_full_recovery.py','full-recovery-baseline.json','test_structural_tabs.py','test_observation_snapshot.py']}
+ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py','test_query_reuse.py','test_full_recovery.py','full-recovery-baseline.json','test_structural_tabs.py','test_observation_snapshot.py','test_screen_calibration.py']}
 
 
 def validate(host,inputs,approved):
@@ -39,7 +39,7 @@ def validate(host,inputs,approved):
     require(re.fullmatch('[0-9a-f]{64}',approved or '') and sha(inputs)==approved,'unreviewed inputs')
     data=parse(inputs)
     require(set(data)=={'schema','scope','livecontainer','builder','source_sha256','adapter_files'},'unexpected input fields')
-    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope'] in {'phone-recovery-capability-only-no-admission','phone-full-recovery-only-no-admission','phone-default-tabs-only-no-admission'},'wrong capability scope')
+    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope'] in {'phone-recovery-capability-only-no-admission','phone-full-recovery-only-no-admission','phone-default-tabs-only-no-admission','phone-calibration-only-no-admission'},'wrong capability scope')
     require(data['livecontainer']==SOURCE and data['builder']==BUILDER and data['source_sha256']==SOURCE_SHA,'wrong source pin')
     require(set(data['adapter_files'])==ADAPTERS,'wrong adapter inventory')
     for path,digest in data['adapter_files'].items():require(sha(ordinary(host,path))==digest,'adapter drift: '+path)
@@ -263,11 +263,12 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
             except Exception as error:
                 report['errors'].append('protocol: '+str(error));process_scope.emit_diagnostic('calibration-protocol-failure',error=process_scope.error_info(error))
                 if not future.done():command('xcrun','simctl','terminate',device,APP_ID,allow_failure=True,timeout=10,cleanup=True)
+        # Finish the owned recorder before exact-owned shutdown requires settled writers.
+        recorder.stop();recorder=None
         # Stop only these disposable fixture processes before reading channels.
         fixture_stopped=stop_fixture(command,device,folder)
         require(fixture_stopped,'fixture termination not proven')
         for role in ['app','runner']:copy_channel(roots.get(role),folder/('raw-'+role))
-        recorder.stop();recorder=None
         exports=export_case(command,bundle,folder,device,session,valid_png);write(folder/'export-verification.json',exports)
         events=events_at(folder/'raw-app',session);strip=video.read_strip(folder/'raw-app');write(folder/'strip-journal.json',strip)
         captures=[analysis.capture_receipt(folder/'raw-runner',f'capture-{phase}-{i}',session,(p*11)+8+i,phase,i) for p,phase in enumerate(['pre','mid','post']) for i in range(1,4)]
@@ -286,6 +287,9 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
         except Exception as error:report['feasibility_failure']=str(error);process_scope.emit_diagnostic('calibration-feasibility-failure',error=process_scope.error_info(error))
     except Exception as error:report['errors'].append(str(error));process_scope.emit_diagnostic('phase-collection-failure',scope=report['scope'],error=process_scope.error_info(error))
     finally:
+        if recorder is not None:
+            try:recorder.stop();recorder=None
+            except Exception as error:report['errors'].append('recording: '+str(error))
         if not fixture_stopped:
             try:fixture_stopped=stop_fixture(command,device,folder)
             except Exception as error:report['errors'].append('fixture cleanup: '+str(error))
@@ -359,6 +363,7 @@ def finalize(output,result,command,scope,device,booted_here):
         try:scope.close()
         except Exception as error:result['errors'].append('quiescence: '+str(error));result['capabilities_passed']=False;result['collection_complete']=False
     if 'phone_recovery_matrix_passed' in result:result['phone_recovery_matrix_passed']=result.get('phone_recovery_matrix_passed') is True and result['collection_complete'] and not result['errors']
+    if 'calibration_feasible' in result:result['calibration_feasible']=result['calibration_feasible'] is True and result['collection_complete'] and not result['errors']
     write(output/'capability-result.json',result)
     # Outer budget owner verifies group quiescence again before indexing.
 
@@ -393,19 +398,20 @@ def observe_install(command,device,app,output):
     return row
 
 
-def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_recovery=False,default_tabs=False):
-    require(sum(bool(v) for v in (install_diagnostic,full_recovery,default_tabs))<=1,'incompatible collection profiles')
+def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_recovery=False,default_tabs=False,calibration_only=False):
+    require(sum(bool(v) for v in (install_diagnostic,full_recovery,default_tabs,calibration_only))<=1,'incompatible collection profiles')
     require(kind=='phone' and not work.exists() and not output.exists(),'fresh paths and phone-only device class required')
-    require(parse(inputs)['scope']==('phone-full-recovery-only-no-admission' if full_recovery else 'phone-default-tabs-only-no-admission' if default_tabs else 'phone-recovery-capability-only-no-admission'),'sealed execution scope differs')
+    require(parse(inputs)['scope']==('phone-calibration-only-no-admission' if calibration_only else 'phone-full-recovery-only-no-admission' if full_recovery else 'phone-default-tabs-only-no-admission' if default_tabs else 'phone-recovery-capability-only-no-admission'),'sealed execution scope differs')
     work.mkdir(parents=True);output.mkdir(parents=True)
     result={'schema':'p1-phone-recovery-collection-v1','scope':'phone-recovery-capability-only','admission_eligible':False,'production_ready':False,'full_native_lane_executed':False,'full_matrix_complete':False,
         'source':SOURCE,'source_sha256':SOURCE_SHA,'approved_inputs_sha256':approved,'device_class':kind,'collection_complete':False,'capabilities_passed':False,'errors':[],
         'calibration_executed':False,'tablet_executed':False,'feedback_lifetime_established':False,'input_overlap_established':False,
         'prior_context':{'run_url':'https://github.com/NRG-Wardog/LiveContainer/actions/runs/39118482058',
             'commit':'3c4c92b87e29132056e94f3f3f9b838c92ab627f','used_for_current_pass':False,
-            'calibration':'failed fixed uncertainty limits on both devices; not rerun here',
+            'calibration':'prior run failed fixed uncertainty limits on both devices; current execution is reported separately',
             'tablet_recovery':'two bounded methods passed in that prior run only; not rerun here'},
         'github':{k:os.environ.get(k) for k in ['GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_REPOSITORY']}}
+    if calibration_only:result.update(scope='phone-calibration-only',calibration_feasible=False)
     if default_tabs:result.update(scope='phone-default-tabs-only')
     if full_recovery:result.update(scope='phone-full-recovery-only',phone_recovery_matrix_passed=False)
     if install_diagnostic:result.update(scope='install-completion-diagnostic-only',diagnostic_complete=False,ui_executed=False)
@@ -420,6 +426,8 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
         write(output/'validation-host.json',{'commit':command('git','-C',host,'rev-parse','HEAD'),'tree':command('git','-C',host,'rev-parse','HEAD^{tree}'),'workflow_sha256':sha(host/'.github/workflows/p1-native-candidate.yml')})
         write(output/'toolchain.json',{'xcodebuild':command('xcodebuild','-version'),'swift':command('swift','--version'),'simulators':json.loads(command('xcrun','simctl','list','--json'))})
         project,renderer=prepare(live/base.SHELL,builder,work/'build',output)
+        if calibration_only:
+            identity=parse(output/'source-identity.json');identity['scope']='phone calibration only; recovery and tablet not executed';write(output/'source-identity.json',identity)
         if full_recovery:
             identity=parse(output/'source-identity.json');identity['scope']='full phone recovery only; calibration and tablet not executed';write(output/'source-identity.json',identity)
         command('env','MAINTAINED_LIVE_CONTAINER_TEST_SOURCE='+str(live),'P1_FROZEN_BUILDER_TEST_SOURCE='+str(builder),'python3','-B','-m','unittest','discover','-s',HERE,'-p','test_capability.py','-k','test_exact_generated_source','-v',timeout=60)
@@ -447,10 +455,18 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
                 'command_through_wait_seconds':install_elapsed,'historical_30_exceeded':install_elapsed>30 if install_elapsed is not None else None,
                 'historical_threshold_is_current_acceptance':False,'admissionEligible':False,'receipt':install_receipt}
             require(simulator_cleanup.clean_command(install_receipt) and install_receipt.get('writer_settled') is True and install_elapsed is not None,'installation infrastructure command failed or unproved')
-            result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png,full_recovery=full_recovery,default_tabs=default_tabs)
+            if calibration_only:
+                result['calibration_executed']=True
+                result['calibration']=run_calibration(command,candidate,device,session,output/'calibration',renderer.valid_png)
+            else:
+                result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png,full_recovery=full_recovery,default_tabs=default_tabs)
         write(output/'source-after.json',{'LiveContainer':base.checkout_proof(live,SOURCE,command),'builder':base.checkout_proof(builder,BUILDER,command)})
         require(parse(output/'source-before.json')==parse(output/'source-after.json') and sha(live/base.SHELL)==SOURCE_SHA,'source drift')
-        if not install_diagnostic:
+        if calibration_only:
+            result['collection_complete']=result['calibration']['collection_complete']
+            result['calibration_feasible']=result['calibration']['calibration_feasible']
+            result['capabilities_passed']=result['collection_complete'] and result['calibration_feasible']
+        elif not install_diagnostic:
             result['collection_complete']=result['recovery']['collection_complete']
             result['capabilities_passed']=result['collection_complete']
             if full_recovery:result['phone_recovery_matrix_passed']=result['collection_complete']
@@ -460,8 +476,8 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--host-root',type=Path,required=True);p.add_argument('--inputs',type=Path,required=True);p.add_argument('--approved-inputs-sha256',required=True)
-    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone']);p.add_argument('--execute',action='store_true');p.add_argument('--install-completion-diagnostic',action='store_true');p.add_argument('--full-recovery',action='store_true');p.add_argument('--default-tabs',action='store_true');a=p.parse_args()
+    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone']);p.add_argument('--execute',action='store_true');p.add_argument('--install-completion-diagnostic',action='store_true');p.add_argument('--full-recovery',action='store_true');p.add_argument('--default-tabs',action='store_true');p.add_argument('--calibration-only',action='store_true');a=p.parse_args()
     validate(a.host_root,a.inputs,a.approved_inputs_sha256)
     if a.execute:
         require(a.work is not None and a.evidence is not None and a.device_class is not None,'execution paths/class required')
-        sys.exit(0 if execute(a.host_root.resolve(),a.work,a.evidence,a.inputs,a.approved_inputs_sha256,a.device_class,a.install_completion_diagnostic,a.full_recovery,a.default_tabs) else 1)
+        sys.exit(0 if execute(a.host_root.resolve(),a.work,a.evidence,a.inputs,a.approved_inputs_sha256,a.device_class,a.install_completion_diagnostic,a.full_recovery,a.default_tabs,a.calibration_only) else 1)

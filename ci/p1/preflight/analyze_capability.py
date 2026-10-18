@@ -54,6 +54,7 @@ def capture_receipt(root,name,session,request_id,phase,ordinal):
     row=parse(root/(name+'.json'))
     require(row.get('schema')=='p1-capability-capture-v1' and row.get('session')==session and row.get('runnerBundleIdentifier')==RUNNER_ID and row.get('name')==name and type(row.get('requestId')) is int and row['requestId']==request_id and row.get('phase')==phase and type(row.get('ordinal')) is int and row['ordinal']==ordinal,'capture identity differs')
     require(row.get('clock')=='runner-ProcessInfo.systemUptime' and row.get('clockEquivalenceAssumed') is False and row.get('admissionEligible') is False and row.get('timingFeasibilityEstablished') is False,'capture clock/scope differs')
+    require(row.get('screenshotSource')=='XCUIScreen.main' and row.get('foregroundBefore') is True and row.get('foregroundAfter') is True,'capture screen/foreground provenance differs')
     clocks=[row.get(k) for k in ['acquisitionBefore','acquisitionAfter','encodingBefore','encodingAfter','attachmentBefore','attachmentAfter','pngWriteBefore','pngWriteAfter']]
     require(all(finite(v) and v>0 for v in clocks) and clocks==sorted(clocks) and clocks[0]<clocks[1],'capture work brackets invalid')
     png=root/(name+'.png');require(png.is_file() and not png.is_symlink() and type(row.get('pngBytes')) is int and row['pngBytes']==png.stat().st_size and row.get('pngSHA256')==sha(png),'capture PNG identity differs')

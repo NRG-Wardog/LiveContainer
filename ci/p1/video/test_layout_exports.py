@@ -138,6 +138,21 @@ class LayoutExports(unittest.TestCase):
         (self.root/'manifest.json').write_text(json.dumps(self.manifest))
     def verify(self):
         self.save();return layout.verify(self.root,self.summary,self.tests,self.device,capture.parse,capture.ordinary,lambda b:b.startswith(b'\x89PNG'))
+    def test_method_local_drag_ordinals_do_not_collide(self):
+        for key in ['drag','drag-after']:
+            self.add(layout.METHODS[1],key,copy.deepcopy(self.rows[key]))
+        self.assertTrue(self.verify()['collection_complete'])
+    def test_same_method_duplicate_drag_is_rejected(self):
+        self.add(layout.METHODS[0],'duplicate-drag',copy.deepcopy(self.rows['drag']))
+        with self.assertRaisesRegex(ValueError,'duplicate layout report'):self.verify()
+    def test_same_method_duplicate_drag_after_is_rejected(self):
+        self.add(layout.METHODS[0],'duplicate-after',copy.deepcopy(self.rows['drag-after']))
+        with self.assertRaisesRegex(ValueError,'duplicate layout report'):self.verify()
+    def test_cross_method_drag_after_cannot_satisfy_pair(self):
+        filename=self.rows['drag-after']['_test_file']
+        source=self.manifest[0]['attachments'];item=next(a for a in source if a['exportedFileName']==filename)
+        source.remove(item);self.manifest[1]['attachments'].append(item)
+        with self.assertRaisesRegex(ValueError,'wrong/missing drag after method'):self.verify()
     def test_full_matrix(self):
         r=self.verify();self.assertEqual(r['action_count'],21);self.assertEqual(r['geometry_count'],48);self.assertFalse(r['admissionEligible'])
     def test_retained_portrait_and_standard_banner_matches_swift(self):

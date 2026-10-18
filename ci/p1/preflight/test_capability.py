@@ -61,7 +61,7 @@ def fixture(root):
     def receipt(name,request_id,phase,ordinal,h):
         png=b'PNG-'+name.encode();(runner/(name+'.png')).write_bytes(png)
         row=dict(schema='p1-capability-capture-v1',session=SESSION,runnerBundleIdentifier=analysis.RUNNER_ID,requestId=request_id,name=name,phase=phase,ordinal=ordinal,
-            clock='runner-ProcessInfo.systemUptime',clockEquivalenceAssumed=False,acquisitionBefore=h+2000,acquisitionAfter=h+2000+.003,encodingBefore=h+2000+.004,encodingAfter=h+2000+.005,
+            screenshotSource='XCUIScreen.main',foregroundBefore=True,foregroundAfter=True,clock='runner-ProcessInfo.systemUptime',clockEquivalenceAssumed=False,acquisitionBefore=h+2000,acquisitionAfter=h+2000+.003,encodingBefore=h+2000+.004,encodingAfter=h+2000+.005,
             attachmentBefore=h+2000+.006,attachmentAfter=h+2000+.007,pngWriteBefore=h+2000+.008,pngWriteAfter=h+2000+.009,
             copyBefore=copy_identity,copyAfter=copy_identity,markerFrameBefore=[0,0,240,16],markerFrameAfter=[0,0,240,16],windowFrameBefore=[0,0,390,844],windowFrameAfter=[0,0,390,844],
             pngSHA256=hashlib.sha256(png).hexdigest(),pngBytes=len(png),admissionEligible=False,timingFeasibilityEstablished=False)
@@ -131,6 +131,9 @@ class CapabilityTests(unittest.TestCase):
     def test_wrong_completion_hash(self):self.reject(lambda:self.change_json('raw-runner/completion.json',lambda r:r.update(appStripCompleteSHA256='0'*64)))
     def test_wrong_bundle(self):self.reject(lambda:self.change_json('raw-runner/runner.json',lambda r:r.update(runnerBundleIdentifier='other')))
     def test_clock_equivalence_claim(self):self.reject(lambda:self.change_json('raw-runner/capture-pre-1.json',lambda r:r.update(clockEquivalenceAssumed=True)))
+    def test_capture_wrong_screen_source(self):self.reject(lambda:self.change_json('raw-runner/capture-pre-1.json',lambda r:r.update(screenshotSource='app')))
+    def test_capture_missing_foreground(self):self.reject(lambda:self.change_json('raw-runner/capture-pre-1.json',lambda r:r.pop('foregroundBefore')))
+    def test_capture_background_after(self):self.reject(lambda:self.change_json('raw-runner/capture-pre-1.json',lambda r:r.update(foregroundAfter=False)))
     def test_capture_png_drift(self):self.reject(lambda:(self.root/'raw-runner/capture-pre-1.png').write_bytes(b'changed'))
     def test_capture_encoding_inside_acquisition(self):self.reject(lambda:self.change_json('raw-runner/capture-pre-1.json',lambda r:r.update(encodingBefore=r['acquisitionBefore'])))
     def test_capture_label_changed(self):self.reject(lambda:self.change_json('raw-runner/capture-pre-1.json',lambda r:r['copyAfter'].update(label='Copied')))
@@ -731,9 +734,9 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
     def execute_phone(self,recovery_passed=True,cleanup_failure=False,source_drift=False,
-                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False,install_observation=None,install_failure=False):
+                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False,install_observation=None,install_failure=False,calibration_only=False,calibration_feasible=True):
         from types import SimpleNamespace
-        host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text(json.dumps({'scope':'phone-recovery-capability-only-no-admission'}))
+        host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text(json.dumps({'scope':'phone-calibration-only-no-admission' if calibration_only else 'phone-recovery-capability-only-no-admission'}))
         device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[];scope.session=SESSION;scope.deadline=time.monotonic()+1020
         scope.remaining.side_effect=lambda requested,cleanup=False:float(requested)
         if cleanup_failure:scope.close.side_effect=ValueError('unsettled fixture writer')
@@ -768,6 +771,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             (products/'Fixture.xctestrun').write_bytes(plistlib.dumps({}))
             app=products/'Debug-iphonesimulator/P0SignIn.app';app.mkdir(parents=True)
             (app/'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':capture.APP_ID}))
+            put(out/'source-identity.json',{'scope':'fixture'})
             project=build/'Fixture.xcodeproj';project.mkdir();return project,renderer
         actual_sha=capture.sha
         def sha(path):
@@ -797,14 +801,17 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(capture,'prepare',side_effect=prepare))
             stack.enter_context(mock.patch.object(capture,'configure_runner',side_effect=lambda candidate,*args:candidate))
             stack.enter_context(mock.patch.object(capture,'sha',side_effect=sha))
-            calibration=stack.enter_context(mock.patch.object(capture,'run_calibration',side_effect=AssertionError('calibration must not run')))
+            calibration=stack.enter_context(mock.patch.object(capture,'run_calibration',return_value={'collection_complete':True,'calibration_feasible':calibration_feasible,'errors':[]}))
             layout=stack.enter_context(mock.patch.object(capture,'run_layout',return_value=recovery))
             stop=stack.enter_context(mock.patch.object(capture,'stop_fixture',return_value=True))
             if install_observation is not None:stack.enter_context(mock.patch.object(capture,'observe_install',return_value=install_observation))
-            with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,'phone',install_observation is not None)
+            with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,'phone',install_observation is not None,calibration_only=calibration_only)
         native.assert_called_once();acquire.assert_any_call(work/'LiveContainer',capture.SOURCE,command)
-        calibration.assert_not_called()
-        if install_observation is not None or install_failure:
+        if calibration_only:
+            calibration.assert_called_once();layout.assert_not_called()
+        else:calibration.assert_not_called()
+        if calibration_only:pass
+        elif install_observation is not None or install_failure:
             layout.assert_not_called()
         elif uninstall_failure is None:
             layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png,full_recovery=False,default_tabs=False)
@@ -835,6 +842,12 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         for key in ['calibration_executed','tablet_executed','feedback_lifetime_established','input_overlap_established','admission_eligible','production_ready','full_matrix_complete','full_native_lane_executed']:self.assertIs(row[key],False)
         self.assertIs(row['prior_context']['used_for_current_pass'],False)
         boot=[c for c in command.call_args_list if c.args[:3]==('xcrun','simctl','bootstatus')];self.assertEqual(len(boot),1);self.assertEqual(boot[0].kwargs['timeout'],120)
+    def test_calibration_profile_routes_without_recovery(self):
+        passed,row,_=self.execute_phone(calibration_only=True);self.assertTrue(passed);self.assertTrue(row['calibration_feasible']);self.assertTrue(row['calibration_executed']);self.assertNotIn('recovery',row)
+    def test_calibration_infeasible_fails(self):
+        passed,row,_=self.execute_phone(calibration_only=True,calibration_feasible=False);self.assertFalse(passed);self.assertFalse(row['calibration_feasible'])
+    def test_calibration_cleanup_failure_revokes_feasibility(self):
+        passed,row,_=self.execute_phone(calibration_only=True,cleanup_failure=True);self.assertFalse(passed);self.assertFalse(row['calibration_feasible'])
     def test_failed_recovery_stays_failed(self):
         passed,row,_=self.execute_phone(recovery_passed=False);self.assertFalse(passed);self.assertFalse(row['collection_complete']);self.assertFalse(row['capabilities_passed'])
     def test_cleanup_failure_cannot_make_phone_pass(self):
@@ -864,8 +877,8 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def test_workflow_only_phone_and_preserved_budgets(self):
         import yaml
         row=yaml.safe_load((HERE.parents[2]/'.github/workflows/p1-native-candidate.yml').read_text());jobs=row['jobs'];self.assertEqual(len(jobs),1)
-        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],65)
-        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],55);self.assertEqual(step['run'].count('--full-recovery'),2);self.assertIn('preflight/budget.py',step['run'])
+        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],35)
+        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertEqual(step['run'].count('--calibration-only'),1);self.assertNotIn('--full-recovery',step['run']);self.assertIn('preflight/budget.py',step['run'])
         self.assertIn("--device-class '${{ matrix.device }}'",step['run']);self.assertNotIn('native_gate.py',step['run'])
     def test_cli_rejects_tablet(self):
         import subprocess

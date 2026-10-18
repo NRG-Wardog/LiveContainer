@@ -436,9 +436,11 @@ final class P1ScreenshotCapabilityUITests: XCTestCase {
         let markerBefore = try rectangle(marker.frame)
         let windowBefore = try rectangle(app.windows.firstMatch.frame)
         // Only the public screenshot acquisition is inside this bracket.
+        guard app.state == .runningForeground else { throw P1CapabilityError("calibration app not foreground") }
         let acquisitionBefore = try capabilityNow()
-        let screenshot = app.screenshot()
+        let screenshot = XCUIScreen.main.screenshot()
         let acquisitionAfter = try capabilityNow()
+        guard app.state == .runningForeground else { throw P1CapabilityError("calibration app left foreground") }
         let encodingBefore = try capabilityNow()
         let png = screenshot.pngRepresentation
         let encodingAfter = try capabilityNow()
@@ -454,6 +456,7 @@ final class P1ScreenshotCapabilityUITests: XCTestCase {
             "runnerBundleIdentifier": Bundle.main.bundleIdentifier!, "requestId": command.id,
             "name": command.name, "phase": command.phase, "ordinal": command.ordinal,
             "clock": "runner-ProcessInfo.systemUptime", "clockEquivalenceAssumed": false,
+            "screenshotSource": "XCUIScreen.main", "foregroundBefore": true, "foregroundAfter": true,
             "acquisitionBefore": acquisitionBefore, "acquisitionAfter": acquisitionAfter,
             "encodingBefore": encodingBefore, "encodingAfter": encodingAfter,
             "attachmentBefore": attachmentBefore, "attachmentAfter": attachmentAfter,
