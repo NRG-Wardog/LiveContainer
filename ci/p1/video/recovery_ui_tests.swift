@@ -78,8 +78,8 @@ final class P1RecoveryLayoutUITests: XCTestCase {
 
     private let tabTitles = ["Home", "Apps", "Sources", "Settings"]
 
-    @MainActor private func tabSnapshot(_ app: XCUIApplication) -> (inventory: [[String: Any]], controls: [XCUIElement]?) {
-        guard let root = try? app.snapshot() else { return ([], nil) }
+    @MainActor private func tabSnapshot(_ app: XCUIApplication) -> (inventory: [[String: Any]], controls: [XCUIElement]?, observations: [[String: Any]]) {
+        guard let root = try? app.snapshot() else { return ([], nil, []) }
         var nodes: [(path: [Int], ancestors: [[String: Any]], snapshot: any XCUIElementSnapshot)] = []
         var count = 0
         @MainActor func attributes(_ node: any XCUIElementSnapshot, path: [Int]) -> [String: Any] {
@@ -99,6 +99,7 @@ final class P1RecoveryLayoutUITests: XCTestCase {
         visit(root, path: [], ancestors: [])
         var inventory: [[String: Any]] = []
         var controls: [XCUIElement] = []
+        var selectedObservations: [[String: Any]] = []
         var complete = count <= 4096
         for title in tabTitles {
             let identifier = "p1-tab-" + title
@@ -139,14 +140,19 @@ final class P1RecoveryLayoutUITests: XCTestCase {
                         && $0.snapshot.elementType == chosen.snapshot.elementType
                         && sameFrame($0.snapshot.frame, chosen.snapshot.frame)
                 }
-                if chain { controls.append(live[leaf]); selectedPath = chosen.path }
+                if chain {
+                    controls.append(live[leaf]); selectedPath = chosen.path
+                    if let observation = rows[leaf]["observed"] as? [String: Any] { selectedObservations.append(observation) }
+                    else { complete = false }
+                }
                 else { complete = false }
             } else { complete = false }
             inventory.append(["title": title, "identifier": identifier, "candidates": rows,
                               "queryCount": queryCount, "selectedPath": selectedPath,
                               "snapshotComplete": count <= 4096, "snapshotNodeCount": count])
         }
-        return (inventory, complete && controls.count == 4 ? controls : nil)
+        let accepted = complete && controls.count == 4 && selectedObservations.count == 4
+        return (inventory, accepted ? controls : nil, accepted ? selectedObservations : [])
     }
 
     @MainActor private func tabCandidates(_ app: XCUIApplication) -> [[String: Any]] {
@@ -232,9 +238,10 @@ final class P1RecoveryLayoutUITests: XCTestCase {
               let size = receipt["offeredSize"] as? [Double], size.count == 2,
               abs(size[0] - Double(offered.width)) <= 1, abs(size[1] - Double(offered.height)) <= 1,
               let scrolls = receipt["scrollViews"] as? [[String: Any]] else { return nil }
+        let elementFrame = element.frame
         let matched = scrolls.filter { row in
             guard let view = row["view"] as? [String: Any], let frame = measuredRect(view["frame"]) else { return false }
-            return sameFrame(frame, element.frame)
+            return sameFrame(frame, elementFrame)
         }
         guard matched.count == 1, let row = matched.first,
               row["scrollEnabled"] as? Bool == true,
@@ -341,10 +348,11 @@ final class P1RecoveryLayoutUITests: XCTestCase {
                     "element": observe(element), "layoutMetrics": receipt, "scrollPath": row["path"] ?? NSNull(),
                     "clippingViewport": rect(viewport), "offset": offset, "admissionEligible": false],
                    name: name + "-target-\(attempt)")
-            if target.exists, valid(target.frame) {
-                let visible = target.frame.intersection(viewport).intersection(app.windows.firstMatch.frame)
-                if valid(visible), visible.width >= min(44, target.frame.width),
-                   visible.height >= min(44, target.frame.height), target.isHittable,
+            let targetFrame = observation["exists"] as? Bool == true ? measuredRect(observation["frame"]) : nil
+            if let frame = targetFrame, valid(frame) {
+                let visible = frame.intersection(viewport).intersection(app.windows.firstMatch.frame)
+                if valid(visible), visible.width >= min(44, frame.width),
+                   visible.height >= min(44, frame.height), observation["hittable"] as? Bool == true,
                    let actualTabs = tabs(app), actualTabs.allSatisfy({ disjoint(visible, $0.frame) }),
                    app.navigationBars.allElementsBoundByIndex.filter({ $0.exists }).allSatisfy({ disjoint(visible, $0.frame) }) {
                     return (visible, receipt, attempt)
@@ -353,8 +361,7 @@ final class P1RecoveryLayoutUITests: XCTestCase {
             if let previous = previousOffset, abs(offset[1] - previous) <= 0.5 { stalled += 1 } else { stalled = 0 }
             var down = previousDown ?? initialDown
             var distance = max(8, (viewport.height - 24) * 0.45)
-            if target.exists, valid(target.frame) {
-                let frame = target.frame
+            if let frame = targetFrame, valid(frame) {
                 let needed = min(44, frame.height)
                 // Move the nearest sufficient 44pt slice into the clipping window.
                 if frame.maxY < viewport.minY + needed { down = true; distance = viewport.minY + needed - frame.maxY + 4 }
@@ -399,19 +406,25 @@ final class P1RecoveryLayoutUITests: XCTestCase {
         guard window.exists, bar.exists else { return ["window-or-navigation-absent"] }
         let viewport = window.frame
         let navigation = title == "Home" ? app.buttons["p1-recovery-navigation"] : bar.buttons.element(boundBy: 0)
-        if !navigation.exists || !navigation.isHittable || !inside(navigation.frame, viewport) { failures.append("navigation-unavailable") }
-        if !inside(bar.frame, viewport) { failures.append("navigation-outside-viewport") }
+        let navigationExists = navigation.exists
+        let navigationFrame = navigationExists ? navigation.frame : .null
+        let barFrame = bar.frame
+        let regionExists = region.exists
+        let regionFrame = regionExists ? region.frame : .null
+        if !navigationExists || !navigation.isHittable || !inside(navigationFrame, viewport) { failures.append("navigation-unavailable") }
+        if !inside(barFrame, viewport) { failures.append("navigation-outside-viewport") }
         let actualTabs = tabs(app)
         if actualTabs == nil { failures.append("ambiguous-or-unavailable-tabs") }
-        if !(actualTabs ?? []).allSatisfy({ $0.isHittable && inside($0.frame, viewport) }) { failures.append("tabs-outside-viewport") }
-        if region.exists != banner { failures.append("wrong-banner-presence") }
+        let tabFrames = (actualTabs ?? []).map { $0.frame }
+        if !(actualTabs ?? []).allSatisfy({ $0.isHittable }) || !tabFrames.allSatisfy({ inside($0, viewport) }) { failures.append("tabs-outside-viewport") }
+        if regionExists != banner { failures.append("wrong-banner-presence") }
         if let receipt = receipt, let measuredWindow = measuredRect(receipt["windowBounds"]),
            sameFrame(viewport, measuredWindow), receipt["selectedTab"] as? Int == 0 {
-            if banner && region.exists {
-                if !inside(region.frame, viewport) { failures.append("AX-region-outside-window") }
-                if region.frame.maxY > bar.frame.minY + 1 { failures.append("AX-region-overlaps-navigation-bar") }
-                if !disjoint(region.frame, navigation.frame) { failures.append("AX-region-overlaps-navigation-action") }
-                if !(actualTabs ?? []).allSatisfy({ disjoint(region.frame, $0.frame) }) { failures.append("AX-region-overlaps-tabs") }
+            if banner && regionExists {
+                if !inside(regionFrame, viewport) { failures.append("AX-region-outside-window") }
+                if regionFrame.maxY > barFrame.minY + 1 { failures.append("AX-region-overlaps-navigation-bar") }
+                if !disjoint(regionFrame, navigationFrame) { failures.append("AX-region-overlaps-navigation-action") }
+                if !tabFrames.allSatisfy({ disjoint(regionFrame, $0) }) { failures.append("AX-region-overlaps-tabs") }
                 if let measured = recoveryViewport(app, receipt: receipt),
                    let offeredSize = receipt["offeredSize"] as? [Double], offeredSize.count == 2 {
                     if measured.height > CGFloat(min(320, offeredSize[1] * 0.4) + 1) { failures.append("measured-safe-viewport-exceeds-cap") }
@@ -420,8 +433,10 @@ final class P1RecoveryLayoutUITests: XCTestCase {
         } else { failures.append("missing-or-inconsistent-layout-receipt") }
         if title == "Home" {
             let content = app.staticTexts["p1-recovery-content"]
-            if !content.exists || !valid(content.frame) || bar.frame.maxY > content.frame.minY + 1
-                || content.frame.intersection(viewport).height < 1 { failures.append("content-hidden-by-navigation") }
+            let contentExists = content.exists
+            let contentFrame = contentExists ? content.frame : .null
+            if !contentExists || !valid(contentFrame) || barFrame.maxY > contentFrame.minY + 1
+                || contentFrame.intersection(viewport).height < 1 { failures.append("content-hidden-by-navigation") }
         }
         return failures
     }
@@ -473,10 +488,11 @@ final class P1RecoveryLayoutUITests: XCTestCase {
             Thread.sleep(forTimeInterval: 0.1)
         }
         screenshot(app, name: name)
+        let attachmentTabs = tabSnapshot(app)
         attach(["schema": "p1-layout-observation-v1", "case": name,
                 "bannerExpected": banner, "navigationTitle": title, "geometryPassed": ready,
                 "predicateFailures": failures, "layoutMetrics": measured as Any? ?? NSNull(),
-                "tabCandidates": tabCandidates(app), "screenshotSource": "XCUIScreen.main",
+                "tabCandidates": attachmentTabs.inventory, "screenshotSource": "XCUIScreen.main",
                 "region": observe(app.scrollViews["v3.recovery.region"]),
                 "navigationBar": observe(app.navigationBars[title]),
                 "navigationAction": observe(title == "Home" ? app.buttons["p1-recovery-navigation"] : app.navigationBars[title].buttons.element(boundBy: 0)),
@@ -488,7 +504,7 @@ final class P1RecoveryLayoutUITests: XCTestCase {
                 "expectedProductionIdentity": expectedKind.flatMap { productionIdentity($0) } as Any? ?? NSNull(),
                 "productionIdentity": expectedKind.flatMap { productionIdentity($0) }.map { observe(app.staticTexts[$0]) } as Any? ?? NSNull(),
                 "content": observe(app.staticTexts["p1-recovery-content"]),
-                "tabs": (tabs(app) ?? []).map { observe($0) },
+                "tabs": attachmentTabs.observations,
                 "viewport": observe(app.windows.firstMatch),
                 "admissionEligible": false], name: name + "-geometry")
         if !ready { retainLayoutFailure(app, reason: failures.joined(separator: ", ")) }

@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'd6496405d5595844898bbbe53fb46107207ffb6738d4090c7b6276252982dac7'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '40ca2db152e455a3a4101b7f5849f200901f2daab269c77b9a3234d4b9806ecb'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -45,6 +45,7 @@ jobs:
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_runner_source.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_fresh_ui.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_install_observation.py -v
+          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_query_reuse.py -v
       - name: Collect short phone recovery capability
         id: collect
         timeout-minutes: 22
