@@ -94,7 +94,8 @@ class LayoutObserverSource(unittest.TestCase):
         self.assertNotIn('viewport.height * 0.4',UI)
     def test_unique_correspondence_is_required(self):
         self.assertIn('matched.count == 1',UI)
-        self.assertIn('sameFrame(frame, element.frame)',UI)
+        self.assertIn('let elementFrame = element.frame',UI)
+        self.assertIn('sameFrame(frame, elementFrame)',UI)
         self.assertIn('sameFrame(viewport, safe.intersection(clipped).intersection(offered))',UI)
     def test_clock_domains_are_not_subtracted(self):
         self.assertNotIn('systemUptime - finished',UI)
@@ -228,8 +229,10 @@ class TargetDragSearchRegression(unittest.TestCase):
         self.assertIn('Target cannot be safely reached by bounded physical dragging:', self.search)
 
     def test_target_acceptance_and_progress_evidence_remain_strict(self):
-        for text in ['visible.width >= min(44, target.frame.width)',
-                     'visible.height >= min(44, target.frame.height)', 'target.isHittable',
+        for text in ['visible.width >= min(44, frame.width)',
+                     'visible.height >= min(44, frame.height)', 'observation["hittable"] as? Bool == true',
+                     'let observation = observe(target)',
+                     'let targetFrame = observation["exists"] as? Bool == true ? measuredRect(observation["frame"]) : nil',
                      'disjoint(visible, $0.frame)']:
             self.assertIn(text, self.search)
         for text in ['"offsetDelta": afterOffset[1] - beforeOffset[1]',

@@ -38,7 +38,7 @@ class FullRecovery(unittest.TestCase):
                 methods=capture.video.layout_exports.METHODS if full else capture.video.layout_exports.CAPABILITY_METHODS['phone']
                 self.assertEqual([a for a in args if str(a).startswith('-only-testing:')],['-only-testing:P0SignInUITests/P1RecoveryLayoutUITests/'+m for m in methods])
                 self.assertEqual(verify.call_count,int(full));self.assertEqual(short.call_count,int(not full))
-    def test_original_full_method_and_validator_bytes_preserved(self):
+    def test_reviewed_full_recovery_sources_match_sealed_digests(self):
         root=Path(__file__).resolve().parents[3]
         # Reviewed immutable source digests, not an acceptance substitute.
         import hashlib

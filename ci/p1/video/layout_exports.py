@@ -5,7 +5,7 @@ import struct
 from exports import require,frame,leaves
 
 METHODS=['testRecoveryBranchesDefault','testRecoveryBranchesLargest','testRecoveryCompactLandscape','testRecoveryStateAndSizeTransitions']
-CAPABILITY_METHODS={'tablet':['testCapabilityNestedTabSelection','testCapabilityNoBannerRotation'],'phone':['testCapabilityLandscapeTargets']}
+CAPABILITY_METHODS={'tablet':['testCapabilityNestedTabSelection','testCapabilityNoBannerRotation'],'phone':['testCapabilityLandscapeTargets'],'phone-default':['testCapabilityNoBannerDefault']}
 KINDS=['none','operation','direct','refresh','unreadable']
 ACTIONS={'operation':{'resume':'resume-operation','confirm':'reconcile-operation'},
     'direct':{'inspect':'inspect-direct','confirm':'reconcile-direct'},'refresh':{'confirm':'reconcile-refresh'},
@@ -16,6 +16,7 @@ IDENTITIES={'operation':'A previous install may still be running','direct':'A pr
     'refresh':'A previous refresh may still be running','unreadable':'SideStore paused changes because its recovery record is malformed\nError ID: SS-STATUS-FIXTURE'}
 
 def context(name):
+    if name=='capability-default-tabs':return 'none',False,False,'Home'
     if name.startswith('capability-tabs-'):return 'none',False,False,'Home' if name.endswith('initial') else 'Details'
     if name.startswith('capability-rotation-'):return 'none',False,name.endswith('landscape'),'Home'
     if name.startswith('capability-targets-'):return ('direct' if name.endswith('next') else 'operation'),True,True,'Details' if name.endswith('next') else 'Home'
@@ -143,9 +144,46 @@ def same_context(before,after,rotation=False,state_change=False,tab_change=False
     if not tab_change:require(before['selectedTab']==after['selectedTab'],'context tab changed')
 
 
+def validate_structural_tabs(inventory,tabs=None):
+    titles=['Home','Apps','Sources','Settings'];chosen=[];paths=[]
+    require([g.get('title') for g in inventory]==titles,'structural tab order differs')
+    bar=inventory[0].get('tabBar');require(isinstance(bar,dict),'missing unique native tab bar')
+    def pair(row,expected_type):
+        path=row.get('path');ancestors=row.get('ancestors');snap=row.get('snapshot');live=row.get('observed')
+        require(isinstance(path,list) and path and all(type(i) is int and i>=0 for i in path),'invalid structural path')
+        require(isinstance(ancestors,list) and len(ancestors)==len(path),'incomplete structural ancestry')
+        for index,a in enumerate(ancestors):
+            require(isinstance(a,dict) and a.get('path')==path[:index] and type(a.get('elementType')) is int and isinstance(a.get('identifier'),str) and isinstance(a.get('label'),str) and type(a.get('selected')) is bool,'broken structural ancestry')
+            frame(a.get('frame'))
+        require(isinstance(snap,dict) and isinstance(live,dict) and snap.get('path')==path,'missing structural snapshot/live pair')
+        require(live.get('exists') is True and live.get('hittable') is True and live.get('elementType')==expected_type and type(live.get('selected')) is bool,'structural control unavailable')
+        require(all(snap.get(k)==live.get(k) for k in ['identifier','label','elementType','selected']) and near(frame(snap.get('frame')),frame(live.get('frame'))),'structural snapshot/live differs')
+        return path,snap,live
+    bar_path,bar_snapshot,bar_live=pair(bar,22)
+    viewport=frame(inventory[0].get('viewport'));require(inside(frame(bar_live['frame']),viewport),'native tab bar outside viewport')
+    for title,g in zip(titles,inventory):
+        require(g.get('resolution')=='unique-native-tabbar-v1' and g.get('tabBar')==bar and g.get('viewport')==inventory[0]['viewport'],'mixed structural tab proof')
+        require(g.get('identifier')=='p1-tab-'+title and type(g.get('queryCount')) is int and g['queryCount']==0,'identifier-free proof contradicted')
+        require(type(g.get('barQueryCount')) is int and g['barQueryCount']==1 and type(g.get('buttonQueryCount')) is int and g['buttonQueryCount']==4,'native bar/button ambiguity')
+        require(g.get('snapshotComplete') is True and type(g.get('snapshotNodeCount')) is int and 0<g['snapshotNodeCount']<=4096,'incomplete structural snapshot')
+        rows=g.get('candidates');require(isinstance(rows,list) and len(rows)==1,'ambiguous structural button')
+        path,snap,live=pair(rows[0],9)
+        require(len(path)>len(bar_path) and path[:len(bar_path)]==bar_path and rows[0]['ancestors'][len(bar_path)]==bar_snapshot,'button outside proven tab bar')
+        require(live.get('identifier')=='' and live.get('label')==title and g.get('selectedPath')==path,'wrong structural button identity')
+        require(inside(frame(live['frame']),viewport) and inside(frame(live['frame']),frame(bar_live['frame'])),'structural button outside bar/viewport')
+        paths.append(path);chosen.append(live)
+    require(paths==sorted(paths) and len({tuple(p) for p in paths})==4 and all(not (len(q)>len(p) and q[:len(p)]==p) for p in paths for q in paths),'structural button order/leaf ambiguity')
+    require(sum(t['selected'] for t in chosen)==1,'structural selection ambiguous')
+    if tabs is not None:require(tabs==chosen,'retained structural controls differ')
+    return chosen
+
+
 def validate_tab_inventory(inventory,tabs=None,require_nested=False):
     titles=['Home','Apps','Sources','Settings']
     require(isinstance(inventory,list) and len(inventory)==4 and {c.get('identifier') for c in inventory}=={'p1-tab-'+t for t in titles},'missing adaptive tab inventory')
+    if any(g.get('resolution')=='unique-native-tabbar-v1' for g in inventory):
+        require(not require_nested,'nested capability requires original identifier chains')
+        return validate_structural_tabs(inventory,tabs)
     chosen=[]
     for group in inventory:
         title=group.get('title');identifier=group.get('identifier');rows=group.get('candidates')
@@ -238,6 +276,8 @@ def capability_expected(device_class):
         for name in ['capability-tabs-initial','capability-tabs-returned']:geometries[name]=(methods[0],False)
         for suffix in ['portrait','landscape','returned']:geometries['capability-rotation-'+suffix]=(methods[1],False)
         screens.update({'capability-tabs-apps':methods[0],'capability-tabs-home':methods[0]})
+    elif device_class=='phone-default':
+        geometries['capability-default-tabs']=(methods[0],False)
     else:
         for name in ['capability-targets-initial','capability-targets-resume-after','capability-targets-next']:geometries[name]=(methods[0],True)
         actions['capability-targets-resume']=(methods[0],'resume-operation')
@@ -306,8 +346,10 @@ def _verify(root,summary,tests,device,parse,ordinary,valid_png,capability):
             if title=='Details':
                 passive=row.get('passiveCurrentKind',{})
                 require(passive.get('exists') is True and passive.get('label')==kind,'actual fixture kind differs')
-        tabs=row.get('tabs');require(isinstance(tabs,list) and len(tabs)==4 and {t.get('identifier') for t in tabs}=={'p1-tab-'+title for title in ['Home','Apps','Sources','Settings']},'actual tabs missing')
+        tabs=row.get('tabs');require(isinstance(tabs,list) and len(tabs)==4,'actual tabs missing')
         validate_tab_inventory(row.get('tabCandidates'),tabs,require_nested=capability=='tablet' and name.startswith('capability-tabs-'))
+        if any(g.get('resolution')=='unique-native-tabbar-v1' for g in row['tabCandidates']):
+            require([t['selected'] for t in tabs]==[i==row['layoutMetrics']['selectedTab'] for i in range(4)],'structural selected tab differs from measured state')
         tab_frames=[]
         for tab in tabs:
             require(tab.get('exists') is True and tab.get('hittable') is True,'tab unavailable');f=frame(tab.get('frame'));require(inside(f,viewport),'tab outside viewport');tab_frames.append(f)
@@ -458,7 +500,9 @@ def validate_capability_records(records,device_class):
         window=frame(metrics.get('windowBounds'));metric_basis(metrics,window)
         require(metrics['recoveryKind']==kind and metrics['largestText'] is largest,'wrong capability branch/size')
         require((window[2]>window[3]) is landscape,'wrong capability orientation')
-    if device_class=='tablet':
+    if device_class=='phone-default':
+        contextual(geometry('capability-default-tabs'),'none',False,False)
+    elif device_class=='tablet':
         initial=geometry('capability-tabs-initial');returned=geometry('capability-tabs-returned')
         apps=record('p1-layout-tab-selection-v1','capability-tabs-apps')
         home=record('p1-layout-tab-selection-v1','capability-tabs-home')

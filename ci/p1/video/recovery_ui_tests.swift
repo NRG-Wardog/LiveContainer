@@ -78,6 +78,71 @@ final class P1RecoveryLayoutUITests: XCTestCase {
 
     private let tabTitles = ["Home", "Apps", "Sources", "Settings"]
 
+    @MainActor private func structuralTabSnapshot(_ app: XCUIApplication, root: any XCUIElementSnapshot) -> (inventory: [[String: Any]], controls: [XCUIElement]?, observations: [[String: Any]]) {
+        typealias Node = (path: [Int], ancestors: [[String: Any]], snapshot: any XCUIElementSnapshot)
+        var nodes: [Node] = []
+        var count = 0
+        @MainActor func attributes(_ node: any XCUIElementSnapshot, path: [Int]) -> [String: Any] {
+            ["path": path, "identifier": node.identifier, "label": node.label,
+             "elementType": node.elementType.rawValue, "frame": rect(node.frame), "selected": node.isSelected]
+        }
+        @MainActor func visit(_ node: any XCUIElementSnapshot, path: [Int], ancestors: [[String: Any]]) {
+            count += 1
+            guard count <= 4096 else { return }
+            nodes.append((path, ancestors, node))
+            for (index, child) in node.children.enumerated() {
+                visit(child, path: path + [index], ancestors: ancestors + [attributes(node, path: path)])
+            }
+        }
+        @MainActor func live(_ path: [Int]) -> XCUIElement {
+            var element: XCUIElement = app
+            for index in path { element = element.children(matching: .any).element(boundBy: index) }
+            return element
+        }
+        @MainActor func agrees(_ snapshot: any XCUIElementSnapshot, _ observed: [String: Any]) -> Bool {
+            observed["exists"] as? Bool == true && observed["hittable"] as? Bool == true
+                && observed["identifier"] as? String == snapshot.identifier
+                && observed["label"] as? String == snapshot.label
+                && observed["elementType"] as? UInt == snapshot.elementType.rawValue
+                && observed["selected"] as? Bool == snapshot.isSelected
+                && measuredRect(observed["frame"]).map({ sameFrame($0, snapshot.frame) }) == true
+        }
+        visit(root, path: [], ancestors: [])
+        let bars = nodes.filter { $0.snapshot.elementType == .tabBar }
+        guard count <= 4096, bars.count == 1, app.tabBars.count == 1, let bar = bars.first else { return ([], nil, []) }
+        let buttons = nodes.filter { $0.snapshot.elementType == .button && $0.path.count > bar.path.count && $0.path.starts(with: bar.path) }
+        let actualBar = live(bar.path)
+        let barObserved = observe(actualBar)
+        let viewport = app.windows.firstMatch.frame
+        guard buttons.count == 4, actualBar.descendants(matching: .button).count == 4,
+              buttons.map({ $0.snapshot.label }) == tabTitles,
+              buttons.allSatisfy({ $0.snapshot.identifier.isEmpty && inside($0.snapshot.frame, viewport) }),
+              buttons.filter({ $0.snapshot.isSelected }).count == 1,
+              agrees(bar.snapshot, barObserved), inside(bar.snapshot.frame, viewport) else { return ([], nil, []) }
+        let barProof: [String: Any] = ["path": bar.path, "ancestors": bar.ancestors,
+                                     "snapshot": attributes(bar.snapshot, path: bar.path), "observed": barObserved]
+        var inventory: [[String: Any]] = []
+        var controls: [XCUIElement] = []
+        var observations: [[String: Any]] = []
+        var complete = true
+        for (index, node) in buttons.enumerated() {
+            let identifier = "p1-tab-" + tabTitles[index]
+            let queryCount = app.descendants(matching: .any).matching(identifier: identifier).count
+            let element = live(node.path)
+            let observed = observe(element)
+            if queryCount != 0 || !agrees(node.snapshot, observed) { complete = false }
+            inventory.append(["title": tabTitles[index], "identifier": identifier,
+                              "resolution": "unique-native-tabbar-v1", "barQueryCount": 1, "buttonQueryCount": 4,
+                              "tabBar": barProof, "viewport": rect(viewport),
+                              "candidates": [["path": node.path, "ancestors": node.ancestors,
+                                              "snapshot": attributes(node.snapshot, path: node.path), "observed": observed]],
+                              "queryCount": queryCount, "selectedPath": node.path,
+                              "snapshotComplete": true, "snapshotNodeCount": count])
+            controls.append(element); observations.append(observed)
+        }
+        return (inventory, complete ? controls : nil, complete ? observations : [])
+    }
+
     @MainActor private func tabSnapshot(_ app: XCUIApplication) -> (inventory: [[String: Any]], controls: [XCUIElement]?, observations: [[String: Any]]) {
         guard let root = try? app.snapshot() else { return ([], nil, []) }
         var nodes: [(path: [Int], ancestors: [[String: Any]], snapshot: any XCUIElementSnapshot)] = []
@@ -97,6 +162,7 @@ final class P1RecoveryLayoutUITests: XCTestCase {
             }
         }
         visit(root, path: [], ancestors: [])
+        if nodes.isEmpty { return structuralTabSnapshot(app, root: root) }
         var inventory: [[String: Any]] = []
         var controls: [XCUIElement] = []
         var selectedObservations: [[String: Any]] = []
@@ -805,6 +871,13 @@ final class P1RecoveryLayoutUITests: XCTestCase {
         guard settleOrientation(app, landscape: false, name: "capability-rotation-returned") else { return }
         _ = checkGeometry(app, banner: false, expectedKind: "none", expectedLargest: false,
                           expectedLandscape: false, name: "capability-rotation-returned")
+    }
+
+    @MainActor func testCapabilityNoBannerDefault() {
+        let app = launch("none", largest: false)
+        defer { app.terminate() }
+        _ = checkGeometry(app, banner: false, expectedKind: "none", expectedLargest: false,
+                          expectedLandscape: false, name: "capability-default-tabs")
     }
 
     @MainActor func testCapabilityLandscapeTargets() {

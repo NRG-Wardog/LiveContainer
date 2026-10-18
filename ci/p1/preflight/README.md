@@ -1,3 +1,21 @@
+# Focused native tab identity confirmation
+
+The first full recovery run found four real, labeled native TabBar buttons,
+but no p1-tab-* identifiers on the initial no-banner/default screen. The
+identifier-based resolver remains intact. Only when all identifier candidates
+are absent, a tagged structural alternative requires one actual native TabBar,
+exactly four ordered button leaves, exact labels, empty observed identifiers,
+one selection, matching live/snapshot attributes and ancestry, finite in-view
+geometry and independent query counts. Duplicate, foreign, partial-ID or
+unavailable controls fail closed. No observed identifier is synthesized.
+
+This run selects only the same default/no-banner geometry context in a focused
+XCTest method, with the original short 180-second method and 480-second process
+limits. It retains 1020/1140/1200 observation/cleanup/outer budgets and the
+35-minute job/22-minute collection step. It cannot establish full recovery,
+feedback timing, tablet coverage or production readiness. The prior full run
+remains failed. No production code or full-matrix method body is changed.
+
 # Original full phone recovery restoration
 
 The explicit --full-recovery profile runs all four original recovery matrix
