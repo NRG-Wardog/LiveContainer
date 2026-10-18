@@ -356,7 +356,11 @@ final class P1RecoveryLayoutUITests: XCTestCase {
             } else if stalled > 0 { down.toggle() }
             if stalled >= 2 { break }
             if let previous = previousDown, previous != down { reversals += 1 }
-            distance = min(distance, max(8, (viewport.height - 24) * (reversals > 0 ? 0.25 : 0.45)))
+            // The retained phone search stalled on two 10pt inputs with no offset
+            // change. Try a 24pt ordinary gesture floor, then apply the unchanged
+            // safe-interior/reversal cap. This is a search heuristic, not a
+            // measured UIKit threshold or permission to accept a clipped target.
+            distance = min(max(distance, 24), max(8, (viewport.height - 24) * (reversals > 0 ? 0.25 : 0.45)))
             previousOffset = offset[1]; previousDown = down
             guard interiorDrag(app, element: element, down: down, distance: distance,
                                target: target, search: name, attempt: attempt) else { return nil }

@@ -22,6 +22,101 @@ private func capabilityJSON(_ value: [String: Any]) throws -> Data {
     return try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys, .withoutEscapingSlashes])
 }
 
+// P1_REQUEST_READER_BEGIN
+// Extracted verbatim for the macOS filesystem regression. No UI or clock code.
+private struct P1RequestReadError: Error, CustomStringConvertible {
+    let receipt: [String: Any]
+    var description: String { "request file failure: " + (receipt["reason"] as? String ?? "unknown") }
+}
+private enum P1RequestReader {
+#if P1_REQUEST_READER_REGRESSION
+    // Absent from the XCTest build. Enables deterministic atomic-replace races.
+    static var checkpoint: ((String, Int32) throws -> Void)?
+#endif
+    static func inspect(_ input: Int32, stage: String, receipt: inout [String: Any]) throws -> Int? {
+        var info = stat()
+        let result = fstat(input, &info), savedErrno = errno
+        var row: [String: Any] = ["stage": stage, "result": result,
+            "errno": result == 0 ? 0 : savedErrno, "descriptor": input]
+        if result == 0 {
+            row["mode"] = UInt32(info.st_mode); row["type"] = UInt32(info.st_mode & S_IFMT)
+            row["links"] = UInt64(info.st_nlink); row["size"] = Int64(info.st_size)
+            row["device"] = Int64(info.st_dev); row["inode"] = UInt64(info.st_ino)
+        }
+        receipt[stage] = row
+        func reject(_ reason: String) throws -> Int? {
+            receipt["reason"] = reason; throw P1RequestReadError(receipt: receipt)
+        }
+        guard result == 0 else { return try reject("fstat failed") }
+        guard (info.st_mode & S_IFMT) == S_IFREG else { return try reject("nonregular request") }
+        guard info.st_size > 0 && info.st_size <= 8192 else { return try reject("invalid request size") }
+        // Atomic replacement can unlink an opened old inode. Discard its bytes;
+        // only the next normal poll may open and validate the current pathname.
+        if info.st_nlink == 0 { receipt["reason"] = "unlinked prior request discarded"; return nil }
+        guard info.st_nlink == 1 else { return try reject("multiply linked request") }
+        return Int(info.st_size)
+    }
+    static func read(directory: Int32) throws -> (data: Data?, discarded: [String: Any]?) {
+        var receipt: [String: Any] = ["schema": "p1-request-file-observation-v1", "admissionEligible": false]
+        let input = openat(directory, "request.json", O_RDONLY | O_NOFOLLOW | O_NONBLOCK)
+        let openErrno = errno
+        guard input >= 0 else {
+            if openErrno == ENOENT { return (nil, nil) }
+            receipt["reason"] = "safe open failed"; receipt["operation"] = "openat"; receipt["errno"] = openErrno
+            throw P1RequestReadError(receipt: receipt)
+        }
+        var bytes: Data?, discarded = false, failure: P1RequestReadError?
+        do {
+#if P1_REQUEST_READER_REGRESSION
+            try checkpoint?("before", input)
+#endif
+            if let count = try inspect(input, stage: "before", receipt: &receipt) {
+                var value = Data(count: count)
+                try value.withUnsafeMutableBytes { buffer in
+                    var offset = 0
+                    while offset < count {
+                        let result = Darwin.read(input, buffer.baseAddress!.advanced(by: offset), count - offset)
+                        if result < 0 && errno == EINTR { continue }
+                        guard result > 0 else {
+                            receipt["reason"] = "short or failed request read"; receipt["readResult"] = result
+                            receipt["errno"] = result < 0 ? errno : 0; throw P1RequestReadError(receipt: receipt)
+                        }
+                        offset += result
+                    }
+                }
+                var extra: UInt8 = 0
+                var extraResult: Int
+                repeat { extraResult = Darwin.read(input, &extra, 1) } while extraResult < 0 && errno == EINTR
+                receipt["extraReadResult"] = extraResult; receipt["extraReadErrno"] = extraResult < 0 ? errno : 0
+                guard extraResult >= 0 else {
+                    receipt["reason"] = "extra request read failed"; throw P1RequestReadError(receipt: receipt)
+                }
+#if P1_REQUEST_READER_REGRESSION
+                try checkpoint?("after", input)
+#endif
+                if let finalCount = try inspect(input, stage: "after", receipt: &receipt) {
+                    guard extraResult == 0 && finalCount == count else {
+                        receipt["reason"] = "request changed during read"; throw P1RequestReadError(receipt: receipt)
+                    }
+                    bytes = value
+                } else { discarded = true }
+            } else { discarded = true }
+        } catch let error as P1RequestReadError { failure = error }
+          catch { receipt["reason"] = "regression checkpoint failed"; failure = P1RequestReadError(receipt: receipt) }
+        let closeResult = close(input), closeErrno = errno
+        receipt = failure?.receipt ?? receipt
+        receipt["close"] = ["result": closeResult, "errno": closeResult == 0 ? 0 : closeErrno]
+        if closeResult != 0 {
+            if failure != nil { receipt["primaryReason"] = receipt["reason"] }
+            receipt["reason"] = "request descriptor close failed"
+            throw P1RequestReadError(receipt: receipt)
+        }
+        if failure != nil { throw P1RequestReadError(receipt: receipt) }
+        return (discarded ? nil : bytes, discarded ? receipt : nil)
+    }
+}
+// P1_REQUEST_READER_END
+
 // Keep the fresh directory open and address every file relative to that fd.
 // O_NOFOLLOW, single-link regular files, exclusive immutable journals, and
 // atomic publication prevent a stale/symlinked channel from being accepted.
@@ -56,38 +151,16 @@ private final class P1CapabilityFiles: @unchecked Sendable {
         guard name.range(of: "^[a-zA-Z0-9][a-zA-Z0-9.-]{0,100}$", options: .regularExpression) != nil,
               !name.contains("..") else { throw P1CapabilityError("unsafe channel filename") }
     }
-    private func checkRegular(_ descriptor: Int32, maximum: Int) throws -> Int {
-        var info = stat()
-        guard fstat(descriptor, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG,
-              info.st_nlink == 1, info.st_size > 0, info.st_size <= maximum else {
-            throw P1CapabilityError("linked, nonregular, empty, or oversized channel file")
-        }
-        return Int(info.st_size)
-    }
+    private var discardedRequests = 0
     func readRequest() throws -> Data? {
-        let input = openat(fd, "request.json", O_RDONLY | O_NOFOLLOW | O_NONBLOCK)
-        guard input >= 0 else {
-            if errno == ENOENT { return nil }
-            throw P1CapabilityError("cannot open request safely")
+        let observation = try P1RequestReader.read(directory: fd)
+        if var row = observation.discarded {
+            discardedRequests += 1
+            guard discardedRequests <= 64 else { throw P1CapabilityError("request replacement discard limit exceeded") }
+            row["ordinal"] = discardedRequests
+            try immutable(String(format: "reader-discard-%03d.json", discardedRequests), capabilityJSON(row))
         }
-        defer { close(input) }
-        let count = try checkRegular(input, maximum: 8192)
-        var bytes = Data(count: count)
-        try bytes.withUnsafeMutableBytes { buffer in
-            var offset = 0
-            while offset < count {
-                let result = Darwin.read(input, buffer.baseAddress!.advanced(by: offset), count - offset)
-                if result < 0 && errno == EINTR { continue }
-                guard result > 0 else { throw P1CapabilityError("short request read") }
-                offset += result
-            }
-        }
-        var extra: UInt8 = 0
-        guard Darwin.read(input, &extra, 1) == 0,
-              try checkRegular(input, maximum: 8192) == count else {
-            throw P1CapabilityError("request changed during read")
-        }
-        return bytes
+        return observation.data
     }
     // fsync must succeed BEFORE a response can be published. Fail closed if
     // this simulator/filesystem cannot provide the requested durability.
@@ -229,10 +302,10 @@ private final class P1CapabilityChannel: @unchecked Sendable {
     private func fail(_ error: Error) {
         guard failure == nil else { return }
         failure = String(describing: error); timer?.cancel(); timer = nil
-        if let data = try? capabilityJSON(["schema": "p1-capability-error-v1", "session": session,
-            "previousID": previousID, "error": failure!, "admissionEligible": false]) {
-            try? files.immutable("error.json", data)
-        }
+        var row: [String: Any] = ["schema": "p1-capability-error-v1", "session": session,
+            "previousID": previousID, "error": failure!, "admissionEligible": false]
+        if let typed = error as? P1RequestReadError { row["requestFile"] = typed.receipt }
+        if let data = try? capabilityJSON(row) { try? files.immutable("error.json", data) }
     }
     private func parse(_ data: Data) throws -> ([String: Any], P1CapabilityCommand) {
         guard let row = try JSONSerialization.jsonObject(with: data) as? [String: Any],

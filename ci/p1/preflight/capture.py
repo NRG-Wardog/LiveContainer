@@ -22,6 +22,7 @@ import protocol
 import analyze_capability as analysis
 import process_scope
 import simulator_cleanup
+import request_reader_gate
 spec=importlib.util.spec_from_file_location('prior_video_capture',HERE.parent/'video/capture.py');video=importlib.util.module_from_spec(spec);spec.loader.exec_module(video)
 base=video.base
 require,sha,write,parse,ordinary=video.require,video.sha,video.write,video.parse,video.ordinary
@@ -30,7 +31,7 @@ METHOD='testScreenshotCalibrationCapability'
 CLASS='P1ScreenshotCapabilityUITests'
 RUNNER_ID=analysis.RUNNER_ID
 # Fixed list, independent of the supplied manifest. Updated only by reviewed source.
-ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py']}
+ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py']}
 
 
 def validate(host,inputs,approved):
@@ -351,9 +352,11 @@ def execute(host,work,output,inputs,approved,kind):
         'github':{k:os.environ.get(k) for k in ['GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_REPOSITORY']}}
     command=None;scope=None;booted_here=False;device=None
     try:
-        logs=output/'commands';logs.mkdir();scope=process_scope.Scope(output);command=process_scope.Commands(scope,logs);builder,live=work/'builder',work/'LiveContainer';base.acquire(builder,BUILDER,command);base.acquire(live,SOURCE,command)
-        runner=base.module('capability_commands',builder/'scripts/run_issue25_rendering.py');runner.COMMAND_LOG=logs/'bounded-commands.jsonl';runner.capture=command.bytes
+        logs=output/'commands';logs.mkdir();scope=process_scope.Scope(output);command=process_scope.Commands(scope,logs)
         shutil.copytree(HERE,output/'harness',ignore=shutil.ignore_patterns('__pycache__'));shutil.copy2(inputs,output/'approved-inputs.json')
+        result['request_reader_regression']=request_reader_gate.run(command,work/'reader-regression',output/'reader-regression')
+        builder,live=work/'builder',work/'LiveContainer';base.acquire(builder,BUILDER,command);base.acquire(live,SOURCE,command)
+        runner=base.module('capability_commands',builder/'scripts/run_issue25_rendering.py');runner.COMMAND_LOG=logs/'bounded-commands.jsonl';runner.capture=command.bytes
         write(output/'source-before.json',{'LiveContainer':base.checkout_proof(live,SOURCE,command),'builder':base.checkout_proof(builder,BUILDER,command)})
         write(output/'validation-host.json',{'commit':command('git','-C',host,'rev-parse','HEAD'),'tree':command('git','-C',host,'rev-parse','HEAD^{tree}'),'workflow_sha256':sha(host/'.github/workflows/p1-native-candidate.yml')})
         write(output/'toolchain.json',{'xcodebuild':command('xcodebuild','-version'),'swift':command('swift','--version'),'simulators':json.loads(command('xcrun','simctl','list','--json'))})

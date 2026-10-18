@@ -146,3 +146,36 @@ not simulator, feedback, layout or product readiness. Existing setup deadlines a
 all timing/layout criteria are unchanged.
 
 Owned child spawning and signaling require the default SIGCHLD disposition. Ignored or custom handlers fail closed. This dedicated process does not install such handlers or use external child reapers; its owned-child lock serializes every retained Popen wait and signal.
+
+## Bounded request-reader and small-drag correction
+
+Run 39109242914 retained a generic request-file failure after request 21 while
+request 22 was the current pathname. Atomic host replacement can unlink the old
+inode while the runner still has it open, but the old receipt did not record
+which stat predicate failed. This correction does not claim that race was the
+proven native cause. Open/fstat/read/close failures now retain typed errno,
+phase, mode/type, link count, size and inode/device observations.
+
+Only a successfully inspected regular descriptor of valid bounded size with
+zero links is discarded. Its bytes are never parsed or acknowledged, even when
+unlinking is seen after reading. Each descriptor closes before return; a close
+error is fatal and preserves any primary error. The next existing poll may open
+the current pathname. At most 64 discarded observations are journaled; there is
+no internal retry loop or new deadline. Hardlinks, symlinks, nonregular/empty/
+oversized files and syscall failures still fail closed.
+
+Before any source acquisition or simulator work, each short job compiles the
+exact marked Swift reader block and runs 21 deterministic macOS filesystem
+regressions. The generated source, block/test hashes, command logs and exact
+case report are retained. The compile-time race hook is excluded from the
+actual XCTest build. Compile/run limits are 60/10 seconds (toolchain query 10),
+charged to the existing 17-minute internal budget. A failed native gate blocks
+UI execution and remains a failed packaged collection.
+
+Phone recovery evidence showed that 10-point drags made no measured scroll
+progress with Resume still only 38 points visible. The corrected heuristic uses
+a 24-point floor before the unchanged safe geometry caps. The 44-point visible
+control requirement, measured progress/stall checks, ordinary tap and callback
+proof remain mandatory. This source change does not establish reachability.
+Bootstatus 120 seconds, all other budgets, 120 ms mapping limits and the full
+matrix's future acceptance requirements remain unchanged.

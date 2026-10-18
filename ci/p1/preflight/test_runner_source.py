@@ -47,7 +47,7 @@ class RunnerSourceContracts(unittest.TestCase):
         self.assertNotIn("removeItem", SOURCE)
 
     def test_files_use_descriptor_relative_no_follow_and_no_clobber(self):
-        self.assertIn('openat(fd, "request.json", O_RDONLY | O_NOFOLLOW | O_NONBLOCK)', SOURCE)
+        self.assertIn('openat(directory, "request.json", O_RDONLY | O_NOFOLLOW | O_NONBLOCK)', SOURCE)
         self.assertIn("O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW", SOURCE)
         self.assertIn("info.st_nlink == 1", SOURCE)
         self.assertIn("(info.st_mode & S_IFMT) == S_IFREG", SOURCE)
@@ -55,7 +55,7 @@ class RunnerSourceContracts(unittest.TestCase):
         self.assertIn('!name.contains("..")', SOURCE)
 
     def test_requests_are_bounded_and_canonical(self):
-        self.assertIn("checkRegular(input, maximum: 8192)", SOURCE)
+        self.assertIn("info.st_size > 0 && info.st_size <= 8192", SOURCE)
         self.assertIn("try capabilityJSON(row) == data", SOURCE)
         self.assertIn("[.sortedKeys, .withoutEscapingSlashes]", SOURCE)
         self.assertIn("guard Set(row.keys) == keys", SOURCE)

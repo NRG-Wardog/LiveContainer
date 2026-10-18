@@ -79,4 +79,84 @@ class LayoutObserverSource(unittest.TestCase):
     def test_swift_fraction_literals_have_leading_zero(self):
         self.assertNotRegex(FIXTURE+UI,r'(?<![A-Za-z0-9_])\.\d+')
 
+
+class TargetDragSearchRegression(unittest.TestCase):
+    """Evaluate the exact Swift arithmetic; synthetic loss is not native proof."""
+
+    @classmethod
+    def setUpClass(cls):
+        search = UI.split('private func seekTarget(', 1)[1].split('private func productionIdentity(', 1)[0]
+        cls.search = search
+        # The strict expression shape binds this model to the actual input recipe.
+        # Capture every numeric parameter instead of maintaining another policy.
+        pattern = (r'distance = min\(max\(distance, ([\d.]+)\), max\(([\d.]+), '
+                   r'\(viewport.height - ([\d.]+)\) \* '
+                   r'\(reversals > 0 \? ([\d.]+) : ([\d.]+)\)\)\)')
+        matches = re.findall(pattern, search)
+        if len(matches) != 1:
+            raise AssertionError('The exact bounded Swift search expression changed')
+        cls.floor, cls.minimum_cap, cls.inset, cls.reversed_fraction, cls.fraction = map(float, matches[0])
+
+    def distance(self, requested, viewport_height, reversals=0):
+        fraction = self.reversed_fraction if reversals > 0 else self.fraction
+        return min(max(requested, self.floor), max(self.minimum_cap, (viewport_height-self.inset)*fraction))
+
+    def test_retained_residual_no_longer_requests_ineffective_ten_points(self):
+        viewport_height = 152 + 2/3
+        target_y, target_height = 114 + 2/3, 51 + 1/3
+        visible = viewport_height-target_y
+        self.assertAlmostEqual(visible, 38)
+        requested = target_y-(viewport_height-44)+4
+        self.assertAlmostEqual(requested, 10)
+        travel = self.distance(requested, viewport_height)
+        self.assertEqual(travel, 24)
+        # Model only the observed approximate input deficit; do not claim UIKit
+        # guarantees this behavior. The native tap and callback remain required.
+        modeled_old_offset = max(0, requested-10)
+        modeled_new_offset = max(0, travel-10)
+        self.assertAlmostEqual(modeled_old_offset, 0)
+        self.assertGreaterEqual(min(target_height, visible+modeled_new_offset), 44)
+
+    def test_cap_wins_in_tiny_eligible_viewport(self):
+        for height in [48, 49, 60, 70]:
+            for reversals in [0, 1, 4]:
+                travel = self.distance(10, height, reversals)
+                fraction = self.reversed_fraction if reversals else self.fraction
+                cap = max(8, (height-24)*fraction)
+                self.assertLessEqual(travel, cap)
+                self.assertLess(travel, 24)
+                self.assertLessEqual(travel, (height-24)*0.6)
+
+    def test_direction_reversal_retains_smaller_cap(self):
+        height = 152+2/3
+        self.assertAlmostEqual(self.distance(1000, height), (height-24)*0.45)
+        self.assertAlmostEqual(self.distance(1000, height, 1), (height-24)*0.25)
+        self.assertEqual(self.distance(10, height, 1), 24)
+        self.assertIn('if let previous = previousDown, previous != down { reversals += 1 }', self.search)
+
+    def test_floor_cannot_exceed_existing_safe_interior_recipe(self):
+        for height in range(48, 401):
+            for requested in [0, 1, 10, 12, 24, 50, 1000]:
+                for reversals in [0, 1]:
+                    self.assertLessEqual(self.distance(requested, height, reversals), (height-24)*0.6)
+        self.assertIn('interior.height >= 24', UI)
+        self.assertIn('min(max(8, distance ?? interior.height * 0.45), interior.height * 0.6)', UI)
+
+    def test_persistent_zero_progress_still_stops(self):
+        self.assertIn('for attempt in 0..<12', self.search)
+        self.assertIn('abs(offset[1] - previous) <= 0.5 { stalled += 1 } else { stalled = 0 }', self.search)
+        self.assertIn('if stalled >= 2 { break }', self.search)
+        self.assertLess(self.search.index('if stalled >= 2 { break }'), self.search.index('distance = min(max(distance, 24)'))
+        self.assertIn('Target cannot be safely reached by bounded physical dragging:', self.search)
+
+    def test_target_acceptance_and_progress_evidence_remain_strict(self):
+        for text in ['visible.width >= min(44, target.frame.width)',
+                     'visible.height >= min(44, target.frame.height)', 'target.isHittable',
+                     'disjoint(visible, $0.frame)']:
+            self.assertIn(text, self.search)
+        for text in ['"offsetDelta": afterOffset[1] - beforeOffset[1]',
+                     '"progress": abs(afterOffset[1] - beforeOffset[1]) > 0.5',
+                     '"driver": "ordinary-XCTest-controlled-coordinate-drag"']:
+            self.assertIn(text, UI)
+
 if __name__=='__main__':unittest.main()
