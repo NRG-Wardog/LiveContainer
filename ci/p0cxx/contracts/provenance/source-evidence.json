@@ -27,11 +27,13 @@
           "sha256": "51c6c123d78b2d53f70e1720c8bf8aa934cbdb149a66df0a6763b6614f4fda07"
         },
         {
+          "basis": "reviewed-ak-manifest.json:changes; independently reviewed C++ allocation source delta",
           "mode": "100644",
           "path": "Native/Loader/cxx_allocation_runtime.h",
           "sha256": "b76bdc4043c497700f93aff5ad82968f7660ebb6720bb2c71ea5615000380a62"
         },
         {
+          "basis": "reviewed-ak-manifest.json:changes; independently reviewed C++ allocation source delta",
           "mode": "100644",
           "path": "Native/Loader/elf_loader_emulator.cpp",
           "sha256": "44a8b61dcf1d4d8d309f624c442c008278d33a68ccf14ec4dc9f4757d9cdce2a"

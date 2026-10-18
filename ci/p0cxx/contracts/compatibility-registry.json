@@ -285,14 +285,14 @@
   ],
   "evidence": {
     "path": "provenance/source-evidence.json",
-    "sha256": "3c14a82d6ce7755f73e8c57776c02c470b01aebe513cc6470d1e4113a3ac6f42"
+    "sha256": "84505271869acfaed2cafe23d7cd6bb02ff6d4c7ed3e284a0edd1734b8dbe132"
   },
   "format_version": 1,
   "integration_baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
   "owners": {
     "AnisetteKit": {
       "manifest_path": "owners/AnisetteKit/runtime-contract.json",
-      "manifest_sha256": "335c74882863f630374b6b015910a62ca3e56f460a33f1a38e4e01136ab7ba96",
+      "manifest_sha256": "326ee9df702af23727f6adccefa8852961a4acbf595be46f79bffdc87f333bc7",
       "version": "1.3.1"
     },
     "LiveContainer": {
