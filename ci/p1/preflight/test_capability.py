@@ -733,7 +733,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def execute_phone(self,recovery_passed=True,cleanup_failure=False,source_drift=False,
                       uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False,install_observation=None,install_failure=False):
         from types import SimpleNamespace
-        host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text('{}')
+        host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text(json.dumps({'scope':'phone-recovery-capability-only-no-admission'}))
         device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[];scope.session=SESSION;scope.deadline=time.monotonic()+1020
         scope.remaining.side_effect=lambda requested,cleanup=False:float(requested)
         if cleanup_failure:scope.close.side_effect=ValueError('unsettled fixture writer')
@@ -807,7 +807,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         if install_observation is not None or install_failure:
             layout.assert_not_called()
         elif uninstall_failure is None:
-            layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png)
+            layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png,full_recovery=False)
         else:
             layout.assert_not_called()
             calls=command.call_args_list;optional=[c for c in calls if c.args[:3]==('xcrun','simctl','uninstall')]
@@ -864,8 +864,8 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def test_workflow_only_phone_and_preserved_budgets(self):
         import yaml
         row=yaml.safe_load((HERE.parents[2]/'.github/workflows/p1-native-candidate.yml').read_text());jobs=row['jobs'];self.assertEqual(len(jobs),1)
-        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],35)
-        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertIn('preflight/budget.py',step['run'])
+        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],65)
+        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],55);self.assertEqual(step['run'].count('--full-recovery'),2);self.assertIn('preflight/budget.py',step['run'])
         self.assertIn("--device-class '${{ matrix.device }}'",step['run']);self.assertNotIn('native_gate.py',step['run'])
     def test_cli_rejects_tablet(self):
         import subprocess

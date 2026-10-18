@@ -1,6 +1,6 @@
-name: P1 phone recovery capability
+name: P1 full phone recovery matrix
 
-# Phone recovery only. Calibration and tablet are not rerun; no full matrix or host build.
+# Full phone recovery only. Calibration, tablet and broader acceptance remain excluded.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '40ca2db152e455a3a4101b7f5849f200901f2daab269c77b9a3234d4b9806ecb'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '85ed4742efbcd18140fea6c265f7f2ebbb272e958092b39f55aa655ef7b7ca41'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -25,7 +25,7 @@ jobs:
       matrix:
         device: [phone]
     runs-on: macos-26
-    timeout-minutes: 35
+    timeout-minutes: 65
     defaults:
       run:
         shell: bash
@@ -46,18 +46,19 @@ jobs:
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_fresh_ui.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_install_observation.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_query_reuse.py -v
-      - name: Collect short phone recovery capability
+          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_full_recovery.py -v
+      - name: Collect original full phone recovery matrix
         id: collect
-        timeout-minutes: 22
+        timeout-minutes: 55
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/preflight/budget.py --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
+          python3 -B validation/ci/p1/preflight/budget.py --full-recovery --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
             python3 -B validation/ci/p1/preflight/capture.py \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
             --work "$RUNNER_TEMP/p1-capability-work" --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
-            --device-class '${{ matrix.device }}' --execute
+            --device-class '${{ matrix.device }}' --execute --full-recovery
       - name: Package every original evidence byte into bounded parts
         id: package
         if: always()

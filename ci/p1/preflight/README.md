@@ -1,3 +1,26 @@
+# Original full phone recovery restoration
+
+The explicit --full-recovery profile runs all four original recovery matrix
+methods and the unchanged full layout_exports.verify validator. It retains
+600 seconds per XCTest method and 2400 seconds for the single xcodebuild
+process, exactly the original full recovery lane limits. These bounds do not
+guarantee completion. No methods, branches, geometry predicates, callback
+receipts, screenshots, Dynamic Type states or transitions are omitted.
+
+The separate profile permits 3000 seconds for observation/setup/export,
+3120 seconds to complete owned cleanup, and an outer collector wait of 3180
+seconds. The workflow collection step is 55 minutes and job 65 minutes.
+The original short capability profile remains 1020/1140/1200 and 180/480.
+The known fresh-owned simulator lifecycle, install 120 infrastructure limit,
+15-second cleanup command limits and deletion/absence proof are unchanged.
+The wrapper wait budget starts after process spawn, not a hard bound on spawn.
+
+A pass establishes only the phone recovery matrix for this exact source and
+runtime. Feedback lifetime, input overlap, calibration, tablet coverage, full
+baseline matrix, production acceptance and IPA readiness remain unestablished.
+Any primary or cleanup failure remains failed. Prior capability evidence remains
+separate and is not substituted for any matrix case.
+
 # P1 phone recovery route restoration
 
 ## Bounded command launch receipts

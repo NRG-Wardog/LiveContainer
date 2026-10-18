@@ -155,8 +155,9 @@ def phase_summaries(evidence):
         if fd is not None:os.close(fd)
 
 
-def run(argv,evidence,seconds=1200,command_factory=None,stall_diagnostic=False):
-    if seconds!=(600 if stall_diagnostic else 1200):raise ValueError('fixed reviewed outer collector budget required')
+def run(argv,evidence,seconds=1200,command_factory=None,stall_diagnostic=False,full_recovery=False):
+    if stall_diagnostic and full_recovery:raise ValueError('one outer budget profile required')
+    if seconds!=(600 if stall_diagnostic else (3180 if full_recovery else 1200)):raise ValueError('fixed reviewed outer collector budget required')
     before=time.monotonic();process=None;session=uuid.uuid4().hex;phase='collector-spawn';primary=None;cleanup_errors=[]
     outcome={'schema':'p1-capability-outer-budget-v1','session':session,'budget_seconds':seconds,'timed_out':False,'transport_safe':False,'admissionEligible':False};code=1
     try:
@@ -219,10 +220,13 @@ def check_package(evidence):
         process_scope.emit_diagnostic('package-gate-failure',error=failure_info(error));raise
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--evidence',type=Path,required=True);p.add_argument('--check-package',action='store_true');p.add_argument('--boot-diagnostic',action='store_true');p.add_argument('--stall-diagnostic',action='store_true');p.add_argument('command',nargs=argparse.REMAINDER);a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--evidence',type=Path,required=True);p.add_argument('--check-package',action='store_true');p.add_argument('--boot-diagnostic',action='store_true');p.add_argument('--stall-diagnostic',action='store_true');p.add_argument('--full-recovery',action='store_true');p.add_argument('command',nargs=argparse.REMAINDER);a=p.parse_args()
     if a.check_package:check_package(a.evidence)
     else:
         if not a.command or a.command[0]!='--':p.error('explicit -- command required')
+        if a.full_recovery:
+            if a.boot_diagnostic or a.stall_diagnostic or len(a.command)<4 or Path(a.command[3]).resolve()!=Path(__file__).with_name('capture.py').resolve() or a.command.count('--full-recovery')!=1:p.error('exact full recovery collector required')
+            raise SystemExit(run(a.command[1:],a.evidence,seconds=3180,full_recovery=True))
         if a.stall_diagnostic:
             if a.boot_diagnostic or len(a.command)<4 or Path(a.command[3]).resolve()!=Path(__file__).with_name('stall_diagnostic.py').resolve():p.error('exact stall collector required')
             import boot_diagnostic

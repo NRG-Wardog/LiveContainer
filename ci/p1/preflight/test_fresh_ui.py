@@ -108,7 +108,7 @@ class FreshUI(unittest.TestCase):
         text=Path(capture.__file__).read_text()
         self.assertNotIn('runner.available_devices()',text)
         self.assertIn('fresh_device.create_for_ui',text)
-        for token in ('timeout=360','timeout=480','timeout=120','timeout=30',"'optional uninstall writer settlement unproved'","'source drift'"):
+        for token in ('timeout=360','timeout=2400 if full_recovery else 480','timeout=120','timeout=30',"'optional uninstall writer settlement unproved'","'source drift'"):
             self.assertIn(token,text)
 
 if __name__=='__main__':unittest.main()
