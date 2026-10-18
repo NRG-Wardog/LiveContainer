@@ -11,6 +11,7 @@ import subprocess
 import time
 import uuid
 import process_scope
+import simulator_cleanup
 
 
 def verify_quiescence(evidence,session,force=False):
@@ -28,7 +29,7 @@ def verify_quiescence(evidence,session,force=False):
             if not force or not process_scope.stop_group(pid):
                 process_scope.emit_diagnostic('writer-group-unsettled',pgid=pid,operation='stop_group' if force else 'verify',result=False)
                 raise ValueError('writer group quiescence unproved')
-            row['settled']=True;row['outerForcedCleanup']=True
+            row['settled']=True;row['outerAbsenceVerified']=True
     fixture=registry.get('fixture')
     if force and incomplete and fixture is not None:
         device=fixture.get('device')
@@ -36,23 +37,42 @@ def verify_quiescence(evidence,session,force=False):
         # Only an exclusively booted disposable simulator can be conclusively
         # shut down by the backstop. Otherwise fail without racing live writers.
         if fixture.get('owned_boot') is not True:raise ValueError('backstop cannot establish cleanup of pre-existing simulator')
-        with (evidence/'backstop-simulator-cleanup.log').open('wb') as log:
-            cleanup=subprocess.Popen(['xcrun','simctl','shutdown',device],stdout=log,stderr=log,start_new_session=True)
-            primary=None;cleanup_error=None
-            try:cleanup.wait(timeout=20)
-            except Exception as error:primary=error
-            finally:
-                try:
-                    if not process_scope.stop_group(cleanup.pid,cleanup):raise ValueError('simulator cleanup group did not settle')
-                except Exception as error:cleanup_error=error
-            process_scope.emit_diagnostic('backstop-simulator-cleanup',pgid=cleanup.pid,exit_code=cleanup.returncode,
-                primary_error=failure_info(primary) if primary else None,cleanup_errors=[failure_info(cleanup_error)] if cleanup_error else [])
+        errors=[];unsettled=[];count=0
+        def command(*argv,timeout=15,cleanup=False,receipt=False):
+            nonlocal count
+            count+=1;primary=None;cleanup_error=None
+            prefix=f'backstop-simulator-{count:02d}'
+            with (evidence/(prefix+'.stdout')).open('wb') as out,(evidence/(prefix+'.stderr')).open('wb') as err:
+                child=process_scope.OwnedProcess.spawn(argv,stdout=out,stderr=err,start_new_session=True)
+                try:child.wait(timeout=timeout)
+                except Exception as error:primary=error
+                finally:
+                    try:
+                        if not process_scope.stop_group(child.pid,child):raise ValueError('simulator cleanup group did not settle')
+                    except Exception as error:cleanup_error=error
+            if cleanup_error is not None:unsettled.append(cleanup_error)
             if primary is not None:
                 primary._p1_cleanup_diagnostics=[failure_info(cleanup_error)] if cleanup_error else []
-                raise primary
-            if cleanup_error is not None:raise cleanup_error
-            if cleanup.returncode!=0:raise ValueError('simulator shutdown not confirmed')
+                errors.append(primary)
+            elif cleanup_error is not None:errors.append(cleanup_error)
+            failed=primary or cleanup_error
+            if failed is None and child.returncode!=0:failed=subprocess.CalledProcessError(child.returncode,argv)
+            row={'exit_code':child.returncode,'failure_type':type(failed).__name__ if failed else None,
+                'primary_error':failure_info(primary) if primary else None,'cleanup_errors':[failure_info(cleanup_error)] if cleanup_error else [],
+                'stdout':(evidence/(prefix+'.stdout')).read_text(errors='replace'),'stderr':(evidence/(prefix+'.stderr')).read_text(errors='replace')}
+            process_scope.emit_diagnostic('backstop-simulator-cleanup',pgid=child.pid,exit_code=child.returncode,
+                primary_error=row['primary_error'],cleanup_errors=row['cleanup_errors'])
+            return row
+        shutdown=simulator_cleanup.confirm_shutdown(command,device,True)
+        process_scope.atomic(evidence/'backstop-simulator-shutdown.json',shutdown)
+        # A later simulator-state observation never settles an earlier host
+        # writer. Preserve its primary timeout alongside unresolved cleanup.
+        if unsettled:raise errors[0] if errors else unsettled[0]
+        if not shutdown['observed_shutdown']:
+            if errors:raise errors[0]
+            raise ValueError('simulator shutdown not confirmed')
         registry['backstop_fixture_shutdown']=True;registry['fixture']['stopped']=True
+        registry['backstop_cleanup_command_failed']=shutdown['command_failed']
     process_scope.atomic(path,registry)
     process_scope.atomic(evidence/'quiescence.json',{'schema':'p1-capability-quiescence-v1','session':session,'quiescent':True,'groups':len(groups),'outerVerified':True,'admissionEligible':False})
 
@@ -116,7 +136,7 @@ def run(argv,evidence,seconds=1200):
     outcome={'schema':'p1-capability-outer-budget-v1','session':session,'budget_seconds':seconds,'timed_out':False,'transport_safe':False,'admissionEligible':False};code=1
     try:
         environment=os.environ.copy();environment['P1_PROCESS_SCOPE_SESSION']=session
-        process=subprocess.Popen(argv,start_new_session=True,env=environment);phase='collector-wait'
+        process=process_scope.OwnedProcess.spawn(argv,start_new_session=True,env=environment);phase='collector-wait'
         try:code=process.wait(timeout=seconds)
         except subprocess.TimeoutExpired as error:
             primary=error;outcome['timed_out']=True;code=124;phase='collector-timeout-cleanup'
@@ -128,8 +148,12 @@ def run(argv,evidence,seconds=1200):
             try:process_scope.stop_group(process.pid,process)
             except Exception as cleanup:cleanup_errors.append(failure_info(cleanup))
             raise
+        phase='collector-disappearance'
+        if not process_scope.stop_group(process.pid,process):raise RuntimeError('collector group did not settle')
         phase='verify-quiescence';verify_quiescence(evidence,session,force=True)
         outcome['transport_safe']=True
+        if json.loads((evidence/'process-registry.json').read_text()).get('backstop_cleanup_command_failed') is True:
+            code=1;outcome['cleanup_command_failed']=True
     except Exception as error:
         if primary is None:primary=error
         elif error is not primary and not cleanup_errors:cleanup_errors.append(failure_info(error))

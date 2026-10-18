@@ -11,6 +11,8 @@ import plistlib
 import re
 import shutil
 import sys
+import signal
+import subprocess
 import time
 import uuid
 
@@ -19,6 +21,7 @@ sys.path.insert(0,str(HERE));sys.path.insert(1,str(HERE.parent/'video'))
 import protocol
 import analyze_capability as analysis
 import process_scope
+import simulator_cleanup
 spec=importlib.util.spec_from_file_location('prior_video_capture',HERE.parent/'video/capture.py');video=importlib.util.module_from_spec(spec);spec.loader.exec_module(video)
 base=video.base
 require,sha,write,parse,ordinary=video.require,video.sha,video.write,video.parse,video.ordinary
@@ -27,7 +30,7 @@ METHOD='testScreenshotCalibrationCapability'
 CLASS='P1ScreenshotCapabilityUITests'
 RUNNER_ID=analysis.RUNNER_ID
 # Fixed list, independent of the supplied manifest. Updated only by reviewed source.
-ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py']}
+ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py']}
 
 
 def validate(host,inputs,approved):
@@ -35,7 +38,7 @@ def validate(host,inputs,approved):
     require(re.fullmatch('[0-9a-f]{64}',approved or '') and sha(inputs)==approved,'unreviewed inputs')
     data=parse(inputs)
     require(set(data)=={'schema','scope','livecontainer','builder','source_sha256','adapter_files'},'unexpected input fields')
-    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope']=='calibration-and-recovery-capabilities-only-no-admission','wrong capability scope')
+    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope']=='cleanup-regression-only-no-admission','wrong capability scope')
     require(data['livecontainer']==SOURCE and data['builder']==BUILDER and data['source_sha256']==SOURCE_SHA,'wrong source pin')
     require(set(data['adapter_files'])==ADAPTERS,'wrong adapter inventory')
     for path,digest in data['adapter_files'].items():require(sha(ordinary(host,path))==digest,'adapter drift: '+path)
@@ -175,8 +178,9 @@ def stop_fixture(command,device,folder):
             row['classified_stopped']=stopped_response(row,identifier);ok=ok and row['classified_stopped'];receipts.append(row)
         except Exception as error:ok=False;receipts.append({'bundle_id':identifier,'error':str(error),'classified_stopped':False})
     if not ok and command.scope.fixture and command.scope.fixture['owned_boot']:
-        row=command('xcrun','simctl','shutdown',device,timeout=15,cleanup=True,receipt=True)
-        row['classified_stopped']=row.get('exit_code')==0 and row.get('failure_type') is None;receipts.append(row);ok=row['classified_stopped']
+        row=simulator_cleanup.confirm_shutdown(command,device,True)
+        receipts.append(row);ok=row['observed_shutdown']
+        if row['command_failed']:command.scope.fixture_cleanup_failure()
     command.scope.fixture_stopped(ok)
     path=folder/'fixture-termination.json';prior=parse(path) if path.exists() else []
     prior.append({'device':device,'receipts':receipts,'stopped':ok,'admissionEligible':False});write(path,prior)
@@ -189,8 +193,30 @@ class ManagedVideo(video.transport.Video):
         self.argv=['xcrun','simctl','io',device,'recordVideo','--codec=h264',str(output/'screen.mp4')]
         self.started=time.monotonic();self.process=scope.spawn(self.argv,self.stream);self.stopped=False
     def stop(self):
-        try:super().stop()
-        finally:self.scope.settle(self.process)
+        if self.stopped:return
+        self.stopped=True;forced=False;sigint_sent=False;requested=time.monotonic();primary=None;cleanup_errors=[]
+        try:
+            sigint_sent=self.process.signal_owned(signal.SIGINT)
+            if sigint_sent:
+                try:self.process.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    forced=True;self.process.signal_owned(signal.SIGKILL);self.process.wait(timeout=10)
+        except Exception as error:primary=error
+        finally:
+            try:self.scope.settle(self.process)
+            except Exception as error:cleanup_errors.append(error)
+            try:self.stream.close()
+            except Exception as error:cleanup_errors.append(error)
+            row={'argv':self.argv,'hostStart':self.started,'hostEnd':time.monotonic(),'exitCode':self.process.returncode,'forcedTermination':forced,
+                'stopRequested':True,'stopRequestedHostUptime':requested,'sigintSent':sigint_sent,
+                'clock':'host time.monotonic; process start is NOT video PTS zero','admissionEligible':False,
+                'primary_error':process_scope.error_info(primary),'cleanup_errors':[process_scope.error_info(e) for e in cleanup_errors]}
+            try:write(self.output/'recording-process.json',row)
+            except Exception as error:cleanup_errors.append(error)
+        if primary is not None:
+            process_scope.emit_diagnostic('recorder-stop-failure',primary_error=process_scope.error_info(primary),cleanup_errors=[process_scope.error_info(e) for e in cleanup_errors]);raise primary
+        if cleanup_errors:raise cleanup_errors[0]
+        require(not forced and (self.process.returncode==0 or (sigint_sent and self.process.returncode==-signal.SIGINT)) and (self.output/'screen.mp4').is_file(),'video did not finalize with normal exit or the requested SIGINT')
 
 
 def run_calibration(command,candidate,device,session,folder,valid_png):
@@ -302,10 +328,15 @@ def finalize(output,result,command,scope,device,booted_here):
         try:
             require(stop_fixture(command,device,output),'final simulator writer quiescence unproved')
         except Exception as error:result['errors'].append('fixture cleanup: '+str(error));result['capabilities_passed']=False;result['collection_complete']=False
-        cleanup_commands=[('xcrun','simctl','shutdown',device)] if booted_here else []
-        for argv in cleanup_commands:
-            try:command(*argv,allow_failure=True,timeout=15,cleanup=True)
+        if booted_here:
+            try:
+                shutdown=simulator_cleanup.confirm_shutdown(command,device,True);write(output/'owned-simulator-shutdown.json',shutdown)
+                scope.fixture_stopped(shutdown['observed_shutdown'])
+                if shutdown['command_failed']:scope.fixture_cleanup_failure()
+                require(shutdown['observed_shutdown'] and not shutdown['command_failed'],'owned simulator shutdown/state command failed')
             except Exception as error:result['errors'].append('cleanup: '+str(error));result['capabilities_passed']=False;result['collection_complete']=False
+        if scope is not None and scope.fixture and scope.fixture.get('cleanup_command_failed'):
+            result['errors'].append('simulator cleanup command failure retained');result['capabilities_passed']=False;result['collection_complete']=False
     if scope is not None:
         try:scope.close()
         except Exception as error:result['errors'].append('quiescence: '+str(error));result['capabilities_passed']=False;result['collection_complete']=False
@@ -354,5 +385,6 @@ if __name__=='__main__':
     p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone','tablet']);p.add_argument('--execute',action='store_true');a=p.parse_args()
     validate(a.host_root,a.inputs,a.approved_inputs_sha256)
     if a.execute:
+        require(False,'UI execution disabled in cleanup-only checkpoint')
         require(a.work is not None and a.evidence is not None and a.device_class is not None,'execution paths/class required')
         sys.exit(0 if execute(a.host_root.resolve(),a.work,a.evidence,a.inputs,a.approved_inputs_sha256,a.device_class) else 1)

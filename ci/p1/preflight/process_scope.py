@@ -48,7 +48,7 @@ def membership_snapshot(group):
     """One read-only ps snapshot: 1 s collection, 1 s cleanup, 256 KiB/32 rows.
 
     ps inherits this process group, has no evidence file descriptor and cannot
-    modify evidence. Its direct child is killed/waited on before returning;
+    modify evidence. Cleanup attempts kill/wait for up to one extra second;
     a failed wait is explicitly unknown, never a quiescence receipt.
     """
     result={'available':False,'pgid':group,'rows':[],'truncated':False}
@@ -102,29 +102,88 @@ def alive(group):
 
 
 def signal_group(group,kind):
-    try:os.killpg(group,kind)
-    except ProcessLookupError:pass
+    try:os.killpg(group,kind);return True
+    except ProcessLookupError:return False
     except OSError as error:raise GroupOperationError(signal.Signals(kind).name,group,error) from error
 
 
-def stop_group(group,process=None):
-    if alive(group):
-        signal_group(group,signal.SIGTERM)
-        deadline=time.monotonic()+2
-        while alive(group) and time.monotonic()<deadline:
-            if process is not None:process.poll()
-            time.sleep(.02)
-    if alive(group):signal_group(group,signal.SIGKILL)
-    if process is not None:
-        try:process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            emit_diagnostic('process-group-unsettled',pgid=group,operation='wait',result=False,membership=membership_snapshot(group));return False
-        except OSError as error:raise GroupOperationError('wait',group,error) from error
+def require_default_sigchld():
+    """PID reservation requires ordinary child reaping, never auto-reap handlers."""
+    if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+        raise ValueError('default SIGCHLD disposition required for owned child lifecycle')
+
+
+class OwnedProcess:
+    """One start_new_session=True Popen child, with serialized reaping/signals.
+
+    An unreaped child reserves its PID. After reaping, the numeric PGID alone
+    cannot authorize signals. The wrapper retains the actual Popen object and
+    all callers use its lifecycle lock rather than waiting on the raw child.
+    """
+    @classmethod
+    def spawn(cls,*args,**kwargs):
+        require_default_sigchld()
+        if kwargs.get('start_new_session') is not True:
+            raise ValueError('owned child must start its own session')
+        return cls(subprocess.Popen(*args,**kwargs))
+    def __init__(self,process):
+        self._process=process;self.lock=threading.RLock();self.pid=process.pid
+    @property
+    def returncode(self):
+        with self.lock:return self._process.returncode
+    def poll(self):
+        with self.lock:return self._process.poll()
+    def wait(self,timeout=None):
+        deadline=None if timeout is None else time.monotonic()+timeout
+        while True:
+            with self.lock:
+                code=self._process.poll()
+                if code is not None:return code
+            if deadline is not None and time.monotonic()>=deadline:
+                raise subprocess.TimeoutExpired(self._process.args,timeout)
+            time.sleep(.01 if deadline is None else min(.01,max(0,deadline-time.monotonic())))
+    def signal_owned(self,kind):
+        with self.lock:
+            require_default_sigchld()
+            if self._process.poll() is not None:return False
+            # No other waiter can reap the child between this poll and signal.
+            return signal_group(self.pid,kind)
+
+
+def disappearance(group):
+    """Read-only. A surviving, reused or unknown numeric group is not killed."""
     deadline=time.monotonic()+5
     while alive(group) and time.monotonic()<deadline:time.sleep(.02)
     settled=not alive(group)
     if not settled:emit_diagnostic('process-group-unsettled',pgid=group,operation='disappearance',result=False,membership=membership_snapshot(group))
     return settled
+
+
+def stop_group(group,process=None):
+    if process is None:return disappearance(group)
+    if not isinstance(process,OwnedProcess) or process.pid!=group:
+        raise ValueError('exact owned child required for process-group signals')
+    try:
+        with process.lock:
+            # Reap exited direct children before a Darwin killpg(0) probe can
+            # fail on a zombie. Unknown probe failures remain failures.
+            code=process.poll()
+            if code is None and alive(group):process.signal_owned(signal.SIGTERM)
+        if code is None:
+            try:process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.signal_owned(signal.SIGKILL)
+                try:process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    emit_diagnostic('process-group-unsettled',pgid=group,operation='wait',result=False,membership=membership_snapshot(group));return False
+        return disappearance(group)
+    except OSError as error:
+        try:process.poll()
+        except Exception as reap_error:emit_diagnostic('owned-child-reap-failure',pgid=group,error=error_info(reap_error))
+        if isinstance(error,GroupOperationError):raise
+        raise GroupOperationError('wait',group,error) from error
+    finally:
+        emit_diagnostic('owned-child-lifecycle',pgid=group,reaped=process.returncode is not None,exit_code=process.returncode)
 
 
 class Scope:
@@ -143,6 +202,9 @@ class Scope:
     def fixture_stopped(self,stopped):
         with self.lock:
             if self.fixture is not None:self.fixture['stopped']=bool(stopped);self.persist()
+    def fixture_cleanup_failure(self):
+        with self.lock:
+            if self.fixture is not None:self.fixture['cleanup_command_failed']=True;self.persist()
     def remaining(self,requested,cleanup=False):
         if cleanup:return min(float(requested),15)
         left=self.deadline-time.monotonic()
@@ -151,9 +213,10 @@ class Scope:
     def spawn(self,argv,stdout,stderr=None,cleanup=False):
         with self.lock:
             self.remaining(1,cleanup)
+            require_default_sigchld()
             read_fd,write_fd=os.pipe()
             try:
-                process=subprocess.Popen([sys.executable,'-B',str(Path(__file__).resolve()),'--child',str(read_fd),*map(str,argv)],stdout=stdout,stderr=stderr if stderr is not None else stdout,start_new_session=True,pass_fds=(read_fd,))
+                process=OwnedProcess.spawn([sys.executable,'-B',str(Path(__file__).resolve()),'--child',str(read_fd),*map(str,argv)],stdout=stdout,stderr=stderr if stderr is not None else stdout,start_new_session=True,pass_fds=(read_fd,))
             finally:os.close(read_fd)
             self.processes[process.pid]=process
             self.rows.append({'pid':process.pid,'pgid':process.pid,'argv':list(map(str,argv)),'started':time.monotonic(),'settled':False,'exit_code':None})
@@ -178,12 +241,12 @@ class Scope:
             if row['settled']:return
             try:settled=stop_group(process.pid,process)
             except Exception as error:
-                row['settled']=False;row['exit_code']=process.returncode
+                row['settled']=False;row['exit_code']=process.returncode;row['reaped']=process.returncode is not None
                 row.setdefault('cleanup_errors',[]).append(error_info(error));row['cleanup_errors']=row['cleanup_errors'][-8:]
                 try:self.persist()
                 except Exception as write_error:emit_diagnostic('registry-write-failure',error=error_info(write_error))
                 raise
-            row.update(settled=settled,exit_code=process.returncode,finished=time.monotonic());self.persist()
+            row.update(settled=settled,exit_code=process.returncode,reaped=process.returncode is not None,finished=time.monotonic());self.persist()
             if not settled:
                 emit_diagnostic('process-group-unsettled',pgid=process.pid,operation='settle',result=False)
                 raise RuntimeError('child group did not become quiescent')

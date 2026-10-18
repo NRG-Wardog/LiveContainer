@@ -106,7 +106,7 @@ def fixture(root):
 
 class CapabilityTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name);self.decoded,self.events,self.strip=fixture(self.root)
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve();self.decoded,self.events,self.strip=fixture(self.root)
     def inspect(self):return analysis.inspect(self.root,SESSION,self.decoded,self.events,self.strip)
     def change_json(self,name,fn):
         path=self.root/name;value=protocol.parse(path);fn(value);put(path,value)
@@ -161,48 +161,48 @@ class BoundaryTests(unittest.TestCase):
         self.assertEqual(len(protocol.expected_app_requests(SESSION)),29);self.assertEqual(len(protocol.expected_runner_requests(SESSION)),35)
     def test_duplicate_json_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p=Path(tmp)/'x';p.write_text('{"id":1,"id":1}')
+            p=Path(tmp).resolve()/'x';p.write_text('{"id":1,"id":1}')
             with self.assertRaises(ValueError):protocol.parse(p)
     def test_linked_json_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p=Path(tmp)/'x';p.write_text('{}');q=Path(tmp)/'q';q.symlink_to(p)
+            p=Path(tmp).resolve()/'x';p.write_text('{}');q=Path(tmp).resolve()/'q';q.symlink_to(p)
             with self.assertRaises(ValueError):protocol.parse(q)
     def test_stale_channel_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);(root/'request.json').write_text('{}')
+            root=Path(tmp).resolve();(root/'request.json').write_text('{}')
             with self.assertRaises(ValueError):protocol.Channel(root,SESSION,'runner',root/'out')
     def test_protocol_canonical_without_newline(self):self.assertEqual(protocol.canonical({'kind':'clock','id':1}),b'{"id":1,"kind":"clock"}')
     def test_runner_recipe_injects_only_target(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);products=root/'products';info=products/'Debug-iphonesimulator/P0SignInUITests-Runner.app/Info.plist';info.parent.mkdir(parents=True);info.write_bytes(plistlib.dumps({'CFBundleIdentifier':analysis.RUNNER_ID}))
+            root=Path(tmp).resolve();products=root/'products';info=products/'Debug-iphonesimulator/P0SignInUITests-Runner.app/Info.plist';info.parent.mkdir(parents=True);info.write_bytes(plistlib.dumps({'CFBundleIdentifier':analysis.RUNNER_ID}))
             candidate=products/'a.xctestrun';candidate.write_bytes(plistlib.dumps({'Tests':{'TestBundlePath':'P0SignInUITests.xctest','IsUITestBundle':True}}));out=root/'out';out.mkdir()
             p=capture.configure_runner(candidate,products,SESSION,out);self.assertEqual(plistlib.loads(p.read_bytes())['Tests']['EnvironmentVariables']['P1_CAPABILITY_SESSION'],SESSION)
     def test_runner_recipe_rejects_wrong_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);info=root/'Debug-iphonesimulator/P0SignInUITests-Runner.app/Info.plist';info.parent.mkdir(parents=True);info.write_bytes(plistlib.dumps({'CFBundleIdentifier':'other'}))
+            root=Path(tmp).resolve();info=root/'Debug-iphonesimulator/P0SignInUITests-Runner.app/Info.plist';info.parent.mkdir(parents=True);info.write_bytes(plistlib.dumps({'CFBundleIdentifier':'other'}))
             with self.assertRaises(ValueError):capture.configure_runner(root/'a',root,SESSION,root)
     def test_budget_records_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
-            out=Path(tmp)/'evidence'
+            out=Path(tmp).resolve()/'evidence'
             script=f'import sys;sys.path.insert(0,{str(HERE)!r});from pathlib import Path;import process_scope;p=Path({str(out)!r});p.mkdir();s=process_scope.Scope(p);s.close();raise SystemExit(7)'
             self.assertEqual(budget.run([sys.executable,'-B','-c',script],out),7)
             self.assertEqual(protocol.parse(out/'outer-budget.json')['exit_code'],7);self.assertIn('outer-budget.json',protocol.parse(out/'evidence-index.json')['files'])
     def test_budget_timeout_reaps_group(self):
         with tempfile.TemporaryDirectory() as tmp:
-            process=mock.Mock();process.pid=123;process.wait.side_effect=budget.subprocess.TimeoutExpired('x',1200)
+            process=mock.Mock(pid=123,returncode=None);process.poll.side_effect=budget.subprocess.TimeoutExpired('x',1200);(Path(tmp).resolve()/'e').mkdir();put(Path(tmp).resolve()/'e/process-registry.json',{})
             with mock.patch.object(budget.subprocess,'Popen',return_value=process),mock.patch.object(process_scope,'stop_group',return_value=True) as stop, mock.patch.object(budget,'verify_quiescence'):
-                self.assertEqual(budget.run(['x'],Path(tmp)/'e'),124);stop.assert_called_once_with(123,process)
+                self.assertEqual(budget.run(['x'],Path(tmp).resolve()/'e'),124);self.assertTrue(stop.called);self.assertEqual(stop.call_args.args[0],123);self.assertIs(stop.call_args.args[1]._process,process)
     def test_fixed_outer_budget(self):
         with self.assertRaises(ValueError):budget.run([],Path('/tmp/no'),seconds=1)
 
 class SealsAndExports(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
     def sealed(self):
         host=self.root/'host';host.mkdir();original=HERE.parents[2]
         for relative in capture.ADAPTERS:
             target=host/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(original/relative,target)
-        data=dict(schema='p1-short-capability-inputs-v1',scope='calibration-and-recovery-capabilities-only-no-admission',livecontainer=capture.SOURCE,builder=capture.BUILDER,source_sha256=capture.SOURCE_SHA,adapter_files={n:capture.sha(host/n) for n in capture.ADAPTERS})
+        data=dict(schema='p1-short-capability-inputs-v1',scope='cleanup-regression-only-no-admission',livecontainer=capture.SOURCE,builder=capture.BUILDER,source_sha256=capture.SOURCE_SHA,adapter_files={n:capture.sha(host/n) for n in capture.ADAPTERS})
         path=host/'inputs.json';put(path,data);return host,path,data
     def test_real_seal(self):
         host,path,data=self.sealed();self.assertEqual(capture.validate(host,path,capture.sha(path)),data)
@@ -283,7 +283,7 @@ class SealsAndExports(unittest.TestCase):
 class LiveChannelTests(unittest.TestCase):
     def exercise(self,mode):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);channel=protocol.Channel(root,SESSION,'runner',root/'host.json');errors=[]
+            root=Path(tmp).resolve();channel=protocol.Channel(root,SESSION,'runner',root/'host.json');errors=[]
             def worker():
                 try:
                     deadline=time.monotonic()+1
@@ -310,14 +310,14 @@ class LiveChannelTests(unittest.TestCase):
 class ProcessQuiescenceTests(unittest.TestCase):
     def test_internal_deadline_reaps_separate_writer(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);logs=root/'logs';logs.mkdir();scope=process_scope.Scope(root);scope.deadline=time.monotonic()+.15;command=process_scope.Commands(scope,logs);target=root/'writer'
+            root=Path(tmp).resolve();logs=root/'logs';logs.mkdir();scope=process_scope.Scope(root);scope.deadline=time.monotonic()+.15;command=process_scope.Commands(scope,logs);target=root/'writer'
             script="import time;f=open(%r,'a');\nwhile True:f.write('x');f.flush();time.sleep(.005)" % str(target)
             with self.assertRaises(Exception):command(sys.executable,'-B','-c',script,timeout=10)
             scope.close();self.assertTrue(protocol.parse(root/'quiescence.json')['quiescent'])
             before=target.read_bytes();time.sleep(.05);self.assertEqual(target.read_bytes(),before)
     def test_exec_cannot_start_before_durable_registration(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);scope=process_scope.Scope(root);target=root/'started';original=scope.persist;seen=[]
+            root=Path(tmp).resolve();scope=process_scope.Scope(root);target=root/'started';original=scope.persist;seen=[]
             def persist():
                 seen.append(target.exists());time.sleep(.03);self.assertFalse(target.exists());original()
             with (root/'stdout').open('wb') as f,mock.patch.object(scope,'persist',side_effect=persist):
@@ -325,39 +325,39 @@ class ProcessQuiescenceTests(unittest.TestCase):
             process.wait(timeout=2);scope.settle(process);scope.close();self.assertEqual(seen,[False]);self.assertTrue(target.exists())
     def test_failed_registry_write_never_executes_child(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);scope=process_scope.Scope(root);target=root/'started'
+            root=Path(tmp).resolve();scope=process_scope.Scope(root);target=root/'started'
             with (root/'stdout').open('wb') as f,mock.patch.object(scope,'persist',side_effect=OSError('disk failure')):
                 with self.assertRaises(OSError):scope.spawn([sys.executable,'-B','-c',f"open({str(target)!r},'w').write('x')"],f)
             time.sleep(.03);self.assertFalse(target.exists());scope.close()
-    def test_outer_timeout_stops_detached_writer_before_index(self):
+    def orphaned_writer_case(self,timed_out):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/'e';ready=Path(tmp)/'ready';writer=root/'active-writer'
-            script=f"import sys,time;sys.path.insert(0,{str(HERE)!r});from pathlib import Path;import process_scope;r=Path({str(root)!r});r.mkdir();s=process_scope.Scope(r);f=(r/'child.log').open('wb');p=s.spawn([sys.executable,'-B','-c',\"import time;f=open({str(writer)!r},'a');\\nwhile True:f.write('x');f.flush();time.sleep(.005)\"],f);Path({str(ready)!r}).write_text('ready');time.sleep(60)"
-            original_popen=budget.subprocess.Popen;original_index=budget.index;indexed=[]
-            def launch(*args,**kwargs):
-                p=original_popen(*args,**kwargs);real_wait=p.wait;first=[True]
-                def wait(timeout=None):
-                    if first[0]:
-                        first[0]=False;deadline=time.monotonic()+3
-                        while not ready.exists() and time.monotonic()<deadline:time.sleep(.01)
-                        self.assertTrue(ready.exists());time.sleep(.05);raise budget.subprocess.TimeoutExpired('collector',1200)
-                    return real_wait(timeout=timeout)
-                p.wait=wait;return p
-            def index(path):
-                self.assertTrue(protocol.parse(path/'quiescence.json')['quiescent']);before=writer.read_bytes();time.sleep(.03);self.assertEqual(writer.read_bytes(),before);indexed.append(True);original_index(path)
-            with mock.patch.object(budget.subprocess,'Popen',side_effect=launch),mock.patch.object(budget,'index',side_effect=index):
-                self.assertEqual(budget.run([sys.executable,'-B','-c',script],root),124)
-            self.assertEqual(indexed,[True]);self.assertTrue(protocol.parse(root/'outer-budget.json')['transport_safe'])
-    def test_crashed_collector_stops_registered_writer(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/'e';writer=root/'active-writer'
-            script=f"import sys,time;sys.path.insert(0,{str(HERE)!r});from pathlib import Path;import process_scope;r=Path({str(root)!r});r.mkdir();s=process_scope.Scope(r);f=(r/'child.log').open('wb');s.spawn([sys.executable,'-B','-c',\"import time;f=open({str(writer)!r},'a');\\nwhile True:f.write('x');f.flush();time.sleep(.005)\"],f);time.sleep(.1);raise SystemExit(9)"
-            self.assertEqual(budget.run([sys.executable,'-B','-c',script],root),9)
-            before=writer.read_bytes();time.sleep(.03);self.assertEqual(writer.read_bytes(),before)
-            self.assertTrue(protocol.parse(root/'outer-budget.json')['transport_safe']);budget.check_package(root)
+            root=Path(tmp).resolve()/'e';ready=Path(tmp).resolve()/'ready';stop=Path(tmp).resolve()/'stop';done=Path(tmp).resolve()/'done';writer=root/'active-writer'
+            # The fixture cooperatively cleans its orphan with a sentinel and
+            # self-expiry. Tests do not signal recycled numeric identities.
+            writer_script=f"import time;from pathlib import Path;f=open({str(writer)!r},'a');end=time.monotonic()+20;Path({str(ready)!r}).write_text('ready');\nwhile not Path({str(stop)!r}).exists() and time.monotonic()<end:f.write('x');f.flush();time.sleep(.005)\nf.close();Path({str(done)!r}).write_text('done')"
+            script=f"import sys,time;sys.path.insert(0,{str(HERE)!r});from pathlib import Path;import process_scope;r=Path({str(root)!r});r.mkdir();s=process_scope.Scope(r);f=(r/'child.log').open('wb');s.spawn([sys.executable,'-B','-c',{writer_script!r}],f);\nwhile not Path({str(ready)!r}).exists():time.sleep(.005)\n"+('time.sleep(60)' if timed_out else 'raise SystemExit(9)')
+            original_wait=process_scope.OwnedProcess.wait;first=[timed_out]
+            def wait(child,timeout=None):
+                if first[0]:
+                    first[0]=False;deadline=time.monotonic()+3
+                    while not ready.exists() and time.monotonic()<deadline:time.sleep(.01)
+                    self.assertTrue(ready.exists());raise budget.subprocess.TimeoutExpired('collector',1200)
+                return original_wait(child,timeout)
+            try:
+                with mock.patch.object(process_scope.OwnedProcess,'wait',wait),mock.patch.object(budget,'index') as index:self.assertEqual(budget.run([sys.executable,'-B','-c',script],root),1)
+                index.assert_not_called();self.assertFalse((root/'evidence-index.json').exists());outcome=protocol.parse(root/'outer-budget.json');self.assertFalse(outcome['transport_safe'])
+                before=writer.stat().st_size;time.sleep(.03);self.assertGreater(writer.stat().st_size,before)
+                with self.assertRaises((ValueError,FileNotFoundError)):budget.check_package(root)
+                if timed_out:self.assertEqual(outcome['primary_error']['type'],'TimeoutExpired')
+            finally:
+                stop.write_text('stop');deadline=time.monotonic()+3
+                while ready.exists() and not done.exists() and time.monotonic()<deadline:time.sleep(.01)
+                if ready.exists():self.assertTrue(done.exists(),'fixture writer failed its sentinel cleanup')
+    def test_outer_timeout_rejects_unowned_detached_writer_before_index(self):self.orphaned_writer_case(True)
+    def test_crashed_collector_rejects_unowned_registered_writer(self):self.orphaned_writer_case(False)
     def test_missing_registry_blocks_index_and_package(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/'e'
+            root=Path(tmp).resolve()/'e'
             self.assertEqual(budget.run([sys.executable,'-c','raise SystemExit(0)'],root),1)
             self.assertFalse((root/'evidence-index.json').exists())
             with self.assertRaises((ValueError,FileNotFoundError)):budget.check_package(root)
@@ -373,17 +373,18 @@ class CleanupAndDeadlineTests(unittest.TestCase):
         for row in [dict(exit_code=None),dict(exit_code=1,failure_type='CalledProcessError'),dict(exit_code=0,failure_type='TimeoutExpired')]:self.assertFalse(capture.stopped_response(row,capture.APP_ID))
     def test_termination_failure_uses_owned_shutdown(self):
         with tempfile.TemporaryDirectory() as tmp:
-            scope=mock.Mock();scope.fixture={'owned_boot':True};command=mock.Mock();command.scope=scope
-            command.side_effect=[dict(exit_code=1),dict(exit_code=1),dict(exit_code=0,failure_type=None)]
-            self.assertTrue(capture.stop_fixture(command,'device',Path(tmp)));scope.fixture_stopped.assert_called_once_with(True)
-            self.assertEqual(command.call_args_list[-1].args,('xcrun','simctl','shutdown','device'))
+            device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture={'owned_boot':True};command=mock.Mock();command.scope=scope
+            state=lambda name:dict(exit_code=0,failure_type=None,stdout=json.dumps({'devices':{'runtime':[{'udid':device,'state':name}]}}))
+            command.side_effect=[dict(exit_code=1),dict(exit_code=1),state('Booted'),dict(exit_code=0,failure_type=None),state('Shutdown')]
+            self.assertTrue(capture.stop_fixture(command,device,Path(tmp).resolve()));scope.fixture_stopped.assert_called_once_with(True);scope.fixture_cleanup_failure.assert_not_called()
+            self.assertEqual(command.call_args_list[3].args,('xcrun','simctl','shutdown',device));self.assertEqual(command.call_args_list[4].args,('xcrun','simctl','list','devices','--json'))
     def test_unowned_simulator_unknown_cleanup_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             scope=mock.Mock();scope.fixture={'owned_boot':False};command=mock.Mock(return_value={'exit_code':1});command.scope=scope
-            self.assertFalse(capture.stop_fixture(command,'device',Path(tmp)));self.assertEqual(command.call_count,2)
+            self.assertFalse(capture.stop_fixture(command,'device',Path(tmp).resolve()));self.assertEqual(command.call_count,2)
     def test_channel_shared_deadline_prevents_new_request(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);remaining=mock.Mock(side_effect=TimeoutError('deadline'));channel=protocol.Channel(root,SESSION,'runner',root/'out',remaining)
+            root=Path(tmp).resolve();remaining=mock.Mock(side_effect=TimeoutError('deadline'));channel=protocol.Channel(root,SESSION,'runner',root/'out',remaining)
             with self.assertRaises(TimeoutError):channel.request('clock',phase='pre')
             self.assertFalse((root/'request.json').exists());remaining.assert_called_once_with(20)
     def test_file_wait_shared_deadline(self):
@@ -392,12 +393,12 @@ class CleanupAndDeadlineTests(unittest.TestCase):
         remaining.assert_called_once_with(10)
     def test_scope_close_rejects_live_fixture(self):
         with tempfile.TemporaryDirectory() as tmp:
-            scope=process_scope.Scope(Path(tmp));scope.fixture_identity('device',False)
+            scope=process_scope.Scope(Path(tmp).resolve());scope.fixture_identity('device',False)
             with self.assertRaises(RuntimeError):scope.close()
-            self.assertFalse(protocol.parse(Path(tmp)/'quiescence.json')['quiescent'])
+            self.assertFalse(protocol.parse(Path(tmp).resolve()/'quiescence.json')['quiescent'])
     def test_execute_cleanup_guard_retains_result(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);scope=mock.Mock();command=mock.Mock(side_effect=RuntimeError('command failure'));command.scope=scope
+            root=Path(tmp).resolve();scope=mock.Mock();command=mock.Mock(side_effect=RuntimeError('command failure'));command.scope=scope
             result={'errors':[],'capabilities_passed':True,'collection_complete':True}
             with mock.patch.object(capture,'stop_fixture',side_effect=RuntimeError('termination failed')):
                 capture.finalize(root,result,command,scope,'device',True)
@@ -405,12 +406,12 @@ class CleanupAndDeadlineTests(unittest.TestCase):
     def test_quiescence_failure_retains_result(self):
         with tempfile.TemporaryDirectory() as tmp:
             scope=mock.Mock();scope.close.side_effect=RuntimeError('still writing');result={'errors':[],'capabilities_passed':True,'collection_complete':True}
-            capture.finalize(Path(tmp),result,None,scope,None,False)
-            self.assertFalse(result['collection_complete']);self.assertIn('quiescence: still writing',result['errors']);self.assertTrue((Path(tmp)/'capability-result.json').exists())
+            capture.finalize(Path(tmp).resolve(),result,None,scope,None,False)
+            self.assertFalse(result['collection_complete']);self.assertIn('quiescence: still writing',result['errors']);self.assertTrue((Path(tmp).resolve()/'capability-result.json').exists())
 
 class FailureDiagnosticTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name);self.command_count=0
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve();self.command_count=0
     def diagnostics(self,text):
         prefix='P1_CAPABILITY_DIAGNOSTIC '
         rows=[json.loads(line[len(prefix):]) for line in text.splitlines() if line.startswith(prefix)]
@@ -487,19 +488,19 @@ class FailureDiagnosticTests(unittest.TestCase):
     def test_eperm_signals_preserve_operation(self):
         for operation in ['SIGTERM','SIGKILL']:
             with self.subTest(operation=operation):
-                calls=[];console=io.StringIO()
+                raw=mock.Mock(pid=4321,returncode=None);raw.poll.return_value=None;child=process_scope.OwnedProcess(raw);calls=[];console=io.StringIO()
                 def killpg(group,kind):
                     calls.append((group,kind))
                     if kind==getattr(process_scope.signal,operation):raise PermissionError(errno.EPERM,'denied')
-                with mock.patch.object(process_scope,'alive',return_value=True),mock.patch.object(process_scope.os,'killpg',side_effect=killpg),mock.patch.object(process_scope.time,'monotonic',side_effect=[0,3]),mock.patch.object(process_scope,'membership_snapshot',return_value={'available':False,'rows':[]}),contextlib.redirect_stdout(console):
-                    with self.assertRaises(process_scope.GroupOperationError) as raised:process_scope.stop_group(4321)
-                self.assertEqual(raised.exception.diagnostic['operation'],operation);self.assertEqual(raised.exception.diagnostic['errno'],errno.EPERM)
-                self.assertEqual(calls[-1],(4321,getattr(process_scope.signal,operation)));self.assertEqual(len(self.diagnostics(console.getvalue())),1)
+                with mock.patch.object(process_scope,'alive',return_value=True),mock.patch.object(child,'wait',side_effect=process_scope.subprocess.TimeoutExpired('fixture',2)),mock.patch.object(process_scope.os,'killpg',side_effect=killpg),mock.patch.object(process_scope,'membership_snapshot',return_value={'available':False,'rows':[]}),contextlib.redirect_stdout(console):
+                    with self.assertRaises(process_scope.GroupOperationError) as raised:process_scope.stop_group(child.pid,child)
+                self.assertEqual(raised.exception.diagnostic['operation'],operation);self.assertEqual(raised.exception.diagnostic['errno'],errno.EPERM);self.assertEqual(calls[-1],(child.pid,getattr(process_scope.signal,operation)))
+                self.assertEqual(len([r for r in self.diagnostics(console.getvalue()) if r['phase']=='process-group-failure']),1)
     def test_eperm_wait_preserves_operation(self):
-        process=mock.Mock();process.wait.side_effect=PermissionError(errno.EPERM,'wait denied')
-        with mock.patch.object(process_scope,'alive',return_value=False),mock.patch.object(process_scope,'membership_snapshot',return_value={'available':False,'rows':[]}),contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaises(process_scope.GroupOperationError) as raised:process_scope.stop_group(4321,process)
-        process.wait.assert_called_once_with(timeout=5);self.assertEqual(raised.exception.diagnostic['operation'],'wait');self.assertEqual(raised.exception.diagnostic['errno'],errno.EPERM)
+        raw=mock.Mock(pid=4321,returncode=None);raw.poll.side_effect=PermissionError(errno.EPERM,'wait denied');child=process_scope.OwnedProcess(raw)
+        with mock.patch.object(process_scope,'membership_snapshot',return_value={'available':False,'rows':[]}),contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(process_scope.GroupOperationError) as raised:process_scope.stop_group(child.pid,child)
+        self.assertEqual(raw.poll.call_count,2);self.assertEqual(raised.exception.diagnostic['operation'],'wait');self.assertEqual(raised.exception.diagnostic['errno'],errno.EPERM)
     def test_esrch_still_means_group_absent(self):
         with mock.patch.object(process_scope.os,'killpg',side_effect=ProcessLookupError(errno.ESRCH,'gone')),mock.patch.object(process_scope,'membership_snapshot') as snapshot:
             self.assertFalse(process_scope.alive(4321));self.assertTrue(process_scope.stop_group(4321));snapshot.assert_not_called()
@@ -530,7 +531,7 @@ class FailureDiagnosticTests(unittest.TestCase):
     def test_budget_wait_failure_and_cleanup_failure_are_both_retained(self):
         for primary in [PermissionError(errno.EPERM,'wait denied'),process_scope.subprocess.TimeoutExpired('private-command',1200)]:
             with self.subTest(primary=type(primary).__name__):
-                root=self.root/type(primary).__name__;process=mock.Mock(pid=4321,returncode=None);process.wait.side_effect=primary;cleanup=self.group_error();console=io.StringIO()
+                root=self.root/type(primary).__name__;process=mock.Mock(pid=4321,returncode=None);process.poll.side_effect=primary;cleanup=self.group_error();console=io.StringIO()
                 with mock.patch.object(budget.subprocess,'Popen',return_value=process),mock.patch.object(process_scope,'stop_group',side_effect=cleanup),mock.patch.object(budget,'verify_quiescence') as verify,mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
                     self.assertEqual(budget.run(['fixture-command'],root),1)
                 verify.assert_not_called();index.assert_not_called();self.assertFalse((root/'evidence-index.json').exists())
@@ -542,7 +543,7 @@ class FailureDiagnosticTests(unittest.TestCase):
         root=self.root/'e';root.mkdir();reason='backstop cannot establish cleanup of pre-existing simulator'
         put(root/'process-registry.json',{'schema':'p1-capability-process-scope-v1','session':SESSION,'closing':False,'groups':[],
             'fixture':{'device':'12345678-1234-1234-1234-123456789abc','owned_boot':False,'stopped':False,'bundle_ids':[capture.APP_ID,capture.RUNNER_ID]}})
-        process=mock.Mock(pid=4321,returncode=0);process.wait.return_value=0;console=io.StringIO();original_atomic=process_scope.atomic
+        process=mock.Mock(pid=4321,returncode=0);process.poll.return_value=0;console=io.StringIO();original_atomic=process_scope.atomic
         def write(path,value):
             if path.name=='outer-budget.json':
                 diagnostic=next(r for r in self.diagnostics(console.getvalue()) if r['phase']=='outer-budget-result')
@@ -588,14 +589,14 @@ class FailureDiagnosticTests(unittest.TestCase):
             'fixture':{'device':'12345678-1234-1234-1234-123456789abc','owned_boot':True,'stopped':False,'bundle_ids':[capture.APP_ID,capture.RUNNER_ID]}}
         put(root/'process-registry.json',registry)
         primary=process_scope.subprocess.TimeoutExpired('private-simulator-command',20);cleanup=self.group_error()
-        simulator=mock.Mock(pid=4321,returncode=None);simulator.wait.side_effect=primary;console=io.StringIO()
+        simulator=mock.Mock(pid=4321,returncode=None);simulator.poll.side_effect=primary;console=io.StringIO()
         with mock.patch.object(budget.subprocess,'Popen',return_value=simulator),mock.patch.object(process_scope,'stop_group',side_effect=cleanup),contextlib.redirect_stdout(console):
             with self.assertRaises(process_scope.subprocess.TimeoutExpired) as raised:budget.verify_quiescence(root,SESSION,force=True)
         self.assertIs(raised.exception,primary);self.assertEqual(primary._p1_cleanup_diagnostics,[cleanup.diagnostic])
         self.assertFalse((root/'quiescence.json').exists());self.assertFalse(protocol.parse(root/'process-registry.json')['fixture']['stopped'])
         diagnostic=self.diagnostics(console.getvalue())[0];self.assertEqual(diagnostic['phase'],'backstop-simulator-cleanup');self.assertEqual(diagnostic['primary_error'],{'type':'TimeoutExpired','timeout_seconds':20});self.assertEqual(diagnostic['cleanup_errors'],[cleanup.diagnostic])
-        collector=mock.Mock(pid=1234,returncode=0);collector.wait.return_value=0;console=io.StringIO()
-        with mock.patch.object(budget.uuid,'uuid4',return_value=mock.Mock(hex=SESSION)),mock.patch.object(budget.subprocess,'Popen',side_effect=[collector,simulator]),mock.patch.object(process_scope,'stop_group',side_effect=cleanup),mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
+        collector=mock.Mock(pid=1234,returncode=0);collector.poll.return_value=0;console=io.StringIO()
+        with mock.patch.object(budget.uuid,'uuid4',return_value=mock.Mock(hex=SESSION)),mock.patch.object(budget.subprocess,'Popen',side_effect=[collector,simulator]),mock.patch.object(process_scope,'stop_group',side_effect=[True,cleanup]),mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
             self.assertEqual(budget.run(['fixture-command'],root),1)
         index.assert_not_called();row=protocol.parse(root/'outer-budget.json')
         self.assertFalse(row['transport_safe']);self.assertEqual(row['error'],str(primary));self.assertEqual(row['primary_error'],diagnostic['primary_error']);self.assertEqual(row['cleanup_errors'],[cleanup.diagnostic])
@@ -647,11 +648,10 @@ class FailureDiagnosticTests(unittest.TestCase):
         snapshot={'available':True,'pgid':4321,'rows':[],'truncated':False}
         for operation in ['wait','disappearance']:
             with self.subTest(operation=operation):
-                console=io.StringIO();process=mock.Mock();process.wait.side_effect=process_scope.subprocess.TimeoutExpired('private-command',5)
-                with mock.patch.object(process_scope,'alive',return_value=operation=='disappearance'),mock.patch.object(process_scope,'signal_group'),mock.patch.object(process_scope.time,'monotonic',side_effect=[0,3,3,9]),mock.patch.object(process_scope,'membership_snapshot',return_value=snapshot),contextlib.redirect_stdout(console):
-                    self.assertFalse(process_scope.stop_group(4321,process if operation=='wait' else None))
-                diagnostic=self.diagnostics(console.getvalue())[0]
-                self.assertEqual(diagnostic['phase'],'process-group-unsettled');self.assertEqual(diagnostic['pgid'],4321);self.assertEqual(diagnostic['operation'],operation);self.assertIs(diagnostic['result'],False);self.assertEqual(diagnostic['membership'],snapshot)
+                raw=mock.Mock(pid=4321,returncode=None);raw.poll.return_value=None;child=process_scope.OwnedProcess(raw);console=io.StringIO()
+                with mock.patch.object(process_scope,'alive',return_value=True),mock.patch.object(process_scope,'signal_group'),mock.patch.object(child,'wait',side_effect=process_scope.subprocess.TimeoutExpired('fixture',5)),mock.patch.object(process_scope.time,'monotonic',side_effect=[0,9]),mock.patch.object(process_scope,'membership_snapshot',return_value=snapshot),contextlib.redirect_stdout(console):self.assertFalse(process_scope.stop_group(child.pid,child if operation=='wait' else None))
+                diagnostic=next(r for r in self.diagnostics(console.getvalue()) if r['phase']=='process-group-unsettled')
+                self.assertEqual(diagnostic['pgid'],child.pid);self.assertEqual(diagnostic['operation'],operation);self.assertIs(diagnostic['result'],False);self.assertEqual(diagnostic['membership'],snapshot)
     def test_false_settle_retains_pgid_and_unsettled_registry(self):
         scope=process_scope.Scope(self.root);process=mock.Mock(pid=4321,returncode=0);scope.rows.append({'pid':4321,'pgid':4321,'settled':False});console=io.StringIO()
         with mock.patch.object(process_scope,'stop_group',return_value=False),contextlib.redirect_stdout(console):
@@ -660,13 +660,65 @@ class FailureDiagnosticTests(unittest.TestCase):
         self.assertFalse(protocol.parse(self.root/'process-registry.json')['groups'][0]['settled'])
     def test_false_writer_stop_logs_pgid_and_blocks_index(self):
         root=self.root/'e';root.mkdir();put(root/'process-registry.json',{'schema':'p1-capability-process-scope-v1','session':SESSION,'closing':False,'groups':[{'pid':4321,'pgid':4321,'settled':False}]})
-        process=mock.Mock(pid=1234,returncode=0);process.wait.return_value=0;console=io.StringIO()
-        with mock.patch.object(budget.uuid,'uuid4',return_value=mock.Mock(hex=SESSION)),mock.patch.object(budget.subprocess,'Popen',return_value=process),mock.patch.object(process_scope,'stop_group',return_value=False) as stop,mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
+        process=mock.Mock(pid=1234,returncode=0);process.poll.return_value=0;console=io.StringIO()
+        with mock.patch.object(budget.uuid,'uuid4',return_value=mock.Mock(hex=SESSION)),mock.patch.object(budget.subprocess,'Popen',return_value=process),mock.patch.object(process_scope,'stop_group',side_effect=[True,False]) as stop,mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(console):
             self.assertEqual(budget.run(['fixture-command'],root),1)
-        stop.assert_called_once_with(4321);index.assert_not_called();self.assertFalse((root/'evidence-index.json').exists());self.assertFalse((root/'quiescence.json').exists())
+        self.assertEqual(len(stop.call_args_list),2);self.assertEqual(stop.call_args_list[0].args[0],1234);self.assertIsInstance(stop.call_args_list[0].args[1],process_scope.OwnedProcess);self.assertEqual(stop.call_args_list[1].args,(4321,));index.assert_not_called();self.assertFalse((root/'evidence-index.json').exists());self.assertFalse((root/'quiescence.json').exists())
         diagnostics=self.diagnostics(console.getvalue());group=next(r for r in diagnostics if r['phase']=='writer-group-unsettled')
         self.assertEqual(group['pgid'],4321);self.assertEqual(group['operation'],'stop_group');self.assertIs(group['result'],False)
         outcome=protocol.parse(root/'outer-budget.json');self.assertFalse(outcome['transport_safe']);self.assertEqual(outcome['primary_error'],{'type':'ValueError','reason':'writer group quiescence unproved'})
         self.assertLess([r['phase'] for r in diagnostics].index('writer-group-unsettled'),[r['phase'] for r in diagnostics].index('outer-budget-result'))
+    def test_normal_collector_exit_requires_group_disappearance(self):
+        root=self.root/'e';raw=mock.Mock(pid=1234,returncode=0);raw.poll.return_value=0
+        with mock.patch.object(budget.subprocess,'Popen',return_value=raw),mock.patch.object(process_scope,'stop_group',return_value=False) as stop,mock.patch.object(budget,'verify_quiescence') as verify,mock.patch.object(budget,'index') as index,contextlib.redirect_stdout(io.StringIO()):self.assertEqual(budget.run(['fixture-command'],root),1)
+        verify.assert_not_called();index.assert_not_called();self.assertEqual(stop.call_args.args[0],raw.pid);self.assertIs(stop.call_args.args[1]._process,raw)
+        row=protocol.parse(root/'outer-budget.json');self.assertFalse(row['transport_safe']);self.assertEqual(row['phase'],'collector-disappearance');self.assertFalse((root/'evidence-index.json').exists())
+    def shutdown_transport_case(self,unsettled=False,timed_out=False):
+        root=self.root/'e';root.mkdir();device='12345678-1234-1234-1234-123456789abc';shutdown_pid=6002
+        put(root/'process-registry.json',{'schema':'p1-capability-process-scope-v1','session':SESSION,'closing':False,'groups':[],
+            'fixture':{'device':device,'owned_boot':True,'stopped':False,'bundle_ids':[capture.APP_ID,capture.RUNNER_ID]}})
+        primary=process_scope.subprocess.TimeoutExpired('private-shutdown-command',15) if timed_out else None
+        cleanup=self.group_error('probe',shutdown_pid);replies=[(6000,0,None),(6001,0,'Booted'),(shutdown_pid,None if timed_out else 149,None),(6003,0,'Shutdown')];console=io.StringIO()
+        def launch(argv,**kwargs):
+            pid,code,state=replies.pop(0)
+            if state is not None:kwargs['stdout'].write(json.dumps({'devices':{'runtime':[{'udid':device,'state':state}]}}).encode());kwargs['stdout'].flush()
+            raw=mock.Mock(pid=pid,returncode=code,args=argv);raw.poll.return_value=code
+            if pid==shutdown_pid and primary is not None:raw.poll.side_effect=primary
+            return raw
+        def settle(group,child):
+            self.assertIsInstance(child,process_scope.OwnedProcess);self.assertEqual(group,child.pid)
+            if unsettled and group==shutdown_pid:raise cleanup
+            return True
+        original_index=budget.index
+        with mock.patch.object(budget.uuid,'uuid4',return_value=mock.Mock(hex=SESSION)),mock.patch.object(budget.subprocess,'Popen',side_effect=launch),mock.patch.object(process_scope,'stop_group',side_effect=settle) as stop,mock.patch.object(budget,'index',wraps=original_index) as index,contextlib.redirect_stdout(console):
+            self.assertEqual(budget.run(['fixture-command'],root),1)
+            if unsettled:
+                with self.assertRaises((ValueError,FileNotFoundError)):budget.check_package(root)
+            else:budget.check_package(root)
+        self.assertEqual(replies,[]);self.assertEqual([call.args[0] for call in stop.call_args_list],[6000,6001,shutdown_pid,6003])
+        shutdown=protocol.parse(root/'backstop-simulator-shutdown.json');self.assertTrue(shutdown['observed_shutdown']);self.assertTrue(shutdown['command_failed']);self.assertFalse(shutdown['admissionEligible'])
+        self.assertEqual([r.get('observed_state') for r in shutdown['receipts']],['Booted',None,'Shutdown'])
+        receipt=shutdown['receipts'][1]['command'];self.assertEqual(receipt['exit_code'],None if timed_out else 149);self.assertEqual(receipt['primary_error'],process_scope.error_info(primary));self.assertEqual(receipt['cleanup_errors'],[cleanup.diagnostic] if unsettled else [])
+        outcome=protocol.parse(root/'outer-budget.json');self.assertEqual(outcome['exit_code'],1);self.assertEqual(outcome['transport_safe'],not unsettled)
+        if unsettled:
+            index.assert_not_called();self.assertFalse((root/'quiescence.json').exists());self.assertFalse((root/'evidence-index.json').exists());self.assertFalse(protocol.parse(root/'process-registry.json')['fixture']['stopped'])
+            self.assertEqual(outcome['primary_error'],process_scope.error_info(primary) if primary else cleanup.diagnostic);self.assertEqual(outcome['cleanup_errors'],[cleanup.diagnostic] if primary else [])
+            if primary:self.assertEqual(outcome['error'],str(primary))
+            diagnostics=self.diagnostics(console.getvalue());row=next(r for r in diagnostics if r['phase']=='backstop-simulator-cleanup' and r['pgid']==shutdown_pid)
+            self.assertEqual(row['cleanup_errors'],[cleanup.diagnostic]);outer=next(r for r in diagnostics if r['phase']=='outer-budget-result');self.assertFalse(outer['transport_safe']);self.assertEqual(outer['primary_error'],outcome['primary_error']);self.assertEqual(outer['cleanup_errors'],outcome['cleanup_errors'])
+        else:
+            index.assert_called_once_with(root);self.assertTrue(outcome['cleanup_command_failed']);self.assertTrue((root/'evidence-index.json').exists())
+        self.assertNotIn('private-shutdown-command',console.getvalue())
+    def test_settled_149_then_shutdown_allows_only_failed_diagnostic_transport(self):self.shutdown_transport_case()
+    def test_unsettled_149_then_shutdown_never_allows_transport(self):self.shutdown_transport_case(unsettled=True)
+    def test_timeout_primary_survives_unsettled_cleanup_and_later_shutdown(self):self.shutdown_transport_case(unsettled=True,timed_out=True)
+    def test_shutdown_149_failure_survives_later_clean_state_in_collection(self):
+        device='12345678-1234-1234-1234-123456789abc';scope=process_scope.Scope(self.root);scope.fixture_identity(device,True);command=mock.Mock();command.scope=scope
+        state=lambda name:dict(exit_code=0,failure_type=None,stdout=json.dumps({'devices':{'runtime':[{'udid':device,'state':name}]}}))
+        command.side_effect=[dict(exit_code=1),dict(exit_code=1),state('Booted'),dict(exit_code=149,failure_type='CalledProcessError'),state('Shutdown'),state('Shutdown')]
+        result={'errors':[],'capabilities_passed':True,'collection_complete':True}
+        with contextlib.redirect_stdout(io.StringIO()):capture.finalize(self.root,result,command,scope,device,True)
+        self.assertFalse(result['collection_complete']);self.assertFalse(result['capabilities_passed']);self.assertIn('simulator cleanup command failure retained',result['errors'])
+        self.assertTrue(protocol.parse(self.root/'quiescence.json')['quiescent']);self.assertTrue(protocol.parse(self.root/'process-registry.json')['fixture']['cleanup_command_failed'])
 
 if __name__=='__main__':unittest.main()

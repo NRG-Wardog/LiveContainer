@@ -1,6 +1,11 @@
-# Short P1 capability preflight
+# P1 capability harness and cleanup-only gate
 
-This successor runs **independent phone and tablet jobs**, each building the
+This checkpoint runs only the compact cleanup regression gate described below.
+UI execution is disabled pending a separately reviewed successor.
+
+## Retained capability design (execution disabled)
+
+The prior capability lane runs **independent phone and tablet jobs**, each building the
 exact-source extracted fixture and then collecting one screenshot-calibration
 case plus narrowly scoped recovery capabilities. It does not run the full
 feedback interaction or recovery matrix and cannot grant P1 admission. The
@@ -65,7 +70,8 @@ Every recorder and command session is gated before exec until its identity is
 retained in a fresh process registry. A 17-minute internal deadline bounds all
 command waits. Explicit fixture termination and tracked session cleanup precede
 partial-copy finalization. A 20-minute outer backstop independently verifies
-(or terminates) remaining registered writer groups. Evidence is indexed and
+remaining registered writer groups by read-only absence checks. Only actual
+unreaped direct children authorize group signals. Evidence is indexed and
 packaged only after a positive quiescence receipt; an unsafe timeout fails closed. Each 35-minute device job reserves the remaining time for
 byte-preserving packaging/uploads, subject to checkout and runner overhead;
 this is a budget, not a guarantee. Packaging always preserves the original
@@ -83,14 +89,14 @@ workflow does not activate those older inputs after recovery harness changes.
 Command receipts retain the primary spawn/wait/exit exception separately from
 cleanup exceptions. A cleanup EPERM never means that a group disappeared and
 never replaces the original command failure. Termination classification also
-rejects any unresolved command cleanup failure. Setup timeouts and the existing
-17/20/35-minute budgets are unchanged.
+rejects any unresolved command cleanup failure. Setup timeouts and the retained capability lane's 17/20/35-minute budgets remain
+unchanged. The temporary cleanup-only job has its own ten-minute ceiling.
 
 On a failed process-group operation, a bounded read-only process-table snapshot
 records only PID, PPID, PGID, UID, state and command name (not arguments or
 environment). The snapshot uses a one-second collection bound plus a one-second cleanup
-bound, 256 KiB and 32 matching rows. Its direct read-only child is killed/waited
-on; failed snapshot or cleanup remains unknown.
+bound, 256 KiB and 32 matching rows. Cleanup attempts to kill/wait its direct
+read-only child within the extra bound; failed cleanup remains unknown.
 No privileged termination or permission changes are attempted.
 
 P1_CAPABILITY_DIAGNOSTIC lines preserve safe typed command/phase failures and the
@@ -99,3 +105,39 @@ gate. Each JSON payload is at most 32 KiB. Arbitrary exception arguments are exc
 only fixed harness gate reasons are printed verbatim. Phase-summary booleans are
 explicitly unverified diagnostics, not raw XCTest evidence or admission receipts.
 They do not permit indexing or archiving a potentially growing evidence tree.
+
+
+## Fresh cleanup-only repair after lost staging
+
+The previous unpublished candidate was lost with its workspace and payload store.
+This is a freshly implemented candidate on published e72fd12d, requiring fresh
+hashes, tests and review. It does not reuse the prior c6f519d1 identity or claim
+that earlier test runs validate these new bytes.
+
+The workflow runs one macOS cleanup regression job with a five-minute test step
+and ten-minute job ceiling. It exercises synthetic child processes and mocked
+simulator-state receipts only. It never boots a simulator, builds an application,
+runs UI, or measures feedback. The prior two-device workflow remains at immutable
+e72fd12d332b357c098ab9f23206e55f73bf1959; restoration requires separate review.
+
+OwnedProcess holds the actual start_new_session=True Popen child and serializes
+all waits, polls and signals with a per-child lock. It reaps exited direct children
+before probing their group. Only an unreaped child can reserve the PID needed to
+authorize a signal. After reap, the old numeric PGID is read-only: surviving
+children, reuse, and unknown EPERM all block transport. The outer backstop never
+signals bare registry PGIDs. No privileged termination or permission changes occur.
+
+An exact exclusively owned UUID query can independently prove Shutdown. Runtime
+groups are flattened; duplicate/missing IDs, malformed or unsettled query receipts
+fail. Already-Shutdown observations avoid redundant shutdown commands. Nonzero
+shutdown remains a collection failure even if a later clean query proves Shutdown.
+No exit-149 exception exists. Every host observer must also settle: a later state
+query cannot erase an earlier observer's cleanup failure. Original timeouts and
+cleanup errors remain distinct, and unresolved writers forbid indexing/packaging.
+
+The cleanup artifact contains the terminal regression result and log, excluding
+any temporary writer payload. Passing establishes only these cleanup regressions,
+not simulator, feedback, layout or product readiness. Existing setup deadlines and
+all timing/layout criteria are unchanged.
+
+Owned child spawning and signaling require the default SIGCHLD disposition. Ignored or custom handlers fail closed. This dedicated process does not install such handlers or use external child reapers; its owned-child lock serializes every retained Popen wait and signal.
