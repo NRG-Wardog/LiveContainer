@@ -725,15 +725,38 @@ class FailureDiagnosticTests(unittest.TestCase):
 class PhoneOnlyRoutingTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
-    def execute_phone(self,recovery_passed=True,cleanup_failure=False,source_drift=False):
+    def execute_phone(self,recovery_passed=True,cleanup_failure=False,source_drift=False,
+                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False):
         from types import SimpleNamespace
         host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text('{}')
-        device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None
+        device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[]
+        scope.remaining.side_effect=lambda requested,cleanup=False:float(requested)
         if cleanup_failure:scope.close.side_effect=ValueError('unsettled fixture writer')
         def command_result(*args,**kwargs):
             if args[:3]==('xcrun','simctl','list'):return json.dumps({'devices':{'runtime':[{'udid':device,'state':'Booted'}]}})
             return 'synthetic command result'
-        command=mock.Mock(side_effect=command_result);command.scope=scope
+        # Exercise actual Commands receipts, including allow_failure's return
+        # after a settlement exception. Only the owned children are synthetic.
+        original_commands=process_scope.Commands;command=mock.Mock();command.scope=scope;uninstalls=[]
+        def spawn(argv,stdout,stderr=None,cleanup=False):
+            number=None
+            if argv[:3]==['xcrun','simctl','uninstall']:
+                uninstalls.append(argv);number=len(uninstalls)
+            child=mock.Mock(pid=1000+len(scope.rows),returncode=1 if number is not None and missing_app else 0)
+            child.uninstall_number=number
+            stdout.write(command_result(*argv).encode())
+            child.wait.return_value=child.returncode
+            scope.rows.append({'pid':child.pid,'settled':False})
+            return child
+        def settle(child):
+            row=next(row for row in scope.rows if row['pid']==child.pid)
+            if child.uninstall_number is not None and child.uninstall_number==uninstall_failure:
+                row['settled']=uninstall_settled
+                if uninstall_cleanup_error:raise ValueError('synthetic uninstall cleanup failure')
+            else:row['settled']=True
+        scope.spawn.side_effect=spawn;scope.settle.side_effect=settle
+        def commands(owner,logs):
+            actual=original_commands(owner,logs);command.side_effect=actual;command.bytes=actual.bytes;return command
         renderer=SimpleNamespace(valid_png=lambda raw:True)
         def prepare(source,builder,build,out):
             products=build/'DerivedData/Build/Products';products.mkdir(parents=True)
@@ -748,7 +771,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         recovery={'scope':'recovery-capability-only','collection_complete':recovery_passed,'errors':[] if recovery_passed else ['test failure'],'full_matrix_complete':False,'admissionEligible':False}
         with contextlib.ExitStack() as stack:
             stack.enter_context(mock.patch.object(capture.process_scope,'Scope',return_value=scope))
-            stack.enter_context(mock.patch.object(capture.process_scope,'Commands',return_value=command))
+            stack.enter_context(mock.patch.object(capture.process_scope,'Commands',side_effect=commands))
             native=stack.enter_context(mock.patch.object(capture.request_reader_gate,'run',return_value={'passed':True,'case_ids':['native-gate']}))
             acquire=stack.enter_context(mock.patch.object(capture.base,'acquire'))
             stack.enter_context(mock.patch.object(capture.base,'module',return_value=SimpleNamespace(available_devices=lambda:[('phone',device,'runtime')])))
@@ -761,8 +784,27 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             stop=stack.enter_context(mock.patch.object(capture,'stop_fixture',return_value=True))
             with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,'phone')
         native.assert_called_once();acquire.assert_any_call(work/'LiveContainer',capture.SOURCE,command)
-        calibration.assert_not_called();layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png)
+        calibration.assert_not_called()
+        if uninstall_failure is None:
+            layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png)
+        else:
+            layout.assert_not_called()
+            calls=command.call_args_list;optional=[c for c in calls if c.args[:3]==('xcrun','simctl','uninstall')]
+            self.assertEqual(len(optional),uninstall_failure)
+            self.assertEqual(calls[-1],optional[-1])  # No next ordinary command, including install or XCTest.
+            self.assertFalse(any(c.args[:3]==('xcrun','simctl','install') or 'test-without-building' in c.args for c in calls))
+            self.assertFalse(passed)
+            failed=protocol.parse(output/'capability-result.json')
+            self.assertFalse(failed['capabilities_passed']);self.assertFalse(failed['collection_complete'])
+            self.assertIn('optional uninstall writer settlement unproved',failed['errors'])
+            receipts=[json.loads(line) for line in (output/'commands/commands.jsonl').read_text().splitlines()]
+            last=receipts[-1];self.assertEqual(last['argv'][2],'uninstall');self.assertTrue(last['allowed_failure'])
+            self.assertEqual(last['cleanup_errors'],[{'type':'ValueError'}] if uninstall_cleanup_error else [])
+            self.assertIs(scope.rows[-1]['settled'],uninstall_settled)
         scope.close.assert_called_once();stop.assert_called_once();self.assertFalse((output/'calibration').exists())
+        for call in command.call_args_list:
+            if call.args[:3]==('xcrun','simctl','uninstall'):
+                self.assertEqual(call.kwargs,{'allow_failure':True,'timeout':15,'receipt':True})
         return passed,protocol.parse(output/'capability-result.json'),command
     def test_actual_execute_routes_only_phone_recovery(self):
         passed,row,command=self.execute_phone();self.assertTrue(passed);self.assertTrue(row['capabilities_passed']);self.assertTrue(row['collection_complete'])
@@ -777,6 +819,19 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         passed,row,_=self.execute_phone(cleanup_failure=True);self.assertFalse(passed);self.assertFalse(row['collection_complete']);self.assertTrue(row['errors'])
     def test_source_drift_cannot_make_phone_pass(self):
         passed,row,_=self.execute_phone(source_drift=True);self.assertFalse(passed);self.assertIn('source drift',row['errors'])
+    def test_first_uninstall_unsettled_blocks_next_uninstall_install_and_ui(self):self.execute_phone(uninstall_failure=1)
+    def test_second_uninstall_unsettled_blocks_install_and_ui(self):self.execute_phone(uninstall_failure=2)
+    def test_first_uninstall_settled_row_cannot_hide_cleanup_error(self):self.execute_phone(uninstall_failure=1,uninstall_settled=True)
+    def test_second_uninstall_settled_row_cannot_hide_cleanup_error(self):self.execute_phone(uninstall_failure=2,uninstall_settled=True)
+    def test_first_uninstall_unsettled_row_blocks_even_without_cleanup_error(self):self.execute_phone(uninstall_failure=1,uninstall_cleanup_error=False)
+    def test_second_uninstall_unsettled_row_blocks_even_without_cleanup_error(self):self.execute_phone(uninstall_failure=2,uninstall_cleanup_error=False)
+    def test_settled_missing_app_uninstalls_still_allow_install_and_ui(self):
+        passed,row,command=self.execute_phone(missing_app=True);self.assertTrue(passed);self.assertTrue(row['capabilities_passed'])
+        receipts=[json.loads(line) for line in (self.root/'evidence/commands/commands.jsonl').read_text().splitlines()]
+        optional=[r for r in receipts if r['argv'][2:3]==['uninstall']];self.assertEqual(len(optional),2)
+        for receipt in optional:
+            self.assertEqual(receipt['exit_code'],1);self.assertEqual(receipt['primary_error']['type'],'CalledProcessError');self.assertEqual(receipt['cleanup_errors'],[])
+        self.assertEqual(len([c for c in command.call_args_list if c.args[:3]==('xcrun','simctl','install')]),1)
     def test_tablet_rejected_before_any_work(self):
         with mock.patch.object(capture.process_scope,'Scope') as scope:
             with self.assertRaisesRegex(ValueError,'phone-only'):capture.execute(self.root,self.root/'work',self.root/'evidence',self.root/'inputs','a'*64,'tablet')

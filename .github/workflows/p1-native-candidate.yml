@@ -1,6 +1,6 @@
-name: P1 boot readiness diagnostic
+name: P1 phone recovery capability
 
-# Boot diagnostics only. No build, installation, app launch, UI or admission.
+# Phone recovery only. Calibration and tablet are not rerun; no full matrix or host build.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '52ff8c9dceb85b6c6b7b7948e17fd17f34c71dbebc743499d2a19f0a39029869'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'b53385857618528df22b7aa4e6e067d69fff96bd21ab06db3d373f71b85c7819'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -42,19 +42,19 @@ jobs:
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation"
-          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_boot_diagnostic.py -v
-      - name: Collect bounded boot readiness diagnostics
+          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_runner_source.py -v
+      - name: Collect short phone recovery capability
         id: collect
         timeout-minutes: 22
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/preflight/budget.py --boot-diagnostic --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
-            python3 -B validation/ci/p1/preflight/boot_diagnostic.py \
+          python3 -B validation/ci/p1/preflight/budget.py --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
+            python3 -B validation/ci/p1/preflight/capture.py \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
-            --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
-            --device-class '${{ matrix.device }}'
+            --work "$RUNNER_TEMP/p1-capability-work" --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
+            --device-class '${{ matrix.device }}' --execute
       - name: Package every original evidence byte into bounded parts
         id: package
         if: always()

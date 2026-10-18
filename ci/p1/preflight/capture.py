@@ -376,7 +376,12 @@ def execute(host,work,output,inputs,approved,kind):
         if not booted:command('xcrun','simctl','boot',device);booted_here=True
         scope.fixture_identity(device,booted_here)
         command('xcrun','simctl','bootstatus',device,'-b',timeout=120)
-        for identifier in [APP_ID,RUNNER_ID]:command('xcrun','simctl','uninstall',device,identifier,allow_failure=True,timeout=15)
+        for identifier in [APP_ID,RUNNER_ID]:
+            uninstall=command('xcrun','simctl','uninstall',device,identifier,allow_failure=True,timeout=15,receipt=True)
+            # A missing app is optional; unresolved cleanup or a failed registry
+            # persistence is not. Final cleanup still runs through finally.
+            require(not uninstall['cleanup_errors'] and all(row.get('settled') is True for row in scope.rows),
+                    'optional uninstall writer settlement unproved')
         command('xcrun','simctl','install',device,apps[0],timeout=30)
         result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png)
         write(output/'source-after.json',{'LiveContainer':base.checkout_proof(live,SOURCE,command),'builder':base.checkout_proof(builder,BUILDER,command)})

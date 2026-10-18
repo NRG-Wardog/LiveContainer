@@ -1,7 +1,34 @@
-# P1 boot-only readiness diagnostic
+# P1 phone recovery route restoration
 
-The selected workflow temporarily invokes `boot_diagnostic.py` instead of the
-preserved phone recovery collector. It performs one boot attempt on the exact
+The selected workflow restores the phone-only `capture.py --execute` route from
+`7f5fda4a936d2cc6f73ac744d8fc8320a1954b1d`, byte-for-byte except its refreshed
+approved-input seal. It runs the existing 21-case native reader regression,
+exact-source extracted fixture build, installation and phone landscape-target
+recovery capability. It does not select `boot_diagnostic.py`, the opt-in bounded
+backstop adapter, or any diagnostic-only resource/service probes. The preserved
+diagnostic implementation and its evidence remain available as historical context.
+
+The only collector change is a settlement gate after each of the two optional
+pre-install uninstalls. Each call now returns its existing command receipt. A
+following uninstall, installation or UI step requires both an empty
+`cleanup_errors` list and `settled:true` for every registered writer. Checking
+both matters: registry persistence can fail after a row has been marked settled.
+An ordinary nonzero uninstall, including an absent app, remains allowed when its
+cleanup succeeded and all writers settled. Failure enters the same mandatory
+fixture cleanup, owned-simulator shutdown when applicable, scope close and failed
+result retention. Final outer quiescence still controls indexing and transport.
+
+This adds no subprocess, retry or timeout allowance. Production/fixture source,
+native checks, actual control and geometry gates, the 180-second UI method,
+existing 120-second readiness checks, 17-minute internal budget, 20-minute outer
+budget, 22-minute collection step and 35-minute job remain unchanged. Neither
+boot-only run establishes UI success; the restored route still needs its own
+fresh evidence and cannot grant full-matrix or P1 admission.
+
+## Retained inactive boot-only diagnostic design
+
+The preceding diagnostic-only workflow invoked `boot_diagnostic.py` instead of
+the phone recovery collector. That route performs one boot attempt on the exact
 precreated phone UUID `B34C2F57-B98B-4C84-96E2-3170887BA2DB` and iOS 26.2 runtime.
 The UUID must be uniquely present, available and initially Shutdown. A different
 or already-Booted device fails without booting or shutting it down. Ownership is
@@ -138,13 +165,13 @@ exception type. It adds only fixed reason codes (`invalid-utf8`, `size-limit`,
 Unrecognized parser failures receive a fixed unclassified code; arbitrary
 exception attributes and rejected text never enter the receipt or console.
 
-## Restoration
+## Diagnostic restoration history
 
-The original phone `capture.execute` path and its fixture/UI files are unchanged.
-To restore that lane, review a successor workflow selecting the existing
-`capture.py --execute --work ... --device-class phone` invocation and refresh the
-input/workflow seal as usual. This boot-only result cannot supply missing phone
-recovery evidence or retroactively validate either failed run.
+The phone collector and fixture/UI files were unchanged during the boot-only
+revisions. The current restoration above selects the original phone invocation
+with a fresh seal and only the optional-uninstall settlement gate. Boot-only
+results cannot supply missing phone recovery evidence or retroactively validate
+either failed phone run.
 
 ---
 
