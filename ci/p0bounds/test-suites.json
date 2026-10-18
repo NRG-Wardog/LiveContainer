@@ -1,0 +1,162 @@
+[
+  {
+    "id": "pending-certificate-creation",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0bounds/tests/test_pending_certificate_creation.py": "c61a6dd76948d061271eff4da00e57c4ef5742503424d8eb15afd4f8ce220464",
+      "ci/p0bounds/tests/proxy_harness.swift": "e3848992d312695d3fd87fafba3deab2c34952784fb9e8dc33695d8669a837d3",
+      "ci/p0bounds/tests/security_query_harness.swift": "77cfd62918aaa4d2c0aacc585d549a5e6de67cf66c953c9308fdc4fb38791ecc",
+      "ci/p0bounds/tests/activation_harness.swift": "c465be3e4b631262b30a9c778df4f3baaf3cd8c52dd04b7a754f80cf16c3f63b"
+    },
+    "modules": [
+      "test_pending_certificate_creation"
+    ],
+    "expected_test_ids": [
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_dispatch_requires_verified_retention_and_preserves_late_result",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_reconciliation_is_read_only_and_cryptographically_bound",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_secure_journal_is_separate_device_local_and_strict",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_existing_api_wrapper_and_app_entrypoints",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_record_core_fault_matrix",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_proxy_create_and_reconciliation",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_pending_activation_consumer",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_security_query_scope",
+      "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_security_matching_mismatching_and_invalid_keys"
+    ]
+  },
+  {
+    "id": "created-certificate-preservation",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0bounds/tests/test_signin_certificate_creation_result.py": "2c0fb4865747cd6e510185a5b6aa33a32e24b76bcbd6fb3020a3acc6afa6c769"
+    },
+    "modules": [
+      "test_signin_certificate_creation_result"
+    ],
+    "expected_test_ids": [
+      "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_returns_full_result_without_second_fallible_request",
+      "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_invalidates_list_without_claiming_local_activation",
+      "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_existing_activation_retry_retains_result",
+      "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_native_request_and_local_retry"
+    ]
+  },
+  {
+    "id": "udid-diagnostics",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0bounds/tests/test_signin_udid_failure_consumer.py": "0406bb7c163cfb104fb60714e4f07b29c749a91d62f17e8119cb342b36e6a96b"
+    },
+    "modules": [
+      "test_signin_udid_failure_consumer"
+    ],
+    "expected_test_ids": [
+      "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_preserves_first_failure_and_valid_fallback",
+      "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_cellular_restore_boundary_unchanged",
+      "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_logs_do_not_include_identifiers_or_raw_errors",
+      "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_extracted_native_consumer"
+    ]
+  },
+  {
+    "id": "descriptor-progression",
+    "owner": "LiveContainer",
+    "files": {
+      "ci/p0bounds/tests/test_dead10cc_scan_progression.py": "85c77d5bcba9f8a03c1d0f5e62ae63598e3e60c624f6c0c4ddfbb8d0ca1133e8"
+    },
+    "modules": [
+      "test_dead10cc_scan_progression"
+    ],
+    "expected_test_ids": [
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_lookup_failure_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_short_lookup_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_negative_lookup_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_empty_path_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_failed_path_conversion_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_non_vnode_advances",
+      "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_success_enumerates_every_entry_once"
+    ]
+  },
+  {
+    "id": "pending-certificate-host-recovery",
+    "owner": "LiveContainer",
+    "files": {
+      "ci/p0bounds/tests/test_pending_certificate_host_recovery.py": "fbb3676714bad2ec74b208509467b6b749024867d9fb66a894fa7af8f2b1cb17"
+    },
+    "modules": [
+      "test_pending_certificate_host_recovery"
+    ],
+    "expected_test_ids": [
+      "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_distinct_capability_is_decoded_in_account_and_auth_snapshots",
+      "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_recovery_route_survives_signout_and_has_an_explicit_owner_bound_action",
+      "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_reconciliation_never_dispatches_create_revoke_or_auth_begin",
+      "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_pending_recovery_policy_executes_owner_and_capability_matrix"
+    ]
+  },
+  {
+    "id": "test-reconstructed-completion",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0bounds/tests/test_reconstructed_completion.py": "ee3983b5cbfae0c722b83e0bf8f0b25767d931fed3c14bda262f3b3ada2c8046"
+    },
+    "modules": [
+      "test_reconstructed_completion"
+    ],
+    "expected_test_ids": [
+      "test_reconstructed_completion.CompletionTests.test_index_proof_inside_locked_callback",
+      "test_reconstructed_completion.CompletionTests.test_native_index_missing_retains_journal"
+    ]
+  },
+  {
+    "id": "test-pending-pkcs8-proof",
+    "owner": "SideStore",
+    "files": {
+      "ci/p0bounds/tests/test_pending_pkcs8_proof.py": "3e41ded05d401c09ead871f4c179ada8735dad4b1c76b3ff2fd0f0cc95b747bc"
+    },
+    "modules": [
+      "test_pending_pkcs8_proof"
+    ],
+    "expected_test_ids": [
+      "test_pending_pkcs8_proof.PendingPKCS8Proof.test_native_exact_pkcs8_proof"
+    ]
+  },
+  {
+    "id": "initializer-diagnostics",
+    "owner": "LiveContainer",
+    "files": {
+      "ci/p0bounds/tests/init_diagnostics/README.md": "ac387746654346f54e4625f032c7f13c6d5ee6e86e01f6874b2fba3955458f01",
+      "ci/p0bounds/tests/init_diagnostics/host_harness.swift": "0fb86b7bf3dfe4677292971c41d7d226c4cb6c1395035612b101948f5e8004a9",
+      "ci/p0bounds/tests/init_diagnostics/native_fixture.cpp": "b1dfcd27822ee7e4ec9c203b956b25d8fdd8ed6afe961ad12547ffe4244187a0",
+      "ci/p0bounds/tests/init_diagnostics/pipeline_harness.swift": "b1a46066f24a9cda5654e74aaa789b1f5d775da7cc6fbbf6f30c7febfa5039ae",
+      "ci/p0bounds/tests/init_diagnostics/test_contract.py": "0cd8d339e7629ef07a2b743193ff193eb64722432ad50d70d5cb359597f50196"
+    },
+    "modules": [
+      "test_contract"
+    ],
+    "expected_test_ids": [
+      "test_contract.InitializerDiagnosticContract.test_actual_swift_parser_service_wire_and_host_copy",
+      "test_contract.InitializerDiagnosticContract.test_bounded_primary_only_contract_and_no_recovery_mutation",
+      "test_contract.InitializerDiagnosticContract.test_real_native_producer_fixture",
+      "test_contract.InitializerDiagnosticContract.test_shared_capture_validation_and_copy_contracts_match",
+      "test_contract.InitializerDiagnosticContract.test_trace_disabled_preserves_constructor_evidence"
+    ]
+  },
+  {
+    "id": "adi-consumption",
+    "owner": "LiveContainer",
+    "files": {
+      "ci/p0bounds/tests/adi_consumption/external_error_doubles.swift": "9c8a2ab61a318a6e1bbee4e25d0908f4501b55a194f35e9e11b15a82204f3f93",
+      "ci/p0bounds/tests/adi_consumption/legacy_comparison_harness.swift": "f6247675e12c3d52a0f56d58e353f604af177e17a2f5ebadb901c73b1fdffc1e",
+      "ci/p0bounds/tests/adi_consumption/pipeline_harness.swift": "4d8c636ce292b55899ab377e6ffaec6ceb5a403850a14e38af8c1d72e5414df9",
+      "ci/p0bounds/tests/adi_consumption/test_contract.py": "b03830d266d17a0ae46c5c0dda22dad80fb20a5dbde4baa496894d862b87a382"
+    },
+    "modules": [
+      "test_contract"
+    ],
+    "expected_test_ids": [
+      "test_contract.ConsumerContractTests.test_disabled_trace_preserves_classification_and_drops_diagnostics",
+      "test_contract.ConsumerContractTests.test_legacy_comparison_is_read_only_snapshot_bound_and_failure_scoped",
+      "test_contract.ConsumerContractTests.test_native_pipeline_wire_copy_and_importing_host",
+      "test_contract.ConsumerContractTests.test_real_cpp_producer_descriptor_and_pinned_schema",
+      "test_contract.ConsumerContractTests.test_shared_parser_and_schema_are_exact_across_owners",
+      "test_contract.ConsumerContractTests.test_wire_and_render_use_real_finite_contract"
+    ]
+  }
+]

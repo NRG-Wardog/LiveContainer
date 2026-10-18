@@ -18,9 +18,9 @@ jobs:
     timeout-minutes: 150
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-      P0_PHASE: sidesign
+      P0_PHASE: sidestore
       # Exact candidate input digest; requires independent review before publication.
-      APPROVED_P0_INPUTS_SHA256: '9b9b59dc01bfb531cfe060d4fd2151ca693a47da84b3e5f91be2d43ba9df4f98'
+      APPROVED_P0_INPUTS_SHA256: '6605eb57dbb0faef8e2e432d659fcc1b31150dc1303d95f0efa4ed58a5fa4d5d'
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
       GIT_CONFIG_NOSYSTEM: '1'

@@ -1,0 +1,441 @@
+{
+  "adapter_files": {
+    "ci/p0bounds/native_gate.py": "421fea4a44dc05646657fb434a244fe640db0a93e97d520260063a2fa5a0dddf",
+    "ci/p0bounds/prepare_candidate_inventory.py": "abede4391fa9e87d8b1a403a85c38dff58e610a49435e6c5b67aeb7768550064",
+    "ci/p0bounds/run_unittest_suite.py": "90dcfe7f52949df13e5ef4b1cdf610bf2726df4c939ce1b3ce40eb9ed4394426",
+    "ci/p0bounds/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2"
+  },
+  "contracts": {
+    "registry": "ci/p0bounds/contracts/compatibility-registry.json",
+    "registry_sha256": "be82a231cb2405cc1ceb9c8b912f9499e7eb53f928a51459ea75332b9f649b11",
+    "validator": "ci/p0bounds/contracts/validate_contracts.py",
+    "validator_sha256": "0d5a5aa61dd37f566359312611826ae5dbbae00176c50b1e4c5e2143530bf520"
+  },
+  "historical_basis": {
+    "capture_commit": "1d0a875bf4e7257c44022aac6e0b77c9f5a11925",
+    "fingerprints_path": "ci/p0bounds/historical-source-fingerprints.json",
+    "fingerprints_sha256": "abb694a045942cf162ed0fd35dad66be9de1ec26b6ff3ace89504bcb537fb1a1",
+    "fresh_guest_execution": false,
+    "role": "historical-only"
+  },
+  "integration_baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "owners": {
+    "AnisetteKit": {
+      "changes": {
+        ".ci/native-tests/README.md": {
+          "after": {
+            "git_object": "2682bbd0caf64c818a28379bc78d99be86498ebb",
+            "mode": "100644",
+            "sha256": "7380f730896817cd6913a59b8f411b815ea4bf06560237fd1bdeedc2cdba72aa",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "57a4694a041f78cdae6d3e1ff57b77dad7cfdfa8",
+            "mode": "100644",
+            "sha256": "47136a886873602382791feeb8090a1666139711479a0df50e739fe6c213e2c1",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/fixtures/elf_metadata_bounds_unit.cpp": {
+          "after": {
+            "git_object": "d0a38ca27cf61770010803ca86c44620051ae182",
+            "mode": "100644",
+            "sha256": "bb4e7ec60202f6576f8013d0925c69c6ca4d8fca6061d93b233587efdb35487a",
+            "type": "blob"
+          },
+          "before": null
+        },
+        ".ci/native-tests/fixtures/isolated_anisette_loader_harness.cpp": {
+          "after": {
+            "git_object": "580a9f5c6e82cfaa2237ee15a18b9c3e555881e7",
+            "mode": "100644",
+            "sha256": "b15722a758ffc80324476823c854763ff3c98e3bce51a7c74e77fa453ea6b2e8",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "4381043502adbea1b4d8d3860f2ba5f5f83e7fa7",
+            "mode": "100644",
+            "sha256": "053efa1197760643af52976e868287ad83508195ddf75629add99b83ca7c0347",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/run_tests.py": {
+          "after": {
+            "git_object": "24ab5e38ab0952afe2182810de0e29197838022e",
+            "mode": "100644",
+            "sha256": "e750b294770ee864e36b94d9a7fa936c5cb76b2a16633ce8d199f439829f6811",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "902341f754fb3d5f9cb7bd9c9df8feb88008cbca",
+            "mode": "100644",
+            "sha256": "3728a41f67529f1c73222739008cba2c2d4ad4e1a818184f8103cac602e80014",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/test_android_tls_runtime.py": {
+          "after": {
+            "git_object": "9163e7858c9469795b3aff1c0d450c0fa1004729",
+            "mode": "100644",
+            "sha256": "6867ebfa2ef821692bc7c8091e1072996139c791cb61f942146bc6205e28f755",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "6e7f69abc1f852e815572be301002315f6ce7d4b",
+            "mode": "100644",
+            "sha256": "285e4accc6f90366f24be470c45a5376e2826d2bc05efe59da0851ec267c24ed",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/test_constructor_diagnostics.py": {
+          "after": {
+            "git_object": "b7fd809bc8a5d5d1e8b1a0c18db28b074294b0ff",
+            "mode": "100644",
+            "sha256": "9d27c7b9206246d5e908555e7f2412162ccf5d3b0862270fb79913a4a8ec1ddc",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "d693b9f0271525577344839fa6a505dfc1df6579",
+            "mode": "100644",
+            "sha256": "62e9c5585d4846aa114975b33af1c06abc79fd1f86421824e1dfb329ab1a981b",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/test_elf_metadata_bounds.py": {
+          "after": {
+            "git_object": "f74dd05d0605e59298e42338527b6866d1aacf41",
+            "mode": "100644",
+            "sha256": "6a601417c24df2a267e3a782affcd1fefcd41b18301ed6073299be33e2b643ac",
+            "type": "blob"
+          },
+          "before": null
+        },
+        "Native/Loader/elf_loader_emulator.cpp": {
+          "after": {
+            "git_object": "8cb45ed2bc6e4d7f03aff1b4b678044d038bc048",
+            "mode": "100644",
+            "sha256": "2caeb8f2d5526c35e6128a288ec74229e25d23f1d2f84b22ca226ba3c89405d3",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "fb50db0b6c974a973416e5c6755846c3f926df64",
+            "mode": "100644",
+            "sha256": "661a28cab7bf0258e388be2ff8cba98c869f202791699d6697c0f8277971e2db",
+            "type": "blob"
+          }
+        },
+        "Native/Loader/elf_loader_emulator.h": {
+          "after": {
+            "git_object": "aea3514b0ac438926d4edd354d1731b44549c7f9",
+            "mode": "100644",
+            "sha256": "16eb67e76dc4ae94350e55968e9313c2f4163817182c08af76a5c85b2ec09327",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "9f9888a3e106f82555647d492d236c48fe719c5c",
+            "mode": "100644",
+            "sha256": "67e4ebfa530d39451169bae486facc57926a8e78a6cd833a6425628c457d5267",
+            "type": "blob"
+          }
+        },
+        "Native/Loader/elf_metadata_bounds.h": {
+          "after": {
+            "git_object": "4dbeeb6949fbc0fa87f050fcc8c571e6fef06b40",
+            "mode": "100644",
+            "sha256": "7acd9287cc351b55141f40a0baecda9c3d3202a420cf4b7f0f2515572d877253",
+            "type": "blob"
+          },
+          "before": null
+        },
+        "Native/anisette_core_uc.cpp": {
+          "after": {
+            "git_object": "782ff3329c9dad86b2aa010526fb9ab65313c952",
+            "mode": "100644",
+            "sha256": "d75cc5f9534f94d8871da89ca84c885148d3f813e93eee790aa698cec6ee855a",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "868a4bf241f03986c95e49abc497297cfefc643e",
+            "mode": "100644",
+            "sha256": "5251cf75e1944be12d7e8bc72de2a9ab6d9e3438671251e2a0918751d91b3a76",
+            "type": "blob"
+          }
+        }
+      },
+      "commit": "9c876820d102affe2f55ee4b7f735fff6abd990a",
+      "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
+      "tree": "1c54f163acfb8e5d18605aaa301a3d5ebd576505"
+    },
+    "LiveContainer": {
+      "changes": {},
+      "commit": "1df50257f6255522e6ff48db226508fe74d6b17d",
+      "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
+      "tree": "205350ead530a22f4d04eb762e8b47fa27063879"
+    },
+    "SideSign": {
+      "changes": {
+        "Package.resolved": {
+          "after": {
+            "git_object": "956e14d843d2fd6fe929cd2ca92616e4b8524319",
+            "mode": "100644",
+            "sha256": "5af998d3a0ffd5c8589a2237338e395aa61281a02d3803f25c2cc5a5125169bc",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "c16e3542e08a574f0038d11a19f85923980e1a05",
+            "mode": "100644",
+            "sha256": "26c810668908416d018d54802e4145315a73e9da2f6f305bf6499446426063ee",
+            "type": "blob"
+          }
+        },
+        "Package.swift": {
+          "after": {
+            "git_object": "609ef4425c9d115497da96cabee31ef15cb08759",
+            "mode": "100644",
+            "sha256": "a833b0e77ad9e301af6039824bacbf03ee9ba94cefa5a0eb33278fcb013d2933",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "917be2e8fd41f1d9136dd31335c5791c9d56164a",
+            "mode": "100644",
+            "sha256": "fb346d161dacb3d66e3665030be1f59e9be75ad3856b0445e9e4d9d3dc1acaa9",
+            "type": "blob"
+          }
+        }
+      },
+      "commit": "74a79cc4d1e6018696c39dfe975dfd13c449870b",
+      "repository": "https://github.com/NRG-Wardog/SideSign.git",
+      "tree": "d0066e7a2bae05b44089f4623dd7dfc269c91e95"
+    },
+    "SideStore": {
+      "changes": {
+        "Dependencies/SideSign": {
+          "after": {
+            "git_object": "74a79cc4d1e6018696c39dfe975dfd13c449870b",
+            "mode": "160000",
+            "type": "commit"
+          },
+          "before": {
+            "git_object": "b829a21c3955b4084fc3a6f613bad9162a8d43ef",
+            "mode": "160000",
+            "type": "commit"
+          }
+        }
+      },
+      "commit": "b497c96513d941154a0872d2d3c1c132c7293f6b",
+      "repository": "https://github.com/NRG-Wardog/SideStore.git",
+      "tree": "a6e9fafd15b467e587ba694db10dbd22629bbfea"
+    },
+    "idevice": {
+      "changes": {},
+      "commit": "803f9368e6b27a43d8a9f22dc0ec281c87883113",
+      "repository": "https://github.com/NRG-Wardog/idevice.git",
+      "tree": "f5ac11668bae97e577e7c4fc098b5484df1c9af1"
+    },
+    "jktcp": {
+      "changes": {},
+      "commit": "32c0210f286b4fd16efe05be4f57167a9d94459b",
+      "repository": "https://github.com/NRG-Wardog/jktcp.git",
+      "tree": "e94eaefdcae5fe54a535186e36a0b2ebccc9bf13"
+    },
+    "minimuxer": {
+      "changes": {},
+      "commit": "efbcab05d7d636aa37c6bf6c7f364d122c5610f6",
+      "repository": "https://github.com/NRG-Wardog/minimuxer.git",
+      "tree": "30aa947645c5befb0c3210700095c8b039893d83"
+    }
+  },
+  "phase": "sidestore",
+  "prior_sidesign": {
+    "artifact_id": 12134653192,
+    "artifact_sha256": "349aedc8bc323a2dc4876ea8fe206067d57dc9f012c2300b9bcd89d994e7254a",
+    "host_commit": "13f5e0a32931f708cb7d2a6530dbaf61ba801be9",
+    "index_sha256": "f5e9552e780ee8b075c2c1a0d899a07335317068cd136ef5117f9acbf2541abb",
+    "run_attempt": 1,
+    "run_id": 39123382040
+  },
+  "schema_version": 1,
+  "source_basis": "p0-elf-metadata-bounds-v1",
+  "submodules": {
+    "LiveContainer/OpenSSL": {
+      "commit": "623c84da314e85363236507ca38a4bde65df21c3",
+      "declared_repository": "https://github.com/krzyzanowskim/OpenSSL",
+      "repository": "https://github.com/krzyzanowskim/OpenSSL",
+      "tree": "21bc09387e7f91a46eb8bd26587ce1d052277801"
+    },
+    "LiveContainer/litehook": {
+      "commit": "8025e0c8ebdf5cdd1d2a4f45025813234bf9dc55",
+      "declared_repository": "https://github.com/LiveContainer/litehook",
+      "repository": "https://github.com/LiveContainerMirror/litehook.git",
+      "tree": "62bc06a17a1c12d805aec1ada25910bfa9f89781"
+    },
+    "idevice/cpp/plist_ffi": {
+      "commit": "66e6e6362b58bc361725c3e1b0a34af498aa2b3a",
+      "declared_repository": "https://github.com/jkcoxson/plist_ffi.git",
+      "repository": "https://github.com/jkcoxson/plist_ffi.git",
+      "tree": "1dc97bcad12d41a13417ae05fbcdc4408c6df553"
+    }
+  },
+  "test_suites": [
+    {
+      "expected_test_ids": [
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_dispatch_requires_verified_retention_and_preserves_late_result",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_reconciliation_is_read_only_and_cryptographically_bound",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_secure_journal_is_separate_device_local_and_strict",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_existing_api_wrapper_and_app_entrypoints",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_record_core_fault_matrix",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_proxy_create_and_reconciliation",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_pending_activation_consumer",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_exact_security_query_scope",
+        "test_pending_certificate_creation.PendingCertificateCreationTests.test_native_security_matching_mismatching_and_invalid_keys"
+      ],
+      "files": {
+        "ci/p0bounds/tests/activation_harness.swift": "c465be3e4b631262b30a9c778df4f3baaf3cd8c52dd04b7a754f80cf16c3f63b",
+        "ci/p0bounds/tests/proxy_harness.swift": "e3848992d312695d3fd87fafba3deab2c34952784fb9e8dc33695d8669a837d3",
+        "ci/p0bounds/tests/security_query_harness.swift": "77cfd62918aaa4d2c0aacc585d549a5e6de67cf66c953c9308fdc4fb38791ecc",
+        "ci/p0bounds/tests/test_pending_certificate_creation.py": "c61a6dd76948d061271eff4da00e57c4ef5742503424d8eb15afd4f8ce220464"
+      },
+      "id": "pending-certificate-creation",
+      "modules": [
+        "test_pending_certificate_creation"
+      ],
+      "owner": "SideStore"
+    },
+    {
+      "expected_test_ids": [
+        "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_returns_full_result_without_second_fallible_request",
+        "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_invalidates_list_without_claiming_local_activation",
+        "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_existing_activation_retry_retains_result",
+        "test_signin_certificate_creation_result.SignInCertificateCreationResultTests.test_native_request_and_local_retry"
+      ],
+      "files": {
+        "ci/p0bounds/tests/test_signin_certificate_creation_result.py": "2c0fb4865747cd6e510185a5b6aa33a32e24b76bcbd6fb3020a3acc6afa6c769"
+      },
+      "id": "created-certificate-preservation",
+      "modules": [
+        "test_signin_certificate_creation_result"
+      ],
+      "owner": "SideStore"
+    },
+    {
+      "expected_test_ids": [
+        "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_preserves_first_failure_and_valid_fallback",
+        "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_cellular_restore_boundary_unchanged",
+        "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_logs_do_not_include_identifiers_or_raw_errors",
+        "test_signin_udid_failure_consumer.SignInUDIDFailureConsumerTests.test_extracted_native_consumer"
+      ],
+      "files": {
+        "ci/p0bounds/tests/test_signin_udid_failure_consumer.py": "0406bb7c163cfb104fb60714e4f07b29c749a91d62f17e8119cb342b36e6a96b"
+      },
+      "id": "udid-diagnostics",
+      "modules": [
+        "test_signin_udid_failure_consumer"
+      ],
+      "owner": "SideStore"
+    },
+    {
+      "expected_test_ids": [
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_lookup_failure_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_short_lookup_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_negative_lookup_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_empty_path_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_failed_path_conversion_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_non_vnode_advances",
+        "test_dead10cc_scan_progression.Dead10ccScanProgressionTests.test_success_enumerates_every_entry_once"
+      ],
+      "files": {
+        "ci/p0bounds/tests/test_dead10cc_scan_progression.py": "85c77d5bcba9f8a03c1d0f5e62ae63598e3e60c624f6c0c4ddfbb8d0ca1133e8"
+      },
+      "id": "descriptor-progression",
+      "modules": [
+        "test_dead10cc_scan_progression"
+      ],
+      "owner": "LiveContainer"
+    },
+    {
+      "expected_test_ids": [
+        "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_distinct_capability_is_decoded_in_account_and_auth_snapshots",
+        "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_recovery_route_survives_signout_and_has_an_explicit_owner_bound_action",
+        "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_reconciliation_never_dispatches_create_revoke_or_auth_begin",
+        "test_pending_certificate_host_recovery.PendingCertificateHostRecoveryTests.test_pending_recovery_policy_executes_owner_and_capability_matrix"
+      ],
+      "files": {
+        "ci/p0bounds/tests/test_pending_certificate_host_recovery.py": "fbb3676714bad2ec74b208509467b6b749024867d9fb66a894fa7af8f2b1cb17"
+      },
+      "id": "pending-certificate-host-recovery",
+      "modules": [
+        "test_pending_certificate_host_recovery"
+      ],
+      "owner": "LiveContainer"
+    },
+    {
+      "expected_test_ids": [
+        "test_reconstructed_completion.CompletionTests.test_index_proof_inside_locked_callback",
+        "test_reconstructed_completion.CompletionTests.test_native_index_missing_retains_journal"
+      ],
+      "files": {
+        "ci/p0bounds/tests/test_reconstructed_completion.py": "ee3983b5cbfae0c722b83e0bf8f0b25767d931fed3c14bda262f3b3ada2c8046"
+      },
+      "id": "test-reconstructed-completion",
+      "modules": [
+        "test_reconstructed_completion"
+      ],
+      "owner": "SideStore"
+    },
+    {
+      "expected_test_ids": [
+        "test_pending_pkcs8_proof.PendingPKCS8Proof.test_native_exact_pkcs8_proof"
+      ],
+      "files": {
+        "ci/p0bounds/tests/test_pending_pkcs8_proof.py": "3e41ded05d401c09ead871f4c179ada8735dad4b1c76b3ff2fd0f0cc95b747bc"
+      },
+      "id": "test-pending-pkcs8-proof",
+      "modules": [
+        "test_pending_pkcs8_proof"
+      ],
+      "owner": "SideStore"
+    },
+    {
+      "expected_test_ids": [
+        "test_contract.InitializerDiagnosticContract.test_actual_swift_parser_service_wire_and_host_copy",
+        "test_contract.InitializerDiagnosticContract.test_bounded_primary_only_contract_and_no_recovery_mutation",
+        "test_contract.InitializerDiagnosticContract.test_real_native_producer_fixture",
+        "test_contract.InitializerDiagnosticContract.test_shared_capture_validation_and_copy_contracts_match",
+        "test_contract.InitializerDiagnosticContract.test_trace_disabled_preserves_constructor_evidence"
+      ],
+      "files": {
+        "ci/p0bounds/tests/init_diagnostics/README.md": "ac387746654346f54e4625f032c7f13c6d5ee6e86e01f6874b2fba3955458f01",
+        "ci/p0bounds/tests/init_diagnostics/host_harness.swift": "0fb86b7bf3dfe4677292971c41d7d226c4cb6c1395035612b101948f5e8004a9",
+        "ci/p0bounds/tests/init_diagnostics/native_fixture.cpp": "b1dfcd27822ee7e4ec9c203b956b25d8fdd8ed6afe961ad12547ffe4244187a0",
+        "ci/p0bounds/tests/init_diagnostics/pipeline_harness.swift": "b1a46066f24a9cda5654e74aaa789b1f5d775da7cc6fbbf6f30c7febfa5039ae",
+        "ci/p0bounds/tests/init_diagnostics/test_contract.py": "0cd8d339e7629ef07a2b743193ff193eb64722432ad50d70d5cb359597f50196"
+      },
+      "id": "initializer-diagnostics",
+      "modules": [
+        "test_contract"
+      ],
+      "owner": "LiveContainer"
+    },
+    {
+      "expected_test_ids": [
+        "test_contract.ConsumerContractTests.test_disabled_trace_preserves_classification_and_drops_diagnostics",
+        "test_contract.ConsumerContractTests.test_legacy_comparison_is_read_only_snapshot_bound_and_failure_scoped",
+        "test_contract.ConsumerContractTests.test_native_pipeline_wire_copy_and_importing_host",
+        "test_contract.ConsumerContractTests.test_real_cpp_producer_descriptor_and_pinned_schema",
+        "test_contract.ConsumerContractTests.test_shared_parser_and_schema_are_exact_across_owners",
+        "test_contract.ConsumerContractTests.test_wire_and_render_use_real_finite_contract"
+      ],
+      "files": {
+        "ci/p0bounds/tests/adi_consumption/external_error_doubles.swift": "9c8a2ab61a318a6e1bbee4e25d0908f4501b55a194f35e9e11b15a82204f3f93",
+        "ci/p0bounds/tests/adi_consumption/legacy_comparison_harness.swift": "f6247675e12c3d52a0f56d58e353f604af177e17a2f5ebadb901c73b1fdffc1e",
+        "ci/p0bounds/tests/adi_consumption/pipeline_harness.swift": "4d8c636ce292b55899ab377e6ffaec6ceb5a403850a14e38af8c1d72e5414df9",
+        "ci/p0bounds/tests/adi_consumption/test_contract.py": "b03830d266d17a0ae46c5c0dda22dad80fb20a5dbde4baa496894d862b87a382"
+      },
+      "id": "adi-consumption",
+      "modules": [
+        "test_contract"
+      ],
+      "owner": "LiveContainer"
+    }
+  ]
+}
