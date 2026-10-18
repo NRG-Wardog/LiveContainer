@@ -38,7 +38,7 @@ def validate(host,inputs,approved):
     require(re.fullmatch('[0-9a-f]{64}',approved or '') and sha(inputs)==approved,'unreviewed inputs')
     data=parse(inputs)
     require(set(data)=={'schema','scope','livecontainer','builder','source_sha256','adapter_files'},'unexpected input fields')
-    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope']=='cleanup-regression-only-no-admission','wrong capability scope')
+    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope']=='calibration-and-recovery-capabilities-only-no-admission','wrong capability scope')
     require(data['livecontainer']==SOURCE and data['builder']==BUILDER and data['source_sha256']==SOURCE_SHA,'wrong source pin')
     require(set(data['adapter_files'])==ADAPTERS,'wrong adapter inventory')
     for path,digest in data['adapter_files'].items():require(sha(ordinary(host,path))==digest,'adapter drift: '+path)
@@ -385,6 +385,5 @@ if __name__=='__main__':
     p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone','tablet']);p.add_argument('--execute',action='store_true');a=p.parse_args()
     validate(a.host_root,a.inputs,a.approved_inputs_sha256)
     if a.execute:
-        require(False,'UI execution disabled in cleanup-only checkpoint')
         require(a.work is not None and a.evidence is not None and a.device_class is not None,'execution paths/class required')
         sys.exit(0 if execute(a.host_root.resolve(),a.work,a.evidence,a.inputs,a.approved_inputs_sha256,a.device_class) else 1)

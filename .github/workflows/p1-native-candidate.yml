@@ -1,7 +1,6 @@
-name: P1 cleanup lifecycle regression
+name: P1 short screenshot and recovery capabilities
 
-# Cleanup-only regression. No simulator, app build, UI matrix or admission.
-# The immutable e72fd12d checkpoint retains the prior two-device workflow.
+# Independent phone/tablet capabilities only. No full matrix, host build or admission.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -11,13 +10,22 @@ concurrency:
   group: p1-native-${{ github.ref }}
   cancel-in-progress: false
 env:
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '0348828535472cebf4626221141a95dd113471c1ea2f2c6f33fcc27f3ee1ccb9'
+  DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '8cfc9dc8e9aabd111a3c0a4b8b9aeaa269313669bad5f2cee8a56cc0002c0403'
   PYTHONDONTWRITEBYTECODE: '1'
+  GIT_TERMINAL_PROMPT: '0'
+  GIT_CONFIG_NOSYSTEM: '1'
+  GIT_CONFIG_GLOBAL: /dev/null
+  GIT_CONFIG_COUNT: '0'
 jobs:
-  p1-cleanup-regression:
+  p1-short-capabilities:
     if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-native-basis'
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [phone, tablet]
     runs-on: macos-26
-    timeout-minutes: 10
+    timeout-minutes: 35
     defaults:
       run:
         shell: bash
@@ -27,22 +35,191 @@ jobs:
           path: validation
           persist-credentials: false
           set-safe-directory: false
-      - name: Verify seal and exercise owned-child cleanup
-        timeout-minutes: 5
+      - name: Verify sealed capability inputs
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/preflight/cleanup_gate.py \
+          python3 -B validation/ci/p1/preflight/capture.py \
+            --inputs validation/ci/p1/preflight/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation"
+          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_runner_source.py -v
+      - name: Collect short independent device capabilities
+        id: collect
+        timeout-minutes: 22
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p1/preflight/budget.py --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
+            python3 -B validation/ci/p1/preflight/capture.py \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
-            --output "$GITHUB_WORKSPACE/p1-cleanup-result"
-      - name: Preserve synthetic regression report
+            --work "$RUNNER_TEMP/p1-capability-work" --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
+            --device-class '${{ matrix.device }}' --execute
+      - name: Package every original evidence byte into bounded parts
+        id: package
         if: always()
+        env:
+          COLLECTION_OUTCOME: ${{ steps.collect.outcome }}
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p1/preflight/capture.py \
+            --inputs validation/ci/p1/preflight/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation"
+          python3 -B validation/ci/p1/preflight/budget.py --check-package --evidence "$GITHUB_WORKSPACE/p1-capability-evidence"
+          python3 -B validation/ci/p1/video/package_evidence.py pack \
+            --source "$GITHUB_WORKSPACE/p1-capability-evidence" \
+            --output "$GITHUB_WORKSPACE/p1-capability-parts" \
+            --collection-outcome "$COLLECTION_OUTCOME" --max-parts 16
+      - name: Preserve original-byte reconstruction manifest
+        if: always() && steps.package.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: p1-cleanup-regression-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            p1-cleanup-result/result.json
-            p1-cleanup-result/tests.log
+          name: p1-capability-${{ matrix.device }}-manifest-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/manifest.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 000
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-000.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-000-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-000.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 001
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-001.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-001-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-001.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 002
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-002.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-002-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-002.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 003
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-003.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-003-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-003.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 004
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-004.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-004-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-004.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 005
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-005.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-005-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-005.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 006
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-006.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-006-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-006.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 007
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-007.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-007-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-007.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 008
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-008.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-008-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-008.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 009
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-009.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-009-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-009.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 010
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-010.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-010-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-010.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 011
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-011.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-011-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-011.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 012
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-012.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-012-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-012.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 013
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-013.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-013-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-013.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 014
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-014.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-014-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-014.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original-byte part 015
+        if: always() && steps.package.outcome == 'success' && hashFiles('p1-capability-parts/part-015.bin') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-capability-${{ matrix.device }}-part-015-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p1-capability-parts/part-015.bin
+          compression-level: 0
           if-no-files-found: error
           retention-days: 30

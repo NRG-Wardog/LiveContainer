@@ -1,11 +1,13 @@
-# P1 capability harness and cleanup-only gate
+# P1 short capability harness
 
-This checkpoint runs only the compact cleanup regression gate described below.
-UI execution is disabled pending a separately reviewed successor.
+This checkpoint restores only the two short phone/tablet capability jobs after
+the isolated cleanup regressions passed. It does not run the full matrix or
+rebuild the actual application host. The extracted synthetic fixture is built
+for these capability checks.
 
-## Retained capability design (execution disabled)
+## Capability design
 
-The prior capability lane runs **independent phone and tablet jobs**, each building the
+The capability lane runs **independent phone and tablet jobs**, each building the
 exact-source extracted fixture and then collecting one screenshot-calibration
 case plus narrowly scoped recovery capabilities. It does not run the full
 feedback interaction or recovery matrix and cannot grant P1 admission. The
@@ -90,7 +92,7 @@ Command receipts retain the primary spawn/wait/exit exception separately from
 cleanup exceptions. A cleanup EPERM never means that a group disappeared and
 never replaces the original command failure. Termination classification also
 rejects any unresolved command cleanup failure. Setup timeouts and the retained capability lane's 17/20/35-minute budgets remain
-unchanged. The temporary cleanup-only job has its own ten-minute ceiling.
+unchanged. The completed cleanup-only job had its own ten-minute ceiling.
 
 On a failed process-group operation, a bounded read-only process-table snapshot
 records only PID, PPID, PGID, UID, state and command name (not arguments or
@@ -107,18 +109,21 @@ explicitly unverified diagnostics, not raw XCTest evidence or admission receipts
 They do not permit indexing or archiving a potentially growing evidence tree.
 
 
-## Fresh cleanup-only repair after lost staging
+## Verified cleanup repair retained by this restoration
 
 The previous unpublished candidate was lost with its workspace and payload store.
-This is a freshly implemented candidate on published e72fd12d, requiring fresh
-hashes, tests and review. It does not reuse the prior c6f519d1 identity or claim
-that earlier test runs validate these new bytes.
+The replacement was freshly implemented on published e72fd12d and reviewed as
+tree e890f1e4, then published in f3de1b32. It does not reuse the prior c6f519d1
+identity or claim that earlier test runs validated the replacement bytes.
 
-The workflow runs one macOS cleanup regression job with a five-minute test step
-and ten-minute job ceiling. It exercises synthetic child processes and mocked
-simulator-state receipts only. It never boots a simulator, builds an application,
-runs UI, or measures feedback. The prior two-device workflow remains at immutable
-e72fd12d332b357c098ab9f23206e55f73bf1959; restoration requires separate review.
+Cleanup run [39108278899](https://github.com/NRG-Wardog/LiveContainer/actions/runs/39108278899)
+passed all 83 exact reviewed regressions with zero skips on macOS 26.6.2 arm64.
+Artifact 12129362082 has ZIP SHA256
+`ca8a9debd0211f1b1e6826addc20fc45777da11c3af606500358322122109296`.
+That run exercised synthetic child processes and mocked simulator-state receipts
+only. It did not establish actual simulator shutdown, UI, or calibration success.
+This successor restores the prior two-device workflow from immutable e72fd12d
+with a new seal while retaining the proven cleanup implementation unchanged.
 
 OwnedProcess holds the actual start_new_session=True Popen child and serializes
 all waits, polls and signals with a per-child lock. It reaps exited direct children
@@ -135,7 +140,7 @@ No exit-149 exception exists. Every host observer must also settle: a later stat
 query cannot erase an earlier observer's cleanup failure. Original timeouts and
 cleanup errors remain distinct, and unresolved writers forbid indexing/packaging.
 
-The cleanup artifact contains the terminal regression result and log, excluding
+The accepted cleanup artifact contains the terminal regression result and log, excluding
 any temporary writer payload. Passing establishes only these cleanup regressions,
 not simulator, feedback, layout or product readiness. Existing setup deadlines and
 all timing/layout criteria are unchanged.
