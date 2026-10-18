@@ -330,6 +330,7 @@ def bounded_capture(scope, argv, seconds, cleanup=False, error_sink=None):
     error = process_scope.error_info(primary)
     row = {'timeout_seconds': limit, 'host_start': started, 'host_end': time.monotonic(),
            'phase_timing': timing,
+           'writer_settled': process is not None and timing['settle']['returned'],
            'exit_code': process.returncode if process else None, 'primary_error': error, 'cleanup_errors': cleanup_errors,
            'failure_type': error['type'] if error else (cleanup_errors[0]['type'] if cleanup_errors else None),
            'output_byte_limit': OUTPUT_LIMIT, 'output_complete': complete, 'output_truncated': truncated,

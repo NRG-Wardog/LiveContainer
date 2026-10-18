@@ -484,3 +484,12 @@ Probe receipts retain phase, mode, command ID and probes/commands.jsonl path;
 boot/cleanup commands use their separate commands/ namespace.
 The comparison requires image20261013.0424.1, Xcode26.4.1 build17E202 and
 iOS26.2 build23C54. Image/runtime drift fails before claiming the simulator.
+
+The next confirmation routes process_scope child entry through launch_gate.py
+before parent-only imports. The generic child_main AST is identical, preserving
+argument arrays, private gate, exact receipt and exec-error semantics. The full
+label now means the process_scope entry with lean bootstrap, recorded explicitly
+in stall-result.json. No runtime or command deadline changes.
+A timed-out initial cleanup state query can proceed to exact-owned shutdown only
+if writer_settled is explicitly true; unknown/malformed-state failures cannot.
+The original timeout and command_failed remain, even after fresh Shutdown proof.

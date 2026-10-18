@@ -64,7 +64,10 @@ def confirm_shutdown(command, device, owned_boot):
     state = query('before')
     if state == 'Shutdown':
         result['observed_shutdown'] = True
-    elif state == 'Booted':
+    elif state == 'Booted' or (state is None and result['receipts'][-1]['command'].get('writer_settled') is True
+                             and (result['receipts'][-1]['command'].get('primary_error') or {}).get('type') == 'TimeoutExpired'):
+        # Exclusive ownership predates boot. Only a settled timed-out query
+        # permits this fallback. Retain its failure despite later Shutdown.
         invoke('shutdown', 'xcrun', 'simctl', 'shutdown', device)
         # A fresh state query can prove simulator quiescence, but cannot erase
         # a shutdown command failure or discharge any host process writer.

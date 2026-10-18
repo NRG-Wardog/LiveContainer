@@ -1,6 +1,15 @@
 """Track every host child session; never index evidence while writers remain."""
 import time
 _CHILD_FIRST_PYTHON = time.monotonic()
+# Child-only path avoids parent registry/diagnostic module imports.
+# Parent ownership, registration and release protocol are unchanged.
+if __name__=='__main__':
+    import sys
+    import launch_gate
+    launch_gate._CHILD_FIRST_PYTHON=_CHILD_FIRST_PYTHON
+    launch_gate.child_main(sys.argv[1:])
+    raise SystemExit(125)
+
 import json
 import os
 from pathlib import Path
@@ -418,7 +427,7 @@ class Commands:
     def __call__(self,*args,timeout=300,allow_failure=False,cleanup=False,receipt=False):
         argv=list(map(str,args));limit=self.scope.remaining(timeout,cleanup)
         with self.lock:self.count+=1;number=self.count
-        name=f'command-{number:04d}';started=time.monotonic();primary=None;cleanup_failures=[];process=None
+        name=f'command-{number:04d}';started=time.monotonic();primary=None;cleanup_failures=[];process=None;writer_settled=False
         launch=LaunchReceipt(number,started+limit if cleanup else min(started+limit,self.scope.deadline),limit)
         print('Running: '+' '.join(argv),flush=True)
         with (self.output/(name+'.stdout')).open('wb') as out,(self.output/(name+'.stderr')).open('wb') as err:
@@ -434,7 +443,8 @@ class Commands:
                     if process is not None:launch.require()
                 except Exception as error:cleanup_failures.append(error)
                 if process is not None:
-                    try:self.scope.settle(process)
+                    try:
+                        self.scope.settle(process);writer_settled=True
                     except Exception as error:cleanup_failures.append(error)
         error=primary or (cleanup_failures[0] if cleanup_failures else None)
         primary_row=error_info(primary);cleanup_rows=[error_info(e) for e in cleanup_failures]
@@ -455,6 +465,7 @@ class Commands:
         data=(self.output/(name+'.stdout')).read_bytes()
         if receipt:return {'argv':argv,'exit_code':process.returncode if process else None,'stdout':data.decode(errors='replace'),
                            'stderr':(self.output/(name+'.stderr')).read_text(errors='replace'),'failure_type':type(error).__name__ if error else None,
+                           'writer_settled':writer_settled,
                            'command_id':name,'primary_error':primary_row,'cleanup_errors':cleanup_rows,'launch_receipt':launch.row}
         if error and not allow_failure:raise error
         return data.decode(errors='replace').strip()

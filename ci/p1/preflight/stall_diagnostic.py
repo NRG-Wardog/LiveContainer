@@ -33,7 +33,8 @@ def collect(host, inputs, approved, output):
     trivial=process_scope.Commands(scope,probes)
     sampler=probe_pair.Sampler();started=False;owned=False
     result={'schema':'p1-stall-isolation-v1','scope':'same-runtime-stall-diagnostic-only-no-admission',
-            'device':boot.DEVICE,'runtime':boot.RUNTIME,'observation_budget_seconds':360,
+            'device':boot.DEVICE,'runtime':boot.RUNTIME,
+            'gate_implementations':{'full':'process_scope-entry-lean-launch_gate','minimal':'true-only-minimal_gate'},'observation_budget_seconds':360,
             'cleanup_deadline_seconds':480,'outer_budget_seconds':600,'cleanup_errors':[],
             'collection_complete':False,'admissionEligible':False,'production_ready':False,
             'app_build_executed':False,'app_install_executed':False,'ui_executed':False}
