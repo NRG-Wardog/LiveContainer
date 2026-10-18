@@ -28,12 +28,44 @@ class Discovery(unittest.TestCase):
             self.assertEqual(capture.channel_at(root,capture.APP_ID,session),child)
             (child/'identity.json').write_text(json.dumps({'session':'b'*32,'bundleIdentifier':capture.APP_ID}))
             with self.assertRaises(ValueError):capture.channel_at(root,capture.APP_ID,session)
-    def test_app_identity_precedes_runner_discovery(self):
+    def test_test_start_precedes_current_container_discovery(self):
         source=inspect.getsource(capture.run_calibration)
-        self.assertLess(source.index('app_container=container'),source.index('pool.submit'))
-        self.assertIn("if 'app' in roots and 'runner' not in roots:",source)
-        self.assertIn('channel_at(app_container,APP_ID,session)',source)
+        self.assertNotIn('app_container=container',source)
+        self.assertIn("if not hint_observed and calibration_started(native_logs/'command-0001.stdout',startup_state):",source)
+        self.assertIn('channel_at(containers[role],identifier,session)',source)
+        self.assertIn('remaining=min(10,deadline-time.monotonic())',source)
+        self.assertIn('channel_root(command,device,identifier,session)',source)
         self.assertIn('command.scope.remaining(180)',source)
+        self.assertIn("native_command=process_scope.Commands(command.scope,native_logs)",source)
+    def test_start_hint_exact_bounded_and_not_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'stdout'
+            self.assertFalse(capture.calibration_started(path,{}))
+            marker="Test Case '-[P0SignInUITests."+capture.CLASS+' '+capture.METHOD+"]' started."
+            for text in ['other test started',marker.replace('started.','passed.'),marker+' extra',marker]:
+                path.write_text(text);self.assertFalse(capture.calibration_started(path,{}))
+            path.write_text('prefix\n'+marker+'\n');self.assertTrue(capture.calibration_started(path,{}))
+            path.write_text(marker+'\n'+marker+'\n')
+            with self.assertRaises(ValueError):capture.calibration_started(path,{})
+            path.write_bytes(b'x'*(4*1024*1024+1))
+            with self.assertRaises(ValueError):capture.calibration_started(path,{})
+            path.unlink();path.symlink_to(Path(tmp)/'missing')
+            with self.assertRaises(OSError):capture.calibration_started(path,{})
+    def test_log_replacement_shrink_fifo_and_deadline(self):
+        import os
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'stdout';path.write_text('prefix\n');state={}
+            self.assertFalse(capture.calibration_started(path,state))
+            path.write_text('x')
+            with self.assertRaises(ValueError):capture.calibration_started(path,state)
+            replacement=Path(tmp)/'replacement';replacement.write_text('prefix\n');replacement.replace(path)
+            with self.assertRaises(ValueError):capture.calibration_started(path,state)
+            path.unlink();os.mkfifo(path)
+            with self.assertRaises(ValueError):capture.calibration_started(path,{})
+            command=mock.Mock()
+            for timeout in [0,-1,11]:
+                with self.assertRaises(ValueError):capture.container(command,'device',capture.APP_ID,timeout=timeout)
+            command.assert_not_called()
     def test_recovery_only_retained_completed_discovery(self):
         with tempfile.TemporaryDirectory() as tmp:
             raw=mock.Mock(pid=99,returncode=-15);owned=process_scope.OwnedProcess(raw)

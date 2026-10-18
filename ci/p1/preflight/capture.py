@@ -12,6 +12,7 @@ import re
 import shutil
 import sys
 import signal
+import stat
 import subprocess
 import time
 import uuid
@@ -85,9 +86,10 @@ def configure_runner(candidate,products,session,output):
     return target
 
 
-def container(command,device,bundle):
+def container(command,device,bundle,timeout=10):
     require(bundle in [APP_ID,RUNNER_ID],'unallowlisted container discovery')
-    receipt=command('xcrun','simctl','get_app_container',device,bundle,'data',timeout=10,receipt=True)
+    require(0<timeout<=10,'invalid container discovery budget')
+    receipt=command('xcrun','simctl','get_app_container',device,bundle,'data',timeout=timeout,receipt=True)
     require(receipt.get('writer_settled') is True and not receipt.get('cleanup_errors'),'container discovery writer settlement failed')
     launch=receipt.get('launch_receipt',{})
     require(launch.get('state')=='pre-exec-observed' and launch.get('closed') is True and launch.get('eof') is True and launch.get('exec_failure') is None,'container discovery launch unknown')
@@ -255,29 +257,58 @@ class ManagedVideo(video.transport.Video):
         require(not forced and (self.process.returncode==0 or (sigint_sent and self.process.returncode==-signal.SIGINT)) and (self.output/'screen.mp4').is_file(),'video did not finalize with normal exit or the requested SIGINT')
 
 
+def calibration_started(path,state):
+    # Readiness hint only; exact container/session proofs remain mandatory.
+    try:fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    except FileNotFoundError:return False
+    try:
+        info=os.fstat(fd)
+        require(stat.S_ISREG(info.st_mode),'invalid XCTest startup log')
+        identity=(info.st_dev,info.st_ino)
+        require(not state or (state['identity']==identity and info.st_size>=state['size']),'XCTest startup log replaced or shrunk')
+        require(info.st_size<=4*1024*1024,'XCTest startup log exceeds bound')
+        state.update(identity=identity,size=info.st_size)
+        raw=os.read(fd,4*1024*1024+1)
+        require(len(raw)<=4*1024*1024,'XCTest startup log exceeds bound')
+    finally:os.close(fd)
+    marker=("Test Case '-[P0SignInUITests."+CLASS+' '+METHOD+"]' started.\n").encode('ascii')
+    matches=[line for line in raw.splitlines(keepends=True) if line==marker]
+    require(len(matches)<=1,'duplicate calibration start hint')
+    return len(matches)==1
+
+
 def run_calibration(command,candidate,device,session,folder,valid_png):
     folder.mkdir();report={'scope':'calibration-capability-only','collection_complete':False,'calibration_feasible':False,'admissionEligible':False,'errors':[]};roots={};recorder=None;future=None;fixture_stopped=False
     try:
         command.scope.fixture_stopped(False)
-        app_container=container(command,device,APP_ID)
-        require(app_container is not None,'installed app container unavailable before XCTest')
         recorder=ManagedVideo(command.scope,device,folder)
         with ThreadPoolExecutor(max_workers=1) as pool:
             bundle=folder/'tests.xcresult'
-            future=pool.submit(command,'xcodebuild','test-without-building','-xctestrun',candidate,'-destination','id='+device,'-resultBundlePath',bundle,
+            native_logs=folder/'xctest-command';native_logs.mkdir()
+            native_command=process_scope.Commands(command.scope,native_logs)
+            future=pool.submit(native_command,'xcodebuild','test-without-building','-xctestrun',candidate,'-destination','id='+device,'-resultBundlePath',bundle,
                 '-parallel-testing-enabled','NO','-maximum-concurrent-test-simulator-destinations','1','-test-timeouts-enabled','YES','-default-test-execution-time-allowance','240','-maximum-test-execution-time-allowance','240',
                 '-only-testing:P0SignInUITests/'+CLASS+'/'+METHOD,timeout=360)
             try:
                 deadline=time.monotonic()+command.scope.remaining(180)
+                startup_state={};containers={};hint_observed=False
                 while time.monotonic()<deadline:
-                    if 'app' not in roots:
-                        value=channel_at(app_container,APP_ID,session)
-                        if value is not None:roots['app']=value
-                    # The exact-session app identity proves the fixture launched;
-                    # do not race simulator container queries against XCTest installation.
-                    if 'app' in roots and 'runner' not in roots:
-                        value=channel_root(command,device,RUNNER_ID,session)
-                        if value is not None:roots['runner']=value
+                    if future.done():future.result();raise ValueError('XCTest ended before channels ready')
+                    if not hint_observed and calibration_started(native_logs/'command-0001.stdout',startup_state):
+                        hint_observed=True
+                        write(folder/'startup-hint.json',{'host_monotonic':time.monotonic(),'log':'xctest-command/command-0001.stdout','readiness_hint_only':True})
+                        for role,identifier in [('app',APP_ID),('runner',RUNNER_ID)]:
+                            require(not future.done(),'XCTest ended before container discovery')
+                            remaining=min(10,deadline-time.monotonic())
+                            require(remaining>0,'channel deadline expired before discovery')
+                            containers[role]=container(command,device,identifier,timeout=remaining)
+                            require(containers[role] is not None,'started XCTest container absent')
+                        require(time.monotonic()<deadline,'channel deadline expired during discovery')
+                    if hint_observed:
+                        for role,identifier in [('app',APP_ID),('runner',RUNNER_ID)]:
+                            if role not in roots:
+                                value=channel_at(containers[role],identifier,session)
+                                if value is not None:roots[role]=value
                     if len(roots)==2 and (roots['runner']/'ready.json').is_file():break
                     if future.done():future.result();raise ValueError('XCTest ended before channels ready')
                     time.sleep(.25)
