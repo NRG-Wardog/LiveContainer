@@ -7,10 +7,14 @@ import UIKit
 final class P1RecoveryLayoutUITests: XCTestCase {
     private let kinds = ["operation", "direct", "refresh", "unreadable"]
     private var gestureOrdinal = 0
+    private var callbackOrdinal = 0
+    private var pendingActionCase: String?
+    private var pendingActionMetrics: [String: Any]?
 
     @MainActor private func launch(_ kind: String, largest: Bool,
                                    landscape: Bool = false) -> XCUIApplication {
         continueAfterFailure = true
+        callbackOrdinal = 0; pendingActionCase = nil; pendingActionMetrics = nil
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--recovery", "--production-shape", "--recovery-kind", kind]
@@ -109,11 +113,14 @@ final class P1RecoveryLayoutUITests: XCTestCase {
                 rows.append(["path": candidate.path, "ancestors": candidate.ancestors,
                              "snapshot": snapshot, "observed": observed])
                 live.append(element)
-                if !element.exists || !element.isHittable || !valid(element.frame)
-                    || element.identifier != identifier || element.label != candidate.snapshot.label
-                    || element.isSelected != candidate.snapshot.isSelected
-                    || element.elementType != candidate.snapshot.elementType
-                    || !sameFrame(element.frame, candidate.snapshot.frame) { complete = false }
+                // Validate the just-retained live observation rather than issuing
+                // the same synchronous AX queries again. No cross-action cache.
+                if observed["exists"] as? Bool != true || observed["hittable"] as? Bool != true
+                    || observed["identifier"] as? String != identifier
+                    || observed["label"] as? String != candidate.snapshot.label
+                    || observed["selected"] as? Bool != candidate.snapshot.isSelected
+                    || observed["elementType"] as? UInt != candidate.snapshot.elementType.rawValue
+                    || measuredRect(observed["frame"]).map({ sameFrame($0, candidate.snapshot.frame) }) != true { complete = false }
             }
             let queryCount = app.descendants(matching: .any).matching(identifier: identifier).count
             if queryCount != candidates.count || candidates.isEmpty || candidates.contains(where: { $0.snapshot.label != title || $0.snapshot.elementType != .button }) { complete = false }
@@ -493,13 +500,15 @@ final class P1RecoveryLayoutUITests: XCTestCase {
         let region = app.scrollViews["v3.recovery.region"]
         let button = app.buttons[label]
         guard region.exists, let (visible, receipt, attempt) = seekTarget(app, element: region, target: button, name: name),
-              let clippedViewport = recoveryViewport(app, receipt: receipt) else { return false }
+              let clippedViewport = recoveryViewport(app, receipt: receipt), pendingActionCase == nil else { return false }
         screenshot(app, name: name + "-visible")
         attach(["schema": "p1-layout-action-v1", "case": name, "label": label,
                 "scrollAttempts": attempt, "button": observe(button),
                 "visibleIntersection": rect(visible), "region": observe(region),
                 "layoutMetrics": receipt, "clippingViewport": rect(clippedViewport),
+                "priorCallbackCounter": callbackOrdinal, "expectedCallbackCounter": callbackOrdinal + 1,
                 "driver": "ordinary-XCTest-visible-coordinate-tap", "admissionEligible": false], name: name + "-input")
+        pendingActionCase = name; pendingActionMetrics = receipt
         let box = button.frame
         button.coordinate(withNormalizedOffset: CGVector(
             dx: (visible.midX - box.minX) / box.width,
@@ -525,17 +534,65 @@ final class P1RecoveryLayoutUITests: XCTestCase {
         return returned
     }
 
-    @MainActor private func proveCallback(_ app: XCUIApplication, expected: String, name: String) -> Bool {
-        guard openDetails(app) else { return false }
+    @MainActor private func observeCallback(_ app: XCUIApplication, expectedLabel: String,
+                                            name: String, before: [String: Any]) -> ([String: Any], [String: Any], Int)? {
+        // This fixture receipt is passive. Actual buttons still use seekTarget's
+        // visible 44pt slice and ordinary tap. Stop once the exact label exists.
         let value = app.staticTexts["p1-recovery-last-action"]
         let details = app.descendants(matching: .any)["p1-fixture-details-list"]
-        if !value.exists { guard seekTarget(app, element: details, target: value, name: name + "-callback-search") != nil else { return false } }
-        let appeared = value.waitForExistence(timeout: 5)
+        var previousOffset: Double?
+        var stalled = 0
+        for attempt in 0..<12 {
+            guard app.state == .runningForeground, let receipt = metrics(app),
+                  let beforeSequence = before["observationSequence"] as? Int,
+                  let sequence = receipt["observationSequence"] as? Int, sequence > beforeSequence,
+                  let oldWindow = measuredRect(before["windowBounds"]),
+                  let window = measuredRect(receipt["windowBounds"]), sameFrame(oldWindow, window),
+                  let row = measuredScroll(app, element: details, receipt: receipt),
+                  let offset = row["contentOffset"] as? [Double],
+                  let session = before["processSession"] as? String, receipt["processSession"] as? String == session,
+                  let windowID = before["windowObservationID"] as? String, receipt["windowObservationID"] as? String == windowID,
+                  let orientation = before["interfaceOrientation"] as? Int, receipt["interfaceOrientation"] as? Int == orientation,
+                  let tab = before["selectedTab"] as? Int, receipt["selectedTab"] as? Int == tab,
+                  let kind = before["recoveryKind"] as? String, receipt["recoveryKind"] as? String == kind,
+                  let largest = before["largestText"] as? Bool, receipt["largestText"] as? Bool == largest else { break }
+            let count = app.staticTexts.matching(identifier: "p1-recovery-last-action").count
+            let observed = count == 1 ? observe(value) : ["exists": false]
+            attach(["schema": "p1-layout-observer-v1", "case": name + "-observation-\(attempt)",
+                    "search": name, "attempt": attempt, "expectedLabel": expectedLabel,
+                    "queryCount": count, "target": observed, "element": observe(details),
+                    "actionBefore": before, "layoutMetrics": receipt, "scrollPath": row["path"] ?? NSNull(),
+                    "clippingViewport": row["safeClippingViewport"] ?? NSNull(), "offset": offset,
+                    "admissionEligible": false], name: name + "-observation-\(attempt)")
+            guard count <= 1 else { break }
+            if observed["exists"] as? Bool == true {
+                guard observed["identifier"] as? String == "p1-recovery-last-action",
+                      observed["label"] as? String == expectedLabel else { break }
+                return (observed, receipt, attempt)
+            }
+            if let previous = previousOffset, abs(offset[1] - previous) <= 0.5 { stalled += 1 } else { stalled = 0 }
+            if stalled >= 2 { break }
+            previousOffset = offset[1]
+            guard interiorDrag(app, element: details, down: false, target: value,
+                               search: name, attempt: attempt) else { return nil }
+        }
+        retainLayoutFailure(app, reason: "Exact current-action callback receipt not observed")
+        XCTFail("Exact current-action callback receipt not observed")
+        return nil
+    }
+
+    @MainActor private func proveCallback(_ app: XCUIApplication, expected: String, name: String) -> Bool {
+        guard pendingActionCase == name, let before = pendingActionMetrics, openDetails(app),
+              let (observed, receipt, attempt) = observeCallback(app, expectedLabel: expected + ":\(callbackOrdinal + 1)",
+                                                               name: name + "-callback-observer", before: before) else { return false }
         screenshot(app, name: name + "-callback")
         attach(["schema": "p1-layout-callback-v1", "case": name, "expected": expected,
-                "actual": observe(value), "admissionEligible": false], name: name + "-callback-value")
-        XCTAssertTrue(appeared && value.label.hasPrefix(expected + ":"), "Wrong or absent synthetic callback")
-        return appeared && value.label.hasPrefix(expected + ":") && backHome(app)
+                "actual": observed, "actionBefore": before, "layoutMetrics": receipt,
+                "priorCallbackCounter": callbackOrdinal, "expectedCallbackCounter": callbackOrdinal + 1,
+                "observerSearch": name + "-callback-observer", "observerAttempts": attempt,
+                "admissionEligible": false], name: name + "-callback-value")
+        callbackOrdinal += 1; pendingActionCase = nil; pendingActionMetrics = nil
+        return backHome(app)
     }
 
     @MainActor private func action(_ app: XCUIApplication, label: String, confirm: String? = nil,

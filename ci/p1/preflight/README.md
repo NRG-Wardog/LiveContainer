@@ -1,13 +1,44 @@
-# P1 short capability harness
+# P1 phone recovery capability successor
 
-This checkpoint restores only the two short phone/tablet capability jobs after
+This successor runs only the phone landscape-target recovery capability. It
+retains the exact 21-case native reader regression, extracted fixture build,
+strict raw recovery verifier, process cleanup and bounded original-byte packaging.
+It does not run screenshot calibration, tablet UI, the full matrix, or an actual
+application-host build. The CLI and sealed input scope reject tablet routing.
+
+The result schema is `p1-phone-recovery-collection-v1` and its scope is
+`phone-recovery-capability-only`. `capabilities_passed` describes only this one
+selected recovery capability. Explicit calibration/tablet-executed and feedback/
+input-proof flags remain false; every admission flag remains false. Cleanup or
+source-verification failure still clears the collection/capability result.
+
+Prior evidence remains immutable in [run 39118482058](https://github.com/NRG-Wardog/LiveContainer/actions/runs/39118482058)
+on commit `3c4c92b87e29132056e94f3f3f9b838c92ab627f`: native reader 21/21
+passed in both jobs; tablet nested-tab and no-banner rotation methods passed.
+Phone Resume became fully visible and its ordinary tap fired the synthetic
+callback, but subsequent fixture-receipt observation exhausted the 180-second
+method limit. Both calibration capabilities failed fixed limits. Phone video
+phase widths were 173.094/167.837/191.614 ms; tablet app pre-clock width was
+57.606 ms. Tablet post-2 marker 1554 had no matching video frame, so it has no
+valid nine-marker video mapping. Those prior findings are context only and
+cannot contribute a fresh pass to this successor.
+
+All source/dependency pins, the 180-second method allowance, bootstatus 120-second
+limit, 17/20/35-minute collection/outer/job budgets and cleanup criteria stay
+unchanged. Calibration code and its strict 20/120 ms gates remain preserved but
+are not invoked. A later mapping strategy needs separate review and genuine
+capability evidence before feedback timing can be admitted.
+
+## Preserved two-device calibration design (not executed here)
+
+The preceding checkpoint restored the two short phone/tablet capability jobs after
 the isolated cleanup regressions passed. It does not run the full matrix or
 rebuild the actual application host. The extracted synthetic fixture is built
 for these capability checks.
 
 ## Capability design
 
-The capability lane runs **independent phone and tablet jobs**, each building the
+The preserved calibration design used **independent phone and tablet jobs**, each building the
 exact-source extracted fixture and then collecting one screenshot-calibration
 case plus narrowly scoped recovery capabilities. It does not run the full
 feedback interaction or recovery matrix and cannot grant P1 admission. The
@@ -122,8 +153,8 @@ Artifact 12129362082 has ZIP SHA256
 `ca8a9debd0211f1b1e6826addc20fc45777da11c3af606500358322122109296`.
 That run exercised synthetic child processes and mocked simulator-state receipts
 only. It did not establish actual simulator shutdown, UI, or calibration success.
-This successor restores the prior two-device workflow from immutable e72fd12d
-with a new seal while retaining the proven cleanup implementation unchanged.
+The earlier successor restored the two-device workflow from immutable e72fd12d
+with a new seal. This phone-only successor retains that proven cleanup implementation.
 
 OwnedProcess holds the actual start_new_session=True Popen child and serializes
 all waits, polls and signals with a per-child lock. It reaps exited direct children

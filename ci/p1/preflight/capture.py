@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Short isolated screenshot calibration and recovery capability collection."""
+"""Phone-only recovery capability collection; prior calibration remains blocked."""
 from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -39,7 +39,7 @@ def validate(host,inputs,approved):
     require(re.fullmatch('[0-9a-f]{64}',approved or '') and sha(inputs)==approved,'unreviewed inputs')
     data=parse(inputs)
     require(set(data)=={'schema','scope','livecontainer','builder','source_sha256','adapter_files'},'unexpected input fields')
-    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope']=='calibration-and-recovery-capabilities-only-no-admission','wrong capability scope')
+    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope']=='phone-recovery-capability-only-no-admission','wrong capability scope')
     require(data['livecontainer']==SOURCE and data['builder']==BUILDER and data['source_sha256']==SOURCE_SHA,'wrong source pin')
     require(set(data['adapter_files'])==ADAPTERS,'wrong adapter inventory')
     for path,digest in data['adapter_files'].items():require(sha(ordinary(host,path))==digest,'adapter drift: '+path)
@@ -59,7 +59,7 @@ def prepare(source,builder,build,output):
     for name in ['p0_signin_app.swift','p0_signin_ui_tests.swift']:shutil.copy2(target/name,output/'sources'/name)
     shutil.copy2(project/'Info.plist',output/'project/Info.plist')
     identity=parse(output/'source-identity.json');identity['generated_sources_sha256']={p.name:sha(p) for p in sorted(target.iterdir()) if p.is_file()}
-    identity['scope']='short calibration and recovery capabilities only';identity['full_matrix_complete']=False
+    identity['scope']='phone recovery capability only; calibration and tablet not executed';identity['full_matrix_complete']=False
     write(output/'source-identity.json',identity)
     return project,renderer
 
@@ -346,9 +346,14 @@ def finalize(output,result,command,scope,device,booted_here):
 
 
 def execute(host,work,output,inputs,approved,kind):
-    require(kind in ['phone','tablet'] and not work.exists() and not output.exists(),'fresh paths and exact device class required');work.mkdir(parents=True);output.mkdir(parents=True)
-    result={'schema':'p1-short-capability-collection-v1','scope':'calibration-and-recovery-capabilities-only','admission_eligible':False,'production_ready':False,'full_native_lane_executed':False,'full_matrix_complete':False,
+    require(kind=='phone' and not work.exists() and not output.exists(),'fresh paths and phone-only device class required');work.mkdir(parents=True);output.mkdir(parents=True)
+    result={'schema':'p1-phone-recovery-collection-v1','scope':'phone-recovery-capability-only','admission_eligible':False,'production_ready':False,'full_native_lane_executed':False,'full_matrix_complete':False,
         'source':SOURCE,'source_sha256':SOURCE_SHA,'approved_inputs_sha256':approved,'device_class':kind,'collection_complete':False,'capabilities_passed':False,'errors':[],
+        'calibration_executed':False,'tablet_executed':False,'feedback_lifetime_established':False,'input_overlap_established':False,
+        'prior_context':{'run_url':'https://github.com/NRG-Wardog/LiveContainer/actions/runs/39118482058',
+            'commit':'3c4c92b87e29132056e94f3f3f9b838c92ab627f','used_for_current_pass':False,
+            'calibration':'failed fixed uncertainty limits on both devices; not rerun here',
+            'tablet_recovery':'two bounded methods passed in that prior run only; not rerun here'},
         'github':{k:os.environ.get(k) for k in ['GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_REPOSITORY']}}
     command=None;scope=None;booted_here=False;device=None
     try:
@@ -373,19 +378,18 @@ def execute(host,work,output,inputs,approved,kind):
         command('xcrun','simctl','bootstatus',device,'-b',timeout=120)
         for identifier in [APP_ID,RUNNER_ID]:command('xcrun','simctl','uninstall',device,identifier,allow_failure=True,timeout=15)
         command('xcrun','simctl','install',device,apps[0],timeout=30)
-        result['calibration']=run_calibration(command,candidate,device,session,output/'calibration',renderer.valid_png)
         result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png)
         write(output/'source-after.json',{'LiveContainer':base.checkout_proof(live,SOURCE,command),'builder':base.checkout_proof(builder,BUILDER,command)})
         require(parse(output/'source-before.json')==parse(output/'source-after.json') and sha(live/base.SHELL)==SOURCE_SHA,'source drift')
-        result['collection_complete']=result['calibration']['collection_complete'] and result['recovery']['collection_complete']
-        result['capabilities_passed']=result['collection_complete'] and result['calibration']['calibration_feasible']
+        result['collection_complete']=result['recovery']['collection_complete']
+        result['capabilities_passed']=result['collection_complete']
     except Exception as error:result['errors'].append(str(error));process_scope.emit_diagnostic('collector-failure',error=process_scope.error_info(error))
     finally:finalize(output,result,command,scope,device,booted_here)
     return result['capabilities_passed']
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--host-root',type=Path,required=True);p.add_argument('--inputs',type=Path,required=True);p.add_argument('--approved-inputs-sha256',required=True)
-    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone','tablet']);p.add_argument('--execute',action='store_true');a=p.parse_args()
+    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone']);p.add_argument('--execute',action='store_true');a=p.parse_args()
     validate(a.host_root,a.inputs,a.approved_inputs_sha256)
     if a.execute:
         require(a.work is not None and a.evidence is not None and a.device_class is not None,'execution paths/class required')

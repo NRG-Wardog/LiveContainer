@@ -78,6 +78,26 @@ class LayoutObserverSource(unittest.TestCase):
             self.assertIn(text,UI)
     def test_swift_fraction_literals_have_leading_zero(self):
         self.assertNotRegex(FIXTURE+UI,r'(?<![A-Za-z0-9_])\.\d+')
+    def test_passive_observer_is_separate_from_actionable_target_search(self):
+        observer=UI.split('private func observeCallback(',1)[1].split('private func proveCallback(',1)[0]
+        self.assertNotIn('seekTarget(',observer)
+        self.assertNotIn('.isHittable',observer)
+        self.assertNotIn('min(44',observer)
+        for text in ['for attempt in 0..<12','if stalled >= 2 { break }','count <= 1',
+                     'observed["label"] as? String == expectedLabel','"p1-recovery-last-action"',
+                     'interiorDrag(app, element: details, down: false','sequence > beforeSequence']:
+            self.assertIn(text,observer)
+        self.assertIn('callbackOrdinal = 0; pendingActionCase = nil; pendingActionMetrics = nil',UI)
+        self.assertIn('pendingActionCase == name',UI)
+        self.assertIn('"priorCallbackCounter": callbackOrdinal, "expectedCallbackCounter": callbackOrdinal + 1',UI)
+    def test_tab_snapshot_validates_the_retained_live_record_without_requery(self):
+        chunk=UI.split('let observed = observe(element)',1)[1].split('let queryCount =',1)[0]
+        for key,typ in [('exists','Bool'),('hittable','Bool'),('identifier','String'),('label','String'),('selected','Bool'),('elementType','UInt')]:
+            self.assertIn('observed["'+key+'"] as? '+typ,chunk)
+        self.assertIn('measuredRect(observed["frame"])',chunk)
+        self.assertIn('sameFrame($0, candidate.snapshot.frame)',chunk)
+        for property in ['exists','isHittable','frame','identifier','label','isSelected','elementType']:
+            self.assertNotIn('element.'+property,chunk)
 
 
 class TargetDragSearchRegression(unittest.TestCase):

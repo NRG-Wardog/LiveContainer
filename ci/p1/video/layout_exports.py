@@ -328,8 +328,10 @@ def _verify(root,summary,tests,device,parse,ordinary,valid_png,capability):
         measured=clipping_viewport(row.get('layoutMetrics'),frame(row.get('layoutMetrics',{}).get('windowBounds')),region)
         require(near(measured,frame(row.get('clippingViewport'))) and inside(visible,measured),'input outside measured clipping viewport')
         require(row['button'].get('hittable') is True and inside(visible,region) and inside(visible,button) and visible[2]>=min(44,button[2]) and visible[3]>=min(44,button[3]),'control clipped/unreachable')
+        action_row=row
         actual_method,row=records.get(('p1-layout-callback-v1',name),(None,{}));actual=row.get('actual',{})
         require(actual_method==method and row.get('expected')==callback and actual.get('exists') is True and re.fullmatch(re.escape(callback)+r':[1-9][0-9]*',actual.get('label','')),'missing synthetic callback proof')
+        validate_callback(row,action_row,callback,records,method)
     selections=[('capability-tabs-apps',1),('capability-tabs-home',0)] if capability=='tablet' else [] if capability else [('transition-apps-tab',1),('transition-home-tab',0)]
     for name,selected in selections:
         method,row=records.get(('p1-layout-tab-selection-v1',name),(None,{}))
@@ -354,6 +356,10 @@ def _verify(root,summary,tests,device,parse,ordinary,valid_png,capability):
     for (schema,name),(method,row) in records.items():
         require(schema not in ['p1-layout-failure-v1','p1-layout-target-failure-v1'],'retained layout failure in successful collection')
         if schema=='p1-layout-target-v1':validate_target(row)
+        if schema=='p1-layout-observer-v1':
+            expected_observers={n+'-callback-observer':m for n,(m,_) in actions.items()}
+            require(expected_observers.get(row.get('search'))==method,'unbound/wrong-method passive observation')
+            validate_observer(row)
         if schema=='p1-layout-fixture-input-v1':
             validate_fixture_input(row);expected_screens[name]=method
     if capability:
@@ -369,20 +375,65 @@ def _verify(root,summary,tests,device,parse,ordinary,valid_png,capability):
         bound=records.get(('p1-layout-observation-v1',name),(None,{}))[1].get('layoutMetrics')
         if bound is None and name.endswith('-visible'):
             bound=records.get(('p1-layout-action-v1',name[:-8]),(None,{}))[1].get('layoutMetrics')
+        if bound is None and name.endswith('-callback'):
+            bound=records.get(('p1-layout-callback-v1',name[:-9]),(None,{}))[1].get('layoutMetrics')
         if bound is not None:same_context(bound,receipt['metrics'])
     return {'collection_complete':True,'scope':'recovery-capability-only' if capability else 'recovery-full-diagnostic',
         'full_matrix_complete':capability is None,'test_count':count,'method_ids':sorted(identifiers),'geometry_count':len(geometries),
         'action_count':len(actions),'required_screenshots':found,'admissionEligible':False,'full_application':False}
 
 
-def validate_target(row):
+def validate_target(row,suffix='target'):
     metrics=row.get('layoutMetrics',{});viewport=frame(metrics.get('windowBounds'));metric_basis(metrics,viewport)
     element=row.get('element',{});clip,scroll=scroll_record(metrics,element,element.get('identifier')=='v3.recovery.region')
     require(near(clip,frame(row.get('clippingViewport'))) and row.get('scrollPath')==scroll['path'] and row.get('offset')==scroll['contentOffset'],'target clipping/offset receipt differs')
     require(isinstance(row.get('search'),str) and bool(row['search']) and type(row.get('attempt')) is int and 0<=row['attempt']<12,'invalid bounded target attempt')
-    require(row.get('case')==row['search']+'-target-'+str(row['attempt']),'target attempt identity differs')
+    require(row.get('case')==row['search']+'-'+suffix+'-'+str(row['attempt']),'target attempt identity differs')
     target=row.get('target');require(isinstance(target,dict) and type(target.get('exists')) is bool,'missing target observation')
     if target['exists']:frame(target.get('frame'))
+
+
+def validate_observer(row):
+    validate_target(row,'observation')
+    require(row.get('element',{}).get('identifier')=='p1-fixture-details-list','wrong passive observer scroll')
+    before=row.get('actionBefore',{});metric_basis(before,frame(before.get('windowBounds')))
+    same_context(before,row['layoutMetrics'])
+    count=row.get('queryCount');target=row['target']
+    require(type(count) is int and count in [0,1] and target['exists'] is (count==1),'ambiguous passive receipt')
+    require(isinstance(row.get('expectedLabel'),str) and bool(row['expectedLabel']),'missing passive expected label')
+    if target['exists']:
+        require(target.get('identifier')=='p1-recovery-last-action' and target.get('label')==row['expectedLabel'],'wrong/stale passive receipt label')
+
+
+def validate_callback(row,action,expected,records,method):
+    prior=action.get('priorCallbackCounter');counter=action.get('expectedCallbackCounter')
+    require(type(prior) is int and prior>=0 and type(counter) is int and counter==prior+1,'invalid current-action counter')
+    require(row.get('priorCallbackCounter')==prior and row.get('expectedCallbackCounter')==counter,'callback counter differs from input')
+    label=expected+':'+str(counter)
+    require(row['actual'].get('label')==label and row['actual'].get('identifier')=='p1-recovery-last-action','wrong current-action receipt')
+    before=action['layoutMetrics'];after=row.get('layoutMetrics',{})
+    require(row.get('actionBefore')==before,'callback not bound to actual input')
+    metric_basis(after,frame(after.get('windowBounds')));same_context(before,after)
+    search=row.get('observerSearch');attempt=row.get('observerAttempts')
+    require(search==row['case']+'-callback-observer' and type(attempt) is int and 0<=attempt<12,'invalid passive observer bound')
+    observations=[(m,r) for (schema,_),(m,r) in records.items() if schema=='p1-layout-observer-v1' and r.get('search')==search]
+    observations.sort(key=lambda item:item[1].get('attempt',-1))
+    require([r['attempt'] for _,r in observations]==list(range(attempt+1)),'missing/duplicate passive observation')
+    for index,(m,observation) in enumerate(observations):
+        require(m==method and observation.get('actionBefore')==before and observation.get('expectedLabel')==label,'passive observation input binding differs')
+        validate_observer(observation)
+        require(observation['target']['exists'] is (index==attempt),'passive search continued after exact receipt')
+        if index==attempt:
+            require(observation['target']==row['actual'] and observation['layoutMetrics']==after,'callback differs from final passive observation')
+        else:
+            pairs=[(n,d) for (s,n),(dm,d) in records.items() if s=='p1-layout-drag-v1' and d.get('search')==search and d.get('attempt')==index and dm==method]
+            require(len(pairs)==1,'missing/duplicate passive scroll input')
+            name,drag=pairs[0];after_method,settled=records.get(('p1-layout-drag-after-v1',name),(None,{}))
+            require(after_method==method and drag.get('target')==observation['target'],'passive scroll target differs')
+            same_context(observation['layoutMetrics'],drag['metrics'])
+            same_context(settled['metrics'],observations[index+1][1]['layoutMetrics'])
+            require(near(settled['offsetAfter'],observations[index+1][1]['offset']),'unobserved passive scroll offset')
+    require(not any(d.get('search')==search and (type(d.get('attempt')) is not int or d['attempt']>=attempt) for (s,_),(_,d) in records.items() if s=='p1-layout-drag-v1'),'extra passive observer scroll')
 
 
 def validate_fixture_input(row):
@@ -425,6 +476,8 @@ def validate_capability_records(records,device_class):
         action=record('p1-layout-action-v1','capability-targets-resume')
         contextual(action['layoutMetrics'],'operation',True,True)
         require(action.get('label')=='Resume Status Check','wrong overshoot target')
+        require(type(action.get('priorCallbackCounter')) is int and action['priorCallbackCounter']==0
+                and type(action.get('expectedCallbackCounter')) is int and action['expectedCallbackCounter']==1,'unexpected fresh-launch callback counters')
         same_context(initial,action['layoutMetrics']);same_context(action['layoutMetrics'],after)
         inputs=[r for (schema,_),(method,r) in records.items() if schema=='p1-layout-fixture-input-v1']
         require(len(inputs)==1 and inputs[0].get('identifier')=='p1-fixture-next-recovery','missing/duplicate next-kind input')

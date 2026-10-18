@@ -93,10 +93,17 @@ class CapabilityFixture:
         m=self.metrics('operation',True,True,offset=70)
         self.target(name,1,target,m,element,clip,[0,70],'window/0')
         self.add(name+'-input',dict(schema='p1-layout-action-v1',case=name,label='Resume Status Check',scrollAttempts=1,button=copy.deepcopy(target),visibleIntersection=[10,70,300,50],region=element,
-                                  layoutMetrics=m,clippingViewport=clip,driver='ordinary-XCTest-visible-coordinate-tap',admissionEligible=False))
+                                  layoutMetrics=m,clippingViewport=clip,priorCallbackCounter=0,expectedCallbackCounter=1,driver='ordinary-XCTest-visible-coordinate-tap',admissionEligible=False))
         self.screen(name+'-visible',m)
-        self.add(name+'-callback',dict(schema='p1-layout-callback-v1',case=name,expected='resume-operation',actual=observed([0,230,300,50],'resume-operation:1'),admissionEligible=False))
-        self.screen(name+'-callback',m)
+        before=m;after=self.metrics('operation',True,True,offset=70,details=True)
+        actual=observed([10,370,300,50],'resume-operation:1','p1-recovery-last-action');actual['hittable']=False
+        search=name+'-callback-observer'
+        self.add(name+'-observer',dict(schema='p1-layout-observer-v1',case=search+'-observation-0',search=search,attempt=0,
+            expectedLabel='resume-operation:1',queryCount=1,target=actual,actionBefore=before,layoutMetrics=after,
+            element=observed([0,180,800,160],identifier='p1-fixture-details-list'),scrollPath='window/1',clippingViewport=[0,200,800,140],offset=[0,0],admissionEligible=False))
+        self.add(name+'-callback',dict(schema='p1-layout-callback-v1',case=name,expected='resume-operation',actual=actual,
+            actionBefore=before,layoutMetrics=after,priorCallbackCounter=0,expectedCallbackCounter=1,observerSearch=search,observerAttempts=0,admissionEligible=False))
+        self.screen(name+'-callback',after)
         self.geometry(name+'-after','operation',True,True)
         m=self.metrics('operation',True,True,details=True)
         element=observed([0,180,800,160],identifier='p1-fixture-details-list');target=observed([10,230,300,50],'Fixture Next Recovery','p1-fixture-next-recovery')
@@ -107,6 +114,32 @@ class CapabilityFixture:
                                      driver='ordinary-XCTest-visible-coordinate-tap',admissionEligible=False))
         self.screen('fixture-input-1',m)
         self.geometry('capability-targets-next','direct',True,True,'Details')
+
+    def passive_scroll(self):
+        """Insert one real-input-shaped scroll before the passive receipt appears."""
+        name='capability-targets-resume';search=name+'-callback-observer'
+        final=self.rows[name+'-observer'];callback=self.rows[name+'-callback']
+        tick=final['layoutMetrics']['observationSequence']
+        def at(sequence,offset):
+            m=copy.deepcopy(final['layoutMetrics']);m['observationSequence']=sequence
+            m['runnerRequestBracket']=[sequence,sequence+.1]
+            m['causalPrevious']['observationSequence']=sequence-1
+            for receipt in [m,m['causalPrevious']]:receipt['scrollViews'][1]['contentOffset']=[0,offset]
+            return m
+        initial=copy.deepcopy(final)
+        initial.update(target={'exists':False},queryCount=0,layoutMetrics=at(tick-6,-30),offset=[0,-30])
+        final.update(attempt=1,case=search+'-observation-1')
+        self.add(name+'-observer-initial',initial);callback['observerAttempts']=1
+        drag=dict(schema='p1-layout-drag-v1',case='observer-drag-1',metrics=at(tick-4,-30),viewport=[0,0,800,400],
+            element=final['element'],visibleBounds=final['clippingViewport'],interiorBounds=[12,212,776,116],
+            start=[400,287],end=[400,253],direction='up',driver='ordinary-XCTest-controlled-coordinate-drag',
+            velocity=80,pressDuration=.05,holdDuration=.2,navigationBars=[observed([0,130,800,50])],tabs=self.tabs(True),
+            scrollPath='window/1',offsetBefore=[0,-30],target={'exists':False},search=search,attempt=0,admissionEligible=False)
+        self.add('observer-drag',drag)
+        self.add('observer-drag-after',dict(schema='p1-layout-drag-after-v1',case='observer-drag-1',metrics=at(tick-2,0),
+            viewport=observed([0,0,800,400]),foreground=True,scrollPath='window/1',offsetAfter=[0,0],offsetDelta=30,
+            progress=True,target=copy.deepcopy(final['target']),admissionEligible=False))
+        return self
 
     def verify(self):
         for name,row in self.rows.items():
@@ -215,7 +248,72 @@ class RecoveryCapabilities(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'duplicate target'):f.verify()
     def test_wrong_callback_counter_rejected(self):
         f=self.fixture();f.rows['capability-targets-resume-callback']['actual']['label']='resume-operation:2'
-        with self.assertRaisesRegex(ValueError,'action sequence'):f.verify()
+        with self.assertRaisesRegex(ValueError,'current-action|action sequence'):f.verify()
+    def test_passive_callback_does_not_require_actionable_visibility(self):
+        f=self.fixture();receipt=f.rows['capability-targets-resume-callback']
+        self.assertFalse(receipt['actual']['hittable'])
+        self.assertGreater(receipt['actual']['frame'][1],340)
+        self.assertTrue(f.verify()['collection_complete'])
+    def test_passive_callback_requires_unique_exact_id(self):
+        f=self.fixture();f.rows['capability-targets-resume-observer']['queryCount']=2
+        with self.assertRaisesRegex(ValueError,'ambiguous passive'):f.verify()
+    def test_passive_callback_wrong_identity_rejected(self):
+        f=self.fixture();f.rows['capability-targets-resume-callback']['actual']['identifier']='other'
+        with self.assertRaisesRegex(ValueError,'current-action'):f.verify()
+    def test_passive_callback_stale_counter_rejected(self):
+        f=self.fixture();f.rows['capability-targets-resume-input']['expectedCallbackCounter']=0
+        with self.assertRaisesRegex(ValueError,'current-action counter'):f.verify()
+    def test_passive_callback_boolean_counter_rejected(self):
+        f=self.fixture();f.rows['capability-targets-resume-input']['priorCallbackCounter']=False
+        with self.assertRaisesRegex(ValueError,'current-action counter'):f.verify()
+    def test_passive_callback_input_counter_binding_rejected(self):
+        f=self.fixture();f.rows['capability-targets-resume-callback']['expectedCallbackCounter']=2
+        with self.assertRaisesRegex(ValueError,'counter differs'):f.verify()
+    def test_passive_callback_input_receipt_binding_rejected(self):
+        f=self.fixture();r=f.rows['capability-targets-resume-callback'];r['actionBefore']=copy.deepcopy(r['actionBefore']);r['actionBefore']['viewCount']+=1
+        with self.assertRaisesRegex(ValueError,'actual input'):f.verify()
+    def test_passive_callback_wrong_session_rejected(self):
+        f=self.fixture();m=f.rows['capability-targets-resume-callback']['layoutMetrics'];m['processSession']=m['causalPrevious']['processSession']='other'
+        with self.assertRaisesRegex(ValueError,'process or window'):f.verify()
+    def test_passive_callback_stale_observation_rejected(self):
+        f=self.fixture();r=f.rows['capability-targets-resume-callback'];r['layoutMetrics']=r['actionBefore']
+        with self.assertRaisesRegex(ValueError,'stale/reused'):f.verify()
+    def test_passive_callback_missing_observation_rejected(self):
+        f=self.fixture();f.rows['capability-targets-resume-observer']['search']='other'
+        with self.assertRaisesRegex(ValueError,'passive observation'):f.verify()
+    def test_passive_callback_incomplete_observer_sequence_rejected(self):
+        f=self.fixture();f.rows['capability-targets-resume-callback']['observerAttempts']=1
+        with self.assertRaisesRegex(ValueError,'passive observation'):f.verify()
+    def test_passive_callback_final_observation_must_match(self):
+        f=self.fixture();r=f.rows['capability-targets-resume-callback'];r['actual']=dict(r['actual'],frame=[10,371,300,50])
+        with self.assertRaisesRegex(ValueError,'final passive observation'):f.verify()
+    def test_passive_callback_extra_scroll_rejected(self):
+        f=self.fixture();r=copy.deepcopy(f.rows['drag']);r.update(search='capability-targets-resume-callback-observer',attempt=0,case='extra-observer-scroll');f.add('extra-observer-scroll',r)
+        with self.assertRaisesRegex(ValueError,'extra passive observer'):f.verify()
+    def test_passive_callback_scroll_sequence_replayed(self):
+        self.assertTrue(self.fixture().passive_scroll().verify()['collection_complete'])
+    def test_passive_callback_missing_scroll_rejected(self):
+        f=self.fixture().passive_scroll();f.rows['observer-drag']['search']='other'
+        with self.assertRaisesRegex(ValueError,'passive scroll input'):f.verify()
+    def test_passive_callback_unobserved_offset_rejected(self):
+        f=self.fixture().passive_scroll();f.rows['observer-drag-after']['offsetAfter']=[0,2]
+        with self.assertRaisesRegex(ValueError,'unobserved passive scroll'):f.verify()
+    def test_passive_callback_wrong_scroll_target_rejected(self):
+        f=self.fixture().passive_scroll();f.rows['observer-drag']['target']={'exists':True}
+        with self.assertRaisesRegex(ValueError,'passive scroll target'):f.verify()
+    def test_passive_callback_scroll_context_rejected(self):
+        f=self.fixture().passive_scroll();m=f.rows['observer-drag']['metrics'];m['processSession']=m['causalPrevious']['processSession']='other'
+        with self.assertRaisesRegex(ValueError,'process or window'):f.verify()
+    def test_passive_callback_extra_unbound_observer_rejected(self):
+        f=self.fixture();r=copy.deepcopy(f.rows['capability-targets-resume-observer']);r.update(search='other',case='other-observation-0');f.add('unbound-observer',r)
+        with self.assertRaisesRegex(ValueError,'unbound/wrong-method passive'):f.verify()
+    def test_passive_callback_self_consistent_high_counter_rejected(self):
+        f=self.fixture();name='capability-targets-resume'
+        for key in [name+'-input',name+'-callback']:
+            f.rows[key].update(priorCallbackCounter=9,expectedCallbackCounter=10)
+        f.rows[name+'-callback']['actual']['label']='resume-operation:10'
+        f.rows[name+'-observer']['expectedLabel']='resume-operation:10'
+        with self.assertRaisesRegex(ValueError,'fresh-launch callback counters'):f.verify()
     def test_missing_failure_receipt_cannot_be_success(self):
         f=self.fixture();f.add('failure',dict(schema='p1-layout-target-failure-v1',case='failed',admissionEligible=False))
         with self.assertRaisesRegex(ValueError,'retained layout failure'):f.verify()

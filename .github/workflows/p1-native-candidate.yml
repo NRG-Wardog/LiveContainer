@@ -1,6 +1,6 @@
-name: P1 short screenshot and recovery capabilities
+name: P1 phone recovery capability
 
-# Independent phone/tablet capabilities only. No full matrix, host build or admission.
+# Phone recovery only. Calibration and tablet are not rerun; no full matrix or host build.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '83b69b990f481cd1a0348c1f37614a2d212f543009c030548dff6c3388a66bc8'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '5ea1a9120fd1c7a1dde73c4283e946614ee195029675391fc27667b33ffa310d'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [phone, tablet]
+        device: [phone]
     runs-on: macos-26
     timeout-minutes: 35
     defaults:
@@ -43,7 +43,7 @@ jobs:
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation"
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_runner_source.py -v
-      - name: Collect short independent device capabilities
+      - name: Collect short phone recovery capability
         id: collect
         timeout-minutes: 22
         run: |

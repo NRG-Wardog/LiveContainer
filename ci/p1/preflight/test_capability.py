@@ -202,7 +202,7 @@ class SealsAndExports(unittest.TestCase):
         host=self.root/'host';host.mkdir();original=HERE.parents[2]
         for relative in capture.ADAPTERS:
             target=host/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(original/relative,target)
-        data=dict(schema='p1-short-capability-inputs-v1',scope='calibration-and-recovery-capabilities-only-no-admission',livecontainer=capture.SOURCE,builder=capture.BUILDER,source_sha256=capture.SOURCE_SHA,adapter_files={n:capture.sha(host/n) for n in capture.ADAPTERS})
+        data=dict(schema='p1-short-capability-inputs-v1',scope='phone-recovery-capability-only-no-admission',livecontainer=capture.SOURCE,builder=capture.BUILDER,source_sha256=capture.SOURCE_SHA,adapter_files={n:capture.sha(host/n) for n in capture.ADAPTERS})
         path=host/'inputs.json';put(path,data);return host,path,data
     def test_real_seal(self):
         host,path,data=self.sealed();self.assertEqual(capture.validate(host,path,capture.sha(path)),data)
@@ -720,5 +720,79 @@ class FailureDiagnosticTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):capture.finalize(self.root,result,command,scope,device,True)
         self.assertFalse(result['collection_complete']);self.assertFalse(result['capabilities_passed']);self.assertIn('simulator cleanup command failure retained',result['errors'])
         self.assertTrue(protocol.parse(self.root/'quiescence.json')['quiescent']);self.assertTrue(protocol.parse(self.root/'process-registry.json')['fixture']['cleanup_command_failed'])
+
+
+class PhoneOnlyRoutingTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
+    def execute_phone(self,recovery_passed=True,cleanup_failure=False,source_drift=False):
+        from types import SimpleNamespace
+        host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text('{}')
+        device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None
+        if cleanup_failure:scope.close.side_effect=ValueError('unsettled fixture writer')
+        def command_result(*args,**kwargs):
+            if args[:3]==('xcrun','simctl','list'):return json.dumps({'devices':{'runtime':[{'udid':device,'state':'Booted'}]}})
+            return 'synthetic command result'
+        command=mock.Mock(side_effect=command_result);command.scope=scope
+        renderer=SimpleNamespace(valid_png=lambda raw:True)
+        def prepare(source,builder,build,out):
+            products=build/'DerivedData/Build/Products';products.mkdir(parents=True)
+            (products/'Fixture.xctestrun').write_bytes(plistlib.dumps({}))
+            app=products/'Debug-iphonesimulator/P0SignIn.app';app.mkdir(parents=True)
+            (app/'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':capture.APP_ID}))
+            project=build/'Fixture.xcodeproj';project.mkdir();return project,renderer
+        actual_sha=capture.sha
+        def sha(path):
+            if str(path).endswith(capture.base.SHELL):return '0'*64 if source_drift else capture.SOURCE_SHA
+            return actual_sha(path)
+        recovery={'scope':'recovery-capability-only','collection_complete':recovery_passed,'errors':[] if recovery_passed else ['test failure'],'full_matrix_complete':False,'admissionEligible':False}
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(capture.process_scope,'Scope',return_value=scope))
+            stack.enter_context(mock.patch.object(capture.process_scope,'Commands',return_value=command))
+            native=stack.enter_context(mock.patch.object(capture.request_reader_gate,'run',return_value={'passed':True,'case_ids':['native-gate']}))
+            acquire=stack.enter_context(mock.patch.object(capture.base,'acquire'))
+            stack.enter_context(mock.patch.object(capture.base,'module',return_value=SimpleNamespace(available_devices=lambda:[('phone',device,'runtime')])))
+            stack.enter_context(mock.patch.object(capture.base,'checkout_proof',return_value={'immutable':'proof'}))
+            stack.enter_context(mock.patch.object(capture,'prepare',side_effect=prepare))
+            stack.enter_context(mock.patch.object(capture,'configure_runner',side_effect=lambda candidate,*args:candidate))
+            stack.enter_context(mock.patch.object(capture,'sha',side_effect=sha))
+            calibration=stack.enter_context(mock.patch.object(capture,'run_calibration',side_effect=AssertionError('calibration must not run')))
+            layout=stack.enter_context(mock.patch.object(capture,'run_layout',return_value=recovery))
+            stop=stack.enter_context(mock.patch.object(capture,'stop_fixture',return_value=True))
+            with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,'phone')
+        native.assert_called_once();acquire.assert_any_call(work/'LiveContainer',capture.SOURCE,command)
+        calibration.assert_not_called();layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png)
+        scope.close.assert_called_once();stop.assert_called_once();self.assertFalse((output/'calibration').exists())
+        return passed,protocol.parse(output/'capability-result.json'),command
+    def test_actual_execute_routes_only_phone_recovery(self):
+        passed,row,command=self.execute_phone();self.assertTrue(passed);self.assertTrue(row['capabilities_passed']);self.assertTrue(row['collection_complete'])
+        self.assertEqual(row['schema'],'p1-phone-recovery-collection-v1');self.assertEqual(row['scope'],'phone-recovery-capability-only')
+        self.assertEqual(row['device_class'],'phone');self.assertNotIn('calibration',row)
+        for key in ['calibration_executed','tablet_executed','feedback_lifetime_established','input_overlap_established','admission_eligible','production_ready','full_matrix_complete','full_native_lane_executed']:self.assertIs(row[key],False)
+        self.assertIs(row['prior_context']['used_for_current_pass'],False)
+        boot=[c for c in command.call_args_list if c.args[:3]==('xcrun','simctl','bootstatus')];self.assertEqual(len(boot),1);self.assertEqual(boot[0].kwargs['timeout'],120)
+    def test_failed_recovery_stays_failed(self):
+        passed,row,_=self.execute_phone(recovery_passed=False);self.assertFalse(passed);self.assertFalse(row['collection_complete']);self.assertFalse(row['capabilities_passed'])
+    def test_cleanup_failure_cannot_make_phone_pass(self):
+        passed,row,_=self.execute_phone(cleanup_failure=True);self.assertFalse(passed);self.assertFalse(row['collection_complete']);self.assertTrue(row['errors'])
+    def test_source_drift_cannot_make_phone_pass(self):
+        passed,row,_=self.execute_phone(source_drift=True);self.assertFalse(passed);self.assertIn('source drift',row['errors'])
+    def test_tablet_rejected_before_any_work(self):
+        with mock.patch.object(capture.process_scope,'Scope') as scope:
+            with self.assertRaisesRegex(ValueError,'phone-only'):capture.execute(self.root,self.root/'work',self.root/'evidence',self.root/'inputs','a'*64,'tablet')
+            scope.assert_not_called();self.assertFalse((self.root/'work').exists());self.assertFalse((self.root/'evidence').exists())
+    def test_old_combined_input_scope_rejected(self):
+        helper=SealsAndExports();helper.root=self.root;host,path,data=helper.sealed();data['scope']='calibration-and-recovery-capabilities-only-no-admission';put(path,data)
+        with self.assertRaisesRegex(ValueError,'wrong capability scope'):capture.validate(host,path,capture.sha(path))
+    def test_workflow_only_phone_and_preserved_budgets(self):
+        import yaml
+        row=yaml.safe_load((HERE.parents[2]/'.github/workflows/p1-native-candidate.yml').read_text());jobs=row['jobs'];self.assertEqual(len(jobs),1)
+        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],35)
+        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertIn('preflight/budget.py',step['run'])
+        self.assertIn("--device-class '${{ matrix.device }}'",step['run']);self.assertNotIn('native_gate.py',step['run'])
+    def test_cli_rejects_tablet(self):
+        import subprocess
+        reply=subprocess.run([sys.executable,'-B',str(HERE/'capture.py'),'--device-class','tablet'],text=True,capture_output=True,timeout=20)
+        self.assertNotEqual(reply.returncode,0);self.assertIn("invalid choice: 'tablet'",reply.stderr)
 
 if __name__=='__main__':unittest.main()

@@ -84,8 +84,19 @@ class LayoutExports(unittest.TestCase):
             viewport=[0,0,800,400] if landscape else [0,0,400,800]
             if landscape:row['region']['frame']=[0,0,800,120]
             row.update(layoutMetrics=metric(viewport,row['region']['frame'],kind=inferred_context(name)[0],largest=inferred_context(name)[1]),clippingViewport=[0,20,800,100] if landscape else [0,20,400,180])
+            row.update(priorCallbackCounter=0,expectedCallbackCounter=1)
             self.add(method,name+'-input',row);self.rows[name+'-input']=row
-            row=dict(schema='p1-layout-callback-v1',case=name,expected=callback,actual=observed([0,300,300,50],callback+':1'),admissionEligible=False)
+            before=row['layoutMetrics'];details=[0,180,viewport[2],160]
+            after=metric(viewport,details,kind=before['recoveryKind'],largest=before['largestText'])
+            actual=dict(observed([0,370,300,50],callback+':1'),identifier='p1-recovery-last-action',hittable=False)
+            search=name+'-callback-observer'
+            observation=dict(schema='p1-layout-observer-v1',case=search+'-observation-0',search=search,attempt=0,
+                expectedLabel=callback+':1',queryCount=1,target=actual,actionBefore=before,layoutMetrics=after,
+                element=dict(observed(details),identifier='p1-fixture-details-list'),scrollPath='window/0',
+                clippingViewport=[0,200,viewport[2],140],offset=[0,0],admissionEligible=False)
+            self.add(method,search+'-observation-0',observation);self.rows[name+'-observer']=observation
+            row=dict(schema='p1-layout-callback-v1',case=name,expected=callback,actual=actual,actionBefore=before,
+                layoutMetrics=after,priorCallbackCounter=0,expectedCallbackCounter=1,observerSearch=search,observerAttempts=0,admissionEligible=False)
             self.add(method,name+'-callback-value',row);self.rows[name+'-callback']=row
         for name,selected in [('transition-apps-tab',1),('transition-home-tab',0)]:
             row=dict(schema='p1-layout-tab-selection-v1',case=name,expectedTab=selected,driver='ordinary-XCTest-tap',
