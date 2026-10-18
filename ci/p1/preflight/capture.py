@@ -172,6 +172,9 @@ def stopped_response(receipt,identifier):
 
 
 def stop_fixture(command,device,folder):
+    if isinstance(command.scope.fixture,dict) and command.scope.fixture.get('owned_created') is not None:
+        import fresh_device
+        return fresh_device.stop_owned(command,device,folder)
     receipts=[];ok=True
     for identifier in [APP_ID,RUNNER_ID]:
         try:
@@ -427,7 +430,13 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False):
             require(observation['installation_completed'],'install observation failed or ownership/receipt unproved')
             require(observation['original_30_exceeded'] is False,'original 30-second install threshold exceeded or unmeasured')
         else:
-            command('xcrun','simctl','install',device,apps[0],timeout=30)
+            install_receipt=command('xcrun','simctl','install',device,apps[0],timeout=120,receipt=True)
+            timing=install_receipt.get('wait_timing',{});start=timing.get('command_started');end=timing.get('wait_finished')
+            install_elapsed=end-start if isinstance(start,(int,float)) and isinstance(end,(int,float)) and end>=start else None
+            result['installation_infrastructure']={'limit_seconds':120,'historical_limit_seconds':30,
+                'command_through_wait_seconds':install_elapsed,'historical_30_exceeded':install_elapsed>30 if install_elapsed is not None else None,
+                'historical_threshold_is_current_acceptance':False,'admissionEligible':False,'receipt':install_receipt}
+            require(simulator_cleanup.clean_command(install_receipt) and install_receipt.get('writer_settled') is True and install_elapsed is not None,'installation infrastructure command failed or unproved')
             result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png)
         write(output/'source-after.json',{'LiveContainer':base.checkout_proof(live,SOURCE,command),'builder':base.checkout_proof(builder,BUILDER,command)})
         require(parse(output/'source-before.json')==parse(output/'source-after.json') and sha(live/base.SHELL)==SOURCE_SHA,'source drift')

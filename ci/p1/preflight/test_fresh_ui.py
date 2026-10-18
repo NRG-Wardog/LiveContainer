@@ -112,3 +112,44 @@ class FreshUI(unittest.TestCase):
             self.assertIn(token,text)
 
 if __name__=='__main__':unittest.main()
+
+class CreatedShutdownFirst(unittest.TestCase):
+    def setup_scope(self,root):
+        scope=process_scope.Scope(root,phone_ui=True);p=proof();scope.session=SESSION
+        scope.begin_creation({k:v for k,v in p.items() if k not in ('device','create_complete')});scope.fixture_created(p)
+        return scope,p
+    def state(self,p,state='Shutdown'):
+        return {'exit_code':0,'failure_type':None,'primary_error':None,'cleanup_errors':[],
+                'stdout':json.dumps({'devices':{fresh.boot.RUNTIME:[{'udid':DEVICE,'state':state,'isAvailable':True,'deviceTypeIdentifier':p['device_type']}]}})}
+    def test_exact_created_shutdown_first_and_reuse_proven_stop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);scope,p=self.setup_scope(root)
+            command=mock.Mock(side_effect=[{'exit_code':0,'failure_type':None},self.state(p)]);command.scope=scope
+            self.assertTrue(capture.stop_fixture(command,DEVICE,root));self.assertTrue(capture.stop_fixture(command,DEVICE,root))
+            self.assertEqual(len(command.call_args_list),2)
+            self.assertEqual(command.call_args_list[0],mock.call('xcrun','simctl','shutdown',DEVICE,timeout=15,cleanup=True,receipt=True))
+            self.assertEqual(command.call_args_list[1],mock.call('xcrun','simctl','list','devices','--json',timeout=15,cleanup=True,receipt=True))
+            self.assertTrue(scope.fixture['stopped']);self.assertFalse(scope.fixture.get('cleanup_command_failed',False))
+    def test_reject_unowned_wrong_intent_unsettled_deleted(self):
+        for kind in ('device','intent','unsettled','deleted'):
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp);scope,p=self.setup_scope(root);command=mock.Mock();command.scope=scope
+                if kind=='device':scope.fixture['device']=fresh.boot.DEVICE
+                if kind=='intent':scope.creation_intent=None
+                if kind=='unsettled':scope.rows=[{'settled':False}]
+                if kind=='deleted':scope.fixture['deleted']=True
+                with self.assertRaises(ValueError):capture.stop_fixture(command,DEVICE,root)
+                command.assert_not_called()
+    def test_failed_shutdown_retained_after_fresh_shutdown_proof(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);scope,p=self.setup_scope(root)
+            command=mock.Mock(side_effect=[{'exit_code':-15,'failure_type':'TimeoutExpired','primary_error':{'type':'TimeoutExpired'}},self.state(p)]);command.scope=scope
+            self.assertTrue(capture.stop_fixture(command,DEVICE,root));self.assertTrue(scope.fixture['cleanup_command_failed'])
+    def test_state_ambiguity_and_expired_reserve_fail_closed(self):
+        for kind in ('booted','wrong-runtime','timeout'):
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp);scope,p=self.setup_scope(root);state=self.state(p,'Booted' if kind=='booted' else 'Shutdown')
+                if kind=='wrong-runtime':state['stdout']=state['stdout'].replace(fresh.boot.RUNTIME,'wrong-runtime')
+                command=mock.Mock(side_effect=TimeoutError('cleanup reserve exhausted') if kind=='timeout' else [{'exit_code':0,'failure_type':None},state]);command.scope=scope
+                with self.assertRaises((ValueError,TimeoutError)):capture.stop_fixture(command,DEVICE,root)
+                self.assertFalse(scope.fixture['stopped']);self.assertTrue(scope.fixture['cleanup_command_failed'])

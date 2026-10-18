@@ -154,3 +154,36 @@ def begin_install(scope,device):
         # reuse the pristine-device exemption, including after interruption.
         fixture['installation_attempted']=True;scope.persist()
         return {'device':device,'uninstalls_skipped':True,'reason':'exact-owned-created-no-prior-install','admissionEligible':False}
+
+
+def stop_owned(command,device,folder):
+    """Shutdown first only with persisted exclusive created-device ownership."""
+    scope=command.scope;fixture=scope.fixture;proof=fixture.get('owned_created')
+    validate(proof,scope.session,device);validate(scope.creation_intent,scope.session)
+    if fixture.get('device')!=device or fixture.get('owned_boot') is not True or fixture.get('deleted') is not False:raise ValueError('created stop ownership unavailable')
+    if any(proof.get(k)!=v for k,v in scope.creation_intent.items()):raise ValueError('created stop intention mismatch')
+    if not all(row.get('settled') is True for row in scope.rows):raise ValueError('created stop writers unsettled')
+    report={'schema':'p1-created-stop-v1','device':device,'admissionEligible':False,'receipts':[],'stopped':False,'reused_prior_stop':False}
+    try:
+        if fixture.get('stopped') is True:
+            report.update(stopped=True,reused_prior_stop=True)
+            return True
+        row=command('xcrun','simctl','shutdown',device,timeout=15,cleanup=True,receipt=True)
+        report['receipts'].append({'phase':'shutdown','command':row})
+        if not simulator_cleanup.clean_command(row):scope.fixture_cleanup_failure()
+        if not all(r.get('settled') is True for r in scope.rows):raise ValueError('shutdown writer unsettled')
+        state=command('xcrun','simctl','list','devices','--json',timeout=15,cleanup=True,receipt=True)
+        report['receipts'].append({'phase':'after-state','command':state})
+        if not simulator_cleanup.clean_command(state):raise ValueError('created stop state query failed')
+        parsed=state_parser(device,False,proof['device_type'])(state['stdout'].encode())
+        stopped=simulator_cleanup.observed_state({**state,'stdout':json.dumps(parsed)},device)=='Shutdown'
+        if not stopped or not all(r.get('settled') is True for r in scope.rows):raise ValueError('created stop fresh Shutdown unproved')
+        scope.fixture_stopped(True);report['stopped']=True
+        return True
+    except Exception:
+        scope.fixture_cleanup_failure()
+        raise
+    finally:
+        path=folder/'created-fixture-stop.json'
+        previous=json.loads(path.read_text()) if path.exists() else []
+        previous.append(report);path.write_text(json.dumps(previous,indent=2,sort_keys=True)+'\n')

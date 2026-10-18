@@ -44,6 +44,21 @@ class InstallObservation(unittest.TestCase):
                     self.assertFalse(row['capabilities_passed']);self.assertFalse(row['collection_complete']);self.assertFalse(row['ui_executed'])
                     self.assertFalse(any('test-without-building' in c.args for c in command.call_args_list))
                 finally:case.doCleanups()
+    def test_normal_ui_install120_retains_wait_metric_and_failure(self):
+        for failed in (False,True):
+            with self.subTest(failed=failed):
+                case=test_capability.PhoneOnlyRoutingTests();case.setUp()
+                try:
+                    passed,row,command=case.execute_phone(install_failure=failed)
+                    metric=row['installation_infrastructure'];timing=metric['receipt']['wait_timing']
+                    self.assertEqual(metric['command_through_wait_seconds'],timing['wait_finished']-timing['command_started'])
+                    self.assertFalse(metric['historical_threshold_is_current_acceptance'])
+                    install=[c for c in command.call_args_list if c.args[:3]==('xcrun','simctl','install')]
+                    self.assertEqual(len(install),1);self.assertEqual(install[0].kwargs,{'timeout':120,'receipt':True})
+                    self.assertEqual(passed,not failed)
+                    if failed:self.assertFalse(row['capabilities_passed'])
+                finally:case.doCleanups()
+
     def test_wait_timing_records_actual_wait_separate_from_settlement(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);scope=process_scope.Scope(root);logs=root/'commands';logs.mkdir()

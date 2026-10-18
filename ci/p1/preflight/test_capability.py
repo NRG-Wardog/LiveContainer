@@ -731,7 +731,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
     def execute_phone(self,recovery_passed=True,cleanup_failure=False,source_drift=False,
-                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False,install_observation=None):
+                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False,install_observation=None,install_failure=False):
         from types import SimpleNamespace
         host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text('{}')
         device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[];scope.session=SESSION;scope.deadline=time.monotonic()+1020
@@ -747,7 +747,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             number=None
             if argv[:3]==['xcrun','simctl','uninstall']:
                 uninstalls.append(argv);number=len(uninstalls)
-            child=mock.Mock(pid=1000+len(scope.rows),returncode=1 if number is not None and missing_app else 0)
+            child=mock.Mock(pid=1000+len(scope.rows),returncode=1 if (number is not None and missing_app) or (install_failure and argv[:3]==['xcrun','simctl','install']) else 0)
             child.uninstall_number=number
             stdout.write(command_result(*argv).encode())
             child.wait.return_value=child.returncode
@@ -804,7 +804,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,'phone',install_observation is not None)
         native.assert_called_once();acquire.assert_any_call(work/'LiveContainer',capture.SOURCE,command)
         calibration.assert_not_called()
-        if install_observation is not None:
+        if install_observation is not None or install_failure:
             layout.assert_not_called()
         elif uninstall_failure is None:
             layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png)
