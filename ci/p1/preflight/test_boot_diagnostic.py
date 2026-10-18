@@ -365,11 +365,11 @@ class CollectorRoutes(unittest.TestCase):
         self.assertFalse(passed); self.assertIsNone(result['bootstatus'])
         self.assertEqual(result['primary_error']['type'], 'TimeoutExpired')
         self.assertIn('shutdown-state', [c[0] for c in calls])
-    def test_workflow_uses_focused_stall_route_and_existing_outer_backstop(self):
+    def test_workflow_restores_phone_route_and_unchanged_outer_budget(self):
         workflow = (Path(__file__).resolve().parents[3] / '.github/workflows/p1-native-candidate.yml').read_text()
-        block = workflow.split('      - name: Collect bounded same-runtime stall diagnostic', 1)[1].split('      - name: Package', 1)[0]
-        self.assertIn('preflight/stall_diagnostic.py', block); self.assertIn('preflight/budget.py --stall-diagnostic --evidence', block)
-        self.assertNotIn('--execute', block); self.assertIn('timeout-minutes: 12', block)
+        block = workflow.split('      - name: Collect short phone recovery capability', 1)[1].split('      - name: Package', 1)[0]
+        self.assertIn('preflight/capture.py', block); self.assertIn('preflight/budget.py --evidence', block)
+        self.assertIn('--execute', block); self.assertIn('timeout-minutes: 22', block)
         self.assertNotIn('boot_diagnostic.py', block); self.assertNotIn('--boot-diagnostic', workflow)
 
 

@@ -115,3 +115,26 @@ def backstop(evidence,errors,unsettled,wrap_error,proof):
         elif wrapped:errors.append(wrapped[0])
     root=evidence/'bounded-created-backstop';root.mkdir(exist_ok=False)
     return Commands(Scope(),root,proof,sink)
+
+def create_for_ui(scope,root):
+    """Use the reviewed same-image/type/runtime creation route for phone UI."""
+    import os
+    if os.environ.get('ImageVersion')!='20261013.0424.1':raise ValueError('comparison runner image drift')
+    root.mkdir(exist_ok=False);commands=boot.Commands(scope,root)
+    def require(row):
+        if not boot.clean(row):raise ValueError('fresh UI prerequisite failed')
+        return row['data']
+    version=require(commands.run('xcode-version',['xcodebuild','-version'],lambda raw:boot.tool_text(raw,'xcode')))
+    if version['exact_public_tool_output'].strip()!='Xcode 26.4.1\nBuild version 17E202':raise ValueError('comparison Xcode drift')
+    runtime=require(commands.run('runtime',['xcrun','simctl','list','runtimes','--json'],boot.exact_runtime))
+    if runtime['buildversion']!='23C54':raise ValueError('comparison runtime build drift')
+    state=require(commands.run('before-state',['xcrun','simctl','list','devices','--json'],before))
+    verified=require(commands.run('device-type',['xcrun','simctl','list','devicetypes','--json'],available_type(state['device_type'])))
+    proof={'schema':'p1-created-device-v1','session':scope.session,'name':'P1-stall-'+scope.session,**state,**verified}
+    scope.begin_creation(proof)
+    device=require(commands.run('create',['xcrun','simctl','create',proof['name'],proof['device_type'],boot.RUNTIME],created_uuid,timeout=30))
+    proof.update(device=device,create_complete=True);validate(proof,scope.session,device)
+    scope.fixture_created(proof)
+    state=require(commands.run('created-state',['xcrun','simctl','list','devices','--json'],state_parser(device,kind=proof['device_type'])))
+    if state['devices'][boot.RUNTIME][0]['state']!='Shutdown':raise ValueError('fresh initial Shutdown required')
+    return proof

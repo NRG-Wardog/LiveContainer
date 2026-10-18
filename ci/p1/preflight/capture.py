@@ -31,7 +31,7 @@ METHOD='testScreenshotCalibrationCapability'
 CLASS='P1ScreenshotCapabilityUITests'
 RUNNER_ID=analysis.RUNNER_ID
 # Fixed list, independent of the supplied manifest. Updated only by reviewed source.
-ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py']}
+ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py']}
 
 
 def validate(host,inputs,approved):
@@ -39,7 +39,7 @@ def validate(host,inputs,approved):
     require(re.fullmatch('[0-9a-f]{64}',approved or '') and sha(inputs)==approved,'unreviewed inputs')
     data=parse(inputs)
     require(set(data)=={'schema','scope','livecontainer','builder','source_sha256','adapter_files'},'unexpected input fields')
-    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope']=='same-runtime-stall-diagnostic-only-no-admission','wrong capability scope')
+    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope']=='phone-recovery-capability-only-no-admission','wrong capability scope')
     require(data['livecontainer']==SOURCE and data['builder']==BUILDER and data['source_sha256']==SOURCE_SHA,'wrong source pin')
     require(set(data['adapter_files'])==ADAPTERS,'wrong adapter inventory')
     for path,digest in data['adapter_files'].items():require(sha(ordinary(host,path))==digest,'adapter drift: '+path)
@@ -177,7 +177,9 @@ def stop_fixture(command,device,folder):
         try:
             row=command('xcrun','simctl','terminate',device,identifier,timeout=15,cleanup=True,receipt=True)
             row['classified_stopped']=stopped_response(row,identifier);ok=ok and row['classified_stopped'];receipts.append(row)
-        except Exception as error:ok=False;receipts.append({'bundle_id':identifier,'error':str(error),'classified_stopped':False})
+            if not row['classified_stopped']:command.scope.fixture_cleanup_failure()
+        except Exception as error:
+            ok=False;receipts.append({'bundle_id':identifier,'error':str(error),'classified_stopped':False});command.scope.fixture_cleanup_failure()
     if not ok and command.scope.fixture and command.scope.fixture['owned_boot']:
         row=simulator_cleanup.confirm_shutdown(command,device,True)
         receipts.append(row);ok=row['observed_shutdown']
@@ -325,16 +327,26 @@ def run_layout(command,candidate,device,kind,folder,valid_png):
 
 
 def finalize(output,result,command,scope,device,booted_here):
+    created=scope.fixture.get('owned_created') if scope is not None and isinstance(scope.fixture,dict) else None
+    if created is not None:
+        device=scope.fixture['device'];booted_here=True
     if command is not None and device is not None:
         try:
             require(stop_fixture(command,device,output),'final simulator writer quiescence unproved')
         except Exception as error:result['errors'].append('fixture cleanup: '+str(error));result['capabilities_passed']=False;result['collection_complete']=False
         if booted_here:
             try:
-                shutdown=simulator_cleanup.confirm_shutdown(command,device,True);write(output/'owned-simulator-shutdown.json',shutdown)
-                scope.fixture_stopped(shutdown['observed_shutdown'])
+                if created is not None:
+                    import fresh_device
+                    cleanup_root=output/'created-cleanup';cleanup_root.mkdir(exist_ok=False)
+                    cleanup_command=fresh_device.Commands(scope,cleanup_root,created)
+                    shutdown=fresh_device.cleanup(cleanup_command,created,lambda:all(r.get('settled') is True for r in scope.rows))
+                    scope.fixture_deleted(shutdown['deleted'])
+                else:shutdown=simulator_cleanup.confirm_shutdown(command,device,True)
+                write(output/'owned-simulator-shutdown.json',shutdown)
+                scope.fixture_stopped(shutdown['observed_shutdown'] or shutdown.get('deleted') is True)
                 if shutdown['command_failed']:scope.fixture_cleanup_failure()
-                require(shutdown['observed_shutdown'] and not shutdown['command_failed'],'owned simulator shutdown/state command failed')
+                require((shutdown.get('deleted') is True if created is not None else shutdown['observed_shutdown']) and not shutdown['command_failed'],'owned simulator shutdown/state command failed')
             except Exception as error:result['errors'].append('cleanup: '+str(error));result['capabilities_passed']=False;result['collection_complete']=False
         if scope is not None and scope.fixture and scope.fixture.get('cleanup_command_failed'):
             result['errors'].append('simulator cleanup command failure retained');result['capabilities_passed']=False;result['collection_complete']=False
@@ -357,7 +369,7 @@ def execute(host,work,output,inputs,approved,kind):
         'github':{k:os.environ.get(k) for k in ['GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_REPOSITORY']}}
     command=None;scope=None;booted_here=False;device=None
     try:
-        logs=output/'commands';logs.mkdir();scope=process_scope.Scope(output);command=process_scope.Commands(scope,logs)
+        logs=output/'commands';logs.mkdir();scope=process_scope.Scope(output,phone_ui=True);command=process_scope.Commands(scope,logs)
         shutil.copytree(HERE,output/'harness',ignore=shutil.ignore_patterns('__pycache__'));shutil.copy2(inputs,output/'approved-inputs.json')
         result['request_reader_regression']=request_reader_gate.run(command,work/'reader-regression',output/'reader-regression')
         builder,live=work/'builder',work/'LiveContainer';base.acquire(builder,BUILDER,command);base.acquire(live,SOURCE,command)
@@ -371,10 +383,11 @@ def execute(host,work,output,inputs,approved,kind):
         products=work/'build/DerivedData/Build/Products';candidates=list(products.glob('*.xctestrun'));require(len(candidates)==1,'ambiguous test recipe')
         apps=list(products.glob('Debug-iphonesimulator/P0SignIn.app'));require(len(apps)==1,'ambiguous fixture app');shutil.copy2(apps[0]/'Info.plist',output/'app-Info.plist')
         session=uuid.uuid4().hex;candidate=configure_runner(candidates[0],products,session,output)
-        devices=[d for d in runner.available_devices() if d[0]==kind];require(len(devices)==1,'exact selected device class unavailable');_,device,runtime=devices[0];write(output/'selected-device.json',{'device_class':kind,'simulator_udid':device,'runtime':runtime})
-        state=json.loads(command('xcrun','simctl','list','devices','--json'));booted=any(d['udid']==device and d['state']=='Booted' for group in state['devices'].values() for d in group)
-        if not booted:command('xcrun','simctl','boot',device);booted_here=True
-        scope.fixture_identity(device,booted_here)
+        import fresh_device
+        proof=fresh_device.create_for_ui(scope,output/'created-device')
+        device=proof['device'];runtime=proof['runtime'];booted_here=True
+        write(output/'selected-device.json',{'device_class':kind,'simulator_udid':device,'runtime':runtime,'owned_created':proof})
+        command('xcrun','simctl','boot',device,timeout=30)
         command('xcrun','simctl','bootstatus',device,'-b',timeout=120)
         for identifier in [APP_ID,RUNNER_ID]:
             uninstall=command('xcrun','simctl','uninstall',device,identifier,allow_failure=True,timeout=15,receipt=True)

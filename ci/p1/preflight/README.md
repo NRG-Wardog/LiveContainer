@@ -495,3 +495,7 @@ if writer_settled is explicitly true; unknown/malformed-state failures cannot.
 The original timeout and command_failed remain, even after fresh Shutdown proof.
 
 Fresh-device isolation: this diagnostic creates one uniquely named iPhone on the exact original iOS 26.2 runtime after deriving and verifying the original device type from current inventories. The original device is never booted, shut down or deleted. Creation intent and exact new UUID ownership precede boot; deletion and fresh absence are mandatory before evidence transport. Unknown creation outcomes fail closed. Budgets remain observation 360 s, cleanup deadline 480 s and outer wait 600 s; creation consumes the observation budget. This is a single ordered host comparison, not product acceptance or proof of device corruption.
+
+Phone UI restoration uses the verified fresh-owned same-runtime route, preserving the original two recovery methods, source pins, assertions and deadlines. The first successful fresh sample is operational evidence only; host variation prevents a claim that the precreated device was corrupted. Created simulator deletion and fresh absence remain required by collector and outer packaging gates.
+
+Phone UI retains the 1020-second observation deadline and adds an explicit cleanup cutoff at 1140 seconds, inside the original 1200-second outer wait. Individual cleanup commands remain capped at 15 seconds.

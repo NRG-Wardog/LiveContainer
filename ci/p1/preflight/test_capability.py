@@ -202,7 +202,7 @@ class SealsAndExports(unittest.TestCase):
         host=self.root/'host';host.mkdir();original=HERE.parents[2]
         for relative in capture.ADAPTERS:
             target=host/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(original/relative,target)
-        data=dict(schema='p1-short-capability-inputs-v1',scope='same-runtime-stall-diagnostic-only-no-admission',livecontainer=capture.SOURCE,builder=capture.BUILDER,source_sha256=capture.SOURCE_SHA,adapter_files={n:capture.sha(host/n) for n in capture.ADAPTERS})
+        data=dict(schema='p1-short-capability-inputs-v1',scope='phone-recovery-capability-only-no-admission',livecontainer=capture.SOURCE,builder=capture.BUILDER,source_sha256=capture.SOURCE_SHA,adapter_files={n:capture.sha(host/n) for n in capture.ADAPTERS})
         path=host/'inputs.json';put(path,data);return host,path,data
     def test_real_seal(self):
         host,path,data=self.sealed();self.assertEqual(capture.validate(host,path,capture.sha(path)),data)
@@ -376,7 +376,7 @@ class CleanupAndDeadlineTests(unittest.TestCase):
             device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture={'owned_boot':True};command=mock.Mock();command.scope=scope
             state=lambda name:dict(exit_code=0,failure_type=None,stdout=json.dumps({'devices':{'runtime':[{'udid':device,'state':name}]}}))
             command.side_effect=[dict(exit_code=1),dict(exit_code=1),state('Booted'),dict(exit_code=0,failure_type=None),state('Shutdown')]
-            self.assertTrue(capture.stop_fixture(command,device,Path(tmp).resolve()));scope.fixture_stopped.assert_called_once_with(True);scope.fixture_cleanup_failure.assert_not_called()
+            self.assertTrue(capture.stop_fixture(command,device,Path(tmp).resolve()));scope.fixture_stopped.assert_called_once_with(True);self.assertEqual(scope.fixture_cleanup_failure.call_count,2)
             self.assertEqual(command.call_args_list[3].args,('xcrun','simctl','shutdown',device));self.assertEqual(command.call_args_list[4].args,('xcrun','simctl','list','devices','--json'))
     def test_unowned_simulator_unknown_cleanup_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -773,11 +773,20 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         def sha(path):
             if str(path).endswith(capture.base.SHELL):return '0'*64 if source_drift else capture.SOURCE_SHA
             return actual_sha(path)
+        import fresh_device
+        from test_stall_fresh import proof as created_proof
+        def create_device(owner,path):
+            proof=created_proof();proof['device']=device
+            owner.fixture={'device':device,'owned_boot':True,'owned_created':proof,'stopped':False,'deleted':False}
+            return proof
         recovery={'scope':'recovery-capability-only','collection_complete':recovery_passed,'errors':[] if recovery_passed else ['test failure'],'full_matrix_complete':False,'admissionEligible':False}
         with contextlib.ExitStack() as stack:
             stack.enter_context(mock.patch.object(process_scope.LaunchReceipt,'require'))
             stack.enter_context(mock.patch.object(capture.process_scope,'Scope',return_value=scope))
             stack.enter_context(mock.patch.object(capture.process_scope,'Commands',side_effect=commands))
+            stack.enter_context(mock.patch.object(fresh_device,'create_for_ui',side_effect=create_device))
+            stack.enter_context(mock.patch.object(fresh_device,'Commands'))
+            stack.enter_context(mock.patch.object(fresh_device,'cleanup',return_value={'observed_shutdown':True,'deleted':True,'command_failed':False}))
             native=stack.enter_context(mock.patch.object(capture.request_reader_gate,'run',return_value={'passed':True,'case_ids':['native-gate']}))
             acquire=stack.enter_context(mock.patch.object(capture.base,'acquire'))
             stack.enter_context(mock.patch.object(capture.base,'module',return_value=SimpleNamespace(available_devices=lambda:[('phone',device,'runtime')])))
@@ -849,7 +858,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         import yaml
         row=yaml.safe_load((HERE.parents[2]/'.github/workflows/p1-native-candidate.yml').read_text());jobs=row['jobs'];self.assertEqual(len(jobs),1)
         job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],35)
-        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],12);self.assertIn('preflight/budget.py',step['run'])
+        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertIn('preflight/budget.py',step['run'])
         self.assertIn("--device-class '${{ matrix.device }}'",step['run']);self.assertNotIn('native_gate.py',step['run'])
     def test_cli_rejects_tablet(self):
         import subprocess
