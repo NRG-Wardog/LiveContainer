@@ -3,6 +3,8 @@ import json
 import os
 from pathlib import Path
 import signal
+import errno
+import struct
 import select
 import math
 import subprocess
@@ -113,6 +115,87 @@ def require_default_sigchld():
         raise ValueError('default SIGCHLD disposition required for owned child lifecycle')
 
 
+# The pipe is private to the gate child and parent. A successful exec closes the
+# writer; neither the target nor descendants inherit it. No receipt is evidence
+# that the target image started or that a service handled its request.
+LAUNCH_RECORD = struct.Struct('!4sBqqq16sQdi')
+LAUNCH_MAGIC = b'P1L1'
+
+
+class LaunchReceiptError(RuntimeError):
+    pass
+
+
+class LaunchReceipt:
+    def __init__(self, command, deadline, timeout):
+        if sys.version_info < (3,10):
+            raise ValueError('Python 3.10 or newer required for shared host monotonic clock')
+        if type(command) is not int or not 0 < command < 2**64:
+            raise ValueError('invalid launch command identity')
+        self.command=command;self.deadline=deadline;self.timeout=timeout;self.fd=None;self.raw=bytearray();self.records=0;self.close_failed=False
+        self.row={'schema':'p1-command-launch-v1','clock':'host-time-monotonic','command_id':f'command-{command:04d}',
+                  'session':None,'pid':None,'deadline':deadline,
+                  'popen':{'before':None,'after':None,'returned':False},
+                  'registration':{'before':None,'after':None,'durable':False},
+                  'release':{'before':None,'after':None,'issued':False},
+                  'pre_exec':None,'exec_failure':None,'state':'unknown','reason':'not-started',
+                  'eof':False,'closed':False,'target_execution_observed':False,'service_execution_observed':False}
+    def reject(self, reason):
+        # Keep the first fixed reason, and never rehabilitate invalid evidence.
+        if self.row['reason'] in ['not-started','pending',None]:
+            self.row.update(state='unknown',reason=reason)
+    def bind(self, session, descriptor):
+        if type(session) is not str or len(session)!=32 or any(c not in '0123456789abcdef' for c in session):
+            raise ValueError('invalid launch session identity')
+        self.session=bytes.fromhex(session);self.fd=descriptor
+        self.row.update(session=session,reason='pending')
+    def observe(self):
+        if self.fd is None or self.row['eof'] or len(self.raw)>2*LAUNCH_RECORD.size:return
+        # At most three nonblocking reads, 2 fixed records + 1 overflow byte in
+        # total. This piggybacks on existing wait polls; no observer/thread/wait.
+        for _ in range(3):
+            before=time.monotonic()
+            try:block=os.read(self.fd,2*LAUNCH_RECORD.size+1-len(self.raw))
+            except BlockingIOError:return
+            except OSError:self.reject('read-error');return
+            after=time.monotonic()
+            if not block:
+                self.row['eof']=True
+                if len(self.raw)%LAUNCH_RECORD.size:self.reject('partial-record')
+                if self.records==0:self.reject('missing-pre-exec')
+                return
+            self.raw.extend(block)
+            if after>self.deadline:self.reject('late-observation')
+            if len(self.raw)>2*LAUNCH_RECORD.size:self.reject('size-limit');return
+            while len(self.raw)>=(self.records+1)*LAUNCH_RECORD.size:
+                start=self.records*LAUNCH_RECORD.size
+                magic,kind,pid,pgid,sid,session,command,stamp,number=LAUNCH_RECORD.unpack(self.raw[start:start+LAUNCH_RECORD.size])
+                self.records+=1
+                if magic!=LAUNCH_MAGIC or kind not in [1,2]:self.reject('malformed-record')
+                elif pid!=self.row['pid'] or pgid!=pid or sid!=pid or session!=self.session or command!=self.command:self.reject('wrong-identity')
+                elif not math.isfinite(stamp) or self.row['release']['before'] is None or not self.row['release']['before']<=stamp<=after or stamp>self.deadline:self.reject('invalid-time')
+                elif (kind==1 and (self.records!=1 or number!=0)) or (kind==2 and (self.records!=2 or self.row['pre_exec'] is None or number<=0 or stamp<self.row['pre_exec']['child_monotonic'])):self.reject('invalid-order')
+                if self.row['reason']!='pending':continue
+                record={'child_monotonic':stamp,'observed_before':before,'observed_after':after}
+                if kind==1:self.row['pre_exec']=record
+                else:self.row['exec_failure']={**record,'errno':number}
+    def finish(self):
+        if self.row['closed']:return
+        try:
+            self.observe()
+            if not self.row['eof']:self.reject('unresolved-writer')
+            if self.row['reason']=='pending':self.row.update(state='pre-exec-observed',reason=None)
+        finally:
+            if self.fd is not None:
+                try:os.close(self.fd)
+                except OSError:self.close_failed=True;self.reject('close-error')
+                self.fd=None
+            self.row['closed']=not self.close_failed
+    def require(self):
+        if self.row['state']!='pre-exec-observed' or not self.row['closed']:
+            raise LaunchReceiptError('command launch observation unknown')
+
+
 class OwnedProcess:
     """One start_new_session=True Popen child, with serialized reaping/signals.
 
@@ -127,7 +210,7 @@ class OwnedProcess:
             raise ValueError('owned child must start its own session')
         return cls(subprocess.Popen(*args,**kwargs))
     def __init__(self,process):
-        self._process=process;self.lock=threading.RLock();self.pid=process.pid
+        self._process=process;self.lock=threading.RLock();self.pid=process.pid;self.launch=None
     @property
     def returncode(self):
         with self.lock:return self._process.returncode
@@ -137,6 +220,7 @@ class OwnedProcess:
         deadline=None if timeout is None else time.monotonic()+timeout
         while True:
             with self.lock:
+                if self.launch is not None:self.launch.observe()
                 code=self._process.poll()
                 if code is not None:return code
             if deadline is not None and time.monotonic()>=deadline:
@@ -210,31 +294,85 @@ class Scope:
         left=self.deadline-time.monotonic()
         if left<=0 or self.closing:raise TimeoutError('internal collector deadline reached')
         return min(float(requested),left)
-    def spawn(self,argv,stdout,stderr=None,cleanup=False):
+    def spawn(self,argv,stdout,stderr=None,cleanup=False,launch=None):
         with self.lock:
             self.remaining(1,cleanup)
             require_default_sigchld()
-            read_fd,write_fd=os.pipe()
+            read_fd=write_fd=receipt_read=receipt_write=None;process=None;row=None
             try:
-                process=OwnedProcess.spawn([sys.executable,'-B',str(Path(__file__).resolve()),'--child',str(read_fd),*map(str,argv)],stdout=stdout,stderr=stderr if stderr is not None else stdout,start_new_session=True,pass_fds=(read_fd,))
-            finally:os.close(read_fd)
-            self.processes[process.pid]=process
-            self.rows.append({'pid':process.pid,'pgid':process.pid,'argv':list(map(str,argv)),'started':time.monotonic(),'settled':False,'exit_code':None})
-            try:
-                self.persist()
-                # Child cannot execute or write evidence until its group is in
-                # the durable registry. Parent death before release closes pipe.
-                os.write(write_fd,b'G')
-            except Exception as error:
-                self.rows[-1]['primary_error']=error_info(error)
-                emit_diagnostic('spawn-registration-failure',pgid=process.pid,primary_error=error_info(error))
-                try:stop_group(process.pid,process)
-                except Exception as cleanup_error:
-                    self.rows[-1].setdefault('cleanup_errors',[]).append(error_info(cleanup_error))
-                    emit_diagnostic('spawn-cleanup-failure',pgid=process.pid,cleanup_error=error_info(cleanup_error))
+                read_fd,write_fd=os.pipe()
+                child=[sys.executable,'-B',str(Path(__file__).resolve()),'--child',str(read_fd)]
+                inherited=(read_fd,)
+                if launch is not None:
+                    receipt_read,receipt_write=os.pipe()
+                    os.set_blocking(receipt_read,False);os.set_blocking(receipt_write,False)
+                    launch.bind(self.session,receipt_read);receipt_read=None
+                    child+=['--launch-receipt',str(receipt_write),self.session,str(launch.command)]
+                    inherited+=(receipt_write,)
+                    launch.row['popen']['before']=time.monotonic()
+                try:
+                    process=OwnedProcess.spawn([*child,*map(str,argv)],stdout=stdout,stderr=stderr if stderr is not None else stdout,start_new_session=True,pass_fds=inherited)
+                    if launch is not None:launch.row['popen']['returned']=True;launch.row['pid']=process.pid
+                finally:
+                    if launch is not None:launch.row['popen']['after']=time.monotonic()
+                # Retain exact ownership before any fallible parent close.
+                process.launch=launch
+                self.processes[process.pid]=process
+                row={'pid':process.pid,'pgid':process.pid,'argv':list(map(str,argv)),'started':time.monotonic(),'settled':False,'exit_code':None}
+                self.rows.append(row)
+                if launch is not None:row['launch_receipt']=launch.row
+                try:
+                    descriptor,read_fd=read_fd,None;os.close(descriptor)
+                    if receipt_write is not None:
+                        descriptor,receipt_write=receipt_write,None;os.close(descriptor)
+                    if launch is not None:launch.row['registration']['before']=time.monotonic()
+                    try:
+                        self.persist()
+                        if launch is not None:launch.row['registration']['durable']=True
+                    finally:
+                        if launch is not None:launch.row['registration']['after']=time.monotonic()
+                    # The original command deadline includes launch/registration;
+                    # expiry never releases the child or grants a new wait.
+                    if launch is not None:
+                        if time.monotonic()>=launch.deadline:raise subprocess.TimeoutExpired(argv,launch.timeout)
+                        launch.row['release']['before']=time.monotonic()
+                    try:
+                        if os.write(write_fd,b'G')!=1:raise OSError(errno.EIO,'launch gate release failed')
+                        if launch is not None:launch.row['release']['issued']=True
+                    finally:
+                        if launch is not None:launch.row['release']['after']=time.monotonic()
+                    descriptor,write_fd=write_fd,None;os.close(descriptor)
+                except Exception as error:
+                    row['primary_error']=error_info(error)
+                    emit_diagnostic('spawn-registration-failure',pgid=process.pid,primary_error=error_info(error))
+                    try:
+                        settled=stop_group(process.pid,process)
+                        # Failed registration still requires Scope.close to
+                        # reverify/persist it; optional commands cannot proceed.
+                        row.update(spawn_cleanup_settled=settled,reaped=process.returncode is not None,exit_code=process.returncode)
+                        if not settled:raise RuntimeError('spawn child settlement unproved')
+                    except Exception as cleanup_error:
+                        row.setdefault('cleanup_errors',[]).append(error_info(cleanup_error))
+                        emit_diagnostic('spawn-cleanup-failure',pgid=process.pid,cleanup_error=error_info(cleanup_error))
+                    raise
+                return process
+            except Exception:
+                if launch is not None:
+                    try:launch.finish()
+                    except Exception as observer_error:
+                        if row is not None:row.setdefault('cleanup_errors',[]).append(error_info(observer_error))
+                        emit_diagnostic('spawn-observer-failure',error=error_info(observer_error))
                 raise
-            finally:os.close(write_fd)
-            return process
+            finally:
+                for descriptor in [read_fd,write_fd,receipt_read,receipt_write]:
+                    if descriptor is not None:
+                        try:os.close(descriptor)
+                        except OSError as close_error:
+                            # Only failure paths retain descriptors here. Never
+                            # replace their primary error or retry an uncertain
+                            # close using a possibly reused numeric descriptor.
+                            if row is not None:row.setdefault('cleanup_errors',[]).append(error_info(close_error))
+                            emit_diagnostic('spawn-descriptor-close-failure',error=error_info(close_error))
     def settle(self,process):
         with self.lock:
             row=next(r for r in self.rows if r['pid']==process.pid)
@@ -267,14 +405,20 @@ class Commands:
         argv=list(map(str,args));limit=self.scope.remaining(timeout,cleanup)
         with self.lock:self.count+=1;number=self.count
         name=f'command-{number:04d}';started=time.monotonic();primary=None;cleanup_failures=[];process=None
+        launch=LaunchReceipt(number,started+limit if cleanup else min(started+limit,self.scope.deadline),limit)
         print('Running: '+' '.join(argv),flush=True)
         with (self.output/(name+'.stdout')).open('wb') as out,(self.output/(name+'.stderr')).open('wb') as err:
             try:
-                process=self.scope.spawn(argv,out,err,cleanup=cleanup)
-                process.wait(timeout=limit)
+                process=self.scope.spawn(argv,out,err,cleanup=cleanup,launch=launch)
+                process.wait(timeout=max(0,launch.deadline-time.monotonic()))
+                if time.monotonic()>launch.deadline:raise subprocess.TimeoutExpired(argv,limit)
                 if process.returncode:raise subprocess.CalledProcessError(process.returncode,argv)
             except Exception as error:primary=error
             finally:
+                try:
+                    launch.finish()
+                    if process is not None:launch.require()
+                except Exception as error:cleanup_failures.append(error)
                 if process is not None:
                     try:self.scope.settle(process)
                     except Exception as error:cleanup_failures.append(error)
@@ -282,7 +426,7 @@ class Commands:
         primary_row=error_info(primary);cleanup_rows=[error_info(e) for e in cleanup_failures]
         row={'argv':argv,'timeoutSeconds':limit,'seconds':time.monotonic()-started,'exit_code':process.returncode if process else None,
              'stdout':name+'.stdout','stderr':name+'.stderr','error':str(error) if error else None,'allowed_failure':allow_failure,'cleanup':cleanup,
-             'primary_error':primary_row,'cleanup_errors':cleanup_rows}
+             'primary_error':primary_row,'cleanup_errors':cleanup_rows,'launch_receipt':launch.row}
         if error:
             emit_diagnostic('command-failure',command_id=name,pgid=process.pid if process else None,exit_code=row['exit_code'],
                             timeout_seconds=limit,elapsed_seconds=row['seconds'],primary_error=primary_row,cleanup_errors=cleanup_rows)
@@ -296,15 +440,35 @@ class Commands:
         data=(self.output/(name+'.stdout')).read_bytes()
         if receipt:return {'argv':argv,'exit_code':process.returncode if process else None,'stdout':data.decode(errors='replace'),
                            'stderr':(self.output/(name+'.stderr')).read_text(errors='replace'),'failure_type':type(error).__name__ if error else None,
-                           'command_id':name,'primary_error':primary_row,'cleanup_errors':cleanup_rows}
+                           'command_id':name,'primary_error':primary_row,'cleanup_errors':cleanup_rows,'launch_receipt':launch.row}
         if error and not allow_failure:raise error
         return data.decode(errors='replace').strip()
 
     def bytes(self,*args,timeout=300):return self(*args,timeout=timeout).encode()
 
 
-if __name__=='__main__':
-    if len(sys.argv)<4 or sys.argv[1]!='--child':raise SystemExit('private launch gate requires exact child arguments')
-    descriptor=int(sys.argv[2]);signal_byte=os.read(descriptor,1);os.close(descriptor)
-    if signal_byte!=b'G':raise SystemExit(125)
-    os.execvp(sys.argv[3],sys.argv[3:])
+def child_main(args):
+    if len(args)<3 or args[0]!='--child':raise SystemExit('private launch gate requires exact child arguments')
+    descriptor=int(args[1]);target=args[2:];receipt=None
+    if target[0]=='--launch-receipt':
+        receipt=int(target[1]);session=bytes.fromhex(target[2]);command=int(target[3]);target=target[4:]
+        os.set_inheritable(receipt,False)
+    signal_byte=os.read(descriptor,1);os.close(descriptor)
+    if signal_byte!=b'G':os._exit(125)
+    def emit(kind,number):
+        try:
+            record=LAUNCH_RECORD.pack(LAUNCH_MAGIC,kind,os.getpid(),os.getpgrp(),os.getsid(0),session,command,time.monotonic(),number)
+            return os.write(receipt,record)==len(record)
+        except (OSError,ValueError,struct.error):return False
+    if receipt is None:os.execvp(target[0],target)
+    if not emit(1,0):os._exit(125)
+    try:os.execvp(target[0],target)
+    except OSError as error:
+        if receipt is not None:emit(2,error.errno if type(error.errno) is int and error.errno>0 else errno.EIO)
+        os._exit(126)
+    except (ValueError,IndexError):
+        if receipt is not None:emit(2,errno.EINVAL)
+        os._exit(126)
+
+
+if __name__=='__main__':child_main(sys.argv[1:])

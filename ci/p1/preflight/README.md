@@ -1,5 +1,60 @@
 # P1 phone recovery route restoration
 
+## Bounded command launch receipts
+
+The selected phone route now retains metadata-only launch receipts for its
+`process_scope.Commands` calls. Each receipt binds a numeric command identity to
+its exact owned PID, process group/session and process-scope nonce. Parent
+monotonic brackets cover Popen, durable registration and gate release. The
+trusted gate child emits a fixed `pre-exec reached` record immediately before
+its exec attempt, plus a typed positive errno only if exec fails. This milestone
+is not proof that the target image started, that xcrun/simctl ran user code, or
+that CoreSimulator received or handled a request. Empty command output still
+cannot establish the cause of a delay; no host-load cause is claimed.
+
+All timestamps use the same host `time.monotonic` clock. A pre-spawn Python
+3.10-or-newer guard enforces its shared-epoch macOS compatibility requirement. Popen-return brackets
+cover launching the Python gate, registration brackets include registry fsync,
+and release-to-pre-exec includes child scheduling, Python startup and gate
+handling. These intervals cannot isolate any one of those causes. Parent read
+brackets bound observation separately from the child's own timestamp. No wall
+clock, app clock or service clock is combined with them.
+
+Exact child ownership is retained before any fallible parent descriptor close;
+a close failure still settles that child and cannot replace an earlier primary
+error. An uncertain close is never retried using a possibly reused numeric FD.
+The child owns the only inherited receipt writer. It is nonblocking and
+close-on-exec; the target and descendants do not inherit it. The closed-schema
+binary pipe permits at most two 65-byte records and one overflow detection byte.
+The parent reads at most three times per existing child-wait poll, without a
+new thread, observer process, service diagnostic, command or extra wait. Records
+contain only fixed markers, numeric identity/timing/errno and the fixed-format
+scope nonce, never arbitrary argv, environment or raw command output.
+
+The original command allowance is one absolute deadline covering launch,
+registration and wait. Expiry during registration does not release the child;
+spawn does not renew the wait allowance, and ordinary commands remain capped
+by the shared scope deadline. Cleanup keeps its existing independent allowance. A receipt first observed after that
+deadline is unknown even if its child timestamp looks timely. Missing, partial,
+malformed, out-of-order, wrong-identity, oversized or unclosed writer evidence
+is unknown, retained and failing. A final nonblocking drain and reader closure
+add no wait. Unknown observation failures remain in command cleanup errors so
+the existing optional-uninstall dual settlement gate cannot ignore them.
+A well-formed exec-failure receipt retains its errno and ordinary failed-command
+status, including the existing optional-command allowance; it never supplies a
+mandatory install success. Ordinary primary errors and actual settlement failures remain separately
+retained, and mandatory fixture/simulator/scope cleanup remains unchanged.
+
+The recorder and inactive bounded diagnostic/backstop callers do not opt into
+this receipt protocol; their protocol, command selection and timeout allowances
+stay unchanged. Scope.spawn callers share the error-path ownership/descriptor
+hardening described above; direct-child backstop callers do not use Scope.spawn. The optional-uninstall guard, app/fixture sources, native checks,
+UI/geometry criteria, command list, retry count and all configured timeout and
+outer-budget values remain unchanged. Portable regressions exercise real child
+commands and adversarial protocol/descriptor/deadline failures; they do not
+establish Darwin, simulator or fresh UI success.
+
+
 The selected workflow restores the phone-only `capture.py --execute` route from
 `7f5fda4a936d2cc6f73ac744d8fc8320a1954b1d`, byte-for-byte except its refreshed
 approved-input seal. It runs the existing 21-case native reader regression,
@@ -8,7 +63,7 @@ recovery capability. It does not select `boot_diagnostic.py`, the opt-in bounded
 backstop adapter, or any diagnostic-only resource/service probes. The preserved
 diagnostic implementation and its evidence remain available as historical context.
 
-The only collector change is a settlement gate after each of the two optional
+The preceding restoration added a settlement gate after each of the two optional
 pre-install uninstalls. Each call now returns its existing command receipt. A
 following uninstall, installation or UI step requires both an empty
 `cleanup_errors` list and `settled:true` for every registered writer. Checking

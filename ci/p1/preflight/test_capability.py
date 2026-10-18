@@ -425,10 +425,12 @@ class FailureDiagnosticTests(unittest.TestCase):
     def command_result(self,primary=None,cleanup=None,receipt=False,allow_failure=False,returncode=0,spawn_error=None):
         self.command_count+=1;logs=self.root/str(self.command_count);logs.mkdir()
         process=mock.Mock(pid=4321,returncode=returncode);process.wait.side_effect=primary
-        scope=mock.Mock();scope.remaining.return_value=7.5;scope.spawn.return_value=process
+        scope=mock.Mock();scope.deadline=time.monotonic()+60;scope.remaining.return_value=7.5;scope.spawn.return_value=process
         scope.spawn.side_effect=spawn_error;scope.settle.side_effect=cleanup
         command=process_scope.Commands(scope,logs);console=io.StringIO();result=None;raised=None
-        with contextlib.redirect_stdout(console):
+        # These tests substitute the whole child lifecycle; launch protocol has
+        # independent real-child and adversarial coverage in test_process_lifecycle.
+        with contextlib.redirect_stdout(console),mock.patch.object(process_scope.LaunchReceipt,'require'):
             try:result=command('fixture-command',timeout=30,receipt=receipt,allow_failure=allow_failure)
             except Exception as error:raised=error
         rows=[json.loads(line) for line in (logs/'commands.jsonl').read_text().splitlines()]
@@ -604,7 +606,7 @@ class FailureDiagnosticTests(unittest.TestCase):
     def test_command_receipt_write_failure_logs_then_preserves_primary(self):
         logs=self.root/'logs';logs.mkdir();primary=process_scope.subprocess.TimeoutExpired('private-command',7.5)
         process=mock.Mock(pid=4321,returncode=None);process.wait.side_effect=primary
-        scope=mock.Mock();scope.remaining.return_value=7.5;scope.spawn.return_value=process;command=process_scope.Commands(scope,logs)
+        scope=mock.Mock();scope.deadline=time.monotonic()+60;scope.remaining.return_value=7.5;scope.spawn.return_value=process;command=process_scope.Commands(scope,logs)
         console=io.StringIO();original_open=Path.open;events=[]
         def open_file(path,*args,**kwargs):
             if path.name=='commands.jsonl':
@@ -729,7 +731,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
                       uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False):
         from types import SimpleNamespace
         host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text('{}')
-        device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[]
+        device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[];scope.deadline=time.monotonic()+1020
         scope.remaining.side_effect=lambda requested,cleanup=False:float(requested)
         if cleanup_failure:scope.close.side_effect=ValueError('unsettled fixture writer')
         def command_result(*args,**kwargs):
@@ -738,7 +740,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         # Exercise actual Commands receipts, including allow_failure's return
         # after a settlement exception. Only the owned children are synthetic.
         original_commands=process_scope.Commands;command=mock.Mock();command.scope=scope;uninstalls=[]
-        def spawn(argv,stdout,stderr=None,cleanup=False):
+        def spawn(argv,stdout,stderr=None,cleanup=False,launch=None):
             number=None
             if argv[:3]==['xcrun','simctl','uninstall']:
                 uninstalls.append(argv);number=len(uninstalls)
@@ -770,6 +772,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             return actual_sha(path)
         recovery={'scope':'recovery-capability-only','collection_complete':recovery_passed,'errors':[] if recovery_passed else ['test failure'],'full_matrix_complete':False,'admissionEligible':False}
         with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(process_scope.LaunchReceipt,'require'))
             stack.enter_context(mock.patch.object(capture.process_scope,'Scope',return_value=scope))
             stack.enter_context(mock.patch.object(capture.process_scope,'Commands',side_effect=commands))
             native=stack.enter_context(mock.patch.object(capture.request_reader_gate,'run',return_value={'passed':True,'case_ids':['native-gate']}))
