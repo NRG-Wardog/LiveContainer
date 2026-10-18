@@ -121,13 +121,31 @@ class CreatedShutdownFirst(unittest.TestCase):
     def state(self,p,state='Shutdown'):
         return {'exit_code':0,'failure_type':None,'primary_error':None,'cleanup_errors':[],
                 'stdout':json.dumps({'devices':{fresh.boot.RUNTIME:[{'udid':DEVICE,'state':state,'isAvailable':True,'deviceTypeIdentifier':p['device_type']}]}})}
+    def test_shutdown_allowance_is_exact_owned_and_reserve_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);scope,p=self.setup_scope(root)
+            argv=['xcrun','simctl','shutdown',DEVICE]
+            self.assertEqual(scope.owned_shutdown_remaining(argv,60),30)
+            self.assertEqual(scope.remaining(60,cleanup=True),15)
+            for bad in [['xcrun','simctl','shutdown',fresh.boot.DEVICE],['xcrun','simctl','delete',DEVICE],['xcrun','simctl','shutdown','all']]:
+                with self.assertRaises(ValueError):scope.owned_shutdown_remaining(bad,30)
+            with mock.patch.object(process_scope.time,'monotonic',return_value=scope.cleanup_deadline-5):self.assertEqual(scope.owned_shutdown_remaining(argv,30),5)
+            with mock.patch.object(process_scope.time,'monotonic',return_value=scope.cleanup_deadline+1):
+                with self.assertRaises(TimeoutError):scope.owned_shutdown_remaining(argv,30)
+            scope.fixture=None
+            with self.assertRaises(ValueError):scope.owned_shutdown_remaining(argv,30)
+    def test_shutdown_override_rejects_non_cleanup_before_spawn(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);scope,p=self.setup_scope(root);command=process_scope.Commands(scope,root)
+            with self.assertRaises(ValueError):command('xcrun','simctl','shutdown',DEVICE,timeout=30,owned_shutdown=True)
+            self.assertFalse(scope.rows)
     def test_exact_created_shutdown_first_and_reuse_proven_stop(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);scope,p=self.setup_scope(root)
             command=mock.Mock(side_effect=[{'exit_code':0,'failure_type':None},self.state(p)]);command.scope=scope
             self.assertTrue(capture.stop_fixture(command,DEVICE,root));self.assertTrue(capture.stop_fixture(command,DEVICE,root))
             self.assertEqual(len(command.call_args_list),2)
-            self.assertEqual(command.call_args_list[0],mock.call('xcrun','simctl','shutdown',DEVICE,timeout=15,cleanup=True,receipt=True))
+            self.assertEqual(command.call_args_list[0],mock.call('xcrun','simctl','shutdown',DEVICE,timeout=30,cleanup=True,receipt=True,owned_shutdown=True))
             self.assertEqual(command.call_args_list[1],mock.call('xcrun','simctl','list','devices','--json',timeout=15,cleanup=True,receipt=True))
             self.assertTrue(scope.fixture['stopped']);self.assertFalse(scope.fixture.get('cleanup_command_failed',False))
     def test_reject_unowned_wrong_intent_unsettled_deleted(self):

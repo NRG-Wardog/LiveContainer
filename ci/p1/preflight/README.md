@@ -1,4 +1,8 @@
-Current focused check deterministically omits only fixture tab-item identifiers and requires the structural proof route. It validates the observer path, not the intermittent OS propagation cause. Existing default launch behavior and original UI methods remain unchanged.
+Prospective infrastructure change: only exact current-session owned-created simulator shutdown may wait up to30 seconds, bounded by the existing cleanup deadline. Queries, deletion and legacy cleanup remain capped at15 seconds. Prior timed-out runs retain their failed status.
+
+Current run restores original four phone recovery methods using fresh per-observation AX snapshots. Live existence, hittability and identity checks remain; snapshot errors fail native and exported validation. No metric getter or geometry predicate changes.
+
+The retained preceding focused check deterministically omitted only fixture tab-item identifiers and required the structural proof route. It validated the observer path, not the intermittent OS propagation cause. Existing default launch behavior and original UI methods remain unchanged.
 
 # Focused native tab identity confirmation
 

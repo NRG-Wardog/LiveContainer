@@ -317,7 +317,7 @@ def _verify(root,summary,tests,device,parse,ordinary,valid_png,capability):
             except (ValueError,UnicodeDecodeError):value=None
             if isinstance(value,dict) and str(value.get('schema','')).startswith('p1-layout-'):
                 key=(value['schema'],value.get('case'));require(key not in records,'duplicate layout report')
-                require(value.get('admissionEligible') is False,'admission-shaped layout report');records[key]=(method,value)
+                require(value.get('admissionEligible') is False,'admission-shaped layout report');reject_observation_errors(value);records[key]=(method,value)
             if valid_png(path.read_bytes()):
                 name=row.get('suggestedHumanReadableName',row.get('attachmentName'))
                 require(isinstance(name,str),'unnamed screenshot');require(name not in screens,'duplicate layout screenshot name');screens[name]=(method,path.name)
@@ -476,6 +476,14 @@ def validate_callback(row,action,expected,records,method):
             same_context(settled['metrics'],observations[index+1][1]['layoutMetrics'])
             require(near(settled['offsetAfter'],observations[index+1][1]['offset']),'unobserved passive scroll offset')
     require(not any(d.get('search')==search and (type(d.get('attempt')) is not int or d['attempt']>=attempt) for (s,_),(_,d) in records.items() if s=='p1-layout-drag-v1'),'extra passive observer scroll')
+
+
+def reject_observation_errors(value):
+    if isinstance(value,dict):
+        require('observationError' not in value,'failed accessibility observation')
+        for item in value.values():reject_observation_errors(item)
+    elif isinstance(value,list):
+        for item in value:reject_observation_errors(item)
 
 
 def validate_fixture_input(row):

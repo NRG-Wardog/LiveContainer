@@ -39,9 +39,25 @@ final class P1RecoveryLayoutUITests: XCTestCase {
 
     @MainActor private func observe(_ element: XCUIElement) -> [String: Any] {
         guard element.exists else { return ["exists": false] }
-        return ["exists": true, "label": element.label, "hittable": element.isHittable,
-                "frame": rect(element.frame), "accessibilityValue": element.value as? String ?? "",
-                "identifier": element.identifier, "elementType": element.elementType.rawValue, "selected": element.isSelected]
+        do {
+            // One fresh immutable attribute set per call. Live interactability
+            // and identity remain separate observations; nothing survives an action.
+            let snapshot = try element.snapshot()
+            let identifier = element.identifier
+            let type = element.elementType
+            let hittable = element.isHittable
+            guard snapshot.identifier == identifier, snapshot.elementType == type else {
+                XCTFail("Accessibility observation identity changed")
+                return ["exists": true, "observationError": "identity-changed"]
+            }
+            return ["exists": true, "label": snapshot.label, "hittable": hittable,
+                    "frame": rect(snapshot.frame), "accessibilityValue": snapshot.value as? String ?? "",
+                    "identifier": snapshot.identifier, "elementType": snapshot.elementType.rawValue,
+                    "selected": snapshot.isSelected]
+        } catch {
+            XCTFail("Accessibility snapshot observation failed")
+            return ["exists": true, "observationError": "snapshot-failed"]
+        }
     }
 
     private func attach(_ report: [String: Any], name: String) {

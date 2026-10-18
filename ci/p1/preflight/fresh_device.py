@@ -168,7 +168,7 @@ def stop_owned(command,device,folder):
         if fixture.get('stopped') is True:
             report.update(stopped=True,reused_prior_stop=True)
             return True
-        row=command('xcrun','simctl','shutdown',device,timeout=15,cleanup=True,receipt=True)
+        row=command('xcrun','simctl','shutdown',device,timeout=30,cleanup=True,receipt=True,owned_shutdown=True)
         report['receipts'].append({'phase':'shutdown','command':row})
         if not simulator_cleanup.clean_command(row):scope.fixture_cleanup_failure()
         if not all(r.get('settled') is True for r in scope.rows):raise ValueError('shutdown writer unsettled')

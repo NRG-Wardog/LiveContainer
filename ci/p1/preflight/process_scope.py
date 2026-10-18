@@ -325,6 +325,20 @@ class Scope:
     def fixture_cleanup_failure(self):
         with self.lock:
             if self.fixture is not None:self.fixture['cleanup_command_failed']=True;self.persist()
+    def owned_shutdown_remaining(self,argv,requested):
+        # Only the exact persisted exclusive fixture may use this prospective
+        # shutdown allowance. Other cleanup operations retain their 15s cap.
+        import fresh_device
+        fixture=self.fixture
+        if not isinstance(fixture,dict) or argv!=['xcrun','simctl','shutdown',fixture.get('device')]:raise ValueError('owned shutdown command differs')
+        proof=fixture.get('owned_created');device=fixture.get('device')
+        fresh_device.validate(proof,self.session,device);fresh_device.validate(self.creation_intent,self.session)
+        if any(proof.get(k)!=v for k,v in self.creation_intent.items()):raise ValueError('owned shutdown intent differs')
+        if fixture.get('owned_boot') is not True or fixture.get('deleted') is not False or not all(r.get('settled') is True for r in self.rows):raise ValueError('owned shutdown lifecycle unproved')
+        if self.cleanup_deadline is None:raise ValueError('owned shutdown reserve required')
+        left=self.cleanup_deadline-time.monotonic()
+        if left<=0:raise TimeoutError('diagnostic cleanup reserve exhausted')
+        return min(float(requested),30,left)
     def remaining(self,requested,cleanup=False):
         if cleanup:
             left=15 if self.cleanup_deadline is None else self.cleanup_deadline-time.monotonic()
@@ -442,8 +456,10 @@ class Scope:
 
 class Commands:
     def __init__(self,scope,output):self.scope=scope;self.output=output;self.count=0;self.lock=threading.Lock()
-    def __call__(self,*args,timeout=300,allow_failure=False,cleanup=False,receipt=False):
-        argv=list(map(str,args));limit=self.scope.remaining(timeout,cleanup)
+    def __call__(self,*args,timeout=300,allow_failure=False,cleanup=False,receipt=False,owned_shutdown=False):
+        argv=list(map(str,args))
+        if owned_shutdown and not cleanup:raise ValueError('owned shutdown requires cleanup mode')
+        limit=self.scope.owned_shutdown_remaining(argv,timeout) if owned_shutdown else self.scope.remaining(timeout,cleanup)
         with self.lock:self.count+=1;number=self.count
         name=f'command-{number:04d}';started=time.monotonic();primary=None;cleanup_failures=[];process=None;writer_settled=False;wait_started=None;wait_finished=None;wait_returned=False
         launch=LaunchReceipt(number,started+limit if cleanup else min(started+limit,self.scope.deadline),limit)
