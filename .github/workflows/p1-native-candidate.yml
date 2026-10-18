@@ -1,6 +1,6 @@
-name: P1 phone recovery capability
+name: P1 same-runtime command stall diagnostic
 
-# Phone recovery only. Calibration and tablet are not rerun; no full matrix or host build.
+# One same-runtime boot and four trivial probes. No build, install or UI.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '9312aca6331c1402a39d69c0ab42ef3e6a9b4360b9a9ea1d2a50ed3f3fc3c6a9'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'c0d3593c1db236920985960c7058ee2dd77d99b9dd438395d550349eafecb324'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -42,19 +42,19 @@ jobs:
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation"
-          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_runner_source.py -v
-      - name: Collect short phone recovery capability
+          python3 -B -m unittest discover -s validation/ci/p1/preflight -p "test_stall_*.py" -v
+      - name: Collect bounded same-runtime stall diagnostic
         id: collect
-        timeout-minutes: 22
+        timeout-minutes: 12
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/preflight/budget.py --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
-            python3 -B validation/ci/p1/preflight/capture.py \
+          python3 -B validation/ci/p1/preflight/budget.py --stall-diagnostic --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
+            python3 -B validation/ci/p1/preflight/stall_diagnostic.py \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
-            --work "$RUNNER_TEMP/p1-capability-work" --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
-            --device-class '${{ matrix.device }}' --execute
+            --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
+            --device-class '${{ matrix.device }}'
       - name: Package every original evidence byte into bounded parts
         id: package
         if: always()

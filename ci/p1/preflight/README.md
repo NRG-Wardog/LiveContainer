@@ -463,3 +463,24 @@ control requirement, measured progress/stall checks, ordinary tap and callback
 proof remain mandatory. This source change does not establish reachability.
 Bootstatus 120 seconds, all other budgets, 120 ms mapping limits and the full
 matrix's future acceptance requirements remain unchanged.
+
+## Same-runtime stall decision diagnostic
+This successor runs no app build, install or UI. It uses one initially Shutdown
+iOS26.2 fixed phone, two trivial minimal/full Python gate probes before and after
+boot, and a prestarted bounded numeric sampler. Receipt failure is diagnostic;
+owned process settlement is independently required. Budgets are 360s observations,
+480s absolute collector cleanup deadline, and a 600s existing outer watchdog,
+leaving 120s collector cleanup and 120s outer headroom. Existing command limits
+remain 10s probes, 30s boot, 120s bootstatus, 15s exact-device cleanup commands.
+The outer group backstop and packaging quiescence gate are retained. No retries.
+First Python timestamp excludes interpreter loading and import time itself.
+Missing timing evidence remains inconclusive; collection complete is not a
+capability pass or successful readiness claim. Both gate files are source sealed.
+
+The 600s outer limit is the existing owned collector wait deadline after spawn;
+it is not a hard wall-clock guarantee around an OS-level blocked Popen itself.
+The Actions 12-minute collection step is the enclosing platform backstop.
+Probe receipts retain phase, mode, command ID and probes/commands.jsonl path;
+boot/cleanup commands use their separate commands/ namespace.
+The comparison requires image20261013.0424.1, Xcode26.4.1 build17E202 and
+iOS26.2 build23C54. Image/runtime drift fails before claiming the simulator.

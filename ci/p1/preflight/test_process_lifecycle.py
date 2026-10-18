@@ -246,7 +246,7 @@ class LaunchReceiptTests(unittest.TestCase):
         observer=process_scope.LaunchReceipt(1,time.monotonic()+5,5)
         reader,writer=os.pipe();os.set_blocking(reader,False);os.set_blocking(writer,False)
         observer.bind('a'*32,reader);observer.row['pid']=4321
-        observer.row['release']['before']=time.monotonic()
+        observer.row['popen']['before']=time.monotonic();observer.row['release']['before']=time.monotonic()
         self.addCleanup(observer.finish);self.addCleanup(lambda:self.close_fd(writer))
         return observer,writer
     @staticmethod
@@ -254,7 +254,7 @@ class LaunchReceiptTests(unittest.TestCase):
         try:os.close(fd)
         except OSError:pass
     def frame(self,observer,**changes):
-        fields=dict(magic=process_scope.LAUNCH_MAGIC,kind=1,pid=4321,pgid=4321,sid=4321,session=b'\xaa'*16,command=1,stamp=time.monotonic(),number=0)
+        fields=dict(magic=process_scope.LAUNCH_MAGIC,kind=1,pid=4321,pgid=4321,sid=4321,session=b'\xaa'*16,command=1,first_python=observer.row['popen']['before'],imports_complete=observer.row['popen']['before'],gate_enter=observer.row['release']['before'],gate_exit=observer.row['release']['before'],stamp=time.monotonic(),number=0)
         fields.update(changes)
         return process_scope.LAUNCH_RECORD.pack(*fields.values())
     def test_real_command_retains_ordered_parent_and_child_receipts(self):

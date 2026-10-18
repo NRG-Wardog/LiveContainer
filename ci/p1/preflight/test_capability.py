@@ -202,7 +202,7 @@ class SealsAndExports(unittest.TestCase):
         host=self.root/'host';host.mkdir();original=HERE.parents[2]
         for relative in capture.ADAPTERS:
             target=host/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(original/relative,target)
-        data=dict(schema='p1-short-capability-inputs-v1',scope='phone-recovery-capability-only-no-admission',livecontainer=capture.SOURCE,builder=capture.BUILDER,source_sha256=capture.SOURCE_SHA,adapter_files={n:capture.sha(host/n) for n in capture.ADAPTERS})
+        data=dict(schema='p1-short-capability-inputs-v1',scope='same-runtime-stall-diagnostic-only-no-admission',livecontainer=capture.SOURCE,builder=capture.BUILDER,source_sha256=capture.SOURCE_SHA,adapter_files={n:capture.sha(host/n) for n in capture.ADAPTERS})
         path=host/'inputs.json';put(path,data);return host,path,data
     def test_real_seal(self):
         host,path,data=self.sealed();self.assertEqual(capture.validate(host,path,capture.sha(path)),data)
@@ -849,7 +849,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         import yaml
         row=yaml.safe_load((HERE.parents[2]/'.github/workflows/p1-native-candidate.yml').read_text());jobs=row['jobs'];self.assertEqual(len(jobs),1)
         job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],35)
-        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertIn('preflight/budget.py',step['run'])
+        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],12);self.assertIn('preflight/budget.py',step['run'])
         self.assertIn("--device-class '${{ matrix.device }}'",step['run']);self.assertNotIn('native_gate.py',step['run'])
     def test_cli_rejects_tablet(self):
         import subprocess

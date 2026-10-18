@@ -1,4 +1,6 @@
 """Track every host child session; never index evidence while writers remain."""
+import time
+_CHILD_FIRST_PYTHON = time.monotonic()
 import json
 import os
 from pathlib import Path
@@ -12,6 +14,7 @@ import sys
 import threading
 import time
 import uuid
+_CHILD_IMPORTS_COMPLETE = time.monotonic()
 
 
 def atomic(path,value):
@@ -118,8 +121,8 @@ def require_default_sigchld():
 # The pipe is private to the gate child and parent. A successful exec closes the
 # writer; neither the target nor descendants inherit it. No receipt is evidence
 # that the target image started or that a service handled its request.
-LAUNCH_RECORD = struct.Struct('!4sBqqq16sQdi')
-LAUNCH_MAGIC = b'P1L1'
+LAUNCH_RECORD = struct.Struct('!4sBqqq16sQdddddi')
+LAUNCH_MAGIC = b'P1D1'
 
 
 class LaunchReceiptError(RuntimeError):
@@ -169,14 +172,17 @@ class LaunchReceipt:
             if len(self.raw)>2*LAUNCH_RECORD.size:self.reject('size-limit');return
             while len(self.raw)>=(self.records+1)*LAUNCH_RECORD.size:
                 start=self.records*LAUNCH_RECORD.size
-                magic,kind,pid,pgid,sid,session,command,stamp,number=LAUNCH_RECORD.unpack(self.raw[start:start+LAUNCH_RECORD.size])
+                magic,kind,pid,pgid,sid,session,command,first_python,imports_complete,gate_enter,gate_exit,stamp,number=LAUNCH_RECORD.unpack(self.raw[start:start+LAUNCH_RECORD.size])
                 self.records+=1
                 if magic!=LAUNCH_MAGIC or kind not in [1,2]:self.reject('malformed-record')
                 elif pid!=self.row['pid'] or pgid!=pid or sid!=pid or session!=self.session or command!=self.command:self.reject('wrong-identity')
+                elif not all(math.isfinite(v) for v in [first_python,imports_complete,gate_enter,gate_exit,stamp]) or not self.row['popen']['before']<=first_python<=imports_complete<=gate_enter<=gate_exit<=stamp:self.reject('invalid-stage-time')
+                elif self.row['release']['before'] is None or gate_exit<self.row['release']['before']:self.reject('gate-exited-before-release')
+                elif kind==2 and self.row['pre_exec'] is not None and any(self.row['pre_exec'][k]!=v for k,v in [('first_python',first_python),('imports_complete',imports_complete),('gate_enter',gate_enter),('gate_exit',gate_exit)]):self.reject('stage-drift')
                 elif not math.isfinite(stamp) or self.row['release']['before'] is None or not self.row['release']['before']<=stamp<=after or stamp>self.deadline:self.reject('invalid-time')
                 elif (kind==1 and (self.records!=1 or number!=0)) or (kind==2 and (self.records!=2 or self.row['pre_exec'] is None or number<=0 or stamp<self.row['pre_exec']['child_monotonic'])):self.reject('invalid-order')
                 if self.row['reason']!='pending':continue
-                record={'child_monotonic':stamp,'observed_before':before,'observed_after':after}
+                record={'first_python':first_python,'imports_complete':imports_complete,'gate_enter':gate_enter,'gate_exit':gate_exit,'child_monotonic':stamp,'observed_before':before,'observed_after':after}
                 if kind==1:self.row['pre_exec']=record
                 else:self.row['exec_failure']={**record,'errno':number}
     def finish(self):
@@ -271,11 +277,15 @@ def stop_group(group,process=None):
 
 
 class Scope:
-    def __init__(self,root,seconds=1020):
+    def __init__(self,root,seconds=1020,gate_mode='full',stall_diagnostic=False):
+        if gate_mode not in ('full','minimal'):raise ValueError('fixed gate mode required')
+        self.gate_mode=gate_mode
         if seconds!=1020:raise ValueError('fixed 17-minute internal deadline required')
         self.root=root;self.path=root/'process-registry.json';self.lock=threading.RLock();self.processes={};self.rows=[]
         self.session=os.environ.get('P1_PROCESS_SCOPE_SESSION') or uuid.uuid4().hex
-        self.deadline=time.monotonic()+seconds;self.closing=False;self.fixture=None
+        started=time.monotonic()
+        self.deadline=started+(360 if stall_diagnostic else seconds);self.cleanup_deadline=started+480 if stall_diagnostic else None
+        self.closing=False;self.fixture=None
         if self.path.exists():raise ValueError('fresh process registry required')
         self.persist()
     def persist(self):
@@ -290,7 +300,10 @@ class Scope:
         with self.lock:
             if self.fixture is not None:self.fixture['cleanup_command_failed']=True;self.persist()
     def remaining(self,requested,cleanup=False):
-        if cleanup:return min(float(requested),15)
+        if cleanup:
+            left=15 if self.cleanup_deadline is None else self.cleanup_deadline-time.monotonic()
+            if left<=0:raise TimeoutError('diagnostic cleanup reserve exhausted')
+            return min(float(requested),15,left)
         left=self.deadline-time.monotonic()
         if left<=0 or self.closing:raise TimeoutError('internal collector deadline reached')
         return min(float(requested),left)
@@ -301,7 +314,8 @@ class Scope:
             read_fd=write_fd=receipt_read=receipt_write=None;process=None;row=None
             try:
                 read_fd,write_fd=os.pipe()
-                child=[sys.executable,'-B',str(Path(__file__).resolve()),'--child',str(read_fd)]
+                gate=Path(__file__).resolve() if self.gate_mode=='full' else Path(__file__).resolve().with_name('minimal_gate.py')
+                child=[sys.executable,'-B',str(gate),'--child',str(read_fd)]
                 inherited=(read_fd,)
                 if launch is not None:
                     receipt_read,receipt_write=os.pipe()
@@ -454,11 +468,12 @@ def child_main(args):
     if target[0]=='--launch-receipt':
         receipt=int(target[1]);session=bytes.fromhex(target[2]);command=int(target[3]);target=target[4:]
         os.set_inheritable(receipt,False)
-    signal_byte=os.read(descriptor,1);os.close(descriptor)
+    gate_enter=time.monotonic()
+    signal_byte=os.read(descriptor,1);gate_exit=time.monotonic();os.close(descriptor)
     if signal_byte!=b'G':os._exit(125)
     def emit(kind,number):
         try:
-            record=LAUNCH_RECORD.pack(LAUNCH_MAGIC,kind,os.getpid(),os.getpgrp(),os.getsid(0),session,command,time.monotonic(),number)
+            record=LAUNCH_RECORD.pack(LAUNCH_MAGIC,kind,os.getpid(),os.getpgrp(),os.getsid(0),session,command,_CHILD_FIRST_PYTHON,_CHILD_IMPORTS_COMPLETE,gate_enter,gate_exit,time.monotonic(),number)
             return os.write(receipt,record)==len(record)
         except (OSError,ValueError,struct.error):return False
     if receipt is None:os.execvp(target[0],target)
