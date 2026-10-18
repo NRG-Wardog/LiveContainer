@@ -1,0 +1,192 @@
+{
+  "adapter_files": {
+    "ci/p0bounds/native_gate.py": "421fea4a44dc05646657fb434a244fe640db0a93e97d520260063a2fa5a0dddf",
+    "ci/p0bounds/prepare_candidate_inventory.py": "abede4391fa9e87d8b1a403a85c38dff58e610a49435e6c5b67aeb7768550064",
+    "ci/p0bounds/run_unittest_suite.py": "90dcfe7f52949df13e5ef4b1cdf610bf2726df4c939ce1b3ce40eb9ed4394426",
+    "ci/p0bounds/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2"
+  },
+  "contracts": null,
+  "historical_basis": {
+    "capture_commit": "1d0a875bf4e7257c44022aac6e0b77c9f5a11925",
+    "fingerprints_path": "ci/p0bounds/historical-source-fingerprints.json",
+    "fingerprints_sha256": "abb694a045942cf162ed0fd35dad66be9de1ec26b6ff3ace89504bcb537fb1a1",
+    "fresh_guest_execution": false,
+    "role": "historical-only"
+  },
+  "integration_baseline": "141776ba6ba38fc04a5e77f68b0cfc4e6c8842ee",
+  "owners": {
+    "AnisetteKit": {
+      "changes": {
+        ".ci/native-tests/README.md": {
+          "after": {
+            "git_object": "2682bbd0caf64c818a28379bc78d99be86498ebb",
+            "mode": "100644",
+            "sha256": "7380f730896817cd6913a59b8f411b815ea4bf06560237fd1bdeedc2cdba72aa",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "57a4694a041f78cdae6d3e1ff57b77dad7cfdfa8",
+            "mode": "100644",
+            "sha256": "47136a886873602382791feeb8090a1666139711479a0df50e739fe6c213e2c1",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/fixtures/elf_metadata_bounds_unit.cpp": {
+          "after": {
+            "git_object": "d0a38ca27cf61770010803ca86c44620051ae182",
+            "mode": "100644",
+            "sha256": "bb4e7ec60202f6576f8013d0925c69c6ca4d8fca6061d93b233587efdb35487a",
+            "type": "blob"
+          },
+          "before": null
+        },
+        ".ci/native-tests/fixtures/isolated_anisette_loader_harness.cpp": {
+          "after": {
+            "git_object": "580a9f5c6e82cfaa2237ee15a18b9c3e555881e7",
+            "mode": "100644",
+            "sha256": "b15722a758ffc80324476823c854763ff3c98e3bce51a7c74e77fa453ea6b2e8",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "4381043502adbea1b4d8d3860f2ba5f5f83e7fa7",
+            "mode": "100644",
+            "sha256": "053efa1197760643af52976e868287ad83508195ddf75629add99b83ca7c0347",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/run_tests.py": {
+          "after": {
+            "git_object": "24ab5e38ab0952afe2182810de0e29197838022e",
+            "mode": "100644",
+            "sha256": "e750b294770ee864e36b94d9a7fa936c5cb76b2a16633ce8d199f439829f6811",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "902341f754fb3d5f9cb7bd9c9df8feb88008cbca",
+            "mode": "100644",
+            "sha256": "3728a41f67529f1c73222739008cba2c2d4ad4e1a818184f8103cac602e80014",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/test_android_tls_runtime.py": {
+          "after": {
+            "git_object": "9163e7858c9469795b3aff1c0d450c0fa1004729",
+            "mode": "100644",
+            "sha256": "6867ebfa2ef821692bc7c8091e1072996139c791cb61f942146bc6205e28f755",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "6e7f69abc1f852e815572be301002315f6ce7d4b",
+            "mode": "100644",
+            "sha256": "285e4accc6f90366f24be470c45a5376e2826d2bc05efe59da0851ec267c24ed",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/test_constructor_diagnostics.py": {
+          "after": {
+            "git_object": "b7fd809bc8a5d5d1e8b1a0c18db28b074294b0ff",
+            "mode": "100644",
+            "sha256": "9d27c7b9206246d5e908555e7f2412162ccf5d3b0862270fb79913a4a8ec1ddc",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "d693b9f0271525577344839fa6a505dfc1df6579",
+            "mode": "100644",
+            "sha256": "62e9c5585d4846aa114975b33af1c06abc79fd1f86421824e1dfb329ab1a981b",
+            "type": "blob"
+          }
+        },
+        ".ci/native-tests/test_elf_metadata_bounds.py": {
+          "after": {
+            "git_object": "f74dd05d0605e59298e42338527b6866d1aacf41",
+            "mode": "100644",
+            "sha256": "6a601417c24df2a267e3a782affcd1fefcd41b18301ed6073299be33e2b643ac",
+            "type": "blob"
+          },
+          "before": null
+        },
+        "Native/Loader/elf_loader_emulator.cpp": {
+          "after": {
+            "git_object": "8cb45ed2bc6e4d7f03aff1b4b678044d038bc048",
+            "mode": "100644",
+            "sha256": "2caeb8f2d5526c35e6128a288ec74229e25d23f1d2f84b22ca226ba3c89405d3",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "fb50db0b6c974a973416e5c6755846c3f926df64",
+            "mode": "100644",
+            "sha256": "661a28cab7bf0258e388be2ff8cba98c869f202791699d6697c0f8277971e2db",
+            "type": "blob"
+          }
+        },
+        "Native/Loader/elf_loader_emulator.h": {
+          "after": {
+            "git_object": "aea3514b0ac438926d4edd354d1731b44549c7f9",
+            "mode": "100644",
+            "sha256": "16eb67e76dc4ae94350e55968e9313c2f4163817182c08af76a5c85b2ec09327",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "9f9888a3e106f82555647d492d236c48fe719c5c",
+            "mode": "100644",
+            "sha256": "67e4ebfa530d39451169bae486facc57926a8e78a6cd833a6425628c457d5267",
+            "type": "blob"
+          }
+        },
+        "Native/Loader/elf_metadata_bounds.h": {
+          "after": {
+            "git_object": "4dbeeb6949fbc0fa87f050fcc8c571e6fef06b40",
+            "mode": "100644",
+            "sha256": "7acd9287cc351b55141f40a0baecda9c3d3202a420cf4b7f0f2515572d877253",
+            "type": "blob"
+          },
+          "before": null
+        },
+        "Native/anisette_core_uc.cpp": {
+          "after": {
+            "git_object": "782ff3329c9dad86b2aa010526fb9ab65313c952",
+            "mode": "100644",
+            "sha256": "d75cc5f9534f94d8871da89ca84c885148d3f813e93eee790aa698cec6ee855a",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "868a4bf241f03986c95e49abc497297cfefc643e",
+            "mode": "100644",
+            "sha256": "5251cf75e1944be12d7e8bc72de2a9ab6d9e3438671251e2a0918751d91b3a76",
+            "type": "blob"
+          }
+        }
+      },
+      "commit": "9c876820d102affe2f55ee4b7f735fff6abd990a",
+      "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
+      "tree": "1c54f163acfb8e5d18605aaa301a3d5ebd576505"
+    },
+    "SideSign": {
+      "changes": {
+        "Package.swift": {
+          "after": {
+            "git_object": "609ef4425c9d115497da96cabee31ef15cb08759",
+            "mode": "100644",
+            "sha256": "a833b0e77ad9e301af6039824bacbf03ee9ba94cefa5a0eb33278fcb013d2933",
+            "type": "blob"
+          },
+          "before": {
+            "git_object": "917be2e8fd41f1d9136dd31335c5791c9d56164a",
+            "mode": "100644",
+            "sha256": "fb346d161dacb3d66e3665030be1f59e9be75ad3856b0445e9e4d9d3dc1acaa9",
+            "type": "blob"
+          }
+        }
+      },
+      "commit": "bd728ce0dcb28feff1302507962c71d04bd4abab",
+      "repository": "https://github.com/NRG-Wardog/SideSign.git",
+      "tree": "edf1bda717530132131e99ce700cd12e24eba14a"
+    }
+  },
+  "phase": "sidesign",
+  "prior_sidesign": null,
+  "schema_version": 1,
+  "source_basis": "p0-elf-metadata-bounds-v1",
+  "submodules": {},
+  "test_suites": []
+}

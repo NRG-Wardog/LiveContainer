@@ -2,7 +2,7 @@ name: Xcode - Build
 
 on: 
   push:
-    branches-ignore: [validation/p0-constructor-diagnostics]
+    branches-ignore: [validation/p0-constructor-diagnostics, validation/p0-elf-metadata-bounds]
     tags: ['**']
   pull_request:
   workflow_dispatch:

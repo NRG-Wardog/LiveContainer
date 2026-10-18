@@ -1,0 +1,112 @@
+name: P0 defensive ELF metadata native capture
+
+# Local proposal only. Publish/trigger only after separate authorization.
+# Dedicated branch prevents accidentally rerunning the historical v2 lane.
+on:
+  push:
+    branches: [validation/p0-elf-metadata-bounds]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: p0-bounds-native-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  p0-native:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-elf-metadata-bounds'
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      P0_PHASE: sidesign
+      # Exact candidate input digest; requires independent review before publication.
+      APPROVED_P0_INPUTS_SHA256: '9b9b59dc01bfb531cfe060d4fd2151ca693a47da84b3e5f91be2d43ba9df4f98'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Fail closed on pending or altered source inputs
+        run: |
+          set -euo pipefail
+          test -n "$APPROVED_P0_INPUTS_SHA256"
+          python3 -B validation/ci/p0bounds/native_gate.py \
+            --inputs "validation/ci/p0bounds/inputs-$P0_PHASE.json" \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation"
+          python3 -B -m unittest discover -s validation/ci/p0bounds/tests -p test_capture_bounds.py -v
+      - name: Retrieve exact reviewed prior SideSign evidence
+        if: env.P0_PHASE == 'sidestore'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(python3 -c 'import json; print(json.load(open("validation/ci/p0bounds/inputs-sidestore.json"))["prior_sidesign"]["artifact_id"])')"
+          run_id="$(python3 -c 'import json; print(json.load(open("validation/ci/p0bounds/inputs-sidestore.json"))["prior_sidesign"]["run_id"])')"
+          run_attempt="$(python3 -c 'import json; print(json.load(open("validation/ci/p0bounds/inputs-sidestore.json"))["prior_sidesign"]["run_attempt"])')"
+          identity="$RUNNER_TEMP/p0-prior-github-identity"
+          mkdir "$identity"
+          gh api "/repos/NRG-Wardog/LiveContainer/actions/runs/$run_id/attempts/$run_attempt" > "$identity/run.json"
+          gh api "/repos/NRG-Wardog/LiveContainer/actions/artifacts/$artifact_id" > "$identity/artifact.json"
+          python3 -c 'import json,os,pathlib; pathlib.Path(os.environ["RUNNER_TEMP"],"p0-prior-github-identity","transport.json").write_text(json.dumps({k:os.environ[v] for k,v in {"repository":"GITHUB_REPOSITORY","run_id":"GITHUB_RUN_ID","run_attempt":"GITHUB_RUN_ATTEMPT","host_commit":"GITHUB_SHA"}.items()}))'
+          gh api "/repos/NRG-Wardog/LiveContainer/actions/artifacts/$artifact_id/zip" > "$RUNNER_TEMP/p0-prior-sidesign.zip"
+          python3 -B validation/ci/p0bounds/native_gate.py \
+            --inputs validation/ci/p0bounds/inputs-sidestore.json \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --prior-archive "$RUNNER_TEMP/p0-prior-sidesign.zip" \
+            --unpack-prior-to "$RUNNER_TEMP/p0-prior-sidesign"
+      - name: Install reviewed native prerequisites
+        if: env.P0_PHASE == 'sidestore'
+        run: |
+          set -euo pipefail
+          brew list --versions openssl@3 >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install openssl@3
+          if ! command -v bindgen >/dev/null || [ "$(bindgen --version)" != 'bindgen 0.72.1' ]; then
+            cargo install --locked --force bindgen-cli --version 0.72.1
+          fi
+      - name: Resolve compile and capture exact P0 graph
+        run: |
+          set -euo pipefail
+          args=(
+            --inputs "validation/ci/p0bounds/inputs-$P0_PHASE.json"
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256"
+            --host-root "$GITHUB_WORKSPACE/validation"
+            --work "$RUNNER_TEMP/p0-work" --evidence "$GITHUB_WORKSPACE/p0-evidence"
+            --execute
+          )
+          if [ "$P0_PHASE" = sidestore ]; then
+            args+=(--prior-sidesign-evidence "$RUNNER_TEMP/p0-prior-sidesign" --prior-github-identity "$RUNNER_TEMP/p0-prior-github-identity")
+          fi
+          python3 -B validation/ci/p0bounds/native_gate.py "${args[@]}"
+      - name: Verify settled evidence before transport
+        id: transport
+        if: always()
+        run: |
+          if python3 -B validation/ci/p0bounds/native_gate.py \
+            --inputs "validation/ci/p0bounds/inputs-$P0_PHASE.json" \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --evidence "$GITHUB_WORKSPACE/p0-evidence" --check-transport; then
+            echo 'settled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'settled=false' >> "$GITHUB_OUTPUT"
+            echo 'Evidence upload blocked: capture did not establish settled writers and a stable index.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve actual capture for independent review
+        if: always() && steps.transport.outputs.settled == 'true' 
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p0-bounds-native-${{ env.P0_PHASE }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p0-evidence/**
+          if-no-files-found: error
+          retention-days: 14
+
