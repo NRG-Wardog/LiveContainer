@@ -18,7 +18,7 @@ class ScreenCalibration(unittest.TestCase):
                     self.assertIn('recording',order);order.append('shutdown')
                     return not recording_failure
                 def copy(*args):self.assertIn('shutdown',order);order.append('copy')
-                with mock.patch.object(capture,'ManagedVideo',return_value=recorder),mock.patch.object(capture,'ThreadPoolExecutor',side_effect=ValueError('injected before protocol')),mock.patch.object(capture,'stop_fixture',side_effect=stop_fixture),mock.patch.object(capture,'copy_channel',side_effect=copy),mock.patch.object(capture,'channel_root',return_value=None):
+                with mock.patch.object(capture,'container',return_value=Path(tmp)),mock.patch.object(capture,'settle_discovery_observers'),mock.patch.object(capture,'ManagedVideo',return_value=recorder),mock.patch.object(capture,'ThreadPoolExecutor',side_effect=ValueError('injected before protocol')),mock.patch.object(capture,'stop_fixture',side_effect=stop_fixture),mock.patch.object(capture,'copy_channel',side_effect=copy),mock.patch.object(capture,'channel_root',return_value=None):
                     row=capture.run_calibration(command,Path('recipe'),'device','a'*32,Path(tmp)/'calibration',lambda _:True)
                 self.assertFalse(row['collection_complete']);self.assertFalse(row['calibration_feasible'])
                 if recording_failure:self.assertNotIn('copy',order)

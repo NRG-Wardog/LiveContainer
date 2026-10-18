@@ -31,7 +31,7 @@ METHOD='testScreenshotCalibrationCapability'
 CLASS='P1ScreenshotCapabilityUITests'
 RUNNER_ID=analysis.RUNNER_ID
 # Fixed list, independent of the supplied manifest. Updated only by reviewed source.
-ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py','test_query_reuse.py','test_full_recovery.py','full-recovery-baseline.json','test_structural_tabs.py','test_observation_snapshot.py','test_screen_calibration.py']}
+ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py','test_query_reuse.py','test_full_recovery.py','full-recovery-baseline.json','test_structural_tabs.py','test_observation_snapshot.py','test_screen_calibration.py','test_calibration_discovery.py']}
 
 
 def validate(host,inputs,approved):
@@ -87,16 +87,26 @@ def configure_runner(candidate,products,session,output):
 
 def container(command,device,bundle):
     require(bundle in [APP_ID,RUNNER_ID],'unallowlisted container discovery')
-    result=command('xcrun','simctl','get_app_container',device,bundle,'data',allow_failure=True,timeout=10)
-    if not result or not result.startswith('/'):return None
+    receipt=command('xcrun','simctl','get_app_container',device,bundle,'data',timeout=10,receipt=True)
+    require(receipt.get('writer_settled') is True and not receipt.get('cleanup_errors'),'container discovery writer settlement failed')
+    launch=receipt.get('launch_receipt',{})
+    require(launch.get('state')=='pre-exec-observed' and launch.get('closed') is True and launch.get('eof') is True and launch.get('exec_failure') is None,'container discovery launch unknown')
+    require(receipt.get('failure_type') in (None,'CalledProcessError'),'container discovery infrastructure failure')
+    if receipt.get('exit_code')!=0:
+        expected='An error was encountered processing the command (domain=NSPOSIXErrorDomain, code=2):\nThe operation couldn’t be completed. No such file or directory\nNo such file or directory'
+        require(receipt.get('exit_code')==2 and receipt.get('failure_type')=='CalledProcessError' and receipt.get('stdout','').strip()=='' and receipt.get('stderr','').strip()==expected,'unclassified container discovery failure')
+        return None
+    require(simulator_cleanup.clean_command(receipt),'container discovery failed')
+    result=receipt.get('stdout','').strip()
+    require(result.startswith('/'),'container discovery path absent')
     root=Path(result)
     require(root.is_absolute() and root.is_dir() and not root.is_symlink(),'invalid simulator data container')
     return root.resolve()
 
 
-def channel_root(command,device,bundle,session):
-    root=container(command,device,bundle)
+def channel_at(root,bundle,session):
     if root is None:return None
+    require(bundle in [APP_ID,RUNNER_ID] and root.is_absolute() and root.is_dir() and not root.is_symlink(),'invalid channel container')
     child=root/'Documents'/('p1-capability-app' if bundle==APP_ID else 'p1-capability')/session
     if not child.exists():return None
     for path in [root/'Documents',child.parent,child]:require(path.is_dir() and not path.is_symlink(),'linked channel ancestor')
@@ -106,6 +116,26 @@ def channel_root(command,device,bundle,session):
     identity=protocol.parse(identity_path)
     require(identity.get('session')==session and identity.get('bundleIdentifier' if bundle==APP_ID else 'runnerBundleIdentifier')==bundle,'stale/wrong launch channel')
     return child
+
+
+def channel_root(command,device,bundle,session):
+    return channel_at(container(command,device,bundle),bundle,session)
+
+
+def settle_discovery_observers(command,device,folder):
+    scope=command.scope;records=[]
+    for row in list(scope.rows):
+        if row.get('settled') is True:continue
+        expected=[['xcrun','simctl','get_app_container',device,bundle,'data'] for bundle in [APP_ID,RUNNER_ID]]
+        require(row.get('argv') in expected,'unsettled non-discovery writer')
+        process=scope.processes.get(row.get('pid'))
+        require(isinstance(process,process_scope.OwnedProcess) and process.pid==row.get('pid'),'retained discovery ownership absent')
+        require(row.get('reaped') is True and row.get('exit_code') is not None and process.returncode is not None,'discovery direct child still active')
+        require(scope.remaining(15,cleanup=True)>=15,'discovery settlement reserve exhausted')
+        prior=list(row.get('cleanup_errors',[]));scope.settle(process)
+        require(row.get('settled') is True,'discovery writer remains unsettled')
+        records.append({'pid':process.pid,'settled':True,'prior_cleanup_errors':prior,'historical_failure_preserved':True})
+    if records:write(folder/'discovery-settlement-recovery.json',{'records':records,'admissionEligible':False})
 
 
 def copy_channel(root,target):
@@ -229,6 +259,8 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
     folder.mkdir();report={'scope':'calibration-capability-only','collection_complete':False,'calibration_feasible':False,'admissionEligible':False,'errors':[]};roots={};recorder=None;future=None;fixture_stopped=False
     try:
         command.scope.fixture_stopped(False)
+        app_container=container(command,device,APP_ID)
+        require(app_container is not None,'installed app container unavailable before XCTest')
         recorder=ManagedVideo(command.scope,device,folder)
         with ThreadPoolExecutor(max_workers=1) as pool:
             bundle=folder/'tests.xcresult'
@@ -238,10 +270,14 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
             try:
                 deadline=time.monotonic()+command.scope.remaining(180)
                 while time.monotonic()<deadline:
-                    for role,identifier in [('app',APP_ID),('runner',RUNNER_ID)]:
-                        if role not in roots:
-                            value=channel_root(command,device,identifier,session)
-                            if value is not None:roots[role]=value
+                    if 'app' not in roots:
+                        value=channel_at(app_container,APP_ID,session)
+                        if value is not None:roots['app']=value
+                    # The exact-session app identity proves the fixture launched;
+                    # do not race simulator container queries against XCTest installation.
+                    if 'app' in roots and 'runner' not in roots:
+                        value=channel_root(command,device,RUNNER_ID,session)
+                        if value is not None:roots['runner']=value
                     if len(roots)==2 and (roots['runner']/'ready.json').is_file():break
                     if future.done():future.result();raise ValueError('XCTest ended before channels ready')
                     time.sleep(.25)
@@ -265,6 +301,7 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
                 if not future.done():command('xcrun','simctl','terminate',device,APP_ID,allow_failure=True,timeout=10,cleanup=True)
         # Finish the owned recorder before exact-owned shutdown requires settled writers.
         recorder.stop();recorder=None
+        settle_discovery_observers(command,device,folder)
         # Stop only these disposable fixture processes before reading channels.
         fixture_stopped=stop_fixture(command,device,folder)
         require(fixture_stopped,'fixture termination not proven')
@@ -290,6 +327,8 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
         if recorder is not None:
             try:recorder.stop();recorder=None
             except Exception as error:report['errors'].append('recording: '+str(error))
+        try:settle_discovery_observers(command,device,folder)
+        except Exception as error:report['errors'].append('discovery settlement: '+str(error))
         if not fixture_stopped:
             try:fixture_stopped=stop_fixture(command,device,folder)
             except Exception as error:report['errors'].append('fixture cleanup: '+str(error))

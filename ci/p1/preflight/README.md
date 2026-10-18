@@ -570,3 +570,9 @@ The phone method in run39156182775 reached real UI and passed initial/post-Resum
 The phone-calibration-only profile tests whether the public XCUIScreen.main screenshot path reduces acquisition uncertainty. It requires the fixture to be foreground before and after acquisition, preserves the original nine screenshots, three phases, clock exchange, pixel association and 120 ms limit. It is not recovery, tablet, feedback lifetime or input-overlap acceptance. A successful XCTest alone is insufficient: calibration_feasible must pass strict retained-data analysis and cleanup.
 
 The owned video recorder is stopped and settled after protocol/XCTest completion and before exact-owned simulator shutdown; channels are copied only after shutdown proof. The run retains native 240 s, command 360 s and ordinary 1020/1140/1200 s observation/cleanup/outer budgets. Previous app-capture uncertainty failures remain historical failures.
+
+## Discovery ordering and diagnostic recovery
+
+Run39175108769 completed its native calibration test and all requested captures, but a timed-out startup container query left a process group unresolved until outer cleanup. No calibration feasibility is claimed from that run. The collector now resolves the installed application container before XCTest and waits for exact-session application identity before querying the runner container. Only the exact observed ENOENT response is treated as not ready; infrastructure and ownership failures stop the protocol and remain failed.
+
+After native work and recording finish, a completed discovery observer may be settled again only through its retained OwnedProcess and original registered argv. Existing cleanup reserve is required. This can permit diagnostic channel copying after proven quiescence; it never removes the original failure or grants calibration acceptance.
