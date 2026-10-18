@@ -35,6 +35,11 @@ enum JITEnablerType : Int, CaseIterable, Identifiable {
 
 struct LCSettingsView: View {
     @Environment(\.locale) private var selectedDisplayLocale
+    @Environment(\.layoutDirection) private var selectedDisplayDirection
+    @EnvironmentObject private var sideStoreStatus: V3SideStoreStatusStore
+    // These write trackers must survive the Form's direction-only reconstruction.
+    @StateObject private var betaUpdateState = V3BoolSettingState()
+    @StateObject private var idleTimeoutState = V3BoolSettingState()
     @AppStorage("LCHideReturnControl", store: UserDefaults.lcShared()) private var hideReturnControl = false
     @AppStorage("LCGuestReturnStartsCollapsed", store: UserDefaults.lcShared()) private var returnStartsCollapsed = false
     @AppStorage("LCGuestReturnCustomColors", store: UserDefaults.lcShared()) private var returnCustomColors = false
@@ -170,7 +175,7 @@ struct LCSettingsView: View {
         NavigationView {
             Form {
                 V3LanguageSettingsSection()
-                V3AccountSettings()
+                V3AccountSettings(betaUpdateState: betaUpdateState, idleTimeoutState: idleTimeoutState)
                 Section {
                     Toggle("Show Return Button", isOn: Binding(get: { !hideReturnControl }, set: { hideReturnControl = !$0 }))
                     Group {
@@ -514,6 +519,10 @@ struct LCSettingsView: View {
                     }
                 }
             }
+            // Recreate only native Form layout when crossing the RTL/LTR boundary.
+            // Settings values and asynchronous write ownership live above this identity.
+            // Presentation and navigation modifiers below deliberately remain outside it.
+            .id(selectedDisplayDirection == .rightToLeft)
             // V3_JITLESS_ROUTE_ROW_NEUTRALIZED_V1: a background is laid out
             // outside the Form row structure, so this programmatic route cannot
             // produce an empty Settings row at any text size or device width, and
@@ -593,6 +602,9 @@ struct LCSettingsView: View {
             )
         }
         .navigationViewStyle(StackNavigationViewStyle())
+        // Load lifetime follows Settings, not reconstruction of its native Form.
+        .task { await betaUpdateState.load(key: "isBetaUpdatesEnabled", status: sideStoreStatus) }
+        .task { await idleTimeoutState.load(key: "isIdleTimeoutDisableEnabled", status: sideStoreStatus) }
         .onAppear() {
             if !isViewAppeared {
                 guard sharedModel.selectedTab == .settings, let link = sharedModel.deepLink else { return }
