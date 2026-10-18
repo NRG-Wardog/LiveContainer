@@ -166,7 +166,7 @@ class LaunchReceiptTests(unittest.TestCase):
             observer.row['pid'] = child.pid
             return child
         with mock.patch.object(self.scope, 'spawn', side_effect=spawn):
-            result = self.run_command('/bin/true', allow_failure=True, timeout=3)
+            result = self.run_command('/usr/bin/true', allow_failure=True, timeout=3)
         self.assertEqual(result['failure_type'], 'LaunchReceiptError')
         self.assertEqual(result['cleanup_errors'], [{'type': 'LaunchReceiptError'}])
         self.assertEqual(result['launch_receipt']['state'], 'unknown')
@@ -175,7 +175,7 @@ class LaunchReceiptTests(unittest.TestCase):
     def test_unresolved_settlement_is_not_hidden_by_valid_launch_receipt(self):
         original = self.scope.settle
         with mock.patch.object(self.scope, 'settle', side_effect=PermissionError(errno.EPERM, 'unknown group')):
-            result = self.run_command('/bin/true', timeout=3)
+            result = self.run_command('/usr/bin/true', timeout=3)
         self.assertEqual(result['launch_receipt']['state'], 'pre-exec-observed')
         self.assertEqual(result['failure_type'], 'PermissionError')
         self.assertEqual(result['cleanup_errors'], [{'type': 'PermissionError', 'errno': errno.EPERM}])

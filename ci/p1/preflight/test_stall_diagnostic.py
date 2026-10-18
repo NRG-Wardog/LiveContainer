@@ -12,6 +12,10 @@ HERE=Path(__file__).resolve().parent
 HOST=HERE.parents[2]
 
 class Integration(unittest.TestCase):
+    def test_receipt_test_executable_matches_real_macos_probe(self):
+        text=(HERE/'test_stall_receipts.py').read_text()
+        self.assertNotIn("'/bin/true'",text)
+        self.assertEqual(text.count("'/usr/bin/true'"),2)
     def test_toolchain_and_runtime_drift(self):
         import stall_diagnostic as stall
         stall.exact_xcode(b'Xcode 26.4.1\nBuild version 17E202\n')

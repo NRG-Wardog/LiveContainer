@@ -47,7 +47,11 @@ def pair(command,phase):
         finally:command.scope.gate_mode=original
         if not all(r.get('settled') is True for r in command.scope.rows):
             raise RuntimeError('probe settlement unproved')
-        results.append({'mode':mode,'command_id':row['command_id'],
-                        'evidence_receipt_file':'probes/commands.jsonl','exit_code':row['exit_code'],'failure':row['primary_error'],
-                        'cleanup_errors':row['cleanup_errors'],'launch_receipt':row['launch_receipt']})
+        probe={'mode':mode,'command_id':row['command_id'],
+               'evidence_receipt_file':'probes/commands.jsonl','exit_code':row['exit_code'],'failure':row['primary_error'],
+               'cleanup_errors':row['cleanup_errors'],'launch_receipt':row['launch_receipt']}
+        # Fixed diagnostic metadata survives a later quiescence/package refusal.
+        # This record cannot grant admission or prove target execution.
+        process_scope.emit_diagnostic('stall-probe',observation_phase=phase,**probe)
+        results.append(probe)
     return {'phase':phase,'probes':results,'admissionEligible':False}
