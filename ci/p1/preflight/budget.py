@@ -14,7 +14,7 @@ import process_scope
 import simulator_cleanup
 
 
-def verify_quiescence(evidence,session,force=False):
+def verify_quiescence(evidence,session,force=False,command_factory=None):
     path=evidence/'process-registry.json'
     if not path.is_file() or path.is_symlink():raise ValueError('process registry absent; evidence transport unsafe')
     registry=json.loads(path.read_text());groups=registry.get('groups')
@@ -63,6 +63,7 @@ def verify_quiescence(evidence,session,force=False):
             process_scope.emit_diagnostic('backstop-simulator-cleanup',pgid=child.pid,exit_code=child.returncode,
                 primary_error=row['primary_error'],cleanup_errors=row['cleanup_errors'])
             return row
+        if command_factory is not None:command=command_factory(evidence,errors,unsettled,SanitizedCommandError)
         shutdown=simulator_cleanup.confirm_shutdown(command,device,True)
         process_scope.atomic(evidence/'backstop-simulator-shutdown.json',shutdown)
         # A later simulator-state observation never settles an earlier host
@@ -97,7 +98,15 @@ REASONS={
 }
 
 
+class SanitizedCommandError(Exception):
+    """A fixed public message with an independently retained typed failure."""
+    def __init__(self,error):
+        super().__init__('bounded simulator observer failed')
+        self.diagnostic=process_scope.error_info(error)
+
+
 def failure_info(error):
+    if isinstance(error,SanitizedCommandError):return dict(error.diagnostic)
     row=process_scope.error_info(error)
     # Only fixed harness reasons may reach stdout; arbitrary exception args,
     # subprocess argv and environmental values are intentionally omitted.
@@ -130,7 +139,7 @@ def phase_summaries(evidence):
         if fd is not None:os.close(fd)
 
 
-def run(argv,evidence,seconds=1200):
+def run(argv,evidence,seconds=1200,command_factory=None):
     if seconds!=1200:raise ValueError('reviewed 20-minute outer collector budget required')
     before=time.monotonic();process=None;session=uuid.uuid4().hex;phase='collector-spawn';primary=None;cleanup_errors=[]
     outcome={'schema':'p1-capability-outer-budget-v1','session':session,'budget_seconds':seconds,'timed_out':False,'transport_safe':False,'admissionEligible':False};code=1
@@ -150,7 +159,9 @@ def run(argv,evidence,seconds=1200):
             raise
         phase='collector-disappearance'
         if not process_scope.stop_group(process.pid,process):raise RuntimeError('collector group did not settle')
-        phase='verify-quiescence';verify_quiescence(evidence,session,force=True)
+        phase='verify-quiescence'
+        if command_factory is None:verify_quiescence(evidence,session,force=True)
+        else:verify_quiescence(evidence,session,force=True,command_factory=command_factory)
         outcome['transport_safe']=True
         if json.loads((evidence/'process-registry.json').read_text()).get('backstop_cleanup_command_failed') is True:
             code=1;outcome['cleanup_command_failed']=True
@@ -187,8 +198,12 @@ def check_package(evidence):
         process_scope.emit_diagnostic('package-gate-failure',error=failure_info(error));raise
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--evidence',type=Path,required=True);p.add_argument('--check-package',action='store_true');p.add_argument('command',nargs=argparse.REMAINDER);a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--evidence',type=Path,required=True);p.add_argument('--check-package',action='store_true');p.add_argument('--boot-diagnostic',action='store_true');p.add_argument('command',nargs=argparse.REMAINDER);a=p.parse_args()
     if a.check_package:check_package(a.evidence)
     else:
         if not a.command or a.command[0]!='--':p.error('explicit -- command required')
+        if a.boot_diagnostic:
+            import boot_diagnostic
+            with boot_diagnostic.sanitized_membership_diagnostics():
+                raise SystemExit(run(a.command[1:],a.evidence,command_factory=boot_diagnostic.backstop_commands))
         raise SystemExit(run(a.command[1:],a.evidence))

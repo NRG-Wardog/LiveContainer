@@ -1,3 +1,114 @@
+# P1 boot-only readiness diagnostic
+
+The selected workflow temporarily invokes `boot_diagnostic.py` instead of the
+preserved phone recovery collector. It performs one boot attempt on the exact
+precreated phone UUID `B34C2F57-B98B-4C84-96E2-3170887BA2DB` and iOS 26.2 runtime.
+The UUID must be uniquely present, available and initially Shutdown. A different
+or already-Booted device fails without booting or shutting it down. Ownership is
+registered before the boot attempt so even a partially successful boot command
+is covered by the accepted exact-UUID cleanup and outer backstop.
+
+This is a diagnostic, not a capability or acceptance run. There is no source
+checkout, native-reader compile, fixture/app build, installation, app launch,
+XCTest, calibration or UI execution. Every admission/capability flag stays false.
+A successful exit means only that these diagnostics completed, bootstatus returned
+success within its limit, and cleanup settled. Category counts locate observations
+in the attempt's time window; they do not establish the cause of slow readiness
+or prove that every service message concerned the selected simulator.
+
+## Command and time bounds
+
+There are at most 12 diagnostic probes, each with a 10-second command allowance:
+Xcode version; macOS version; exact `simctl help bootstatus`; exact runtime
+metadata; before/after device state; before/after VM counters; before/after known
+simulator process counters; filesystem capacity counters; and one CoreSimulator
+service-log query. The separate `simctl boot` allowance is 30 seconds and the
+single `simctl bootstatus <UUID> -b` readiness allowance remains **120 seconds**.
+There is no boot or readiness retry. Accepted final cleanup uses at most three
+15-second commands: state query, shutdown if Booted, and independent final state.
+The normal collector uses at most **17 owned groups and 315 seconds of command
+allowances**, plus the unchanged bounded group settlement routines. If forced
+outer cleanup is needed, it can add at most three more 15-second commands, so
+the collector plus forced simulator cleanup is bounded to **20 command groups
+and 360 seconds of requested command allowances**, excluding the outer collector
+process itself and the previously reviewed bounded membership snapshots. An already-Shutdown observation
+avoids the redundant shutdown and final query. These additive allowances are not
+a guarantee against OS/filesystem overhead; the existing 17-minute internal,
+20-minute outer, 22-minute Actions step and 35-minute job backstops remain intact.
+
+The original `Scope.spawn`, owned-child PID reservation, `Scope.settle`, positive
+Shutdown confirmation and original-byte packaging are unchanged. `budget.py`
+adds an opt-in `--boot-diagnostic` adapter: it uses the same forced-backstop
+quiescence decisions and direct-child ownership, but reads output into bounded
+pipes and filters it before retention. The default phone path keeps its existing
+command implementation. The adapter never replaces or resets the collector
+registry, and unresolved backstop observers are still checked separately from
+the final simulator state. Typed primary and cleanup failures are retained with
+a fixed public exception message so arbitrary exception text cannot reach the
+outer budget receipt. Diagnostic children write only into bounded pipes. An unresolved
+child remains registered and blocks indexing and transport even after a later
+Shutdown observation. A timed-out but positively settled command may retain
+stable failed diagnostic evidence; it never becomes a successful diagnostic.
+The readiness receipt is saved before any later probe, and cleanup/diagnostic
+errors never overwrite its typed primary error or deadline.
+
+## Retained data allowlist
+
+Every command has a 256 KiB combined stdout/stderr in-memory limit (one additional
+byte detects overflow). Raw output is never persisted except exact public vendor
+help/version text from the fixed help/version commands, with strict format and
+sensitive-path/token rejection. Only those commands can retain text; unexpected
+stderr elsewhere is represented only by its byte count. Help is capped at 16 KiB.
+No sensitive environment, credentials, arbitrary exception arguments or inspected
+process arguments are collected. Device and runtime reducers retain only the fixed UUID/runtime,
+state, availability, version and build; names, paths, unrelated devices and
+runtime metadata are dropped before any file write.
+
+Resource output retains numeric VM/disk counters. The process snapshot requests
+`comm`, never `args`, and retains at most 32 rows for the fixed simulator service
+allowlist, reduced to service name, PID/PPID, state, CPU percentage and RSS. Paths
+and all unrelated names are discarded in memory. Truncated row counts are explicit.
+
+One unified-log query spans only this boot/readiness attempt, rounded outward to
+whole seconds and capped at 180 seconds. Its fixed known-service predicate, exact
+start/end arguments, byte limit and completeness/truncation flags are retained.
+The `p1-service-categories-v1` reducer accepts at most 2,048 records and retains
+only known service/severity plus fixed boot/readiness/launchd/failure/timeout/
+connection-invalidated/other category counts. It discards event text, paths,
+identifiers and arbitrary metadata. There is no broad `simctl diagnose` archive.
+Malformed JSON, oversized output, record-limit breaches, command timeouts and
+unresolved cleanup remain visible typed failures; none can create an observation
+or silently substitute truncated data for a complete result.
+
+## Diagnostic redaction and provenance
+
+Both the dedicated collector and boot-only outer CLI install a presentation-only
+wrapper around the accepted membership snapshot. It preserves numeric membership
+identity, availability and truncation, but reduces comm paths to allowlisted
+executable basenames (unknown names receive a fixed label). Nested error fields
+are rebuilt from a typed allowlist. This happens before GroupOperationError emits
+or Scope persists a diagnostic; it changes no signals, ownership, waits or
+settlement decisions. The original function is restored in a finally block. An unexpected redaction
+failure produces an explicit unavailable/truncated diagnostic, never an absence
+claim, and cannot replace the original group-operation error.
+
+Before any diagnostic command, the collector retains the exact approved input
+bytes, all sealed adapter source bytes (2 MiB/file, 16 MiB total), and the workflow
+bytes. It checks their seals again and records the pinned production/builder
+identities, source/workflow hashes, and only strictly validated public Actions
+commit/run/attempt/repository identifiers. These sources are provenance only;
+the production or builder repositories are not cloned or built.
+
+## Restoration
+
+The original phone `capture.execute` path and its fixture/UI files are unchanged.
+To restore that lane, review a successor workflow selecting the existing
+`capture.py --execute --work ... --device-class phone` invocation and refresh the
+input/workflow seal as usual. This boot-only result cannot supply missing phone
+recovery evidence or retroactively validate either failed run.
+
+---
+
 # P1 phone recovery capability successor
 
 This successor runs only the phone landscape-target recovery capability. It
