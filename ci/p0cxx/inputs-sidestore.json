@@ -1,0 +1,10 @@
+{
+  "status": "PENDING_FRESH_SIDESIGN_NATIVE_CAPTURE",
+  "source_basis": "p0-cxx-allocation-v1",
+  "blocked_on": [
+    "Reviewed genuine SideSign lock-only descendant",
+    "SideStore gitlink candidate selecting that final SideSign commit",
+    "Authenticated fresh SideSign run and artifact identities"
+  ],
+  "production_ready": false
+}
