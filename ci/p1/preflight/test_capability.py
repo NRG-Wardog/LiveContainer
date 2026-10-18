@@ -731,7 +731,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
     def execute_phone(self,recovery_passed=True,cleanup_failure=False,source_drift=False,
-                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False):
+                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False,install_observation=None):
         from types import SimpleNamespace
         host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text('{}')
         device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[];scope.session=SESSION;scope.deadline=time.monotonic()+1020
@@ -800,10 +800,13 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             calibration=stack.enter_context(mock.patch.object(capture,'run_calibration',side_effect=AssertionError('calibration must not run')))
             layout=stack.enter_context(mock.patch.object(capture,'run_layout',return_value=recovery))
             stop=stack.enter_context(mock.patch.object(capture,'stop_fixture',return_value=True))
-            with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,'phone')
+            if install_observation is not None:stack.enter_context(mock.patch.object(capture,'observe_install',return_value=install_observation))
+            with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,'phone',install_observation is not None)
         native.assert_called_once();acquire.assert_any_call(work/'LiveContainer',capture.SOURCE,command)
         calibration.assert_not_called()
-        if uninstall_failure is None:
+        if install_observation is not None:
+            layout.assert_not_called()
+        elif uninstall_failure is None:
             layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png)
         else:
             layout.assert_not_called()

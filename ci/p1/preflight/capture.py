@@ -31,7 +31,7 @@ METHOD='testScreenshotCalibrationCapability'
 CLASS='P1ScreenshotCapabilityUITests'
 RUNNER_ID=analysis.RUNNER_ID
 # Fixed list, independent of the supplied manifest. Updated only by reviewed source.
-ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py']}
+ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py']}
 
 
 def validate(host,inputs,approved):
@@ -371,7 +371,23 @@ def prepare_install(command,device):
                 'optional uninstall writer settlement unproved')
     return {'device':device,'uninstalls_skipped':False,'admissionEligible':False}
 
-def execute(host,work,output,inputs,approved,kind):
+def observe_install(command,device,app,output):
+    receipt=command('xcrun','simctl','install',device,app,timeout=120,receipt=True)
+    timing=receipt.get('wait_timing',{});start=timing.get('command_started');end=timing.get('wait_finished')
+    elapsed=end-start if isinstance(start,(int,float)) and isinstance(end,(int,float)) and end>=start else None
+    launch=receipt.get('launch_receipt',{})
+    complete=(receipt.get('exit_code')==0 and receipt.get('failure_type') is None and receipt.get('primary_error') is None
+        and not receipt.get('cleanup_errors') and receipt.get('writer_settled') is True and timing.get('wait_returned') is True
+        and launch.get('state')=='pre-exec-observed' and launch.get('closed') is True and launch.get('eof') is True and launch.get('exec_failure') is None)
+    row={'schema':'p1-install-completion-observation-v1','admissionEligible':False,'ui_executed':False,
+         'original_limit_seconds':30,'observation_cap_seconds':120,'original_30_exceeded':elapsed>30 if elapsed is not None else None,
+         'command_through_wait_seconds':elapsed,'timing_note':'Command start through wait completion or failure; settlement is separate. No service-side completion timestamp is asserted.',
+         'installation_completed':complete,'diagnostic_complete':True,'receipt':receipt}
+    write(output/'install-observation.json',row)
+    return row
+
+
+def execute(host,work,output,inputs,approved,kind,install_diagnostic=False):
     require(kind=='phone' and not work.exists() and not output.exists(),'fresh paths and phone-only device class required');work.mkdir(parents=True);output.mkdir(parents=True)
     result={'schema':'p1-phone-recovery-collection-v1','scope':'phone-recovery-capability-only','admission_eligible':False,'production_ready':False,'full_native_lane_executed':False,'full_matrix_complete':False,
         'source':SOURCE,'source_sha256':SOURCE_SHA,'approved_inputs_sha256':approved,'device_class':kind,'collection_complete':False,'capabilities_passed':False,'errors':[],
@@ -381,6 +397,7 @@ def execute(host,work,output,inputs,approved,kind):
             'calibration':'failed fixed uncertainty limits on both devices; not rerun here',
             'tablet_recovery':'two bounded methods passed in that prior run only; not rerun here'},
         'github':{k:os.environ.get(k) for k in ['GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_REPOSITORY']}}
+    if install_diagnostic:result.update(scope='install-completion-diagnostic-only',diagnostic_complete=False,ui_executed=False)
     command=None;scope=None;booted_here=False;device=None
     try:
         logs=output/'commands';logs.mkdir();scope=process_scope.Scope(output,phone_ui=True);command=process_scope.Commands(scope,logs)
@@ -404,20 +421,27 @@ def execute(host,work,output,inputs,approved,kind):
         command('xcrun','simctl','boot',device,timeout=30)
         command('xcrun','simctl','bootstatus',device,'-b',timeout=120)
         write(output/'install-preparation.json',prepare_install(command,device))
-        command('xcrun','simctl','install',device,apps[0],timeout=30)
-        result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png)
+        if install_diagnostic:
+            observation=observe_install(command,device,apps[0],output);result['install_observation']=observation
+            result['diagnostic_complete']=True
+            require(observation['installation_completed'],'install observation failed or ownership/receipt unproved')
+            require(observation['original_30_exceeded'] is False,'original 30-second install threshold exceeded or unmeasured')
+        else:
+            command('xcrun','simctl','install',device,apps[0],timeout=30)
+            result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png)
         write(output/'source-after.json',{'LiveContainer':base.checkout_proof(live,SOURCE,command),'builder':base.checkout_proof(builder,BUILDER,command)})
         require(parse(output/'source-before.json')==parse(output/'source-after.json') and sha(live/base.SHELL)==SOURCE_SHA,'source drift')
-        result['collection_complete']=result['recovery']['collection_complete']
-        result['capabilities_passed']=result['collection_complete']
+        if not install_diagnostic:
+            result['collection_complete']=result['recovery']['collection_complete']
+            result['capabilities_passed']=result['collection_complete']
     except Exception as error:result['errors'].append(str(error));process_scope.emit_diagnostic('collector-failure',error=process_scope.error_info(error))
     finally:finalize(output,result,command,scope,device,booted_here)
-    return result['capabilities_passed']
+    return (result.get('diagnostic_complete') is True and not result['errors']) if install_diagnostic else result['capabilities_passed']
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--host-root',type=Path,required=True);p.add_argument('--inputs',type=Path,required=True);p.add_argument('--approved-inputs-sha256',required=True)
-    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone']);p.add_argument('--execute',action='store_true');a=p.parse_args()
+    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone']);p.add_argument('--execute',action='store_true');p.add_argument('--install-completion-diagnostic',action='store_true');a=p.parse_args()
     validate(a.host_root,a.inputs,a.approved_inputs_sha256)
     if a.execute:
         require(a.work is not None and a.evidence is not None and a.device_class is not None,'execution paths/class required')
-        sys.exit(0 if execute(a.host_root.resolve(),a.work,a.evidence,a.inputs,a.approved_inputs_sha256,a.device_class) else 1)
+        sys.exit(0 if execute(a.host_root.resolve(),a.work,a.evidence,a.inputs,a.approved_inputs_sha256,a.device_class,a.install_completion_diagnostic) else 1)

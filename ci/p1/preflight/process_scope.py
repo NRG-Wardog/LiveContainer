@@ -445,13 +445,16 @@ class Commands:
     def __call__(self,*args,timeout=300,allow_failure=False,cleanup=False,receipt=False):
         argv=list(map(str,args));limit=self.scope.remaining(timeout,cleanup)
         with self.lock:self.count+=1;number=self.count
-        name=f'command-{number:04d}';started=time.monotonic();primary=None;cleanup_failures=[];process=None;writer_settled=False
+        name=f'command-{number:04d}';started=time.monotonic();primary=None;cleanup_failures=[];process=None;writer_settled=False;wait_started=None;wait_finished=None;wait_returned=False
         launch=LaunchReceipt(number,started+limit if cleanup else min(started+limit,self.scope.deadline),limit)
         print('Running: '+' '.join(argv),flush=True)
         with (self.output/(name+'.stdout')).open('wb') as out,(self.output/(name+'.stderr')).open('wb') as err:
             try:
                 process=self.scope.spawn(argv,out,err,cleanup=cleanup,launch=launch)
-                process.wait(timeout=max(0,launch.deadline-time.monotonic()))
+                wait_started=time.monotonic()
+                try:
+                    process.wait(timeout=max(0,launch.deadline-time.monotonic()));wait_returned=True
+                finally:wait_finished=time.monotonic()
                 if time.monotonic()>launch.deadline:raise subprocess.TimeoutExpired(argv,limit)
                 if process.returncode:raise subprocess.CalledProcessError(process.returncode,argv)
             except Exception as error:primary=error
@@ -464,11 +467,12 @@ class Commands:
                     try:
                         self.scope.settle(process);writer_settled=True
                     except Exception as error:cleanup_failures.append(error)
+        settlement_finished=time.monotonic()
         error=primary or (cleanup_failures[0] if cleanup_failures else None)
         primary_row=error_info(primary);cleanup_rows=[error_info(e) for e in cleanup_failures]
         row={'argv':argv,'timeoutSeconds':limit,'seconds':time.monotonic()-started,'exit_code':process.returncode if process else None,
              'stdout':name+'.stdout','stderr':name+'.stderr','error':str(error) if error else None,'allowed_failure':allow_failure,'cleanup':cleanup,
-             'primary_error':primary_row,'cleanup_errors':cleanup_rows,'launch_receipt':launch.row}
+             'primary_error':primary_row,'cleanup_errors':cleanup_rows,'launch_receipt':launch.row,'wait_timing':{'command_started':started,'wait_started':wait_started,'wait_finished':wait_finished,'wait_returned':wait_returned,'settlement_finished':settlement_finished}}
         if error:
             emit_diagnostic('command-failure',command_id=name,pgid=process.pid if process else None,exit_code=row['exit_code'],
                             timeout_seconds=limit,elapsed_seconds=row['seconds'],primary_error=primary_row,cleanup_errors=cleanup_rows,
@@ -484,7 +488,7 @@ class Commands:
         if receipt:return {'argv':argv,'exit_code':process.returncode if process else None,'stdout':data.decode(errors='replace'),
                            'stderr':(self.output/(name+'.stderr')).read_text(errors='replace'),'failure_type':type(error).__name__ if error else None,
                            'writer_settled':writer_settled,
-                           'command_id':name,'primary_error':primary_row,'cleanup_errors':cleanup_rows,'launch_receipt':launch.row}
+                           'command_id':name,'primary_error':primary_row,'cleanup_errors':cleanup_rows,'launch_receipt':launch.row,'wait_timing':{'command_started':started,'wait_started':wait_started,'wait_finished':wait_finished,'wait_returned':wait_returned,'settlement_finished':settlement_finished}}
         if error and not allow_failure:raise error
         return data.decode(errors='replace').strip()
 

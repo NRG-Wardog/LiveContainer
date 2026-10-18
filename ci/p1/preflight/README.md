@@ -501,3 +501,7 @@ Phone UI restoration uses the verified fresh-owned same-runtime route, preservin
 Phone UI retains the 1020-second observation deadline and adds an explicit cleanup cutoff at 1140 seconds, inside the original 1200-second outer wait. Individual cleanup commands remain capped at 15 seconds.
 
 Pre-install removal is skipped only once for an exactly owned newly created simulator with no previous installation attempt and settled writers. The first install attempt is persisted before install; failed or interrupted attempts cannot reuse the exemption. Install remains limited to 30 seconds. Existing-device preparation keeps its original uninstall/settlement checks.
+
+### One bounded install-completion observation
+
+`--install-completion-diagnostic` stops before UI execution. It observes one installation for up to 120 seconds, within the unchanged 1020-second observation / 1140-second cleanup / 1200-second outer budgets. The original 30-second threshold remains explicit and its exceedance keeps the run failed even if installation later completes. This 120-second cap is a conservative observation envelope, not an empirically established completion bound. No retry is made at 30 seconds. Wait timestamps distinguish command completion/timeout from later host-writer settlement; neither asserts a service-side completion timestamp. Owned-created deletion and all cleanup failure retention remain mandatory. A timeout at 120 seconds ends this experiment rather than authorizing another increase.
