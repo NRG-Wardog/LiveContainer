@@ -99,6 +99,45 @@ identities, source/workflow hashes, and only strictly validated public Actions
 commit/run/attempt/repository identifiers. These sources are provenance only;
 the production or builder repositories are not cloned or built.
 
+## Receipt-only phase refinement
+
+Published boot-only run [39139697936](https://github.com/NRG-Wardog/LiveContainer/actions/runs/39139697936)
+on `e7f2f00cfb7b17a60d14c227f19e93cff32b9d27` retained a successful
+bootstatus command with a 106.3895-second whole-command bracket and unchanged
+120-second allowance. Later state/resource/service-log probes timed out. All 15
+registered groups settled and exact Shutdown was independently established. This
+is diagnostic context, not app/UI evidence or an established cause of the delays.
+
+The successor changes receipts only. `phase_timing` adds fixed-size host
+`time.monotonic` brackets around the spawn, wait and settle calls, plus the first
+nonempty read and EOF read on each pipe. Missing observations remain null; a
+raised call retains its before/after bracket with `returned:false`. A fixed phase
+label locates the primary failure separately from cleanup errors. These readings
+use the original command deadline; neither spawn nor any new marker resets it.
+No new command, retry, timeout allowance, process-control action or raw-data
+retention is introduced.
+
+For the ordinary Scope, spawn return establishes only that registration completed
+and the launch-gate release was issued. It does **not** observe the child consuming
+the release, target exec, target startup or simulator readiness. The forced
+backstop directly owns its child and likewise has no target-exec receipt. First
+bytes/EOF are parent read observations, not child write/exit timestamps. The wait
+and settle brackets include their existing implementation work. They locate
+host-observed delays without attributing a cause.
+
+The published help command exited zero with empty stdout and 442 stderr bytes,
+but its exact ValueError receipt did not identify the failed guard. Code and
+retained byte counts establish that stderr was selected and exclude the 16 KiB
+size guard and UnicodeDecodeError; rejected text was intentionally not retained.
+They cannot distinguish missing command marker, prefix mismatch, control
+character or sensitive-pattern rejection. No defect in the accepted help text
+set is established, so the successor preserves every predicate, its order and
+exception type. It adds only fixed reason codes (`invalid-utf8`, `size-limit`,
+`missing-command-marker`, `prefix-mismatch`, `control-character`, or
+`sensitive-pattern`) plus selected stream and accepted/rejected/not-run status.
+Unrecognized parser failures receive a fixed unclassified code; arbitrary
+exception attributes and rejected text never enter the receipt or console.
+
 ## Restoration
 
 The original phone `capture.execute` path and its fixture/UI files are unchanged.

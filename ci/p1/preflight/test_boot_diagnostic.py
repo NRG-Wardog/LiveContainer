@@ -108,11 +108,15 @@ class BoundedProcesses(unittest.TestCase):
         self.assertEqual(row['primary_error'], {'type': 'CalledProcessError', 'returncode': 3})
         self.assertTrue(row['output_complete']); self.assertFalse(row['output_truncated'])
         self.assertNotIn('safe', json.dumps(row))
+        self.assertEqual(row['phase_timing']['primary_failure_phase'], 'exit-status')
+        self.assertTrue(row['phase_timing']['wait']['returned']); self.assertTrue(row['phase_timing']['settle']['returned'])
     def test_timeout_retains_primary_and_settles_owned_group(self):
         row, out, err = self.run_child('import time; time.sleep(60)', .05)
         self.assertEqual(row['primary_error']['type'], 'TimeoutExpired')
         self.assertEqual(row['timeout_seconds'], .05); self.assertEqual(row['cleanup_errors'], [])
         self.assertFalse(row['output_complete'])
+        self.assertEqual(row['phase_timing']['primary_failure_phase'], 'pipe-read')
+        self.assertIsNone(row['phase_timing']['wait']['before']); self.assertTrue(row['phase_timing']['settle']['returned'])
     def test_combined_output_cap_stops_writer_and_never_serializes_raw_bytes(self):
         row, out, err = self.run_child('import os,time; os.write(1,b"private"*100000); time.sleep(60)')
         self.assertTrue(row['output_truncated']); self.assertFalse(row['output_complete'])
@@ -182,6 +186,140 @@ class BoundedProcesses(unittest.TestCase):
             with patch.object(process_scope, 'stop_group', return_value=False):
                 with self.assertRaises(ValueError): budget.verify_quiescence(root, 'test', force=True)
             self.assertFalse((root / 'evidence-index.json').exists())
+
+
+class PhaseReceipts(unittest.TestCase):
+    def simulated(self, spawn_delay=4, wait_error=False, settle_error=False, spawn_error=False, empty=False):
+        now = [100.0]; waits = []
+        child = Mock(returncode=0)
+        def spawn(argv, stdout, stderr, cleanup=False):
+            now[0] += spawn_delay
+            if spawn_error: raise OSError(errno.EACCES, 'PRIVATE_SENTINEL')
+            if not empty:
+                os.write(stdout, b'PRIVATE_SENTINEL output'); os.write(stderr, b'PRIVATE_SENTINEL error')
+            return child
+        def wait(timeout):
+            waits.append(timeout); now[0] += 2
+            if wait_error: raise subprocess.TimeoutExpired(['PRIVATE_SENTINEL'], timeout)
+            return 0
+        def settle(process):
+            self.assertIs(process, child); now[0] += 7
+            if settle_error: raise PermissionError(errno.EPERM, 'PRIVATE_SENTINEL')
+        child.wait.side_effect = wait
+        scope = Mock(); scope.remaining.return_value = 120; scope.spawn.side_effect = spawn; scope.settle.side_effect = settle
+        with patch.object(boot.time, 'monotonic', side_effect=lambda: now[0]):
+            row, out, err = boot.bounded_capture(scope, ['known'], 120)
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(row))
+        self.assertFalse(row['phase_timing']['spawn_return_is_target_exec'])
+        self.assertEqual(row['timeout_seconds'], 120)
+        return row, waits, scope
+    def test_separate_spawn_read_wait_and_settle_brackets_do_not_reset_deadline(self):
+        row, waits, scope = self.simulated()
+        timing = row['phase_timing']
+        self.assertEqual(timing['spawn'], {'before': 100, 'after': 104, 'returned': True})
+        self.assertEqual(timing['wait'], {'before': 104, 'after': 106, 'returned': True})
+        self.assertEqual(timing['settle'], {'before': 106, 'after': 113, 'returned': True})
+        for stream in ['stdout', 'stderr']:
+            self.assertEqual(timing[stream]['first_bytes_read'], [104, 104])
+            self.assertEqual(timing[stream]['eof_read'], [104, 104])
+        self.assertEqual(waits, [116]); self.assertEqual(row['host_end'] - row['host_start'], 13)
+        self.assertIsNone(timing['primary_failure_phase'])
+    def test_empty_streams_have_eof_but_no_invented_first_bytes(self):
+        row, _, _ = self.simulated(empty=True)
+        for stream in ['stdout', 'stderr']:
+            self.assertIsNone(row['phase_timing'][stream]['first_bytes_read'])
+            self.assertEqual(row['phase_timing'][stream]['eof_read'], [104, 104])
+    def test_late_spawn_return_does_not_gain_a_fresh_wait_budget(self):
+        row, waits, scope = self.simulated(spawn_delay=121)
+        self.assertEqual(row['primary_error'], {'type': 'TimeoutExpired', 'timeout_seconds': 120})
+        self.assertEqual(row['phase_timing']['primary_failure_phase'], 'pipe-read')
+        self.assertEqual(row['phase_timing']['spawn']['after'], 221)
+        self.assertEqual(row['phase_timing']['wait'], {'before': None, 'after': None, 'returned': False})
+        self.assertEqual(waits, []); scope.settle.assert_called_once()
+        for stream in ['stdout', 'stderr']:
+            self.assertIsNone(row['phase_timing'][stream]['first_bytes_read'])
+            self.assertIsNone(row['phase_timing'][stream]['eof_read'])
+    def test_spawn_failure_has_closed_call_bracket_without_fake_return_or_settlement(self):
+        row, waits, scope = self.simulated(spawn_error=True)
+        self.assertEqual(row['phase_timing']['spawn'], {'before': 100, 'after': 104, 'returned': False})
+        self.assertEqual(row['phase_timing']['primary_failure_phase'], 'spawn')
+        self.assertEqual(row['phase_timing']['settle'], {'before': None, 'after': None, 'returned': False})
+        self.assertEqual(row['primary_error'], {'type': 'PermissionError', 'errno': errno.EACCES})
+        self.assertEqual(waits, []); scope.settle.assert_not_called()
+    def test_wait_timeout_keeps_wait_bracket_and_separate_successful_settlement(self):
+        row, waits, scope = self.simulated(wait_error=True)
+        self.assertEqual(row['phase_timing']['wait'], {'before': 104, 'after': 106, 'returned': False})
+        self.assertTrue(row['phase_timing']['settle']['returned'])
+        self.assertEqual(row['phase_timing']['primary_failure_phase'], 'wait')
+        self.assertEqual(row['primary_error'], {'type': 'TimeoutExpired', 'timeout_seconds': 116})
+        self.assertEqual(row['cleanup_errors'], [])
+    def test_cleanup_error_does_not_relabel_primary_wait_timeout(self):
+        row, _, _ = self.simulated(wait_error=True, settle_error=True)
+        self.assertEqual(row['phase_timing']['primary_failure_phase'], 'wait')
+        self.assertEqual(row['phase_timing']['settle'], {'before': 106, 'after': 113, 'returned': False})
+        self.assertEqual(row['primary_error']['type'], 'TimeoutExpired')
+        self.assertEqual(row['cleanup_errors'], [{'type': 'PermissionError', 'errno': errno.EPERM}])
+    def test_settle_only_error_does_not_create_a_primary_failure(self):
+        row, _, _ = self.simulated(settle_error=True)
+        self.assertIsNone(row['primary_error']); self.assertIsNone(row['phase_timing']['primary_failure_phase'])
+        self.assertTrue(row['phase_timing']['wait']['returned']); self.assertFalse(row['phase_timing']['settle']['returned'])
+
+
+class HelpReasonReceipts(unittest.TestCase):
+    CASES = [
+        (b'\xffPRIVATE_SENTINEL', 'invalid-utf8', 'UnicodeDecodeError'),
+        (b'Monitor bootstatus ' + b'x' * 16384, 'size-limit', 'ValueError'),
+        (b'Monitor PRIVATE_SENTINEL', 'missing-command-marker', 'ValueError'),
+        (b'PRIVATE_SENTINEL bootstatus', 'prefix-mismatch', 'ValueError'),
+        (b'Monitor bootstatus\x00PRIVATE_SENTINEL', 'control-character', 'ValueError'),
+        (b'Monitor bootstatus token=PRIVATE_SENTINEL', 'sensitive-pattern', 'ValueError'),
+    ]
+    def test_each_fixed_predicate_reason_retains_original_exception_type_and_no_raw_text(self):
+        for raw, reason, kind in self.CASES:
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); scope = process_scope.Scope(root); command = boot.Commands(scope, root); console = io.StringIO()
+                with patch.object(boot, 'bounded_capture', return_value=(receipt(), b'', raw)), contextlib.redirect_stdout(console):
+                    row = command.run('simctl-bootstatus-help', ['xcrun', 'simctl', 'help', 'bootstatus'], lambda b: boot.tool_text(b, 'help'))
+                self.assertEqual(row['failure_type'], kind); self.assertIsNone(row['data'])
+                self.assertEqual(row['help_parser'], {'version': 'p1-help-guard-v1', 'input_stream': 'stderr', 'outcome': 'rejected', 'reason_code': reason})
+                self.assertNotIn('PRIVATE_SENTINEL', (root / 'command-001.json').read_text() + console.getvalue())
+                self.assertIn(reason, console.getvalue()); scope.close()
+    def test_guard_order_and_boundary_are_unchanged(self):
+        raw = b'wrong-prefix token=PRIVATE_SENTINEL'
+        with self.assertRaises(ValueError) as error: boot.tool_text(raw, 'help')
+        self.assertEqual(error.exception._p1_help_reason, 'missing-command-marker')
+        accepted = b'Monitor bootstatus ' + b'x' * (16384 - len(b'Monitor bootstatus '))
+        self.assertEqual(len(accepted), 16384)
+        self.assertEqual(boot.tool_text(accepted, 'help')['exact_public_tool_output'].encode(), accepted)
+        for path in [b'/Users/', b'/home/', b'https://', b'PASSWORD:', b'SeCrEt =']:
+            with self.assertRaises(ValueError) as error: boot.tool_text(b'Monitor bootstatus ' + path + b'PRIVATE_SENTINEL', 'help')
+            self.assertEqual(error.exception._p1_help_reason, 'sensitive-pattern')
+    def test_accepted_stdout_still_takes_precedence_over_stderr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); scope = process_scope.Scope(root); command = boot.Commands(scope, root)
+            raw = b'Monitor bootstatus\n'
+            with patch.object(boot, 'bounded_capture', return_value=(receipt(), raw, b'PRIVATE_SENTINEL')):
+                row = command.run('simctl-bootstatus-help', ['known'], lambda b: boot.tool_text(b, 'help'))
+            self.assertEqual(row['help_parser']['input_stream'], 'stdout'); self.assertEqual(row['help_parser']['outcome'], 'accepted')
+            self.assertEqual(row['data']['exact_public_tool_output'].encode(), raw)
+            self.assertNotIn('PRIVATE_SENTINEL', (root / 'command-001.json').read_text()); scope.close()
+    def test_failed_command_does_not_claim_a_help_predicate_was_evaluated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); scope = process_scope.Scope(root); command = boot.Commands(scope, root)
+            with patch.object(boot, 'bounded_capture', return_value=(receipt(failure='TimeoutExpired'), b'', b'PRIVATE_SENTINEL')):
+                row = command.run('simctl-bootstatus-help', ['known'], lambda b: self.fail('parser must not run'))
+            self.assertEqual(row['help_parser']['outcome'], 'not-run'); self.assertNotIn('reason_code', row['help_parser'])
+            self.assertNotIn('PRIVATE_SENTINEL', (root / 'command-001.json').read_text()); scope.close()
+    def test_unrecognized_reason_attribute_is_not_retained(self):
+        for reason in ['PRIVATE_SENTINEL', ['PRIVATE_SENTINEL']]:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); scope = process_scope.Scope(root); command = boot.Commands(scope, root)
+                def invalid(raw):
+                    error = ValueError('PRIVATE_SENTINEL'); error._p1_help_reason = reason; raise error
+                with patch.object(boot, 'bounded_capture', return_value=(receipt(), b'', b'PRIVATE_SENTINEL')):
+                    row = command.run('simctl-bootstatus-help', ['known'], invalid)
+                self.assertEqual(row['help_parser']['reason_code'], 'unclassified-parser-error')
+                self.assertNotIn('PRIVATE_SENTINEL', (root / 'command-001.json').read_text()); scope.close()
 
 
 class CollectorRoutes(unittest.TestCase):

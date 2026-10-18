@@ -151,8 +151,15 @@ def exact_runtime(raw):
     return {'identifier': RUNTIME, 'version': row['version'], 'buildversion': row['buildversion'], 'isAvailable': True}
 
 
+HELP_REJECTION_REASONS = frozenset(['invalid-utf8', 'size-limit', 'missing-command-marker',
+                                  'prefix-mismatch', 'control-character', 'sensitive-pattern'])
+
+
 def tool_text(raw, kind):
-    text = raw.decode('utf-8', errors='strict')
+    try: text = raw.decode('utf-8', errors='strict')
+    except UnicodeDecodeError as error:
+        if kind not in ['xcode', 'os']: error._p1_help_reason = 'invalid-utf8'
+        raise
     patterns = {
         'xcode': r'Xcode [0-9.]{1,20}\nBuild version [0-9]{1,3}[A-Z][0-9]{1,6}[a-z]?\n?',
         'os': r'ProductName:[ \t]{1,8}macOS\nProductVersion:[ \t]{1,8}[0-9.]{1,20}\nBuildVersion:[ \t]{1,8}[0-9]{1,3}[A-Z][0-9]{1,6}[a-z]?\n?',
@@ -162,10 +169,18 @@ def tool_text(raw, kind):
     else:
         # Public vendor-generated usage text from the fixed help command only.
         # No command accepts user values, file paths or environment here.
-        if (len(raw) > 16384 or 'bootstatus' not in text or not text.startswith('Monitor')
-                or any(ord(c) < 32 and c not in '\n\t\r' for c in text)
-                or re.search(r'/Users/|/home/|://|(?i:token|password|secret)\s*[=:]', text)):
-            raise ValueError('unexpected simctl usage output')
+        # Same predicates and first-failure order as the published guard. A
+        # reason is a fixed category, never a fragment of rejected output.
+        reason = None
+        if len(raw) > 16384: reason = 'size-limit'
+        elif 'bootstatus' not in text: reason = 'missing-command-marker'
+        elif not text.startswith('Monitor'): reason = 'prefix-mismatch'
+        elif any(ord(c) < 32 and c not in '\n\t\r' for c in text): reason = 'control-character'
+        elif re.search(r'/Users/|/home/|://|(?i:token|password|secret)\s*[=:]', text): reason = 'sensitive-pattern'
+        if reason is not None:
+            error = ValueError('unexpected simctl usage output')
+            error._p1_help_reason = reason
+            raise error
     return {'exact_public_tool_output': text}
 
 
@@ -248,11 +263,27 @@ def bounded_capture(scope, argv, seconds, cleanup=False, error_sink=None):
     started = time.monotonic(); deadline = started + limit
     streams = [bytearray(), bytearray()]; pipes = []; process = None; primary = None; cleanup_errors = []
     complete = False; truncated = False; cleanup_exceptions = []
+    timing = {'schema': 'p1-command-phase-timing-v1', 'clock': 'host-time-monotonic',
+              'spawn': {'before': None, 'after': None, 'returned': False},
+              'wait': {'before': None, 'after': None, 'returned': False},
+              'settle': {'before': None, 'after': None, 'returned': False},
+              'stdout': {'first_bytes_read': None, 'eof_read': None},
+              'stderr': {'first_bytes_read': None, 'eof_read': None},
+              'spawn_return_is_target_exec': False, 'primary_failure_phase': None}
+    phase = 'pipe-setup'
     try:
         pipes = [os.pipe(), os.pipe()]
-        process = scope.spawn(argv, pipes[0][1], pipes[1][1], cleanup=cleanup)
+        phase = 'spawn'; timing['spawn']['before'] = time.monotonic()
+        try:
+            process = scope.spawn(argv, pipes[0][1], pipes[1][1], cleanup=cleanup)
+            timing['spawn']['returned'] = True
+        finally: timing['spawn']['after'] = time.monotonic()
+        # For Scope this brackets registration and release issuance. It does
+        # not observe the gate child's read, exec or target startup. Backstop
+        # spawn returns its directly owned child, also without an exec receipt.
         for _, writer in pipes: os.close(writer)
         pipes = [(reader, None) for reader, _ in pipes]
+        phase = 'pipe-read'
         with selectors.DefaultSelector() as selector:
             for index, (reader, _) in enumerate(pipes): selector.register(reader, selectors.EVENT_READ, index)
             while selector.get_map():
@@ -260,21 +291,37 @@ def bounded_capture(scope, argv, seconds, cleanup=False, error_sink=None):
                 if left <= 0: raise subprocess.TimeoutExpired(argv, limit)
                 for key, _ in selector.select(left):
                     count = min(65536, OUTPUT_LIMIT + 1 - sum(map(len, streams)))
+                    before_read = time.monotonic()
                     chunk = os.read(key.fd, count)
-                    if not chunk: selector.unregister(key.fd); continue
+                    read_bracket = [before_read, time.monotonic()]
+                    stream_timing = timing['stdout' if key.data == 0 else 'stderr']
+                    if not chunk:
+                        stream_timing['eof_read'] = read_bracket
+                        selector.unregister(key.fd); continue
+                    if stream_timing['first_bytes_read'] is None:
+                        stream_timing['first_bytes_read'] = read_bracket
                     streams[key.data].extend(chunk)
                     if sum(map(len, streams)) > OUTPUT_LIMIT:
                         truncated = True
                         raise ValueError('diagnostic output bound exceeded')
             complete = True
-        process.wait(timeout=max(0, deadline - time.monotonic()))
+        phase = 'wait'; timing['wait']['before'] = time.monotonic()
+        try:
+            process.wait(timeout=max(0, deadline - time.monotonic()))
+            timing['wait']['returned'] = True
+        finally: timing['wait']['after'] = time.monotonic()
+        phase = 'exit-status'
         if process.returncode: raise subprocess.CalledProcessError(process.returncode, argv)
-    except Exception as error: primary = error
+    except Exception as error:
+        primary = error; timing['primary_failure_phase'] = phase
     finally:
         if process is not None:
-            try: scope.settle(process)
+            timing['settle']['before'] = time.monotonic()
+            try:
+                scope.settle(process); timing['settle']['returned'] = True
             except Exception as error:
                 cleanup_errors.append(process_scope.error_info(error)); cleanup_exceptions.append(error)
+            finally: timing['settle']['after'] = time.monotonic()
         for reader, writer in pipes:
             for descriptor in (reader, writer):
                 if descriptor is not None:
@@ -282,6 +329,7 @@ def bounded_capture(scope, argv, seconds, cleanup=False, error_sink=None):
                     except OSError: pass
     error = process_scope.error_info(primary)
     row = {'timeout_seconds': limit, 'host_start': started, 'host_end': time.monotonic(),
+           'phase_timing': timing,
            'exit_code': process.returncode if process else None, 'primary_error': error, 'cleanup_errors': cleanup_errors,
            'failure_type': error['type'] if error else (cleanup_errors[0]['type'] if cleanup_errors else None),
            'output_byte_limit': OUTPUT_LIMIT, 'output_complete': complete, 'output_truncated': truncated,
@@ -297,6 +345,9 @@ class Commands:
         self.count += 1
         row, out, err = bounded_capture(self.scope, argv, timeout, cleanup, error_sink=self.error_sink)
         row.update(label=label, argv=argv, data=None)
+        if label == 'simctl-bootstatus-help':
+            row['help_parser'] = {'version': 'p1-help-guard-v1', 'input_stream': 'stdout' if out else 'stderr',
+                                  'outcome': 'not-run'}
         if label == 'service-log-categories':
             row.update(reducer_version='p1-service-categories-v1', record_limit=LOG_RECORD_LIMIT,
                        records_complete=False, records_truncated=False)
@@ -305,15 +356,20 @@ class Commands:
         if row['failure_type'] is None:
             try:
                 row['data'] = parser(out if out or label != 'simctl-bootstatus-help' else err)
+                if label == 'simctl-bootstatus-help': row['help_parser']['outcome'] = 'accepted'
                 if label == 'service-log-categories': row['records_complete'] = True
             except Exception as error:
                 row['parse_error'] = process_scope.error_info(error); row['failure_type'] = type(error).__name__
+                if label == 'simctl-bootstatus-help':
+                    reason = getattr(error, '_p1_help_reason', None)
+                    row['help_parser'].update(outcome='rejected', reason_code=reason if type(reason) is str and reason in HELP_REJECTION_REASONS else 'unclassified-parser-error')
                 if self.error_sink is not None: self.error_sink(error, [])
                 if label == 'service-log-categories': row['records_truncated'] = isinstance(error, LogRecordLimitExceeded)
         self.failed |= row['failure_type'] is not None
         process_scope.emit_diagnostic('boot-diagnostic-command', label=label, exit_code=row['exit_code'],
                                       primary_error=row['primary_error'], cleanup_errors=row['cleanup_errors'],
-                                      failure_type=row['failure_type'], timeout_seconds=row['timeout_seconds'])
+                                      failure_type=row['failure_type'], timeout_seconds=row['timeout_seconds'],
+                                      **({'help_parser': row['help_parser']} if 'help_parser' in row else {}))
         try: process_scope.atomic(self.root / f'command-{self.count:03d}.json', row)
         except Exception as error:
             error._p1_command_receipt = row
