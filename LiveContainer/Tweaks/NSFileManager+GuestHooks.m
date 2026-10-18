@@ -35,16 +35,32 @@ void NSFMGuestHooksInit(void) {
 @implementation NSFileManager(LiveContainerHooks)
 
 - (nullable NSURL *)hook_containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
-    if([groupIdentifier isEqualToString:[NSClassFromString(@"LCSharedUtils") appGroupID]]) {
-        return [NSURL fileURLWithPath: NSUserDefaults.lcAppGroupPath];
+    // A nested LiveContainer can probe its App Group before the guest's
+    // group path is initialized. fileURLWithPath:nil throws at startup.
+    if(groupIdentifier.length == 0) {
+        return nil;
+    }
+    NSString *mappedPath = NSUserDefaults.lcAppGroupPath;
+    // appGroupID uses containerURLForSecurityApplicationGroupIdentifier:
+    // while resolving its dispatch_once state. Avoid recursively requesting
+    // that ID until the mapped group path is available.
+    if(mappedPath.length > 0) {
+        if([groupIdentifier isEqualToString:[NSClassFromString(@"LCSharedUtils") appGroupID]]) {
+            return [NSURL fileURLWithPath:mappedPath];
+        }
     }
     NSURL *result;
     if(isolateAppGroup) {
-        result = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%s/LCAppGroup/%@", getenv("HOME"), groupIdentifier]];
-    } else if (NSUserDefaults.lcAppGroupPath){
-        result = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%@/LiveContainer/Data/AppGroup/%@", NSUserDefaults.lcAppGroupPath, groupIdentifier]];
+        const char *home = getenv("HOME");
+        if(!home || !home[0]) return nil;
+        result = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%s/LCAppGroup/%@", home, groupIdentifier]];
+    } else if(mappedPath.length > 0) {
+        result = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%@/LiveContainer/Data/AppGroup/%@", mappedPath, groupIdentifier]];
     } else {
-        result = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%s/Documents/Data/AppGroup/%@", getenv("LC_HOME_PATH"), groupIdentifier]];
+        const char *guestRoot = getenv("LC_HOME_PATH");
+        // Do not fall back to the host App Group if no guest root is known.
+        if(!guestRoot || !guestRoot[0]) return nil;
+        result = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%s/Documents/Data/AppGroup/%@", guestRoot, groupIdentifier]];
     }
     [NSFileManager.defaultManager createDirectoryAtURL:[result URLByAppendingPathComponent:@"Library/Caches"] withIntermediateDirectories:YES attributes:nil error:nil];
     return result;
