@@ -429,7 +429,8 @@ class Commands:
              'primary_error':primary_row,'cleanup_errors':cleanup_rows,'launch_receipt':launch.row}
         if error:
             emit_diagnostic('command-failure',command_id=name,pgid=process.pid if process else None,exit_code=row['exit_code'],
-                            timeout_seconds=limit,elapsed_seconds=row['seconds'],primary_error=primary_row,cleanup_errors=cleanup_rows)
+                            timeout_seconds=limit,elapsed_seconds=row['seconds'],primary_error=primary_row,cleanup_errors=cleanup_rows,
+                            launch_receipt=launch.row)
         try:
             with self.lock:
                 with (self.output/'commands.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')

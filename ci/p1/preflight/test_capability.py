@@ -444,6 +444,9 @@ class FailureDiagnosticTests(unittest.TestCase):
         self.assertEqual(row['cleanup_errors'],[cleanup.diagnostic])
         self.assertEqual(diagnostics[0]['phase'],'command-failure');self.assertEqual(diagnostics[0]['primary_error'],row['primary_error'])
         self.assertEqual(diagnostics[0]['cleanup_errors'],row['cleanup_errors']);self.assertNotIn('private-',json.dumps(diagnostics))
+        self.assertEqual(diagnostics[0]['launch_receipt'],row['launch_receipt'])
+        self.assertEqual(diagnostics[0]['launch_receipt']['state'],'unknown')
+        self.assertFalse(diagnostics[0]['admissionEligible'])
     def test_command_receipt_retains_primary_and_cleanup(self):
         primary=PermissionError(errno.EPERM,'wait denied');cleanup=self.group_error('probe')
         receipt,raised,row,diagnostics,_=self.command_result(primary,cleanup,receipt=True)
