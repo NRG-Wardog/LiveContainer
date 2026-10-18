@@ -22,7 +22,7 @@ class Discovery(unittest.TestCase):
     def test_cached_channel_identity_and_link_checks(self):
         import json
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);session='a'*32;child=root/'Documents/p1-capability-app'/session;child.mkdir(parents=True)
+            root=Path(tmp).resolve();session='a'*32;child=root/'Documents/p1-capability-app'/session;child.mkdir(parents=True)
             self.assertIsNone(capture.channel_at(root,capture.APP_ID,session))
             (child/'identity.json').write_text(json.dumps({'session':session,'bundleIdentifier':capture.APP_ID}))
             self.assertEqual(capture.channel_at(root,capture.APP_ID,session),child)

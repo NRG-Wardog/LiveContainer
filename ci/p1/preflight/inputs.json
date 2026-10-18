@@ -25,7 +25,7 @@
     "ci/p1/preflight/simulator_cleanup.py": "f13f477ed5429f8c76b2943ab5fd32339af03842d32d16bcd6fefdd726028321",
     "ci/p1/preflight/stall_diagnostic.py": "3c32d1cee8f0302c7ab4b1b935ccd4a7c7b452384ca46aac244eb4bfa2d21495",
     "ci/p1/preflight/test_boot_diagnostic.py": "79a7bcc1b07ea2d80d530fdbcad2d820e21d4d56d66c10be969da24a8d935a42",
-    "ci/p1/preflight/test_calibration_discovery.py": "88bacee23bc4585df7158e1e726cbef33f3f63bcc11b5c21f3ad310a41bb268b",
+    "ci/p1/preflight/test_calibration_discovery.py": "830b4ed56edb88da0399175b3c1e0d25b3b15980916d86bcc59563e2b589426e",
     "ci/p1/preflight/test_capability.py": "06d01634880e067139a165b8b7770d4dd32ac992a918c19e9c1b2bb386953cc0",
     "ci/p1/preflight/test_cleanup_gate.py": "78b5d1ec7d2379d1a24b138402132139ffe1fb8ba96f4dd2a38ac017286f73a7",
     "ci/p1/preflight/test_fresh_ui.py": "9a62026782e45351ca8fd8c1237c7ae0290ce4cc5cfe32b2b722e5adfce89e46",
