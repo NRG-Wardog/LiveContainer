@@ -39,10 +39,10 @@ class StructuralTabs(unittest.TestCase):
                 for name in ('snapshot','observed'):g['candidates'][0][name]['selected']=selected
             with self.assertRaises(ValueError):gate.validate_tab_inventory(rows)
     def test_focus_expects_original_failed_context(self):
-        self.assertEqual(gate.CAPABILITY_METHODS['phone-default'],['testCapabilityNoBannerDefault'])
+        self.assertEqual(gate.CAPABILITY_METHODS['phone-default'],['testCapabilityIdentifierFreeTabs'])
         self.assertEqual(gate.context('capability-default-tabs'),('none',False,False,'Home'))
         geometries,actions,screens=gate.capability_expected('phone-default')
-        self.assertEqual(geometries,{'capability-default-tabs':('testCapabilityNoBannerDefault',False)})
+        self.assertEqual(geometries,{'capability-default-tabs':('testCapabilityIdentifierFreeTabs',False)})
         self.assertFalse(actions);self.assertEqual(set(screens),{'capability-default-tabs'})
     def test_end_to_end_focus_and_wrong_selection_rejected(self):
         class Focus(CapabilityFixture):
@@ -55,6 +55,17 @@ class StructuralTabs(unittest.TestCase):
             for index,g in enumerate(f.rows['capability-default-tabs']['tabCandidates']):
                 for name in ('snapshot','observed'):g['candidates'][0][name]['selected']=index==1
             with self.assertRaises(ValueError):f.verify()
+    def test_identifier_path_cannot_satisfy_companion(self):
+        class Focus(CapabilityFixture):
+            def phone(self):self.geometry('capability-default-tabs')
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):Focus(Path(tmp),'phone-default').verify()
+    def test_fixture_delta_only_identifier_modifiers(self):
+        actual=(Path(capture.HERE).parent/'video/recovery.swift').read_text()
+        expected=actual
+        for title in ['Home','Apps','Sources','Settings']:
+            expected=expected.replace('.accessibilityIdentifier(ProcessInfo.processInfo.arguments.contains("--identifier-free-tabs") ? "" : "p1-tab-'+title+'")','.accessibilityIdentifier("p1-tab-'+title+'")')
+        self.assertEqual(hashlib.sha256(expected.encode()).hexdigest(),'9c662590e97befd4131fabc16730b6baaf0b17ae0b905f191f574e6c7b340594')
     def test_no_partial_id_or_extra_nested_button_fallback(self):
         rows=fixture();rows[1]['candidates'][0]['snapshot']['identifier']='p1-tab-Apps';rows[1]['candidates'][0]['observed']['identifier']='p1-tab-Apps'
         with self.assertRaises(ValueError):gate.validate_tab_inventory(rows)

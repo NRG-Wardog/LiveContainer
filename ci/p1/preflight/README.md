@@ -1,3 +1,5 @@
+Current focused check deterministically omits only fixture tab-item identifiers and requires the structural proof route. It validates the observer path, not the intermittent OS propagation cause. Existing default launch behavior and original UI methods remain unchanged.
+
 # Focused native tab identity confirmation
 
 The first full recovery run found four real, labeled native TabBar buttons,

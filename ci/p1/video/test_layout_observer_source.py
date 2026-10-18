@@ -51,6 +51,9 @@ class LayoutObserverSource(unittest.TestCase):
         current=REORDERED_DETAILS_PREFIX
         self.assertEqual(FIXTURE.count(current),1)
         restored=FIXTURE.replace(current,PRIOR_DETAILS_PREFIX)
+        # Remove only the explicitly tested observer-path fixture toggle.
+        for title in ['Home','Apps','Sources','Settings']:
+            restored=restored.replace('.accessibilityIdentifier(ProcessInfo.processInfo.arguments.contains("--identifier-free-tabs") ? "" : "p1-tab-'+title+'")','.accessibilityIdentifier("p1-tab-'+title+'")')
         self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(),PRIOR_FIXTURE_SHA256)
     def test_fixture_next_control_retains_actual_input_and_transition(self):
         fixture_tap=UI.split('private func fixtureTap(',1)[1].split('func testRecoveryStateAndSizeTransitions',1)[0]
@@ -109,7 +112,7 @@ class LayoutObserverSource(unittest.TestCase):
         self.assertIn('observationSequence += 1',FIXTURE)
     def test_existing_labels_receive_only_ids(self):
         for title,symbol in [('Home','house.fill'),('Apps','square.stack.3d.up.fill'),('Sources','books.vertical'),('Settings','gearshape.fill')]:
-            self.assertIn('Label("'+title+'", systemImage: "'+symbol+'").accessibilityIdentifier("p1-tab-'+title+'")',FIXTURE)
+            self.assertIn('Label("'+title+'", systemImage: "'+symbol+'").accessibilityIdentifier(ProcessInfo.processInfo.arguments.contains("--identifier-free-tabs") ? "" : "p1-tab-'+title+'")',FIXTURE)
         self.assertIn('leaves.count == 1',UI)
         self.assertIn('chosen.path.starts(with: $0.path)',UI)
         self.assertIn('app.snapshot()',UI)

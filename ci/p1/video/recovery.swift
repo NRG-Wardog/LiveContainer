@@ -211,13 +211,13 @@ private struct P1RecoveryOperation {
         // The exact reviewed modifier is applied to this outer TabView.
         TabView(selection: $selectedTab) {
             P1RecoveryNavigationRoot(status: status)
-                .tabItem { Label("Home", systemImage: "house.fill").accessibilityIdentifier("p1-tab-Home") }.tag(0)
+                .tabItem { Label("Home", systemImage: "house.fill").accessibilityIdentifier(ProcessInfo.processInfo.arguments.contains("--identifier-free-tabs") ? "" : "p1-tab-Home") }.tag(0)
             P1RecoveryPlaceholderTab(title: "Apps")
-                .tabItem { Label("Apps", systemImage: "square.stack.3d.up.fill").accessibilityIdentifier("p1-tab-Apps") }.tag(1)
+                .tabItem { Label("Apps", systemImage: "square.stack.3d.up.fill").accessibilityIdentifier(ProcessInfo.processInfo.arguments.contains("--identifier-free-tabs") ? "" : "p1-tab-Apps") }.tag(1)
             P1RecoveryPlaceholderTab(title: "Sources")
-                .tabItem { Label("Sources", systemImage: "books.vertical").accessibilityIdentifier("p1-tab-Sources") }.tag(2)
+                .tabItem { Label("Sources", systemImage: "books.vertical").accessibilityIdentifier(ProcessInfo.processInfo.arguments.contains("--identifier-free-tabs") ? "" : "p1-tab-Sources") }.tag(2)
             P1RecoveryPlaceholderTab(title: "Settings")
-                .tabItem { Label("Settings", systemImage: "gearshape.fill").accessibilityIdentifier("p1-tab-Settings") }.tag(3)
+                .tabItem { Label("Settings", systemImage: "gearshape.fill").accessibilityIdentifier(ProcessInfo.processInfo.arguments.contains("--identifier-free-tabs") ? "" : "p1-tab-Settings") }.tag(3)
         }
         // Inactive production predecessors, explicitly synthetic substitutes.
         .safeAreaInset(edge: .bottom) { EmptyView() }

@@ -1,4 +1,4 @@
-name: P1 default native tab resolution
+name: P1 identifier-free native tab observer
 
 # Focused default/no-banner tab resolution; broader acceptance remains excluded.
 on:
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'b1109b1060201684af6ed249bad4c8b497f734322d15df69f8800080ebe0747c'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'ceaa937d070ab2efa10d2f050f257010bca8cfa09187176915336be401c80f0c'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -48,7 +48,7 @@ jobs:
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_query_reuse.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_full_recovery.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_structural_tabs.py -v
-      - name: Collect default native tab resolution
+      - name: Collect identifier-free native tab observer
         id: collect
         timeout-minutes: 22
         run: |

@@ -873,6 +873,18 @@ final class P1RecoveryLayoutUITests: XCTestCase {
                           expectedLandscape: false, name: "capability-rotation-returned")
     }
 
+    @MainActor func testCapabilityIdentifierFreeTabs() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--recovery", "--production-shape", "--recovery-kind", "none", "--identifier-free-tabs"]
+        app.launch()
+        defer { app.terminate() }
+        guard settleOrientation(app, landscape: false, name: "identifier-free-portrait") else { return }
+        _ = checkGeometry(app, banner: false, expectedKind: "none", expectedLargest: false,
+                          expectedLandscape: false, name: "capability-default-tabs")
+    }
+
     @MainActor func testCapabilityNoBannerDefault() {
         let app = launch("none", largest: false)
         defer { app.terminate() }

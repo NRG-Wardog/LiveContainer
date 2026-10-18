@@ -5,7 +5,7 @@ import struct
 from exports import require,frame,leaves
 
 METHODS=['testRecoveryBranchesDefault','testRecoveryBranchesLargest','testRecoveryCompactLandscape','testRecoveryStateAndSizeTransitions']
-CAPABILITY_METHODS={'tablet':['testCapabilityNestedTabSelection','testCapabilityNoBannerRotation'],'phone':['testCapabilityLandscapeTargets'],'phone-default':['testCapabilityNoBannerDefault']}
+CAPABILITY_METHODS={'tablet':['testCapabilityNestedTabSelection','testCapabilityNoBannerRotation'],'phone':['testCapabilityLandscapeTargets'],'phone-default':['testCapabilityIdentifierFreeTabs']}
 KINDS=['none','operation','direct','refresh','unreadable']
 ACTIONS={'operation':{'resume':'resume-operation','confirm':'reconcile-operation'},
     'direct':{'inspect':'inspect-direct','confirm':'reconcile-direct'},'refresh':{'confirm':'reconcile-refresh'},
@@ -502,6 +502,8 @@ def validate_capability_records(records,device_class):
         require((window[2]>window[3]) is landscape,'wrong capability orientation')
     if device_class=='phone-default':
         contextual(geometry('capability-default-tabs'),'none',False,False)
+        row=record('p1-layout-observation-v1','capability-default-tabs')
+        validate_structural_tabs(row.get('tabCandidates'),row.get('tabs'))
     elif device_class=='tablet':
         initial=geometry('capability-tabs-initial');returned=geometry('capability-tabs-returned')
         apps=record('p1-layout-tab-selection-v1','capability-tabs-apps')
