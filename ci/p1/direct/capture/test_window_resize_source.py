@@ -4,33 +4,39 @@ import build_main
 
 HERE=Path(__file__).parent
 class ResizeSourceTests(unittest.TestCase):
-    def test_existing_trust_and_exact_owner_precede_mutation(self):
+    def test_existing_trust_and_exact_owner_precede_single_action(self):
         source=(HERE/'window_resize.swift').read_text()
-        mutation=source.index('AXUIElementSetAttributeValue(')
+        mutation=source.index('AXUIElementPerformAction(')
         for token in ('AXIsProcessTrusted()', 'try require(trusted,', 'windows.count == 1',
                       'AXUIElementGetPid(target, &axPID)', 'axPID == pid',
-                      'directAXRect(target) == window.frame', 'settable.boolValue',
-                      'try require(owner.valid(),'):
+                      'directAXRect(target) == window.frame', 'try requireMainWindow()',
+                      'matching.count == 1', 'menus.count == 1', 'presets.count == 1',
+                      'CFBooleanGetValue', 'try require(owner.valid(),'):
             self.assertLess(source.index(token),mutation)
-        self.assertEqual(source.count('AXUIElementSetAttributeValue('),1)
+        self.assertEqual(source.count('AXUIElementPerformAction('),1)
         for forbidden in ('AXIsProcessTrustedWithOptions','AXMakeProcessTrusted','AXUIElementCreateSystemWide',
-                          'CGRequestScreenCaptureAccess','kAXTitleAttribute','kAXPositionAttribute as CFString, sizeValue'):
+                          'CGRequestScreenCaptureAccess','AXUIElementSetAttributeValue(', 'CGEventPost'):
             self.assertNotIn(forbidden,source)
+        self.assertIn('[kAXMainWindowAttribute, kAXFocusedWindowAttribute]',source)
+        self.assertIn('CFEqual(value, target)',source)
+        self.assertIn('"Pixel Accurate"',source)
+        self.assertIn('values.count <= 128',source)
     def test_same_window_settlement_and_source_pixels_remain_required(self):
         source=(HERE/'window_resize.swift').read_text()
         for token in ('select(window.windowID, "resized")','current.frame == prior',
-                      'current.frame == axFrame','current.frame != window.frame',
-                      'current.frame.width <= 2048','current.frame.height <= 2048',
+                      'current.frame == axFrame','current.frame.width <= 4096','current.frame.height <= 4096',
                       '"sourceResolutionEstablished": false','AXUIElementSetMessagingTimeout(target, 2)'):
             self.assertIn(token,source)
-        self.assertIn('CGSize(width: 700, height: 1550)',source)
-    def test_bounded_resize_precedes_immutable_filter(self):
+    def test_bounded_action_precedes_immutable_filter_with_downscale_only(self):
         source=build_main.build(build_main.SOURCE.read_text(),(HERE/'source-sha256.txt').read_text().strip())
         self.assertLess(source.index('deadline.arm(15, "owned-window-resize")'),source.index('directResizeOwnedWindow('))
         self.assertLess(source.index('directResizeOwnedWindow('),source.index('SCContentFilter(desktopIndependentWindow: window)'))
-        self.assertIn('configuration.width = Int(pixelWidth.rounded(.up))',source)
+        self.assertIn('min(1.0, min(1000.0 / pixelWidth, 1600.0 / pixelHeight))',source)
+        self.assertIn('configuration.ignoreGlobalClipSingleWindow = true',source)
+        self.assertIn('configuration.preservesAspectRatio = true',source)
         self.assertIn('Double(content.width) * scale',source)
         self.assertEqual(source.count('desktopIndependentWindow:'),1)
+
     def test_actual_binary_readonly_preflight_precedes_build_and_boot(self):
         source=build_main.build(build_main.SOURCE.read_text(),(HERE/'source-sha256.txt').read_text().strip())
         mode=source[source.index('if args.count == 2'):source.index('guard args.count == 7')]

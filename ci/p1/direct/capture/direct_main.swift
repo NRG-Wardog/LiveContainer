@@ -67,8 +67,17 @@
             let scale = Double(filter.pointPixelScale), content = filter.contentRect
             try require(scale.isFinite && scale > 0 && scale <= 4 && valid(content), "invalid-filter-scale")
             let pixelWidth = Double(content.width) * scale, pixelHeight = Double(content.height) * scale
-            try require(pixelWidth > 0 && pixelWidth <= 2048 && pixelHeight > 0 && pixelHeight <= 2048, "bounded-native-filter-pixels")
-            configuration.width = Int(pixelWidth.rounded(.up)); configuration.height = Int(pixelHeight.rounded(.up))
+            try require(pixelWidth > 0 && pixelWidth <= 16384 && pixelHeight > 0 && pixelHeight <= 16384, "bounded-native-filter-pixels")
+            let reduction = min(1.0, min(1000.0 / pixelWidth, 1600.0 / pixelHeight))
+            configuration.width = Int((pixelWidth * reduction).rounded(.down))
+            configuration.height = Int((pixelHeight * reduction).rounded(.down))
+            try require(configuration.width > 0 && configuration.height > 0, "invalid-downscaled-raster")
+            configuration.scalesToFit = true
+            configuration.preservesAspectRatio = true
+            configuration.ignoreGlobalClipSingleWindow = true
+            result["nativeFilterPixelSize"] = [pixelWidth, pixelHeight]
+            result["captureReductionFactor"] = reduction
+            result["outputUpscaled"] = false
             result["filterContentRect"] = rect(content); result["filterPointPixelScale"] = scale
             result["configuredPixelSize"] = [configuration.width, configuration.height]
             configuration.pixelFormat = kCVPixelFormatType_32BGRA

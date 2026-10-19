@@ -14,8 +14,8 @@ Sink by `build_sink.py`, bound by `source-sha256.txt`. The status chronology,
 positive monotonic actual displayTime, owner identity, immutable frame metadata,
 queue settlement and error latch remain. The changed callback writes one packed
 raw file and its per-region/hash metadata. Total delivered record count is capped
-at 6,000 and packed bytes at 3 GiB. The record/per-frame product is 3,145,728,000
-bytes (2.9296875 GiB), preserving the former draft's raw maximum. These raw caps
+at 6,000 and packed bytes at 3 GiB. The independent 3 GiB cumulative cap stops retention before the
+6,000-record/per-frame product can exceed that raw allowance. These raw caps
 are subordinate to a future inclusive single-case, ZIP_STORED archive ceiling
 of 4 GiB and separately checked source/archive/parts/temporary peak-disk budget.
 They are local prototype limits, not production acceptance criteria. They do
@@ -63,6 +63,12 @@ forced settlement still fails collection. These are uncompiled draft semantics.
 
 ## Owned-window source sizing
 
-The compiled direct helper first reports existing accessibility trust in a bounded10-second, read-only preflight before fixture checkout/build/boot. A false result stops immediately. It checks trust again at the actual resize without requesting it. Before freezing its single-window capture filter, it matches the sole accessibility window of the retained Simulator process to the sole ScreenCaptureKit window by exact PID and frame, and makes at most one public size request of700x1550 points. The15-second observation-stage watchdog covers the complete operation, including bounded AX messaging and stable-frame verification. No window position, permission, global display setting or unrelated window is changed. An already requested size requires no mutation.
+The actual compiled helper checks existing accessibility trust before fixture preparation and again before sizing. It never requests permission. The previous run proved trust but rejected the size-attribute route before mutation. The prospective correction uses one documented Simulator Window > Pixel Accurate action, only through the exact owned application's bounded accessibility hierarchy. The sole AX window, main/focused target, PID, frame, advertised press action and enabled unique menu item must agree immediately before the action. No global keystroke, activation, raise, retry or unrelated window selection is used. A missing menu or unchanged/unsettled window fails within the existing15-second stage allowance; action errors are retained and never retried.
 
-This is a source-window sizing attempt, not output-image enlargement. The helper still configures output from the actual content rectangle and native pointPixelScale. Requested dimensions do not establish source resolution or timing: actual four-board decoding, feature locality, whole-ROI geometry, identity and all timing predicates must still pass. Missing trust, ambiguous AX/SC correspondence or an unsettled window fails closed.
+The same original window ID and AX target must settle before constructing the immutable capture filter. Source window geometry is independently capped at4096 points; native filter dimensions are capped at16384 pixels. Actual output is downscaled only, by min(1,1000/nativeWidth,1600/nativeHeight), with preserved aspect ratio and explicit full-owned-window capture even when it extends beyond the display. This does not capture any other window. Output/decoder dimensions remain below2048, combined six-ROI bytes remain1MiB, cumulative raw3GiB and archive4GiB.
+
+The preset and configured dimensions do not establish source resolution or timing. Actual four-board decoding, feature locality, whole-ROI geometry, identity and every timing predicate must still pass. No output upscaling, decoder relaxation or altered guest controls is permitted. Current Apple documentation describes newer Device Hub controls; this pinned Simulator's menu availability remains a native prerequisite, not an assumption.
+
+References:
+- https://developer.apple.com/videos/play/wwdc2020/10647/
+- https://developer.apple.com/documentation/screencapturekit/scstreamconfiguration/ignoreglobalclipsinglewindow
