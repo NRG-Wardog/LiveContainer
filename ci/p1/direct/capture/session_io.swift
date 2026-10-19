@@ -206,3 +206,28 @@ func directWritePrimaryFailure(_ value: [String: Any], directory: URL) throws {
     try require(renameatx_np(parent, temporary, parent, "primary-failure.json", UInt32(RENAME_EXCL)) == 0, "primary-failure-publish")
     try require(fsync(parent) == 0, "primary-failure-directory-sync")
 }
+
+// Best-effort diagnostic sidecar only. No queue drain, no admission significance.
+// Primary publication has already been attempted; watchdogs stay armed.
+func directWriteStartupDiagnostic(_ value: [String: Any], directory: URL) throws {
+    let bytes = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+    try require(!bytes.isEmpty && bytes.count <= 32768, "startup-diagnostic-size")
+    let parent = open(directory.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_NONBLOCK)
+    try require(parent >= 0, "startup-diagnostic-directory")
+    defer { close(parent) }
+    let temporary = "startup-persistence.pending"
+    let descriptor = openat(parent, temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK, 0o600)
+    try require(descriptor >= 0, "startup-diagnostic-open")
+    defer { close(descriptor); unlinkat(parent, temporary, 0) }
+    try bytes.withUnsafeBytes { raw in
+        guard let base = raw.baseAddress else { throw Failure("startup-diagnostic-empty") }
+        var offset = 0
+        while offset < raw.count {
+            let count = Darwin.write(descriptor, base.advanced(by: offset), raw.count - offset)
+            if count < 0 && errno == EINTR { continue }
+            try require(count > 0, "startup-diagnostic-write")
+            offset += count
+        }
+    }
+    try require(renameatx_np(parent, temporary, parent, "startup-persistence.json", UInt32(RENAME_EXCL)) == 0, "startup-diagnostic-publish")
+}

@@ -201,6 +201,11 @@
             // either sink queue here, and never replace the original failure.
             do { try directWritePrimaryFailure(primary, directory: directory) }
             catch { result["primaryFailureRetentionError"] = "primary-failure-retention-failed" }
+            // Independent diagnostic only, after the authoritative primary receipt.
+            if let diagnostic = sink?.startupSnapshot() {
+                do { try directWriteStartupDiagnostic(diagnostic, directory: directory) }
+                catch { result["startupDiagnosticRetentionError"] = "startup-diagnostic-retention-failed" }
+            }
         }
         deadline.beginCleanup()
         if startAttempted && !stopConfirmed, let capture = stream {
@@ -217,6 +222,7 @@
         }
         deadline.arm(10, "frame-queue-drain")
         let samples = sink?.result() ?? ["error": "stream-never-created", "completeFrames": 0]; deadline.cancel(); result["samples"] = samples
+        if let sink = sink { result["startupPersistenceDiagnostic"] = sink.startupSnapshot() }
         result["captureCompleted"] = result["windowRevalidationPassed"] as? Bool == true &&
             result["outputDetached"] as? Bool == true && result["finalContextRetained"] as? Bool == true && stopConfirmed && result["error"] == nil &&
             result["stopError"] == nil && result["detachError"] == nil && samples["error"] is NSNull &&

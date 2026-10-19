@@ -6,6 +6,43 @@ import CoreMedia
 import CoreVideo
 import CryptoKit
 
+// Diagnostic-only startup trace. Fixed numeric storage, no pixels or framework text.
+// All mutation/snapshot copying is protected by the sink's existing admission lock.
+enum DirectStartupStage: Int, CaseIterable {
+    case callbackEntry, ownerBegin, ownerEnd, metadataEnd, copyBegin
+    case bufferLockBegin, bufferLockEnd, rowCopyEnd, bufferUnlockEnd, copyEnd
+    case callbackEnd, enqueueBefore, enqueueAfter, writerBegin, writerOwnerBegin, writerOwnerEnd
+    case regionHashBegin, regionHashEnd, writeBegin, writeEnd, packedHashBegin, packedHashEnd
+    case writerEnd, reservationReleased
+}
+struct DirectStartupRecord {
+    let index: Int
+    var admitted: Bool
+    var pendingAtArrival: Int
+    var traceMarkCount = 0
+    var traceMarkCostMach: UInt64 = 0
+    var ticks = [UInt64](repeating: 0, count: DirectStartupStage.allCases.count)
+    func json() -> [String: Any] {
+        return ["index": index, "admitted": admitted, "pendingAtArrival": pendingAtArrival,
+                "milestonesMach": ticks, "traceMarkCount": traceMarkCount,
+                "traceMarkCostMach": traceMarkCostMach]
+    }
+}
+struct DirectStartupOverflow {
+    let index: Int
+    let observedMach: UInt64
+    let pending: Int
+    let admitted: Int
+    let released: Int
+    let inFlight: [Int]
+    let records: [DirectStartupRecord]
+    func json() -> [String: Any] {
+        return ["index": index, "observedMach": observedMach, "pending": pending,
+                "admitted": admitted, "released": released, "inFlight": inFlight,
+                "records": records.filter { $0.ticks[DirectStartupStage.callbackEntry.rawValue] > 0 }.map { $0.json() }]
+    }
+}
+
 struct DirectROI {
     let role: String
     let x: Int, y: Int, width: Int, height: Int
@@ -47,14 +84,16 @@ struct DirectROIPlan {
 
 // One immutable packed byte sequence per sample. No image conversion, PNG
 // encoder, OCR, normalization, resampling or pixel classification runs here.
-func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan) throws -> Data {
+func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan, diagnostic: ((DirectStartupStage) -> Void)? = nil) throws -> Data {
     try plan.validate()
     try require(CVPixelBufferGetWidth(buffer) == plan.sourceWidth &&
                 CVPixelBufferGetHeight(buffer) == plan.sourceHeight &&
                 CVPixelBufferGetBytesPerRow(buffer) == plan.sourceStride &&
                 CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_32BGRA,
                 "roi-source-replacement")
+    diagnostic?(.bufferLockBegin)
     try require(CVPixelBufferLockBaseAddress(buffer, .readOnly) == kCVReturnSuccess, "roi-lock-failed")
+    diagnostic?(.bufferLockEnd)
     var data = Data(capacity: plan.byteCount)
     do {
         guard let base = CVPixelBufferGetBaseAddress(buffer) else { throw Failure("roi-address-missing") }
@@ -64,11 +103,13 @@ func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan) throws -> Data
                 data.append(source.assumingMemoryBound(to: UInt8.self), count: region.width * 4)
             }
         }
+        diagnostic?(.rowCopyEnd)
     } catch {
         CVPixelBufferUnlockBaseAddress(buffer, .readOnly)
         throw error
     }
     try require(CVPixelBufferUnlockBaseAddress(buffer, .readOnly) == kCVReturnSuccess, "roi-unlock-failed")
+    diagnostic?(.bufferUnlockEnd)
     try require(data.count == plan.byteCount, "roi-copy-length")
     return data
 }

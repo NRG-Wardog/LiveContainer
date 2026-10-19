@@ -145,6 +145,43 @@ import CoreMedia
 import CoreVideo
 import CryptoKit
 
+// Diagnostic-only startup trace. Fixed numeric storage, no pixels or framework text.
+// All mutation/snapshot copying is protected by the sink's existing admission lock.
+enum DirectStartupStage: Int, CaseIterable {
+    case callbackEntry, ownerBegin, ownerEnd, metadataEnd, copyBegin
+    case bufferLockBegin, bufferLockEnd, rowCopyEnd, bufferUnlockEnd, copyEnd
+    case callbackEnd, enqueueBefore, enqueueAfter, writerBegin, writerOwnerBegin, writerOwnerEnd
+    case regionHashBegin, regionHashEnd, writeBegin, writeEnd, packedHashBegin, packedHashEnd
+    case writerEnd, reservationReleased
+}
+struct DirectStartupRecord {
+    let index: Int
+    var admitted: Bool
+    var pendingAtArrival: Int
+    var traceMarkCount = 0
+    var traceMarkCostMach: UInt64 = 0
+    var ticks = [UInt64](repeating: 0, count: DirectStartupStage.allCases.count)
+    func json() -> [String: Any] {
+        return ["index": index, "admitted": admitted, "pendingAtArrival": pendingAtArrival,
+                "milestonesMach": ticks, "traceMarkCount": traceMarkCount,
+                "traceMarkCostMach": traceMarkCostMach]
+    }
+}
+struct DirectStartupOverflow {
+    let index: Int
+    let observedMach: UInt64
+    let pending: Int
+    let admitted: Int
+    let released: Int
+    let inFlight: [Int]
+    let records: [DirectStartupRecord]
+    func json() -> [String: Any] {
+        return ["index": index, "observedMach": observedMach, "pending": pending,
+                "admitted": admitted, "released": released, "inFlight": inFlight,
+                "records": records.filter { $0.ticks[DirectStartupStage.callbackEntry.rawValue] > 0 }.map { $0.json() }]
+    }
+}
+
 struct DirectROI {
     let role: String
     let x: Int, y: Int, width: Int, height: Int
@@ -186,14 +223,16 @@ struct DirectROIPlan {
 
 // One immutable packed byte sequence per sample. No image conversion, PNG
 // encoder, OCR, normalization, resampling or pixel classification runs here.
-func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan) throws -> Data {
+func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan, diagnostic: ((DirectStartupStage) -> Void)? = nil) throws -> Data {
     try plan.validate()
     try require(CVPixelBufferGetWidth(buffer) == plan.sourceWidth &&
                 CVPixelBufferGetHeight(buffer) == plan.sourceHeight &&
                 CVPixelBufferGetBytesPerRow(buffer) == plan.sourceStride &&
                 CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_32BGRA,
                 "roi-source-replacement")
+    diagnostic?(.bufferLockBegin)
     try require(CVPixelBufferLockBaseAddress(buffer, .readOnly) == kCVReturnSuccess, "roi-lock-failed")
+    diagnostic?(.bufferLockEnd)
     var data = Data(capacity: plan.byteCount)
     do {
         guard let base = CVPixelBufferGetBaseAddress(buffer) else { throw Failure("roi-address-missing") }
@@ -203,11 +242,13 @@ func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan) throws -> Data
                 data.append(source.assumingMemoryBound(to: UInt8.self), count: region.width * 4)
             }
         }
+        diagnostic?(.rowCopyEnd)
     } catch {
         CVPixelBufferUnlockBaseAddress(buffer, .readOnly)
         throw error
     }
     try require(CVPixelBufferUnlockBaseAddress(buffer, .readOnly) == kCVReturnSuccess, "roi-unlock-failed")
+    diagnostic?(.bufferUnlockEnd)
     try require(data.count == plan.byteCount, "roi-copy-length")
     return data
 }
@@ -463,6 +504,31 @@ func directWritePrimaryFailure(_ value: [String: Any], directory: URL) throws {
     try require(fsync(parent) == 0, "primary-failure-directory-sync")
 }
 
+// Best-effort diagnostic sidecar only. No queue drain, no admission significance.
+// Primary publication has already been attempted; watchdogs stay armed.
+func directWriteStartupDiagnostic(_ value: [String: Any], directory: URL) throws {
+    let bytes = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+    try require(!bytes.isEmpty && bytes.count <= 32768, "startup-diagnostic-size")
+    let parent = open(directory.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_NONBLOCK)
+    try require(parent >= 0, "startup-diagnostic-directory")
+    defer { close(parent) }
+    let temporary = "startup-persistence.pending"
+    let descriptor = openat(parent, temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK, 0o600)
+    try require(descriptor >= 0, "startup-diagnostic-open")
+    defer { close(descriptor); unlinkat(parent, temporary, 0) }
+    try bytes.withUnsafeBytes { raw in
+        guard let base = raw.baseAddress else { throw Failure("startup-diagnostic-empty") }
+        var offset = 0
+        while offset < raw.count {
+            let count = Darwin.write(descriptor, base.advanced(by: offset), raw.count - offset)
+            if count < 0 && errno == EINTR { continue }
+            try require(count > 0, "startup-diagnostic-write")
+            offset += count
+        }
+    }
+    try require(renameatx_np(parent, temporary, parent, "startup-persistence.json", UInt32(RENAME_EXCL)) == 0, "startup-diagnostic-publish")
+}
+
 
 // Resize only the already-owned Simulator window before immutable registration.
 // Existing accessibility trust is required; this helper never requests it.
@@ -715,6 +781,39 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
     private var copiedBytes = 0
     private let persistence = DispatchQueue(label: "p1.owned.window.persistence")
     private var pendingRecords = 0
+    private static let startupLimit = 8
+    private var startupRecords = (0..<8).map { DirectStartupRecord(index: $0, admitted: false, pendingAtArrival: 0) }
+    private var startupOverflow: DirectStartupOverflow?
+    private var startupAdmitted = 0
+    private var startupReleased = 0
+    private var startupInFlight = [-1, -1]
+    private func startupMark(_ index: Int, _ stage: DirectStartupStage, at tick: UInt64? = nil) {
+        guard index < Self.startupLimit else { return }
+        let markStart = mach_absolute_time()
+        let observed = tick ?? markStart
+        lock.lock(); defer { lock.unlock() }
+        // Each callback creates its own bounded record before any stage marks.
+        guard index < startupRecords.count else { return }
+        startupRecords[index].ticks[stage.rawValue] = observed
+        startupRecords[index].traceMarkCount += 1
+        startupRecords[index].traceMarkCostMach += mach_absolute_time() - markStart
+    }
+    func startupSnapshot() -> [String: Any] {
+        lock.lock()
+        let rows = startupRecords, firstOverflow = startupOverflow
+        let admitted = startupAdmitted, released = startupReleased
+        let inFlight = startupInFlight, pending = pendingRecords
+        let observed = mach_absolute_time()
+        lock.unlock()
+        // Serialization/all dictionary construction is outside the admission lock.
+        return ["schema": "p1-direct-startup-persistence-v1", "session": plan.session,
+                "observedMach": observed, "recordLimit": Self.startupLimit,
+                "stageNames": DirectStartupStage.allCases.map { String(describing: $0) },
+                "missingMilestone": 0, "records": rows.filter { $0.ticks[DirectStartupStage.callbackEntry.rawValue] > 0 }.map { $0.json() },
+                "firstOverflow": firstOverflow.map { $0.json() } as Any? ?? NSNull(),
+                "admitted": admitted, "released": released, "pending": pending,
+                "inFlight": inFlight, "admissionEligible": false]
+    }
     private var lastDisplay: UInt64 = 0
     private var geometry: [Double]?
     private var complete = 0
@@ -752,13 +851,31 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
         delivered += 1
         guard delivered <= 6000 else { overflow += 1; failed("frame-record-limit"); return }
         lock.lock()
-        guard pendingRecords < 2 else { lock.unlock(); overflow += 1; failed("persistence-backpressure"); return }
-        pendingRecords += 1; lock.unlock()
+        let startupIndex = delivered - 1
+        if startupIndex < Self.startupLimit {
+            startupRecords[startupIndex].admitted = pendingRecords < 2
+            startupRecords[startupIndex].pendingAtArrival = pendingRecords
+            startupRecords[startupIndex].ticks[DirectStartupStage.callbackEntry.rawValue] = callbackBefore
+        }
+        guard pendingRecords < 2 else {
+            if startupOverflow == nil {
+                startupOverflow = DirectStartupOverflow(index: startupIndex, observedMach: mach_absolute_time(),
+                    pending: pendingRecords, admitted: startupAdmitted, released: startupReleased,
+                    inFlight: startupInFlight, records: startupRecords)
+            }
+            lock.unlock(); overflow += 1; failed("persistence-backpressure"); return
+        }
+        pendingRecords += 1
+        startupAdmitted += 1
+        if let slot = startupInFlight.firstIndex(of: -1) { startupInFlight[slot] = delivered - 1 }
+        lock.unlock()
         // Each reserved record can own at most the existing 1 MiB ROI plan.
         var payload: Data?
         var row: [String: Any] = ["index": delivered - 1, "callbackBeforeMach": callbackBefore]
         do {
+            startupMark(startupIndex, .ownerBegin)
             try require(ownerValid(), "owner-changed")
+            startupMark(startupIndex, .ownerEnd)
             try require(sample.isValid, "invalid-sample")
             guard let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
                   attachments.count == 1, let statusNumber = attachments[0][.status] as? NSNumber,
@@ -795,7 +912,10 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
                 if let prior = geometry { try require(prior == currentGeometry, "geometry-replacement") }
                 let size = plan.byteCount
                 try require(copiedBytes <= 3 * 1024 * 1024 * 1024 - size, "pixel-byte-limit")
-                let data = try directCopyROIs(buffer, plan: plan)
+                startupMark(startupIndex, .metadataEnd)
+                startupMark(startupIndex, .copyBegin)
+                let data = try directCopyROIs(buffer, plan: plan, diagnostic: startupIndex < Self.startupLimit ? { [self] stage in startupMark(startupIndex, stage) } : nil)
+                startupMark(startupIndex, .copyEnd)
                 payload = data
                 let rawName = String(format: "frame-%05d.rois.bgra", delivered - 1)
                 row.merge(["newFrame": true, "session": plan.session,
@@ -810,19 +930,41 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
         // This bracket covers synchronous validation and immutable pixel copying.
         // Dispatch submission and persistence have no presentation-time meaning.
         row["callbackAfterMach"] = mach_absolute_time()
+        startupMark(startupIndex, .callbackEnd, at: row["callbackAfterMach"] as? UInt64)
         let capturedRow = row, captured = DirectPendingPixels(payload)
         payload = nil
+        startupMark(startupIndex, .enqueueBefore)
         persistence.async { [self] in
+            startupMark(startupIndex, .writerBegin)
             var retained = capturedRow
-            defer { captured.data = nil; lock.lock(); pendingRecords -= 1; lock.unlock() }
+            defer {
+                startupMark(startupIndex, .writerEnd)
+                captured.data = nil
+                lock.lock()
+                pendingRecords -= 1
+                startupReleased += 1
+                if let slot = startupInFlight.firstIndex(of: startupIndex) { startupInFlight[slot] = -1 }
+                if startupIndex < Self.startupLimit {
+                    startupRecords[startupIndex].ticks[DirectStartupStage.reservationReleased.rawValue] = mach_absolute_time()
+                }
+                lock.unlock()
+            }
             do {
                 if let data = captured.data {
                     try require(errorCode() == nil, "prior-persistence-failure-latched")
+                    startupMark(startupIndex, .writerOwnerBegin)
                     try require(ownerValid(), "persistence-owner-changed")
+                    startupMark(startupIndex, .writerOwnerEnd)
+                    startupMark(startupIndex, .regionHashBegin)
                     let regions = try directROIManifest(plan, packed: data)
+                    startupMark(startupIndex, .regionHashEnd)
                     guard let name = retained["packedPixels"] as? String else { throw Failure("persistence-filename-missing") }
+                    startupMark(startupIndex, .writeBegin)
                     try data.write(to: directory.appendingPathComponent(name), options: .atomic)
+                    startupMark(startupIndex, .writeEnd)
+                    startupMark(startupIndex, .packedHashBegin)
                     retained["packedPixelSHA256"] = digest(data)
+                    startupMark(startupIndex, .packedHashEnd)
                     retained["regions"] = regions
                 }
             } catch {
@@ -834,6 +976,7 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
                 lock.lock(); if firstCompleteRecord == nil { firstCompleteRecord = retained }; lock.unlock()
             }
         }
+        startupMark(startupIndex, .enqueueAfter)
     }
     func firstComplete() -> [String: Any]? {
         lock.lock(); defer { lock.unlock() }; return firstCompleteRecord
@@ -1048,6 +1191,11 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
             // either sink queue here, and never replace the original failure.
             do { try directWritePrimaryFailure(primary, directory: directory) }
             catch { result["primaryFailureRetentionError"] = "primary-failure-retention-failed" }
+            // Independent diagnostic only, after the authoritative primary receipt.
+            if let diagnostic = sink?.startupSnapshot() {
+                do { try directWriteStartupDiagnostic(diagnostic, directory: directory) }
+                catch { result["startupDiagnosticRetentionError"] = "startup-diagnostic-retention-failed" }
+            }
         }
         deadline.beginCleanup()
         if startAttempted && !stopConfirmed, let capture = stream {
@@ -1064,6 +1212,7 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
         }
         deadline.arm(10, "frame-queue-drain")
         let samples = sink?.result() ?? ["error": "stream-never-created", "completeFrames": 0]; deadline.cancel(); result["samples"] = samples
+        if let sink = sink { result["startupPersistenceDiagnostic"] = sink.startupSnapshot() }
         result["captureCompleted"] = result["windowRevalidationPassed"] as? Bool == true &&
             result["outputDetached"] as? Bool == true && result["finalContextRetained"] as? Bool == true && stopConfirmed && result["error"] == nil &&
             result["stopError"] == nil && result["detachError"] == nil && samples["error"] is NSNull &&

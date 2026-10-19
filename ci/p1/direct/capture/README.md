@@ -109,3 +109,63 @@ between observation bounds. Delayed writes do not move a frame's displayTime,
 backdate an acknowledgement, fill missing coverage, or establish visual state
 between unknown frames. App-side draw-cost and combined observer-work checks are
 unchanged. This policy does not make any historical failed run successful.
+
+## Startup persistence diagnostics (diagnostic-only successor)
+
+The first eight delivered screen callbacks have preallocated fixed numeric
+milestone storage. Existing admission locking also protects two in-flight
+indices and admitted/released counters. The first overflow freezes a value
+snapshot while the original pendingRecords guard still holds its lock; the
+original unlock/failure-latch order is unchanged. Its observedMach is not the
+sink failureObservedMach. Later updates cannot alter this frozen snapshot.
+Swift value-array copy-on-write after snapshots can allocate bounded storage
+under the lock; this is not an allocation-free implementation. Before the first
+snapshot the eight row/timestamp arrays are allocated during sink initialization,
+not callback entry. No per-row-of-pixels or per-byte telemetry is performed.
+
+A record contains 24 explicitly named Mach milestones. The normal callback
+bracket and original displayTime/PTS remain unchanged in meaning. The callback
+trace separates owner lookup, metadata validation, ROI preflight, buffer-lock,
+row-copy and unlock stages. Writer marks separate preflight, owner lookup,
+region hashes, atomic write, packed hash and finalization/release. enqueueBefore
+and enqueueAfter bracket DispatchQueue.async submission; neither is claimed as
+exact insertion. writerBegin can precede enqueueAfter, even on a successful
+capture. Enum/list order is therefore NOT a total temporal ordering. Zero means
+not observed, never zero-duration. Adjacent observed timestamps can be equal.
+
+First-overflow and current snapshot records contain startup stages only, for
+indices 0–7. In-flight IDs/counters remain available afterwards, but stage data
+for later IDs is intentionally unavailable. Trace retention does not expand
+with run length. This is startup diagnosis, not a general continuous profiler.
+
+On an ordinary caught capture failure the authoritative primary-failure.json
+is attempted first, unchanged. Then a non-draining snapshot is exclusively
+published as startup-persistence.json, using a maximum 32 KiB temporary file and
+exclusive atomic rename. No fsync is added. Retention errors are separate and
+cannot replace the primary error. A final settled snapshot is embedded only in
+the OUTER window-capture result; strict samples/frame/primary schemas are not
+changed. Watchdogs stay armed. A watchdog exit before these paths, failure of
+primary I/O, or a blocked diagnostic write can still prevent retained telemetry;
+there is no guarantee of power-loss durability. No hot-path file I/O is added.
+
+The fixed worst-magnitude current+frozen JSON shape is under 16 KiB in the
+portable shape test; the sidecar hard limit is 32 KiB. At most 64 KiB is reserved
+within the unchanged 512 MiB ancillary allowance for sidecar plus embedded final
+snapshot, with at most 32 KiB additional temporary diagnostic storage. Existing
+inclusive inventory/archive limits still enforce the total without relaxation.
+
+traceMarkCount and traceMarkCostMach report bounded update count and elapsed
+mark-start through mutation/lock-wait measurements, excluding final unlock and
+some call/branch/admission/snapshot costs. They do NOT measure total telemetry
+overhead and are never subtracted from any acceptance timestamp. Additional
+clock reads/locks can perturb this startup-sensitive run; no native performance
+equivalence is claimed. Long stages localize where progress was observed, but
+cannot alone distinguish CPU work, filesystem service, framework blocking and
+descheduling inside that stage. Native compilation/performance validation and
+exact retained evidence remain necessary before any causal fix is claimed.
+
+A missing completion marker proves only that completion was not recorded in the
+snapshot. Descheduling or marker-lock wait can separate work completion from
+its marker. Error-path pixel-buffer unlock emits no bufferUnlockEnd marker, so
+missing unlock completion can also mean exceptional cleanup. Interpret markers
+with retained frame errors, not as proof of the executing CPU instruction.
