@@ -59,7 +59,7 @@ class ResizeSourceTests(unittest.TestCase):
         self.assertIn('if !ownedApplication.isActive',source)
         self.assertIn('while !ownedApplication.isActive',source)
         activation=source[source.index('while !ownedApplication.isActive'):source.index('proof["ownerActiveAfter"]')]
-        self.assertIn('CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.02, true)',activation)
+        self.assertIn('CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.02, true)',activation)
         self.assertNotIn('Task.sleep',activation)
         self.assertIn('"owned-window-changed-during-activation"',source)
         self.assertLess(source.index('"ownerActiveAfter"'),source.index('let rawBar ='))
@@ -72,6 +72,19 @@ class ResizeSourceTests(unittest.TestCase):
         self.assertLess(block.index('try requireMainWindow()'),block.index('if current.frame == prior'))
         success=block[block.index('if current.frame == prior'):]
         self.assertLess(success.index('if let error = events.error'),success.index('return current'))
+
+    def test_modern_runloop_api_and_synchronous_activation_phase(self):
+        source=(HERE/'window_resize.swift').read_text()
+        self.assertNotIn('kCFRunLoopDefaultMode',source)
+        self.assertNotIn('CFRunLoopGetCurrent()',source)
+        self.assertIn('CFRunLoopGetMain()',source)
+        phase=source[source.index('@MainActor func directActivateOwnedApplication'):source.index('@MainActor func directResizeOwnedWindow')]
+        self.assertIn('throws -> NSRunningApplication',phase)
+        self.assertNotIn('async',phase.split('{',1)[0])
+        self.assertNotIn('await ',phase)
+        self.assertIn('Thread.isMainThread',phase)
+        async_phase=source[source.index('@MainActor func directResizeOwnedWindow'):]
+        self.assertNotIn('CFRunLoopRunInMode(',async_phase)
 
     def test_actual_binary_readonly_preflight_precedes_build_and_boot(self):
         source=build_main.build(build_main.SOURCE.read_text(),(HERE/'source-sha256.txt').read_text().strip())

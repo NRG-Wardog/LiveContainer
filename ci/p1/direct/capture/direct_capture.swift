@@ -480,7 +480,7 @@ func directEnabledSnapshot(_ element: AXUIElement, label: String,
     proof[label + "TypeIsBoolean"] = booleanType
     var result: Bool?
     if status == .success, booleanType, let value = value {
-        result = CFBooleanGetValue(value as! CFBoolean)
+        result = CFBooleanGetValue((value as! CFBoolean))
         proof[label + "Boolean"] = result!
     }
     try write(proof, path)
@@ -523,7 +523,7 @@ final class DirectMenuEvents {
         // The existing independent 15-second stage watchdog bounds this wait.
         while (opening ? opened == 0 : closed == 0) {
             if let error = error { throw Failure(error) }
-            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.02, true)
+            CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.02, true)
         }
         if let error = error { throw Failure(error) }
     }
@@ -550,8 +550,43 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
                 "owned-menu-action-pid-mismatch")
 }
 
+@MainActor func directActivateOwnedApplication(pid: pid_t, owner: DirectOwner,
+    target: AXUIElement, window: SCWindow, proof: inout [String: Any], path: URL,
+    validateWindow: () throws -> Void) throws -> NSRunningApplication {
+    // A synchronous, bounded UI phase on the main thread. No async suspension
+    // can change the run loop while refreshing AppKit's active-state cache.
+    try require(Thread.isMainThread, "owned-activation-main-thread-required")
+    guard let ownedApplication = NSRunningApplication(processIdentifier: pid) else {
+        throw Failure("owned-application-unavailable")
+    }
+    proof["ownerActiveBefore"] = ownedApplication.isActive
+    proof["activationAttempted"] = false
+    try write(proof, path)
+    if !ownedApplication.isActive {
+        try require(owner.valid(), "activation-owner-changed")
+        try validateWindow()
+        proof["activationAttempted"] = true
+        try write(proof, path)
+        let accepted = ownedApplication.activate(options: [])
+        proof["activationRequestAccepted"] = accepted
+        try write(proof, path)
+        try require(accepted, "owned-application-activation-rejected")
+        while !ownedApplication.isActive {
+            try require(owner.valid(), "activation-owner-changed")
+            CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.02, true)
+        }
+    }
+    try require(owner.valid(), "activation-owner-changed")
+    try validateWindow()
+    try require(try directAXRect(target) == window.frame, "owned-window-changed-during-activation")
+    proof["ownerActiveAfter"] = ownedApplication.isActive
+    try write(proof, path)
+    return ownedApplication
+}
+
 @MainActor func directResizeOwnedWindow(_ window: SCWindow, owner: DirectOwner,
     pid: pid_t, session: String, directory: URL, select: (CGWindowID?, String) async throws -> SCWindow) async throws -> SCWindow {
+    try require(Thread.isMainThread, "owned-menu-main-thread-required")
     var proof: [String: Any] = ["schema": "p1-direct-owned-window-resize-v1",
         "session": session, "ownerPID": pid, "windowID": window.windowID, "beforeFrame": rect(window.frame),
         "requestedPreset": "Pixel Accurate", "permissionRequested": false,
@@ -585,31 +620,8 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
         }
     }
     try requireMainWindow()
-    guard let ownedApplication = NSRunningApplication(processIdentifier: pid) else {
-        throw Failure("owned-application-unavailable")
-    }
-    proof["ownerActiveBefore"] = ownedApplication.isActive
-    proof["activationAttempted"] = false
-    try write(proof, path)
-    if !ownedApplication.isActive {
-        try require(owner.valid(), "activation-owner-changed")
-        try requireMainWindow()
-        proof["activationAttempted"] = true
-        try write(proof, path)
-        let accepted = ownedApplication.activate(options: [])
-        proof["activationRequestAccepted"] = accepted
-        try write(proof, path)
-        try require(accepted, "owned-application-activation-rejected")
-        while !ownedApplication.isActive {
-            try require(owner.valid(), "activation-owner-changed")
-            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.02, true)
-        }
-    }
-    try require(owner.valid(), "activation-owner-changed")
-    try requireMainWindow()
-    try require(try directAXRect(target) == window.frame, "owned-window-changed-during-activation")
-    proof["ownerActiveAfter"] = ownedApplication.isActive
-    try write(proof, path)
+    let ownedApplication = try directActivateOwnedApplication(pid: pid, owner: owner,
+        target: target, window: window, proof: &proof, path: path, validateWindow: requireMainWindow)
     let rawBar = try directAXValue(app, kAXMenuBarAttribute)
     try require(CFGetTypeID(rawBar) == AXUIElementGetTypeID(), "owned-menubar-type")
     let bar = rawBar as! AXUIElement
@@ -632,7 +644,7 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
     try require(AXObserverCreate(pid, directMenuCallback, &observer) == .success,
                 "owned-menu-observer-unavailable")
     guard let observer = observer else { throw Failure("owned-menu-observer-empty") }
-    let loop = CFRunLoopGetCurrent()
+    let loop = CFRunLoopGetMain()
     let source = AXObserverGetRunLoopSource(observer)
     let context = Unmanaged.passUnretained(events).toOpaque()
     var registered: [String] = []
@@ -640,7 +652,7 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
         for notification in registered {
             AXObserverRemoveNotification(observer, menu, notification as CFString)
         }
-        CFRunLoopRemoveSource(loop, source, kCFRunLoopDefaultMode)
+        CFRunLoopRemoveSource(loop, source, CFRunLoopMode.defaultMode)
         withExtendedLifetime(events) {}
     }
     for notification in [kAXMenuOpenedNotification, kAXMenuClosedNotification] {
@@ -650,7 +662,7 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
         try require(status == .success, "owned-menu-notification-unavailable")
         registered.append(notification)
     }
-    CFRunLoopAddSource(loop, source, kCFRunLoopDefaultMode)
+    CFRunLoopAddSource(loop, source, CFRunLoopMode.defaultMode)
     try directRequirePress(matching[0], pid: pid)
     try require(owner.valid(), "resize-owner-changed")
     try requireMainWindow()
