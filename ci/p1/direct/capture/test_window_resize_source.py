@@ -89,4 +89,16 @@ class ResizeSourceTests(unittest.TestCase):
         self.assertLess(entry.index("startup_observation(command,result,'accessibility-prerequisite',helper,'--check-existing-accessibility',historical=10)"),entry.index('capture.base.acquire(builder'))
         self.assertLess(entry.index("capture.write(output/'accessibility-prerequisite.json'"),entry.index("require(set(accessibility)"))
 
+class ImmutableResizeSourceTests(unittest.TestCase):
+    def test_progress_snapshots_and_terminal_canonical_are_distinct(self):
+        source=(HERE/'window_resize.swift').read_text()
+        self.assertEqual(source.count('"window-resize.json"'),1)
+        self.assertIn('"window-resize-attempt-" + String(sequence)',source)
+        self.assertIn('sequence += 1',source)
+        self.assertEqual(source.count('try evidence.publish(proof)'),1)
+        terminal=source[source.index('if current.frame == prior'):]
+        self.assertLess(terminal.index('proof["sameOwnedWindowSettled"] = true'),terminal.index('try evidence.publish(proof)'))
+        self.assertNotIn('try write(proof, path)',source)
+        self.assertIn('try evidence.snapshot(proof)',source)
+
 if __name__=='__main__':unittest.main()

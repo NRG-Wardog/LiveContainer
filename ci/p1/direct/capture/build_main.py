@@ -29,9 +29,32 @@ def build(source,expected_sha):
     source=replace_once(source,'let sink = Sink(directory: directory, pid: pid, executable: executable)',
         'let owner = DirectOwner(pid: pid, executable: executable)\n        var sink: DirectSink?')
     source=source.replace('sink.ownerValid()','owner.valid()')
-    source=replace_once(source, '            func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {',
-        '            var initialAttempt = 0\n            func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {')
-    source=replace_once(source, '                try require(windows.count == 1, "ambiguous-owned-window")', '''                if phase == "initial" {
+    start=source.index('            func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {')
+    end=source.index('            deadline.arm(15, "window-enumeration")',start)
+    source=source[:start]+'''            var initialAttempt = 0
+            var resizedAttempt = 0
+            var settledCensus: [String: Any]?
+            func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {
+                let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+                let windows = content.windows.filter { $0.owningApplication?.processID == pid && $0.isOnScreen }
+                try require(windows.count <= 16, "owned-window-census-overflow")
+                let census: [[String: Any]] = windows.map { ["windowID": $0.windowID, "frame": rect($0.frame)] }
+                let censusProof: [String: Any] = ["schema": "p1-owned-window-census-v1", "ownerPID": pid, "phase": phase,
+                    "count": windows.count, "windows": census, "admissionEligible": false]
+                if phase == "resized" {
+                    try write(censusProof, directory.appendingPathComponent("window-census-resized-attempt-" + String(resizedAttempt) + ".json"))
+                    resizedAttempt += 1
+                }
+                try require(owner.valid(), "unverified-gui-owner")
+                try require(windows.allSatisfy { valid($0.frame) } && Set(windows.map { $0.windowID }).count == windows.count, "invalid-owned-window-census")
+                if let expected = expected {
+                    let matching = windows.filter { $0.windowID == expected }
+                    try require(matching.count == 1, "original-owned-window-missing")
+                    if phase == "resized" { settledCensus = censusProof }
+                    else { try write(censusProof, directory.appendingPathComponent("window-census-" + phase + ".json")) }
+                    return matching[0]
+                }
+                if phase == "initial" {
                     try require(initialAttempt < 150, "initial-window-attempt-limit")
                     try write(["schema": "p1-owned-window-census-v1", "ownerPID": pid, "phase": phase,
                                "count": windows.count, "windows": census, "admissionEligible": false],
@@ -39,7 +62,12 @@ def build(source,expected_sha):
                     initialAttempt += 1
                     try require(!windows.isEmpty, "owned-window-not-ready")
                 }
-                try require(windows.count == 1, "ambiguous-owned-window")''')
+                try require(windows.count == 1, "ambiguous-owned-window")
+                // Publish the initial canonical evidence only after unique valid selection.
+                try write(censusProof, directory.appendingPathComponent("window-census-" + phase + ".json"))
+                return windows[0]
+            }
+'''+source[end:]
     source=replace_once(source,'let window = try await select(nil, phase: "initial"); deadline.cancel()',
         '''var readyWindow: SCWindow?
             for _ in 0..<150 {
@@ -54,6 +82,8 @@ def build(source,expected_sha):
             deadline.arm(15, "owned-window-resize")
             let window = try await directResizeOwnedWindow(originalWindow, owner: owner, pid: pid,
                 session: session, directory: directory, select: { id, phase in try await select(id, phase: phase) })
+            guard let census = settledCensus else { throw Failure("settled-window-census-unavailable") }
+            try write(census, directory.appendingPathComponent("window-census-resized.json"))
             deadline.cancel()''')
     source=replace_once(source,'            try require(CGPreflightScreenCaptureAccess(),',
         '            try require(session.utf8.count == 32 && session.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }, "invalid-direct-session")\n            result["session"] = session\n            try require(CGPreflightScreenCaptureAccess(),')

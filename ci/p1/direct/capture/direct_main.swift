@@ -35,19 +35,26 @@
             try require(CGPreflightScreenCaptureAccess(), "existing-permission-absent")
             try require(executable == "/Applications/Xcode_26.4.1.app/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator" && owner.valid(), "unverified-gui-owner")
             var initialAttempt = 0
+            var resizedAttempt = 0
+            var settledCensus: [String: Any]?
             func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {
                 let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
                 let windows = content.windows.filter { $0.owningApplication?.processID == pid && $0.isOnScreen }
                 try require(windows.count <= 16, "owned-window-census-overflow")
                 let census: [[String: Any]] = windows.map { ["windowID": $0.windowID, "frame": rect($0.frame)] }
-                try write(["schema": "p1-owned-window-census-v1", "ownerPID": pid, "phase": phase,
-                           "count": windows.count, "windows": census, "admissionEligible": false],
-                          directory.appendingPathComponent("window-census-" + phase + ".json"))
+                let censusProof: [String: Any] = ["schema": "p1-owned-window-census-v1", "ownerPID": pid, "phase": phase,
+                    "count": windows.count, "windows": census, "admissionEligible": false]
+                if phase == "resized" {
+                    try write(censusProof, directory.appendingPathComponent("window-census-resized-attempt-" + String(resizedAttempt) + ".json"))
+                    resizedAttempt += 1
+                }
                 try require(owner.valid(), "unverified-gui-owner")
                 try require(windows.allSatisfy { valid($0.frame) } && Set(windows.map { $0.windowID }).count == windows.count, "invalid-owned-window-census")
                 if let expected = expected {
                     let matching = windows.filter { $0.windowID == expected }
                     try require(matching.count == 1, "original-owned-window-missing")
+                    if phase == "resized" { settledCensus = censusProof }
+                    else { try write(censusProof, directory.appendingPathComponent("window-census-" + phase + ".json")) }
                     return matching[0]
                 }
                 if phase == "initial" {
@@ -59,6 +66,8 @@
                     try require(!windows.isEmpty, "owned-window-not-ready")
                 }
                 try require(windows.count == 1, "ambiguous-owned-window")
+                // Publish the initial canonical evidence only after unique valid selection.
+                try write(censusProof, directory.appendingPathComponent("window-census-" + phase + ".json"))
                 return windows[0]
             }
             deadline.arm(15, "window-enumeration")
@@ -75,6 +84,8 @@
             deadline.arm(15, "owned-window-resize")
             let window = try await directResizeOwnedWindow(originalWindow, owner: owner, pid: pid,
                 session: session, directory: directory, select: { id, phase in try await select(id, phase: phase) })
+            guard let census = settledCensus else { throw Failure("settled-window-census-unavailable") }
+            try write(census, directory.appendingPathComponent("window-census-resized.json"))
             deadline.cancel()
             var timebase = mach_timebase_info_data_t()
             try require(mach_timebase_info(&timebase) == KERN_SUCCESS && timebase.numer > 0 && timebase.denom > 0, "invalid-mach-timebase")

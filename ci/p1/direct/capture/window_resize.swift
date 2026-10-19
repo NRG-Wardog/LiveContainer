@@ -2,6 +2,21 @@
 // Existing accessibility trust is required; this helper never requests it.
 import ApplicationServices
 
+// Progress snapshots never occupy the canonical immutable handoff path.
+final class DirectResizeEvidence {
+    let directory: URL
+    private var sequence = 0
+    init(_ directory: URL) { self.directory = directory }
+    func snapshot(_ proof: [String: Any]) throws {
+        try write(proof, directory.appendingPathComponent("window-resize-attempt-" + String(sequence) + ".json"))
+        sequence += 1
+    }
+    func publish(_ proof: [String: Any]) throws {
+        try snapshot(proof)
+        try write(proof, directory.appendingPathComponent("window-resize.json"))
+    }
+}
+
 func directAXRect(_ element: AXUIElement) throws -> CGRect {
     var position: CFTypeRef?, size: CFTypeRef?
     try require(AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &position) == .success &&
@@ -53,7 +68,7 @@ func directAXOptionalTitle(_ element: AXUIElement) throws -> String {
 }
 
 func directEnabledSnapshot(_ element: AXUIElement, label: String,
-                           proof: inout [String: Any], path: URL) throws -> Bool? {
+                           proof: inout [String: Any], evidence: DirectResizeEvidence) throws -> Bool? {
     try require(AXUIElementSetMessagingTimeout(element, 2) == .success, "owned-element-ax-timeout-unavailable")
     var value: CFTypeRef?
     let status = AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &value)
@@ -66,7 +81,7 @@ func directEnabledSnapshot(_ element: AXUIElement, label: String,
         result = CFBooleanGetValue((value as! CFBoolean))
         proof[label + "Boolean"] = result!
     }
-    try write(proof, path)
+    try evidence.snapshot(proof)
     return result
 }
 
@@ -85,7 +100,7 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
 }
 
 @MainActor func directActivateOwnedApplication(pid: pid_t, owner: DirectOwner,
-    target: AXUIElement, window: SCWindow, proof: inout [String: Any], path: URL,
+    target: AXUIElement, window: SCWindow, proof: inout [String: Any], evidence: DirectResizeEvidence,
     validateWindow: () throws -> Void) throws -> NSRunningApplication {
     // A synchronous, bounded UI phase on the main thread. No async suspension
     // can change the run loop while refreshing AppKit's active-state cache.
@@ -95,15 +110,15 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
     }
     proof["ownerActiveBefore"] = ownedApplication.isActive
     proof["activationAttempted"] = false
-    try write(proof, path)
+    try evidence.snapshot(proof)
     if !ownedApplication.isActive {
         try require(owner.valid(), "activation-owner-changed")
         try validateWindow()
         proof["activationAttempted"] = true
-        try write(proof, path)
+        try evidence.snapshot(proof)
         let accepted = ownedApplication.activate(options: [])
         proof["activationRequestAccepted"] = accepted
-        try write(proof, path)
+        try evidence.snapshot(proof)
         try require(accepted, "owned-application-activation-rejected")
         while !ownedApplication.isActive {
             try require(owner.valid(), "activation-owner-changed")
@@ -114,7 +129,7 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
     try validateWindow()
     try require(try directAXRect(target) == window.frame, "owned-window-changed-during-activation")
     proof["ownerActiveAfter"] = ownedApplication.isActive
-    try write(proof, path)
+    try evidence.snapshot(proof)
     return ownedApplication
 }
 
@@ -125,10 +140,10 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
         "session": session, "ownerPID": pid, "windowID": window.windowID, "beforeFrame": rect(window.frame),
         "requestedPreset": "Pixel Accurate", "permissionRequested": false,
         "sourceResolutionEstablished": false, "admissionEligible": false]
-    let path = directory.appendingPathComponent("window-resize.json")
+    let evidence = DirectResizeEvidence(directory)
     let trusted = AXIsProcessTrusted()
     proof["existingAccessibilityTrust"] = trusted
-    try write(proof, path)
+    try evidence.snapshot(proof)
     try require(trusted, "existing-accessibility-trust-absent")
     try require(owner.valid(), "resize-owner-changed")
     let app = AXUIElementCreateApplication(pid)
@@ -155,13 +170,13 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
     }
     try requireMainWindow()
     let ownedApplication = try directActivateOwnedApplication(pid: pid, owner: owner,
-        target: target, window: window, proof: &proof, path: path, validateWindow: requireMainWindow)
+        target: target, window: window, proof: &proof, evidence: evidence, validateWindow: requireMainWindow)
     let rawBar = try directAXValue(app, kAXMenuBarAttribute)
     try require(CFGetTypeID(rawBar) == AXUIElementGetTypeID(), "owned-menubar-type")
     let bar = rawBar as! AXUIElement
     let matching = try directAXChildren(bar).filter { try directAXOptionalTitle($0) == "Window" }
     proof["matchingWindowMenus"] = matching.count
-    try write(proof, path)
+    try evidence.snapshot(proof)
     try require(matching.count == 1, "owned-window-menu-unavailable-or-ambiguous")
     let menus = try directAXChildren(matching[0]).filter { try directAXText($0, kAXRoleAttribute) == kAXMenuRole }
     try require(menus.count == 1, "owned-window-submenu-unavailable-or-ambiguous")
@@ -172,11 +187,11 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
     proof["menuOpenAttempted"] = false
     proof["menuNotificationEvidenceClaimed"] = false
     proof["matchingPixelAccurateItems"] = presets.count
-    try write(proof, path)
+    try evidence.snapshot(proof)
     try require(presets.count == 1, "owned-pixel-accurate-unavailable-or-ambiguous")
     let preset = presets[0]
     try require(try directAXText(preset, kAXRoleAttribute) == kAXMenuItemRole, "owned-preset-role")
-    let enabled = try directEnabledSnapshot(preset, label: "directPresetEnabled", proof: &proof, path: path)
+    let enabled = try directEnabledSnapshot(preset, label: "directPresetEnabled", proof: &proof, evidence: evidence)
     try require(enabled == true, "owned-preset-disabled-or-unknown")
     try directRequirePress(preset, pid: pid)
     try require(owner.valid(), "resize-owner-changed")
@@ -185,12 +200,12 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
     try require(ownedApplication.isActive, "owned-application-inactive-before-preset")
     proof["mutationAttempted"] = true
     proof["presetAttemptMach"] = mach_absolute_time()
-    try write(proof, path)
+    try evidence.snapshot(proof)
     // One advertised action on the already-enabled exact owned preset.
     // No menu-opening action, notification assumption, retry or global input.
     let actionStatus = AXUIElementPerformAction(preset, kAXPressAction as CFString)
     proof["actionAXError"] = actionStatus.rawValue
-    try write(proof, path)
+    try evidence.snapshot(proof)
     try require(actionStatus == .success, "owned-pixel-accurate-action-failed")
     var prior: CGRect?
     while true {
@@ -206,7 +221,7 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
         if current.frame == prior && current.frame == axFrame && current.frame != window.frame {
             proof["afterFrame"] = rect(current.frame)
             proof["sameOwnedWindowSettled"] = true
-            try write(proof, path)
+            try evidence.publish(proof)
             return current
         }
         prior = current.frame

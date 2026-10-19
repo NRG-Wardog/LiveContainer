@@ -37,4 +37,21 @@ class MainSourceTests(unittest.TestCase):
         self.assertIn('try require(!windows.isEmpty, "owned-window-not-ready")',source)
         self.assertNotIn('catch {',block)
 
+class ImmutableCensusSourceTests(unittest.TestCase):
+    def test_initial_canonical_follows_valid_selection(self):
+        source=(HERE/'direct_main.swift').read_text()
+        block=source[source.index('var initialAttempt'):source.index('deadline.arm(15, "window-enumeration")')]
+        initial=block[block.index('if phase == "initial"'):]
+        self.assertLess(initial.index('window-census-initial-attempt-'),initial.index('try require(!windows.isEmpty'))
+        self.assertLess(initial.index('try require(windows.count == 1'),initial.index('try write(censusProof,'))
+        self.assertNotIn('try write(censusProof,',block[:block.index('if phase == "resized"')])
+
+    def test_resized_canonical_follows_settlement(self):
+        source=(HERE/'direct_main.swift').read_text()
+        self.assertEqual(source.count('"window-census-resized.json"'),1)
+        self.assertIn('window-census-resized-attempt-',source)
+        self.assertIn('if phase == "resized" { settledCensus = censusProof }',source)
+        self.assertLess(source.index('let window = try await directResizeOwnedWindow'),source.index('"window-census-resized.json"'))
+        self.assertLess(source.index('"window-census-resized.json"'),source.index('SCContentFilter(desktopIndependentWindow: window)'))
+
 if __name__=='__main__':unittest.main()

@@ -18,6 +18,7 @@ import math
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -549,6 +550,44 @@ class CaptureHandoffTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'compiled helper/source changed'):
                 case.handoff.register_baseline(3)
             self.assert_failed(case)
+
+    def test_concurrent_attempt_snapshots_do_not_poison_immutable_handoff(self):
+        with LocalCase() as case:
+            case.baseline_files()
+            names=('window-census-initial.json','window-census-resized.json','window-resize.json','baseline.json')
+            ready={name:(case.frame_path/name).read_bytes() for name in names}
+            for name in names: (case.frame_path/name).unlink()
+            errors=[]; snapshots={}
+            def publish():
+                try:
+                    for attempt in range(24):
+                        empty=case.census('initial');empty.update(count=0,windows=[])
+                        name='window-census-initial-attempt-'+str(attempt)+'.json'
+                        snapshots[name]=case.write(name,empty)
+                        time.sleep(.01)
+                    snapshots['window-census-initial-attempt-24.json']=case.write('window-census-initial-attempt-24.json',ready[names[0]])
+                    case.write(names[0],ready[names[0]])
+                    for attempt in range(4):
+                        name='window-census-resized-attempt-'+str(attempt)+'.json'
+                        changing=case.census('resized');changing['windows'][0]['frame'][2]+=attempt
+                        snapshots[name]=case.write(name,changing)
+                        name='window-resize-attempt-'+str(attempt)+'.json'
+                        snapshots[name]=case.write(name,dict(stage=attempt,admissionEligible=False))
+                        time.sleep(.02)
+                    for name in names[1:]:
+                        case.write(name,ready[name]);time.sleep(.02)
+                except BaseException as error: errors.append(error)
+            producer=threading.Thread(target=publish)
+            producer.start()
+            try: case.handoff.register_baseline(5)
+            finally: producer.join(5)
+            self.assertFalse(producer.is_alive());self.assertEqual(errors,[])
+            for name,raw in ready.items():
+                self.assertEqual(case.handoff.receipts['capture-'+name],raw)
+            for name,raw in snapshots.items():
+                self.assertEqual((case.frame_path/name).read_bytes(),raw)
+                self.assertNotIn('capture-'+name,case.handoff.receipts)
+            case.handoff._verify_immutable()
 
     def test_resize_transition_preserves_initial_and_freezes_final_frame(self):
         with LocalCase() as case:
