@@ -34,6 +34,7 @@
             result["session"] = session
             try require(CGPreflightScreenCaptureAccess(), "existing-permission-absent")
             try require(executable == "/Applications/Xcode_26.4.1.app/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator" && owner.valid(), "unverified-gui-owner")
+            var initialAttempt = 0
             func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {
                 let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
                 let windows = content.windows.filter { $0.owningApplication?.processID == pid && $0.isOnScreen }
@@ -49,11 +50,28 @@
                     try require(matching.count == 1, "original-owned-window-missing")
                     return matching[0]
                 }
+                if phase == "initial" {
+                    try require(initialAttempt < 150, "initial-window-attempt-limit")
+                    try write(["schema": "p1-owned-window-census-v1", "ownerPID": pid, "phase": phase,
+                               "count": windows.count, "windows": census, "admissionEligible": false],
+                              directory.appendingPathComponent("window-census-initial-attempt-" + String(initialAttempt) + ".json"))
+                    initialAttempt += 1
+                    try require(!windows.isEmpty, "owned-window-not-ready")
+                }
                 try require(windows.count == 1, "ambiguous-owned-window")
                 return windows[0]
             }
             deadline.arm(15, "window-enumeration")
-            let originalWindow = try await select(nil, phase: "initial"); deadline.cancel()
+            var readyWindow: SCWindow?
+            for _ in 0..<150 {
+                do { readyWindow = try await select(nil, phase: "initial"); break }
+                catch let failure as Failure where failure.code == "owned-window-not-ready" {
+                    try require(owner.valid(), "unverified-gui-owner")
+                    try await Task.sleep(nanoseconds: 100_000_000)
+                }
+            }
+            guard let originalWindow = readyWindow else { throw Failure("owned-window-readiness-exhausted") }
+            deadline.cancel()
             deadline.arm(15, "owned-window-resize")
             let window = try await directResizeOwnedWindow(originalWindow, owner: owner, pid: pid,
                 session: session, directory: directory, select: { id, phase in try await select(id, phase: phase) })

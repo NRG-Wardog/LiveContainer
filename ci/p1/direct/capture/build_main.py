@@ -29,8 +29,28 @@ def build(source,expected_sha):
     source=replace_once(source,'let sink = Sink(directory: directory, pid: pid, executable: executable)',
         'let owner = DirectOwner(pid: pid, executable: executable)\n        var sink: DirectSink?')
     source=source.replace('sink.ownerValid()','owner.valid()')
+    source=replace_once(source, '            func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {',
+        '            var initialAttempt = 0\n            func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {')
+    source=replace_once(source, '                try require(windows.count == 1, "ambiguous-owned-window")', '''                if phase == "initial" {
+                    try require(initialAttempt < 150, "initial-window-attempt-limit")
+                    try write(["schema": "p1-owned-window-census-v1", "ownerPID": pid, "phase": phase,
+                               "count": windows.count, "windows": census, "admissionEligible": false],
+                              directory.appendingPathComponent("window-census-initial-attempt-" + String(initialAttempt) + ".json"))
+                    initialAttempt += 1
+                    try require(!windows.isEmpty, "owned-window-not-ready")
+                }
+                try require(windows.count == 1, "ambiguous-owned-window")''')
     source=replace_once(source,'let window = try await select(nil, phase: "initial"); deadline.cancel()',
-        '''let originalWindow = try await select(nil, phase: "initial"); deadline.cancel()
+        '''var readyWindow: SCWindow?
+            for _ in 0..<150 {
+                do { readyWindow = try await select(nil, phase: "initial"); break }
+                catch let failure as Failure where failure.code == "owned-window-not-ready" {
+                    try require(owner.valid(), "unverified-gui-owner")
+                    try await Task.sleep(nanoseconds: 100_000_000)
+                }
+            }
+            guard let originalWindow = readyWindow else { throw Failure("owned-window-readiness-exhausted") }
+            deadline.cancel()
             deadline.arm(15, "owned-window-resize")
             let window = try await directResizeOwnedWindow(originalWindow, owner: owner, pid: pid,
                 session: session, directory: directory, select: { id, phase in try await select(id, phase: phase) })
