@@ -427,7 +427,7 @@ class FailureDiagnosticTests(unittest.TestCase):
             return process_scope.GroupOperationError(operation,pgid,PermissionError(errno.EPERM,'private exception detail'))
     def command_result(self,primary=None,cleanup=None,receipt=False,allow_failure=False,returncode=0,spawn_error=None):
         self.command_count+=1;logs=self.root/str(self.command_count);logs.mkdir()
-        process=mock.Mock(pid=4321,returncode=returncode);process.wait.side_effect=primary
+        process=mock.Mock(pid=4321,returncode=returncode);process.lock=threading.RLock();process.wait.side_effect=primary
         scope=mock.Mock();scope.deadline=time.monotonic()+60;scope.remaining.return_value=7.5;scope.spawn.return_value=process
         scope.spawn.side_effect=spawn_error;scope.settle.side_effect=cleanup
         command=process_scope.Commands(scope,logs);console=io.StringIO();result=None;raised=None
@@ -611,7 +611,7 @@ class FailureDiagnosticTests(unittest.TestCase):
         phases=[r['phase'] for r in self.diagnostics(console.getvalue())];self.assertLess(phases.index('backstop-simulator-cleanup'),phases.index('outer-budget-result'))
     def test_command_receipt_write_failure_logs_then_preserves_primary(self):
         logs=self.root/'logs';logs.mkdir();primary=process_scope.subprocess.TimeoutExpired('private-command',7.5)
-        process=mock.Mock(pid=4321,returncode=None);process.wait.side_effect=primary
+        process=mock.Mock(pid=4321,returncode=None);process.lock=threading.RLock();process.wait.side_effect=primary
         scope=mock.Mock();scope.deadline=time.monotonic()+60;scope.remaining.return_value=7.5;scope.spawn.return_value=process;command=process_scope.Commands(scope,logs)
         console=io.StringIO();original_open=Path.open;events=[]
         def open_file(path,*args,**kwargs):
@@ -751,7 +751,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             if argv[:3]==['xcrun','simctl','uninstall']:
                 uninstalls.append(argv);number=len(uninstalls)
             child=mock.Mock(pid=1000+len(scope.rows),returncode=1 if (number is not None and missing_app) or (install_failure and argv[:3]==['xcrun','simctl','install']) else 0)
-            child.uninstall_number=number
+            child.lock=threading.RLock();child.uninstall_number=number
             stdout.write(command_result(*argv).encode())
             child.wait.return_value=child.returncode
             scope.rows.append({'pid':child.pid,'settled':False})
