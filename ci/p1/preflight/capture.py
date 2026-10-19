@@ -32,7 +32,7 @@ METHOD='testScreenshotCalibrationCapability'
 CLASS='P1ScreenshotCapabilityUITests'
 RUNNER_ID=analysis.RUNNER_ID
 # Fixed list, independent of the supplied manifest. Updated only by reviewed source.
-ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py','test_query_reuse.py','test_full_recovery.py','full-recovery-baseline.json','test_structural_tabs.py','test_observation_snapshot.py','test_screen_calibration.py','test_calibration_discovery.py','test_tablet_profile.py']}
+ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py','test_query_reuse.py','test_full_recovery.py','full-recovery-baseline.json','test_structural_tabs.py','test_observation_snapshot.py','test_screen_calibration.py','test_calibration_discovery.py','test_tablet_profile.py','simctl_capture.py','test_simctl_capture.py']}
 
 
 def validate(host,inputs,approved):
@@ -40,7 +40,7 @@ def validate(host,inputs,approved):
     require(re.fullmatch('[0-9a-f]{64}',approved or '') and sha(inputs)==approved,'unreviewed inputs')
     data=parse(inputs)
     require(set(data)=={'schema','scope','livecontainer','builder','source_sha256','adapter_files'},'unexpected input fields')
-    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope'] in {'phone-recovery-capability-only-no-admission','phone-full-recovery-only-no-admission','phone-default-tabs-only-no-admission','phone-calibration-only-no-admission','tablet-recovery-capability-only-no-admission','tablet-full-recovery-only-no-admission'},'wrong capability scope')
+    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope'] in {'phone-recovery-capability-only-no-admission','phone-full-recovery-only-no-admission','phone-default-tabs-only-no-admission','phone-calibration-only-no-admission','tablet-recovery-capability-only-no-admission','tablet-full-recovery-only-no-admission','phone-simctl-capture-probe-only-no-admission'},'wrong capability scope')
     require(data['livecontainer']==SOURCE and data['builder']==BUILDER and data['source_sha256']==SOURCE_SHA,'wrong source pin')
     require(set(data['adapter_files'])==ADAPTERS,'wrong adapter inventory')
     for path,digest in data['adapter_files'].items():require(sha(ordinary(host,path))==digest,'adapter drift: '+path)
@@ -286,8 +286,12 @@ def calibration_started(path,state):
     return len(matches)==1
 
 
-def run_calibration(command,candidate,device,session,folder,valid_png):
+def run_calibration(command,candidate,device,session,folder,valid_png,simctl_probe=False):
     folder.mkdir();report={'scope':'calibration-capability-only','collection_complete':False,'calibration_feasible':False,'admissionEligible':False,'errors':[]};roots={};recorder=None;future=None;fixture_stopped=False
+    if simctl_probe:
+        import simctl_capture
+        host_captures=folder/'host-captures';host_captures.mkdir();probe_rows=[]
+        report.update(scope='simctl-capture-probe-only',simctl_probe_collected=False)
     try:
         command.scope.fixture_stopped(False)
         recorder=ManagedVideo(command.scope,device,folder)
@@ -329,7 +333,9 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
                     if phase!='pre':app.request('capability-'+phase)
                     for _ in range(8):app.request('clock',phase=phase)
                     for _ in range(8):runner.request('clock',phase=phase)
-                    for ordinal in range(1,4):runner.request('capture',phase=phase,ordinal=ordinal,timeout=30)
+                    for ordinal in range(1,4):
+                        runner.request('capture',phase=phase,ordinal=ordinal,timeout=30)
+                        if simctl_probe:probe_rows.append(simctl_capture.take(command,device,session,host_captures,phase,ordinal,valid_png))
                     app.request({'pre':'ready','mid':'third','post':'finish'}[phase])
                 await_file(roots['app']/'strip-complete.json',10,future,command.scope.remaining)
                 strip=video.read_strip(roots['app']);require(strip['complete'].get('session')==session and all(r.get('session')==session for r in strip['draws']),'wrong completed strip session')
@@ -359,6 +365,13 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
             'independentScreenshots':[{'phase':phase,'path':str(folder/'raw-runner'/('capture-'+name+'.png'))} for phase,name in [('before','baseline'),('after','after')]]}
         write(folder/'decode-input.json',decode_input)
         command('swift',HERE/'decode.swift',folder/'decode-input.json',folder/'decoded-frames',folder/'decoded.json',timeout=180)
+        if simctl_probe:
+            require(len(probe_rows)==9,'all nine host samples required')
+            host_input={**decode_input,'screenshots':[{'id':i,'path':str(host_captures/row['png'])} for i,row in enumerate(probe_rows,1)]}
+            write(folder/'host-decode-input.json',host_input)
+            command('swift',HERE/'decode.swift',folder/'host-decode-input.json',folder/'host-decoded-frames',folder/'host-decoded.json',timeout=180)
+            write(folder/'simctl-probe.json',{'schema':'p1-simctl-probe-inventory-v1','session':session,'samples':probe_rows,'admissionEligible':False,'timing_feasibility_established':False})
+            report['simctl_probe_collected']=True
         report['collection_complete']=not report['errors']
         try:report['analysis']=analysis.inspect(folder,session,parse(folder/'decoded.json'),events,strip);report['calibration_feasible']=True
         except Exception as error:report['feasibility_failure']=str(error);process_scope.emit_diagnostic('calibration-feasibility-failure',error=process_scope.error_info(error))
@@ -478,11 +491,12 @@ def observe_install(command,device,app,output):
     return row
 
 
-def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_recovery=False,default_tabs=False,calibration_only=False):
+def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_recovery=False,default_tabs=False,calibration_only=False,simctl_probe=False):
+    require(not simctl_probe or (calibration_only and kind=='phone'),'simctl probe requires phone calibration profile')
     require(sum(bool(v) for v in (install_diagnostic,full_recovery,default_tabs,calibration_only))<=1,'incompatible collection profiles')
     require(kind in ('phone','tablet') and not work.exists() and not output.exists(),'fresh paths and supported device class required')
     require(kind=='phone' or not any((install_diagnostic,default_tabs,calibration_only)),'tablet recovery profiles only')
-    require(parse(inputs)['scope']==('phone-calibration-only-no-admission' if calibration_only else kind+'-full-recovery-only-no-admission' if full_recovery else 'phone-default-tabs-only-no-admission' if default_tabs else kind+'-recovery-capability-only-no-admission'),'sealed execution scope differs')
+    require(parse(inputs)['scope']==('phone-simctl-capture-probe-only-no-admission' if simctl_probe else 'phone-calibration-only-no-admission' if calibration_only else kind+'-full-recovery-only-no-admission' if full_recovery else 'phone-default-tabs-only-no-admission' if default_tabs else kind+'-recovery-capability-only-no-admission'),'sealed execution scope differs')
     work.mkdir(parents=True);output.mkdir(parents=True)
     result={'schema':'p1-phone-recovery-collection-v1','scope':'phone-recovery-capability-only','admission_eligible':False,'production_ready':False,'full_native_lane_executed':False,'full_matrix_complete':False,
         'source':SOURCE,'source_sha256':SOURCE_SHA,'approved_inputs_sha256':approved,'device_class':kind,'collection_complete':False,'capabilities_passed':False,'errors':[],
@@ -494,6 +508,7 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
         'github':{k:os.environ.get(k) for k in ['GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_REPOSITORY']}}
     if kind=='tablet':result.update(schema='p1-tablet-recovery-collection-v1',scope='tablet-recovery-capability-only',tablet_executed=False)
     if calibration_only:result.update(scope='phone-calibration-only',calibration_feasible=False)
+    if simctl_probe:result.update(scope='phone-simctl-capture-probe-only',simctl_probe_collected=False)
     if default_tabs:result.update(scope='phone-default-tabs-only')
     if full_recovery:result.update(scope=kind+'-full-recovery-only',**{kind+'_recovery_matrix_passed':False})
     if install_diagnostic:result.update(scope='install-completion-diagnostic-only',diagnostic_complete=False,ui_executed=False)
@@ -541,7 +556,7 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
             require(simulator_cleanup.clean_command(install_receipt) and install_receipt.get('writer_settled') is True and install_elapsed is not None,'installation infrastructure command failed or unproved')
             if calibration_only:
                 result['calibration_executed']=True
-                result['calibration']=run_calibration(command,candidate,device,session,output/'calibration',renderer.valid_png)
+                result['calibration']=run_calibration(command,candidate,device,session,output/'calibration',renderer.valid_png,**({'simctl_probe':True} if simctl_probe else {}))
             else:
                 result['tablet_executed']=kind=='tablet'
                 result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png,full_recovery=full_recovery,default_tabs=default_tabs)
@@ -550,7 +565,8 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
         if calibration_only:
             result['collection_complete']=result['calibration']['collection_complete']
             result['calibration_feasible']=result['calibration']['calibration_feasible']
-            result['capabilities_passed']=result['collection_complete'] and result['calibration_feasible']
+            result['capabilities_passed']=result['collection_complete'] and result['calibration_feasible'] and not simctl_probe
+            if simctl_probe:result.update(scope='phone-simctl-capture-probe-only',simctl_probe_collected=result['calibration'].get('simctl_probe_collected') is True)
         elif not install_diagnostic:
             result['collection_complete']=result['recovery']['collection_complete']
             result['capabilities_passed']=result['collection_complete']
@@ -561,8 +577,8 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--host-root',type=Path,required=True);p.add_argument('--inputs',type=Path,required=True);p.add_argument('--approved-inputs-sha256',required=True)
-    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone','tablet']);p.add_argument('--execute',action='store_true');p.add_argument('--install-completion-diagnostic',action='store_true');p.add_argument('--full-recovery',action='store_true');p.add_argument('--default-tabs',action='store_true');p.add_argument('--calibration-only',action='store_true');a=p.parse_args()
+    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone','tablet']);p.add_argument('--execute',action='store_true');p.add_argument('--install-completion-diagnostic',action='store_true');p.add_argument('--full-recovery',action='store_true');p.add_argument('--default-tabs',action='store_true');p.add_argument('--calibration-only',action='store_true');p.add_argument('--simctl-capture-probe',action='store_true');a=p.parse_args()
     validate(a.host_root,a.inputs,a.approved_inputs_sha256)
     if a.execute:
         require(a.work is not None and a.evidence is not None and a.device_class is not None,'execution paths/class required')
-        sys.exit(0 if execute(a.host_root.resolve(),a.work,a.evidence,a.inputs,a.approved_inputs_sha256,a.device_class,a.install_completion_diagnostic,a.full_recovery,a.default_tabs,a.calibration_only) else 1)
+        sys.exit(0 if execute(a.host_root.resolve(),a.work,a.evidence,a.inputs,a.approved_inputs_sha256,a.device_class,a.install_completion_diagnostic,a.full_recovery,a.default_tabs,a.calibration_only,a.simctl_capture_probe) else 1)

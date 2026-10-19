@@ -586,3 +586,19 @@ This profile retains180s per native method,480s command,1020s observation,1140s 
 ## Full tablet recovery continuation
 
 After run39211618961 passed the two tablet capability methods with verified original evidence, the explicit tablet-full-recovery profile runs only the original four recovery methods and unchanged full verifier. It keeps600s per method,2400s command,3000s observation,3120s cleanup,3180s outer and55/65minute workflow bounds. The separate tablet_recovery_matrix_passed result is revoked by any collection or cleanup failure. Full P1 admission, calibration, feedback lifetime and input overlap remain unestablished by this profile.
+
+
+Public capture backend diagnostic
+---------------------------------
+The separately sealed phone-simctl-capture-probe-only profile retains nine fixed
+simctl io screenshot samples paired with the existing nine XCTest acquisitions.
+Each sample retains the complete host monotonic command-start to wait-return
+interval, including process launch, Simulator service, and image output costs.
+All nine PNGs are decoded against the original recording; no sample selection,
+fixed overhead subtraction, or assumed capture timestamp is permitted.
+This profile collects diagnostics only. It exits nonzero even when collection
+finishes because it never establishes capabilities or UI admission. The 120 ms
+limit and original calibration analysis are unchanged. Host intervals and decoded
+pixel associations require separate conservative offline evaluation.
+Existing observation/cleanup/outer budgets remain in force. No native UI methods
+or app source are changed.
