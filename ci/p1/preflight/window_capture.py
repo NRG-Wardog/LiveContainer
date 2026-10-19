@@ -68,6 +68,26 @@ class OwnedGUI:
             self.record()
         if primary is not None:raise primary
 
+def observe_after_gui_stop(command,gui,device,output):
+    # GUI termination may itself shut down its device. Observe exact state,
+    # rather than issuing a knowingly redundant shutdown or accepting exit405.
+    scope=command.scope;fixture=scope.fixture;proof=fixture.get('owned_created')
+    fresh_device.validate(proof,scope.session,device);fresh_device.validate(scope.creation_intent,scope.session)
+    require(gui.scope is scope and gui.stopped is True and gui.process is not None,'GUI settlement unavailable')
+    require(fixture.get('device')==device and fixture.get('owned_boot') is True and fixture.get('deleted') is False,'created fixture unavailable')
+    require(all(proof.get(k)==v for k,v in scope.creation_intent.items()),'creation intention mismatch')
+    require(all(r.get('settled') is True for r in scope.rows),'GUI writers unsettled')
+    row=command('xcrun','simctl','list','devices','--json',timeout=15,cleanup=True,receipt=True)
+    capture.write(output/'post-gui-state.json',row)
+    launch=row.get('launch_receipt',{})
+    require(row.get('writer_settled') is True and launch.get('state')=='pre-exec-observed' and launch.get('closed') is True and launch.get('eof') is True and launch.get('exec_failure') is None,'post-GUI state execution unknown')
+    require(capture.simulator_cleanup.clean_command(row),'post-GUI state query failed')
+    parsed=fresh_device.state_parser(device,False,proof['device_type'])(row['stdout'].encode())
+    state=capture.simulator_cleanup.observed_state({**row,'stdout':json.dumps(parsed)},device)
+    require(all(r.get('settled') is True for r in scope.rows),'post-GUI state writer unsettled')
+    if state=='Shutdown':scope.fixture_stopped(True)
+    return state
+
 def startup_isolation(command,preflight,output):
     # One prospective startup observation; no retry and no timing admission.
     row=command(preflight,timeout=30,receipt=True)
@@ -222,7 +242,9 @@ def execute(host,work,output,inputs,approved):
     except Exception as error:result['errors'].append(process_scope.error_info(error))
     finally:
         if gui is not None:
-            try:gui.stop()
+            try:
+                gui.stop()
+                observe_after_gui_stop(command,gui,device,output)
             except Exception as error:result['errors'].append(process_scope.error_info(error));result['collection_complete']=False
         capture.finalize(output,result,command,scope,device,booted)
         result['ownedWindowTimestampAcquisitionEstablished']=result['ownedWindowTimestampAcquisitionEstablished'] and result['collection_complete'] and not result['errors']

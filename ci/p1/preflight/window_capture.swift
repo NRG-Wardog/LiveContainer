@@ -141,7 +141,7 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate {
 }
 
 @main struct Main {
-    static func main() async {
+    @MainActor static func main() async {
         let args = CommandLine.arguments
         guard args.count == 4, let pid = Int32(args[1]), pid > 1 else { exit(2) }
         let executable = args[2], directory = URL(fileURLWithPath: args[3], isDirectory: true)
@@ -155,6 +155,11 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate {
         var startAttempted = false
         var stopConfirmed = false
         do {
+            deadline.arm(10, "appkit-initialization")
+            try write(["schema": "p1-window-bootstrap-v1", "phase": "before-appkit", "admissionEligible": false], directory.appendingPathComponent("bootstrap.json"))
+            _ = NSApplication.shared
+            try write(["schema": "p1-window-bootstrap-v1", "phase": "appkit-initialized", "admissionEligible": false], directory.appendingPathComponent("bootstrap.json"))
+            deadline.cancel()
             try require(CGPreflightScreenCaptureAccess(), "existing-permission-absent")
             try require(executable == "/Applications/Xcode_26.4.1.app/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator" && sink.ownerValid(), "unverified-gui-owner")
             func select() async throws -> SCWindow {

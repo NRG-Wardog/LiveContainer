@@ -185,3 +185,65 @@ class StartupIsolation(unittest.TestCase):
         stages=['helper-entered','preflight-returned','process-enumeration-returned','window-enumeration-returned']
         self.assertEqual([text.count('phase("'+x+'")') for x in stages],[1]*4)
         self.assertIn('FileHandle.standardError.write(data)',text)
+
+
+class NativeBootstrap(unittest.TestCase):
+    def test_appkit_initialized_on_main_actor_before_graphics(self):
+        text=(w.HERE/'window_capture.swift').read_text()
+        self.assertIn('@MainActor static func main() async',text)
+        self.assertLess(text.index('deadline.arm(10, "appkit-initialization")'),text.index('_ = NSApplication.shared'))
+        self.assertLess(text.index('_ = NSApplication.shared'),text.index('CGPreflightScreenCaptureAccess()'))
+        self.assertIn('"phase": "appkit-initialized"',text)
+        self.assertNotIn('activate(ignoringOtherApps:',text)
+        self.assertNotIn('CGRequestScreenCaptureAccess',text)
+
+class PostGUIState(unittest.TestCase):
+    def setup_case(self,folder,state='Shutdown'):
+        from test_stall_fresh import proof,DEVICE,SESSION
+        import types
+        p=proof();scope=types.SimpleNamespace(session=SESSION,creation_intent={k:v for k,v in p.items() if k not in ('device','create_complete')},
+            fixture={'owned_created':p,'device':DEVICE,'owned_boot':True,'deleted':False},rows=[{'settled':True}],fixture_stopped=mock.Mock())
+        gui=types.SimpleNamespace(scope=scope,stopped=True,process=object())
+        inventory={'devices':{p['runtime']:[{'udid':DEVICE,'state':state,'isAvailable':True,'deviceTypeIdentifier':p['device_type']}]}}
+        row={'exit_code':0,'failure_type':None,'primary_error':None,'cleanup_errors':[],'writer_settled':True,'stdout':json.dumps(inventory),
+             'launch_receipt':{'state':'pre-exec-observed','closed':True,'eof':True,'exec_failure':None}}
+        command=mock.Mock(return_value=row);command.scope=scope
+        return command,gui,DEVICE,row
+    def test_shutdown_proof_and_booted_fallback(self):
+        for state in ('Shutdown','Booted'):
+            with tempfile.TemporaryDirectory() as tmp:
+                c,g,d,r=self.setup_case(Path(tmp),state)
+                self.assertEqual(w.observe_after_gui_stop(c,g,d,Path(tmp)),state)
+                c.assert_called_once_with('xcrun','simctl','list','devices','--json',timeout=15,cleanup=True,receipt=True)
+                if state=='Shutdown':c.scope.fixture_stopped.assert_called_once_with(True)
+                else:c.scope.fixture_stopped.assert_not_called()
+    def test_bad_ownership_or_unsettled_gui_blocks_query(self):
+        for kind in ('session','intent','writers','gui','deleted'):
+            with tempfile.TemporaryDirectory() as tmp:
+                c,g,d,r=self.setup_case(Path(tmp))
+                if kind=='session':c.scope.session='0'*32
+                elif kind=='intent':c.scope.creation_intent['name']='wrong'
+                elif kind=='writers':c.scope.rows[0]['settled']=False
+                elif kind=='gui':g.stopped=False
+                else:c.scope.fixture['deleted']=True
+                with self.assertRaises(ValueError):w.observe_after_gui_stop(c,g,d,Path(tmp))
+                c.assert_not_called();c.scope.fixture_stopped.assert_not_called()
+    def test_failed_unknown_wrong_identity_queries_never_mark_stopped(self):
+        for kind in ('timeout','launch','runtime','type','missing'):
+            with tempfile.TemporaryDirectory() as tmp:
+                c,g,d,r=self.setup_case(Path(tmp))
+                if kind=='timeout':r['failure_type']='TimeoutExpired'
+                elif kind=='launch':r['launch_receipt']={}
+                else:
+                    inv=json.loads(r['stdout']);key=next(iter(inv['devices']))
+                    if kind=='runtime':inv['devices']['wrong']=inv['devices'].pop(key)
+                    elif kind=='type':inv['devices'][key][0]['deviceTypeIdentifier']='wrong'
+                    else:inv['devices'][key]=[]
+                    r['stdout']=json.dumps(inv)
+                with self.assertRaises(ValueError):w.observe_after_gui_stop(c,g,d,Path(tmp))
+                c.scope.fixture_stopped.assert_not_called()
+    def test_expired_cleanup_budget_remains_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            c,g,d,r=self.setup_case(Path(tmp));c.side_effect=TimeoutError('reserve exhausted')
+            with self.assertRaises(TimeoutError):w.observe_after_gui_stop(c,g,d,Path(tmp))
+            c.scope.fixture_stopped.assert_not_called()
