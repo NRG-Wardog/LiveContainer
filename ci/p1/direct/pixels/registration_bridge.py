@@ -127,15 +127,15 @@ def freeze_registration(request_bytes, raw, width, height, stride, *, identity,
             sha256(raw).hexdigest() == expected_frame_sha256, 'retained baseline frame hash mismatch')
     draws = retained_events(event_files, session)
     packets = registration.locate_registration(raw, width, height, stride, session)
-    components = magenta_components.locate(raw, width, height, stride)
-    paired = magenta_components.pair_to_packets(components, packets)
+    components = magenta_components.locate_all(raw, width, height, stride)
+    paired = magenta_components.pair_supports_to_packets(components, packets)
     anchors, regions = [], [g.Region('control', exact_rect(geometry['copyFrame']), 'control'),
                             g.Region('marker', exact_rect(geometry['markerFrame']), 'marker')]
     for packet, feature, measured_board in zip(paired, geometry['features'], geometry['anchors']):
         ordinal = packet['anchor']
         require(ordinal == feature['ordinal'] == measured_board['ordinal'], 'source ordinal mismatch')
         source, board = exact_rect(feature['frame']), exact_rect(measured_board['frame'])
-        left, top, right, bottom = packet['component']['bounds']
+        left, top, right, bottom = packet['support']['bounds']
         name = f'anchor-{ordinal}'
         anchors.append(g.Anchor(name, session, g.Interval(source.left, source.right),
                                 g.Interval(source.top, source.bottom), g.Interval(left, right),
@@ -157,7 +157,7 @@ def freeze_registration(request_bytes, raw, width, height, stride, *, identity,
                               for name in roi_bytes.ROLES])
     plan_bytes = handoff.canonical(wire_plan)
     crops, crop_proof = roi_bytes.extract(raw, width, height, stride, plan, session=session, record=1)
-    retained_packets = []
+    retained_packets, retained_supports = [], []
     for ordinal in range(1, 5):
         name = f'anchor-{ordinal}'
         x, y, w, h = plan[name]
@@ -166,6 +166,11 @@ def freeze_registration(request_bytes, raw, width, height, stride, *, identity,
         a, b, c, d = observed['board']['observedDarkRingBounds']
         require([a+x, b+y, c+x, d+y] == packets['anchors'][ordinal-1]['observedDarkRingBounds'],
                 'retained anchor ROI pixel support differs from full registration')
+        support_observation=magenta_components.locate_packet_support(crops[name],w,h,w*4,ordinal,observed['board']['observedDarkRingBounds'])
+        translated=sorted([[px+x,py+y] for px,py in support_observation['support']['pixels']],key=lambda p:(p[1],p[0]))
+        require(translated==paired[ordinal-1]['support']['pixels'],
+                'same-baseline ROI support membership differs from full registration')
+        retained_supports.append(support_observation)
         retained_packets.append(observed)
     metadata = {row['role']: row for row in crop_proof['crops']}
     bundles = tuple(g.Crop(name, rect, crops[name], metadata[name]['sha256']) for name, rect in frozen.rois)
@@ -183,11 +188,11 @@ def freeze_registration(request_bytes, raw, width, height, stride, *, identity,
     marker_values = tuple(Fraction(v) for v in marker)
     cells = live_strip.cell_interiors(marker_values, frozen.x_region, frozen.y_region, plan['marker'])
     decoded_strip = live_strip.decode(crops['marker'], plan['marker'][2], plan['marker'][3], cells)
-    proof = dict(schema='p1-direct-retained-registration-bridge-v1', session=session,
+    proof = dict(schema='p1-direct-retained-registration-bridge-v2', session=session,
                  geometryRequestSHA256=sha256(request_bytes).hexdigest(),
                  baselineFrameSHA256=expected_frame_sha256, packedBaselineSHA256=full.sha256,
                  sourceHashes=sources, drawReceipts=draws, packets=packets,
-                 componentObservation=components, pairedComponents=list(paired),
+                 componentObservation=components, pairedSupports=list(paired),
                  identity=dict(ownerPID=identity.owner_pid, windowID=identity.window_id,
                                frameDimensions=[width,height], appViewport=box(identity.app_viewport), orientation=identity.orientation),
                  fitAnchors=list(frozen.fit_ids), independentHoldout=list(frozen.validation_ids),
@@ -196,7 +201,7 @@ def freeze_registration(request_bytes, raw, width, height, stride, *, identity,
                  xFeasibleVertices=[[q(s),q(t)] for s,t in frozen.x_region],
                  yFeasibleVertices=[[q(s),q(t)] for s,t in frozen.y_region],
                  derivedViewport=box(frozen.derived_viewport), baselineControlEnvelope=box(baseline_envelope),
-                 sameSampleROIs=crop_proof, retainedROIPackets=retained_packets, liveMarker=decoded_strip,
+                 sameSampleROIs=crop_proof, retainedROIPackets=retained_packets, retainedROISupports=retained_supports, liveMarker=decoded_strip,
                  roiPlanSHA256=sha256(plan_bytes).hexdigest(), roiPlan=wire_plan,
                  baselinePurpose='provisional-geometry-only-registration', nativeStreamMetadataEstablished=False, roiCopyRecordMeaning='local extraction ordinal, not native frame index',
                  sourceLocalityPremise='exclusive source-owned clipped UIView; whole actual AX rectangle',
@@ -272,9 +277,9 @@ class RegistrationJoin:
                 require(packet['board']['observedDarkRingBounds'] ==
                         baseline_proof['retainedROIPackets'][ordinal-1]['board']['observedDarkRingBounds'],
                         'first complete retained packet support changed')
-                component_observation = magenta_components.locate_one(data, rectangle.width, rectangle.height, rectangle.width*4)
+                component_observation = magenta_components.locate_packet_support(data, rectangle.width, rectangle.height, rectangle.width*4, ordinal, packet['board']['observedDarkRingBounds'])
                 require(component_observation['frame']['sha256'] == packet['frame']['sha256'], 'first complete packet/component bytes differ')
-                component = component_observation['components'][0]
+                component = component_observation['support']
                 require(magenta_components.adjacent(ordinal, component['bounds'], packet['board']['observedDarkRingBounds']),
                         'first complete feature source adjacency changed')
                 left, top, right, bottom = component['bounds']
@@ -375,9 +380,9 @@ def validate_complete_frame(binding, verified, *, validator):
             prior_packet=proof['retainedAnchors'][ordinal-1]['packet']
             require(packet['board']['observedDarkRingBounds'] == prior_packet['board']['observedDarkRingBounds'],
                     'complete-frame packet support moved')
-            observed=magenta_components.locate_one(data,rectangle.width,rectangle.height,rectangle.width*4)
+            observed=magenta_components.locate_packet_support(data,rectangle.width,rectangle.height,rectangle.width*4,ordinal,packet['board']['observedDarkRingBounds'])
             require(observed['frame']['sha256'] == packet['frame']['sha256'], 'complete-frame packet/component byte mismatch')
-            component=observed['components'][0]
+            component=observed['support']
             require(magenta_components.adjacent(ordinal,component['bounds'],packet['board']['observedDarkRingBounds']),
                     'complete-frame source adjacency changed')
             l,t,r,b=component['bounds'];l+=rectangle.x;r+=rectangle.x;t+=rectangle.y;b+=rectangle.y

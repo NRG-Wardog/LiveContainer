@@ -11,7 +11,7 @@ MAGENTA = bytes((255, 0, 255, 255))  # BGRA8, opaque, no tolerance/normalization
 
 
 def _locate(data, width, height, stride, expected_components):
-    if type(expected_components) is not int or expected_components not in (1, 4):
+    if type(expected_components) is not int or expected_components not in (1, 4, 256):
         raise ValueError("one retained-ROI or four full-frame components required")
     if type(data) is not bytes or any(type(v) is not int for v in (width, height, stride)):
         raise ValueError("immutable bytes and exact integer dimensions required")
@@ -45,7 +45,7 @@ def _locate(data, width, height, stride, expected_components):
         # Retain the actual support, not an ideal geometric center or edge.
         components.append(dict(bounds=[left, top, right, bottom],
                                pixels=[list(point) for point in sorted(found, key=lambda p: (p[1], p[0]))]))
-    if len(components) != expected_components:
+    if (expected_components != 256 and len(components) != expected_components) or not components:
         raise ValueError("exactly four isolated magenta components required")
     return dict(schema="p1-direct-magenta-components-v1", components=components,
                 qualifyingPixels=len(points), connectivity=4,
@@ -105,3 +105,59 @@ def pair_to_packets(observation, packets):
     if len(used) != 4:
         raise ValueError("unassigned magenta component")
     return tuple(paired)
+
+
+def locate_all(data, width, height, stride):
+    """Retain every exact-color component; no connectivity repair or filtering."""
+    row = _locate(data, width, height, stride, 256)
+    row['schema'] = 'p1-direct-magenta-component-inventory-v2'
+    return row
+
+
+def _support(components, indices):
+    if not indices:
+        raise ValueError('missing packet-associated support')
+    pixels = [point for index in indices for point in components[index]['pixels']]
+    xs, ys = zip(*pixels)
+    bounds = [min(xs), min(ys), max(xs)+1, max(ys)+1]
+    if bounds[2]-bounds[0] > 16 or bounds[3]-bounds[1] > 16:
+        raise ValueError('whole associated support exceeds16by16pixels')
+    return dict(schema='p1-direct-whole-observed-support-v1', bounds=bounds,
+                componentIndices=list(indices),
+                pixels=sorted(pixels, key=lambda p:(p[1],p[0])),
+                hullIsObservedSupportInterval=True, missingPixelsFilled=False)
+
+
+def pair_supports_to_packets(observation, packets):
+    """Unique coarse association of ALL support, without transform fitting.
+
+    Disconnected samples retain their individual components and actual pixels.
+    The whole union hull is only an interval, never a filled shape or ideal edge.
+    The same explicit source-locality premise as the original route is required.
+    """
+    if {k:packets['frame'].get(k) for k in observation['frame']} != observation['frame']:
+        raise ValueError('packet/component source bytes differ')
+    boards=packets['anchors']
+    if [r['anchor'] for r in boards] != [1,2,3,4]:
+        raise ValueError('four ordered decoded nonce/ordinal boards required')
+    groups=[[] for _ in boards]
+    for index,component in enumerate(observation['components']):
+        matches=[i for i,board in enumerate(boards)
+                 if adjacent(board['anchor'],component['bounds'],board['observedDarkRingBounds'])]
+        if len(matches)!=1:
+            raise ValueError('unassigned or ambiguous exact-magenta component')
+        groups[matches[0]].append(index)
+    return tuple(dict(anchor=board['anchor'],session=board['session'],
+                      support=_support(observation['components'],indices))
+                 for board,indices in zip(boards,groups))
+
+
+def locate_packet_support(data,width,height,stride,ordinal,board_bounds):
+    """Every component in this retained ROI must belong to its exact packet."""
+    if type(ordinal) is not int or ordinal not in (1,2,3,4):
+        raise ValueError('exact packet ordinal required')
+    row=locate_all(data,width,height,stride)
+    if any(not adjacent(ordinal,c['bounds'],board_bounds) for c in row['components']):
+        raise ValueError('foreign retained-ROI support adjacency')
+    row['support']=_support(row['components'],range(len(row['components'])))
+    return row

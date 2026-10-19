@@ -124,3 +124,8 @@ now gives feature3[3,738,3,3], with the full envelope ending741 and marker gap
 replaced by these modeled coordinates. Failure text now retains the sampled
 feature identity/rectangle and window rectangle. No tolerance or decoder change
 is introduced; native geometry and pixel connectivity remain unproven.
+
+Run39305732663 confirmed all four current AX features exactly3×3points. Native
+filtered capture still split every feature into two exact-magenta strips.
+The separate tagged complete-support association successor is documented in
+pixels/REGISTRATION_BRIDGE.md; it changes no fixture source or product action.

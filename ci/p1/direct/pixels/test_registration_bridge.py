@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 import registration_bridge as bridge
 sys.path.insert(0, str(bridge.LOCAL / 'registration-experiment'))
@@ -120,10 +121,39 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'more than four magenta'):
             bridge.magenta_components.locate(bytes(data),w,h,w*4)
 
+    def test_disconnected_complete_support_preserves_actual_pixels_and_geometry(self):
+        components=bridge.magenta_components.locate(self.raw,e.WIDTH,e.HEIGHT,self.stride)['components']
+        changed=bytearray(self.raw)
+        for c in components:
+            top,bottom=c['bounds'][1],c['bounds'][3]
+            self.assertGreaterEqual(bottom-top,3)
+            y=top+1
+            for x,py in c['pixels']:
+                if py==y:
+                    at=py*self.stride+x*4;changed[at:at+4]=bytes((255,1,255,255))
+        raw=bytes(changed)
+        with self.assertRaises(ValueError):bridge.magenta_components.locate(raw,e.WIDTH,e.HEIGHT,self.stride)
+        result=self.run_bridge(raw=raw,expected_frame_sha256=sha256(raw).hexdigest())
+        proof=json.loads(result.proof_bytes)
+        self.assertEqual(proof['schema'],'p1-direct-retained-registration-bridge-v2')
+        self.assertEqual(len(proof['componentObservation']['components']),8)
+        self.assertEqual(sorted(i for p in proof['pairedSupports'] for i in p['support']['componentIndices']),list(range(8)))
+        row,packed=self.stream_frame(result);manifest=bridge.handoff.canonical(row)
+        joined=bridge.RegistrationJoin(result,expected_baseline_proof_sha256=result.proof_sha256)
+        joined.promote(manifest,packed,expected_manifest_sha256=sha256(manifest).hexdigest(),timebase=(1,1))
+
+    def test_same_baseline_roi_membership_cannot_drop_a_pixel(self):
+        actual=bridge.magenta_components.locate_packet_support
+        def changed(*args,**kwargs):
+            row=actual(*args,**kwargs);row['support']['pixels']=row['support']['pixels'][1:];return row
+        with patch.object(bridge.magenta_components,'locate_packet_support',side_effect=changed):
+            with self.assertRaisesRegex(ValueError,'same-baseline ROI support membership'):
+                self.run_bridge()
+
     def test_foreign_actual_magenta_component_rejected(self):
         changed=bytearray(self.raw);at=500*self.stride+300*4;changed[at:at+4]=bridge.magenta_components.MAGENTA
         raw=bytes(changed)
-        with self.assertRaisesRegex(ValueError,'four magenta'):
+        with self.assertRaisesRegex(ValueError,'unassigned'):
             self.run_bridge(raw=raw,expected_frame_sha256=sha256(raw).hexdigest())
 
     def test_full_baseline_control_envelope_protected(self):

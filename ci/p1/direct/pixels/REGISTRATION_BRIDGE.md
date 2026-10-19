@@ -35,3 +35,29 @@ The resulting `StreamBindingResult` retains final frozen geometry, exact final p
 Promotion is consumed on success or failure; retries and duplicate promotion reject. Frozen identity/geometry/results and proof bytes cannot be mutated through normal assignments. Source drift, metadata mismatch/missing fields, changed actual packet or feature support, changed crop bytes, clipping/unknown pixels, or failed replay latches failure. Source locality, native ownership, actual-first-frame provenance and full delivered-record inventory remain externally required.
 
 `validate_complete_frame(binding, verified_row, validator=...)` consumes the parent's strict `packed_frames` output for each complete retained row. It re-decodes four nonce boards/features and the live strip directly from the six actual crops, verifies packed bytes and crop geometry, and returns the actual marker plus geometry proof and native index. It never fills omitted pixels to invent a full frame. Use `binding.validator` for continuation after the first frame. For final replay, create a fresh `GeometryValidator(binding.frozen)` and feed the bound first complete frame again, followed by every later complete frame. Starting later is rejected. All leading started/idle and later noncomplete records remain required by the separate complete-census/clock coverage validator.
+
+## Complete observed support successor
+
+Run39305732663 measured all four integral-origin features as3×3points, but its
+783×1600 retained baseline has eight exact-magenta connected components: two
+strips per feature. Intervening samples are not exact magenta. The failed run
+remains failed; the legacy strict component functions still reject that image.
+
+The taggedv2 bridge retains every exact-color component and every qualifying
+pixel under the original256-pixel cap. Each component must match exactly one
+nonce/ordinal packet under the existing outward-corner adjacency relation.
+All four groups must be nonempty, no component may be unassigned or ambiguous,
+and each complete union hull must fit the existing16×16 support ceiling.
+The hull is an interval containing the observed support, not a filled shape,
+ideal boundary, center, repaired image or fitted transform. Missing pixels are
+never created and no color tolerance is used. Raw topology, membership, exact
+pixels and hulls are retained separately.
+
+Baseline crops must reproduce the exact translated full-baseline pixel sets.
+Every subsequent ROI requires every component to associate with its exact
+nonce/ordinal packet and satisfy the unchanged frozen footprint checks. Later
+internal connectivity may vary; geometry is never refitted. Whole measured AX
+bounds, three-anchor fit, fourth holdout, whole-cell interiors, all timing and
+storage bounds remain unchanged. The explicit source-locality premise remains:
+coarse adjacency and nonce matching cannot authenticate an unrelated same-color
+mark inside the source envelope. Native timing acceptance remains unproven.
