@@ -1,0 +1,570 @@
+{
+  "compiled_final_commit": false,
+  "emitter_activated_tree": "3b3ff76bec2d99729a34f4c484e90d624ff9de46",
+  "emitter_freeze_sha256": "7fc229ae6a4d201de39c78920fd4941fe8d978e36339d796e7fd91e741bca165",
+  "emitter_independent_review_sha256": "0260ab10a9ddb5584515a997dce06ccc240210a906772fe87a41014eb495db5a",
+  "emitter_input_sha256": "1f129661ec646e3a7781bbca795603fe908d2ab72ecfd0d06affead097f8c62c",
+  "excluded_self": "local-checks/review-freeze.json",
+  "execution_admitted": false,
+  "files": [
+    {
+      "bytes": 6956,
+      "mode": "100644",
+      "path": "REVIEW.md",
+      "sha256": "5ec2c671fe1a49f2b721548ca2a1efe812a60870e36c95c50b330024a468c1ba"
+    },
+    {
+      "bytes": 52246,
+      "mode": "100644",
+      "path": "local-checks/focused-delta.patch",
+      "sha256": "6ecf445218428a0c1827aa313edf07445af329e75e544c2b61ee67aecefc3abb"
+    },
+    {
+      "bytes": 21525,
+      "mode": "100644",
+      "path": "local-checks/normal.stderr",
+      "sha256": "3b3ae9225780bd3f0f65d2aa0eda4c70de8ed434ae9013bb57ce6b54d871fcae"
+    },
+    {
+      "bytes": 0,
+      "mode": "100644",
+      "path": "local-checks/normal.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 21525,
+      "mode": "100644",
+      "path": "local-checks/optimized.stderr",
+      "sha256": "17fe5e6dd6c02cfa7c78f79d2d88872c4b33b171b510e5a9cff22ec7871b04a2"
+    },
+    {
+      "bytes": 0,
+      "mode": "100644",
+      "path": "local-checks/optimized.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 19608,
+      "mode": "100644",
+      "path": "local-checks/predecessor-review-freeze.json",
+      "sha256": "8e8c1f3b60dfacc88bffbe1ee6fd7cce01f0fec3772a04fdb711895e50a1e674"
+    },
+    {
+      "bytes": 7532,
+      "mode": "100644",
+      "path": "local-checks/preservation-report.json",
+      "sha256": "29727c69078015ba1c4743d42cd7c9b708bd1362b17552a707b419926d3627fd"
+    },
+    {
+      "bytes": 15536,
+      "mode": "100644",
+      "path": "parser/diagnostic_host_replay.py",
+      "sha256": "2ddbaa3751fd17a34618ef112087bc155cbfcde86abbbd6ee6f60134ee576bcc"
+    },
+    {
+      "bytes": 19878,
+      "mode": "100644",
+      "path": "parser/emitter-freeze.json",
+      "sha256": "7fc229ae6a4d201de39c78920fd4941fe8d978e36339d796e7fd91e741bca165"
+    },
+    {
+      "bytes": 1149,
+      "mode": "100644",
+      "path": "parser/emitter-independent-review.json",
+      "sha256": "0260ab10a9ddb5584515a997dce06ccc240210a906772fe87a41014eb495db5a"
+    },
+    {
+      "bytes": 37402,
+      "mode": "100644",
+      "path": "parser/phase_a_evidence_replay.py",
+      "sha256": "9c183b110f5c936c5b2053cb6e27841c5a95375f14230704f2ca3344c91ceacb"
+    },
+    {
+      "bytes": 32756,
+      "mode": "100644",
+      "path": "parser/phase_a_host_replay.py",
+      "sha256": "ea860e161c0fa9cff2e5850725d92f0f01dbe6d87bd3cf1cb32c187fb784dff9"
+    },
+    {
+      "bytes": 13728,
+      "mode": "100644",
+      "path": "parser/phase_a_raw_replay.py",
+      "sha256": "f9c19d8323ce3e0ad0668b646ad8217b702e540ad205f0012d91c7ec1bf30bfb"
+    },
+    {
+      "bytes": 1535,
+      "mode": "100644",
+      "path": "parser/phase_a_replay_original.py",
+      "sha256": "58f1ca734d344af77ccf13305f4c583a50ce9c8742a288953e4d5917f6069f65"
+    },
+    {
+      "bytes": 8229,
+      "mode": "100644",
+      "path": "parser/phase_a_transport_replay.py",
+      "sha256": "7eb3497ae4680ec24bb4683613d15dce3f728666c7b41f3598d1175cd45ebebf"
+    },
+    {
+      "bytes": 5494,
+      "mode": "100644",
+      "path": "parser/prior_adapter/.github/workflows/build.yml",
+      "sha256": "bae7606e2d16297992e58674be209f9e31cac18cac71fb221636f739c08c3194"
+    },
+    {
+      "bytes": 4973,
+      "mode": "100644",
+      "path": "parser/prior_adapter/.github/workflows/p0-defensive-diagnostic-phase-a.yml",
+      "sha256": "7c19a352622367a74e5c8b33528dc9b7bef0e0588c1f9078eda48bf4897a1cb5"
+    },
+    {
+      "bytes": 9340,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/README.md",
+      "sha256": "81af8fa15201caa6ba43ba77d7b838f37693aa178582beeadf9ab00cc302cf6c"
+    },
+    {
+      "bytes": 1716,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/TEST_DISCOVERY_AUDIT.md",
+      "sha256": "cc64d08035123f84b321c6bdaa99d9a23a8fc9606ec102c743ba83663073b216"
+    },
+    {
+      "bytes": 14815,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/capture_contract.py",
+      "sha256": "fef52bc283b5ab38f4e77a6ec90e02a393c4daa0fdf23a6995f910068188d8ae"
+    },
+    {
+      "bytes": 13451,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/diagnostic_checks.py",
+      "sha256": "6eb52cc4899326d4246ffc5d7bac18693d18a3ee036dfadbefa8ea2be59e0d85"
+    },
+    {
+      "bytes": 4759,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/failure_summary.py",
+      "sha256": "cdfdbbca62818213f487cdca9af11ffb7ab6165772c4735e1edcc63acb5232bf"
+    },
+    {
+      "bytes": 5088,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/fixtures/diagnostic-boundary.swift",
+      "sha256": "33a7217e1617637a31b1afddd0371a3730dec790f0e7e48585f437fe4baf0ca6"
+    },
+    {
+      "bytes": 4703,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/host_tests.py",
+      "sha256": "e49346a86246ecfc63f94c0b12e36461b8a62891b1449f34878f1573768372f2"
+    },
+    {
+      "bytes": 13605,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/inputs-phase-a.json",
+      "sha256": "1f129661ec646e3a7781bbca795603fe908d2ab72ecfd0d06affead097f8c62c"
+    },
+    {
+      "bytes": 8905,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/inventory.py",
+      "sha256": "c8847d580e137a3ef69e1dee7dedb6c1ad866df8ad08ae60c1a606e0c324d6d7"
+    },
+    {
+      "bytes": 8643,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/lifecycle.py",
+      "sha256": "b4bd301d9d1b96f8792668b05efe9d89f2e421a0c71baef2592ba6c4aa38e9e4"
+    },
+    {
+      "bytes": 38381,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/native_gate.py",
+      "sha256": "4562d9ff3b035877d306038f971c8ee4e15df1c278c2ac0e1c38c81c2d586003"
+    },
+    {
+      "bytes": 3316,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/observe_host_subprocess.py",
+      "sha256": "8f7b3ca0f188816902407d5da81189f9c8e3c4b0e1c470070dc19ecb6389757c"
+    },
+    {
+      "bytes": 1711,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/prepare_inputs.py",
+      "sha256": "5cd423c788cfa4aff0971b58e85cbdd3f974813ed15c2693122e62b1be825950"
+    },
+    {
+      "bytes": 1628,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/publication.json",
+      "sha256": "055dcd21c9b56654ea926f5b600a70b48677aec727c777c219764af480682c22"
+    },
+    {
+      "bytes": 30449,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/retention.py",
+      "sha256": "dbaad35789c7d3048d70ef070585f1bc5aced4698b0980bff384b57a0b767b8e"
+    },
+    {
+      "bytes": 28817,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/AnisetteKit.connector-publication-receipt.json",
+      "sha256": "78d06a6c03c98c16f94d3658f49c57440a98251aeb0d64d7c8d58937ac354cfa"
+    },
+    {
+      "bytes": 2704,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/AnisetteKit.diagnostic-publication-original.json",
+      "sha256": "1667e3e2799eaaeac095ab6f5052d8150413ba0c05ae7e2961799174723da11d"
+    },
+    {
+      "bytes": 4230,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/AnisetteKit.final-manifest.json",
+      "sha256": "00bf6599019e720b06f936b6530f1b710e0c397e5111ca362189a31b686bf026"
+    },
+    {
+      "bytes": 1039,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/AnisetteKit.independent-a-review.json",
+      "sha256": "7a8d23784a2ceb553a31b0a508a8c980e79bbc694d6b6e5a68f95c00bce25777"
+    },
+    {
+      "bytes": 1366,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/AnisetteKit.independent-ab-review.json",
+      "sha256": "39cc91554f5599d2fa72bdca5dc820bebb1a6e0ac4feacf7f75ff1314581f486"
+    },
+    {
+      "bytes": 19467,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/AnisetteKit.tree-api.exact-body.json",
+      "sha256": "eb272e0fd1f677e5eb450be500b08dcbc1c00b30487e1710192c3a5de5e0a786"
+    },
+    {
+      "bytes": 30510,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/SideSign.connector-publication-receipt.json",
+      "sha256": "9b6cea80ee569b25d3397ac2dc9dfbdd2e05fa79e2d68f5988bd0a8c95096fdf"
+    },
+    {
+      "bytes": 1076,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/SideSign.diagnostic-pin-review-original.json",
+      "sha256": "a7b19c11beae5059303576c336861b18b367a4e73624db7993398964cd1bef42"
+    },
+    {
+      "bytes": 2504,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/SideSign.diagnostic-publication-original.json",
+      "sha256": "d42063028b56bbc9c03496ad09d131068560c1dc5c1df5efdc0f3cf083cb84b5"
+    },
+    {
+      "bytes": 627,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/SideSign.manifest-pin-review.json",
+      "sha256": "eee5021393e4262237748bd0e8076b6956f07c2bc2fadfbd0074a95d693f4f5b"
+    },
+    {
+      "bytes": 20514,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/SideSign.tree-api.exact-body.json",
+      "sha256": "9efa3c76b8c50baf59ee84e4abb65001c9a5535c9a1b9aece2a9a723dedb9da5"
+    },
+    {
+      "bytes": 909,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/artifacts.json",
+      "sha256": "9a67f9876d14f10673725e31ca1f62f3b6c2179182a6d8bdc2662db21668c1e6"
+    },
+    {
+      "bytes": 5404,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/capture-host-build.before.yml",
+      "sha256": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4"
+    },
+    {
+      "bytes": 13481,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/defensive-source-seal.json",
+      "sha256": "b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408"
+    },
+    {
+      "bytes": 9054,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/diagnostic-review-seal.json",
+      "sha256": "101025545b417c304ec192f5cf71599548270838b9c1ca804893a2aae439756c"
+    },
+    {
+      "bytes": 17640,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/diagnostic-source-inventory.json",
+      "sha256": "7f8ae5ca1cdf06e5b5ee6ebb7e808fadafd6f23294d0768b9fa0b3d34f5cac23"
+    },
+    {
+      "bytes": 10438,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/diagnostic-source-review.md",
+      "sha256": "a85290262cb4a0384340b0931c4a9d8eed899e048de6592aca6229b708d4d188"
+    },
+    {
+      "bytes": 2037,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/inventory.proposed.json",
+      "sha256": "0eca8ae96c05de414e327c7ee3ea3d722ba67714b1ad68fab661606356fd4298"
+    },
+    {
+      "bytes": 9024,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/prior-inventory.py",
+      "sha256": "abd53616e6688a7bbe216a1d38f303c7b3762b404a2b397e5c202ec56cc59cf5"
+    },
+    {
+      "bytes": 8554,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/prior-lifecycle.py",
+      "sha256": "f40dee619ffad65bb102071774a1d677dda7a8343f284713701d1adc9d258b8f"
+    },
+    {
+      "bytes": 10544,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/reviewed/prior-source_primitives.py",
+      "sha256": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2"
+    },
+    {
+      "bytes": 452,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/run_diagnostic_checks.py",
+      "sha256": "3abd372d6411e99b69e3eed80f431cf313da06ecada84705e1dfaf985162aefb"
+    },
+    {
+      "bytes": 3910,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/run_host_test.py",
+      "sha256": "8b4812ec412d68605be7d05155a64de9124de63d5445f545c4764da0b08190ab"
+    },
+    {
+      "bytes": 10544,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/source_primitives.py",
+      "sha256": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2"
+    },
+    {
+      "bytes": 5388,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/AnisetteKit/Tests/AnisetteKitTests/AnisetteKitTests.swift",
+      "sha256": "3a3b13ad711b4e4bb8e5b552f4ccc4b06bafd5b29455cd05e4d5e6b09feb0561"
+    },
+    {
+      "bytes": 4715,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/AnisetteKit/Tests/AnisetteKitTests/LoginDiagnosticTraceTests.swift",
+      "sha256": "0a04f3657123356af34ad0c51a50291b1d494dd50376478684aa066996790bbf"
+    },
+    {
+      "bytes": 3819,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/SideSign/Tests/SideSignTests/SideSignTests.swift",
+      "sha256": "511c3fe77e5b4e5e8903ada85e8b2ee4b17f08016cf6ac8db90446158bcd0ad6"
+    },
+    {
+      "bytes": 15415,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/diagnostic-source/.ci/native-tests/fixtures/bounded_fault_host.cpp",
+      "sha256": "a078337ae433c6505f7c72a7fb47c8978585e9a99a0520d39e9c0a1b2aaec2cf"
+    },
+    {
+      "bytes": 5612,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/diagnostic-source/.ci/native-tests/test_bounded_fault_host.py",
+      "sha256": "ab8d4018979673d3cc7c6231b514f404a8506af0173ad8a7edb94dce1e926ebf"
+    },
+    {
+      "bytes": 16577,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/diagnostic-source/Sources/AnisetteDataProvider.swift",
+      "sha256": "2b3913be77f019de3f0520e8ea8fcdad1a1b4a638c2493e84d063f07f813e855"
+    },
+    {
+      "bytes": 10556,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/diagnostic-source/Sources/LoginDiagnosticTrace.swift",
+      "sha256": "bd86c77eb520cf0721cfbbdb1e9100261bd53324ef0f912713873357fc76ae2e"
+    },
+    {
+      "bytes": 1568,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/failed-swift-macro-capture/host-run-diagnostic-checks.command.json",
+      "sha256": "6e681bd396af60d7d865e509be70d57db5f37133d007fad6e722e82457b63273"
+    },
+    {
+      "bytes": 1218,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.command.json",
+      "sha256": "2f4aaf7ca4d91bd277617340b2048633cc8e4e523e6331c99d64386796085b77"
+    },
+    {
+      "bytes": 1215,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.result.json",
+      "sha256": "98f80306aece72a0bc9055dededfca020878d2201c796472fd2af640380f3ba2"
+    },
+    {
+      "bytes": 1460,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.stderr",
+      "sha256": "de4a97639ac8dd3957dc1641ffd59d452b64adfcc988e08fa8a13d10766930a4"
+    },
+    {
+      "bytes": 1368,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/failed-swift-macro-capture/provenance.json",
+      "sha256": "4256663fb2e9323bedc3f62197779c09f438c3cce83184b1ce450456599cf56c"
+    },
+    {
+      "bytes": 774,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.provenance.json",
+      "sha256": "fbd957ccd33057b4868c56cccd1126317c515abb40b8197af57f9c7ee452c9a0"
+    },
+    {
+      "bytes": 0,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 24649,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stdout.txt",
+      "sha256": "7a26d61f19c730e3a4560475bda866fc41a7c26eff06934db6f476fd2698938e"
+    },
+    {
+      "bytes": 21321,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/test_adapter.py",
+      "sha256": "b46d784f8d5c8666a6e69f2492dc29037673a84bde4776704ec9a1aa51432dab"
+    },
+    {
+      "bytes": 20667,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/test_capture_contract.py",
+      "sha256": "fbae054e377ecf2a3fa4cbdd1c1086d2e88290a6352daf53508a9752bb42c624"
+    },
+    {
+      "bytes": 13042,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/test_diagnostic_checks.py",
+      "sha256": "99db3abaf22ba4b39c05ac48ca202b1c15e56512f1d8178b9086a3bc7a49c2f6"
+    },
+    {
+      "bytes": 4771,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/test_failure_summary.py",
+      "sha256": "32a7d52488ab0efa881cdaf397688eb8b7af1268b6cb17e0fa847a7c7d7fce91"
+    },
+    {
+      "bytes": 7460,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/test_host_tests.py",
+      "sha256": "a58bebb3f5c6ed15343cc71e31b27c578cb72e0c0faa97ff6822e0792dc6c22c"
+    },
+    {
+      "bytes": 3148,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/test_lifecycle.py",
+      "sha256": "886236cdc0e7158b1be29f52db414091245016d13cac16d5a4fc96cc1f16f1d6"
+    },
+    {
+      "bytes": 19343,
+      "mode": "100644",
+      "path": "parser/prior_adapter/ci/p0defensive/tests/test_retention.py",
+      "sha256": "ef915c8bafa14a3d4f849b86938608beec6ad3c919ab28029f28f0e0c7bf6e28"
+    },
+    {
+      "bytes": 8067,
+      "mode": "100644",
+      "path": "parser/prior_adapter/frozen-closure.json",
+      "sha256": "ed9b9bf8c963b2447c3b28b434c9c8a4d5be41a3e2bf076260a8701642ccff6b"
+    },
+    {
+      "bytes": 25091,
+      "mode": "100644",
+      "path": "parser/prior_phase_a.py",
+      "sha256": "67f16c3f9b64965820cc89b019f4f0df834d4a4d3577703a12a63ebe8a101cc5"
+    },
+    {
+      "bytes": 22164,
+      "mode": "100644",
+      "path": "parser/retrieve_prior.py",
+      "sha256": "68df220f93ed4ad9f9910174f617e713febdc333225b76e8d60c8132af916341"
+    },
+    {
+      "bytes": 3770,
+      "mode": "100644",
+      "path": "parser/tests/test_diagnostic_binding.py",
+      "sha256": "cd63226ba00afb9ef0a104512adc976a4c0020602e63a36c84e3be4814992fc1"
+    },
+    {
+      "bytes": 34119,
+      "mode": "100644",
+      "path": "parser/tests/test_diagnostic_host_replay.py",
+      "sha256": "b28942fd798dd17e1090fe969514584b1fc4a3fa523c8c5834a36f2219b6307d"
+    },
+    {
+      "bytes": 15745,
+      "mode": "100644",
+      "path": "parser/tests/test_phase_a_api_binding.py",
+      "sha256": "2b7e684dc64597ceecfae74d406022d9c48c8916c54a980568a27383a80d7a52"
+    },
+    {
+      "bytes": 4632,
+      "mode": "100644",
+      "path": "parser/tests/test_phase_a_filesystem_paths.py",
+      "sha256": "60a7510c5d18917a9960e1a60a5818fdb452a270d4cc5c86bc3f2af645d2abd0"
+    },
+    {
+      "bytes": 30271,
+      "mode": "100644",
+      "path": "parser/tests/test_phase_a_host_replay.py",
+      "sha256": "673f8aebbe7900913bf9217eb3eb9b7419670ab940a4b69e22bcf2534b6c4a5b"
+    },
+    {
+      "bytes": 23633,
+      "mode": "100644",
+      "path": "parser/tests/test_prior_phase_a.py",
+      "sha256": "e02c0d43db4b819d2d21676accd1add7aae8f243c6c2901912bb889c2bbc2fd1"
+    },
+    {
+      "bytes": 7362,
+      "mode": "100644",
+      "path": "parser/tests/test_swift_split_binding.py",
+      "sha256": "01215f54830d23029f0e23dc373d2d1e5fef71a50e899cb5732d4baea6cdfb6d"
+    },
+    {
+      "bytes": 706,
+      "mode": "100644",
+      "path": "pending-prior.json",
+      "sha256": "3c04bcdea1f2c9c094439d2d43defd97cb6658f45623542daf43d4aada74a61f"
+    },
+    {
+      "bytes": 290,
+      "mode": "100644",
+      "path": "source-roots.json",
+      "sha256": "239da9d648ec91b81f1b83d757b6398594eab79d6831ecf36448cc4f01fe8ae3"
+    }
+  ],
+  "frozen_adapter_sha256": "ed9b9bf8c963b2447c3b28b434c9c8a4d5be41a3e2bf076260a8701642ccff6b",
+  "native_execution": false,
+  "predecessor_freeze_sha256": "8e8c1f3b60dfacc88bffbe1ee6fd7cce01f0fec3772a04fdb711895e50a1e674",
+  "preservation_report_sha256": "29727c69078015ba1c4743d42cd7c9b708bd1362b17552a707b419926d3627fd",
+  "schema_version": 1,
+  "status": "FROZEN_PENDING_INDEPENDENT_PARSER_REVIEW",
+  "tests": {
+    "errors": 0,
+    "failures": 0,
+    "normal": 125,
+    "optimized": 125,
+    "skips": 0
+  }
+}

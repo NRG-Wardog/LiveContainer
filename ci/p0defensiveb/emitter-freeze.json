@@ -1,0 +1,496 @@
+{
+  "activation_only": {
+    "after_git_blob": "9b146c370d67cbef4f25cce289d85a416aa4f95f",
+    "after_sha256": "b9b9c1793b2fe17aa96afbf4cf15cbbf326d4cc41c18c98ba5b4336611ab4ba7",
+    "before_sha256": "7c19a352622367a74e5c8b33528dc9b7bef0e0588c1f9078eda48bf4897a1cb5",
+    "path": ".github/workflows/p0-defensive-diagnostic-phase-a.yml"
+  },
+  "base": "1f1230372551c4aa0a4f39d93f58be76a8ee163d",
+  "base_tree": "32ef2a048de23323fae43d8765e119e80379d3cd",
+  "branch": "validation/p0-defensive-diagnostic-phase-a-swift-split",
+  "changed_paths": [
+    ".github/workflows/build.yml",
+    ".github/workflows/p0-defensive-diagnostic-phase-a.yml",
+    "ci/p0defensive/README.md",
+    "ci/p0defensive/diagnostic_checks.py",
+    "ci/p0defensive/failure_summary.py",
+    "ci/p0defensive/host_tests.py",
+    "ci/p0defensive/inputs-phase-a.json",
+    "ci/p0defensive/inventory.py",
+    "ci/p0defensive/native_gate.py",
+    "ci/p0defensive/publication.json",
+    "ci/p0defensive/tests/fixtures/diagnostic-source/Sources/LoginDiagnosticTrace.swift",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/host-run-diagnostic-checks.command.json",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.command.json",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.result.json",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.stderr",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/provenance.json",
+    "ci/p0defensive/tests/test_adapter.py",
+    "ci/p0defensive/tests/test_diagnostic_checks.py",
+    "ci/p0defensive/tests/test_failure_summary.py",
+    "ci/p0defensive/tests/test_host_tests.py"
+  ],
+  "dormant_tree": "20457e4fabde8534b57d267d8616547233b03acd",
+  "expected_activated_tree": "3b3ff76bec2d99729a34f4c484e90d624ff9de46",
+  "files": [
+    {
+      "bytes": 5494,
+      "git_blob": "28f377be2a5ce1b5f3b241d2a2da5d4e9c6e4293",
+      "mode": "100644",
+      "path": ".github/workflows/build.yml",
+      "sha256": "bae7606e2d16297992e58674be209f9e31cac18cac71fb221636f739c08c3194"
+    },
+    {
+      "bytes": 4973,
+      "git_blob": "8c2fbd5fb17142622bf3f9f594780599d747127d",
+      "mode": "100644",
+      "path": ".github/workflows/p0-defensive-diagnostic-phase-a.yml",
+      "sha256": "7c19a352622367a74e5c8b33528dc9b7bef0e0588c1f9078eda48bf4897a1cb5"
+    },
+    {
+      "bytes": 9340,
+      "git_blob": "8f4cb1f8bf5a45403664ea870cb5bc2c7d077929",
+      "mode": "100644",
+      "path": "ci/p0defensive/README.md",
+      "sha256": "81af8fa15201caa6ba43ba77d7b838f37693aa178582beeadf9ab00cc302cf6c"
+    },
+    {
+      "bytes": 1716,
+      "git_blob": "db9c1ca763e9f723753c1071a3ae50db8de4f42b",
+      "mode": "100644",
+      "path": "ci/p0defensive/TEST_DISCOVERY_AUDIT.md",
+      "sha256": "cc64d08035123f84b321c6bdaa99d9a23a8fc9606ec102c743ba83663073b216"
+    },
+    {
+      "bytes": 14815,
+      "git_blob": "35283f52398d3b1ce9c5a8b12802a89011f0a72c",
+      "mode": "100644",
+      "path": "ci/p0defensive/capture_contract.py",
+      "sha256": "fef52bc283b5ab38f4e77a6ec90e02a393c4daa0fdf23a6995f910068188d8ae"
+    },
+    {
+      "bytes": 13451,
+      "git_blob": "7d5d6e62b6a1f77c5219713ff8cd30a65eded9fc",
+      "mode": "100644",
+      "path": "ci/p0defensive/diagnostic_checks.py",
+      "sha256": "6eb52cc4899326d4246ffc5d7bac18693d18a3ee036dfadbefa8ea2be59e0d85"
+    },
+    {
+      "bytes": 4759,
+      "git_blob": "4d0ee17aeb33ba811eda4c69bc241ffda771cd07",
+      "mode": "100644",
+      "path": "ci/p0defensive/failure_summary.py",
+      "sha256": "cdfdbbca62818213f487cdca9af11ffb7ab6165772c4735e1edcc63acb5232bf"
+    },
+    {
+      "bytes": 5088,
+      "git_blob": "fec14dc0621b0209227472260f22bb2204985f90",
+      "mode": "100644",
+      "path": "ci/p0defensive/fixtures/diagnostic-boundary.swift",
+      "sha256": "33a7217e1617637a31b1afddd0371a3730dec790f0e7e48585f437fe4baf0ca6"
+    },
+    {
+      "bytes": 4703,
+      "git_blob": "115ec0eecaaff15b80b56357d8561e23ab3138e6",
+      "mode": "100644",
+      "path": "ci/p0defensive/host_tests.py",
+      "sha256": "e49346a86246ecfc63f94c0b12e36461b8a62891b1449f34878f1573768372f2"
+    },
+    {
+      "bytes": 13605,
+      "git_blob": "c6489cee2a6a9437250ddbd800c6831a7f00658f",
+      "mode": "100644",
+      "path": "ci/p0defensive/inputs-phase-a.json",
+      "sha256": "1f129661ec646e3a7781bbca795603fe908d2ab72ecfd0d06affead097f8c62c"
+    },
+    {
+      "bytes": 8905,
+      "git_blob": "c0f6a55087ec5ac71e82b4bf19073d25f7e7034c",
+      "mode": "100644",
+      "path": "ci/p0defensive/inventory.py",
+      "sha256": "c8847d580e137a3ef69e1dee7dedb6c1ad866df8ad08ae60c1a606e0c324d6d7"
+    },
+    {
+      "bytes": 8643,
+      "git_blob": "d469d066c266f7d6845d8953ae324f5e59f72ef1",
+      "mode": "100644",
+      "path": "ci/p0defensive/lifecycle.py",
+      "sha256": "b4bd301d9d1b96f8792668b05efe9d89f2e421a0c71baef2592ba6c4aa38e9e4"
+    },
+    {
+      "bytes": 38381,
+      "git_blob": "199f89e0d7e93e6c2c974f0608a62bbd7d6b36e7",
+      "mode": "100644",
+      "path": "ci/p0defensive/native_gate.py",
+      "sha256": "4562d9ff3b035877d306038f971c8ee4e15df1c278c2ac0e1c38c81c2d586003"
+    },
+    {
+      "bytes": 3316,
+      "git_blob": "e5b6aba8d0fee2aabffa879142c172cc168c6012",
+      "mode": "100644",
+      "path": "ci/p0defensive/observe_host_subprocess.py",
+      "sha256": "8f7b3ca0f188816902407d5da81189f9c8e3c4b0e1c470070dc19ecb6389757c"
+    },
+    {
+      "bytes": 1711,
+      "git_blob": "29916f03deab4cf62c7d1126c3b9b28c4596e17c",
+      "mode": "100644",
+      "path": "ci/p0defensive/prepare_inputs.py",
+      "sha256": "5cd423c788cfa4aff0971b58e85cbdd3f974813ed15c2693122e62b1be825950"
+    },
+    {
+      "bytes": 1628,
+      "git_blob": "c2549ebeab58bb4024a57239473e0ac0f6567f99",
+      "mode": "100644",
+      "path": "ci/p0defensive/publication.json",
+      "sha256": "055dcd21c9b56654ea926f5b600a70b48677aec727c777c219764af480682c22"
+    },
+    {
+      "bytes": 30449,
+      "git_blob": "beaeccc77df07474f91ba5f3ee95f34d8d6822de",
+      "mode": "100644",
+      "path": "ci/p0defensive/retention.py",
+      "sha256": "dbaad35789c7d3048d70ef070585f1bc5aced4698b0980bff384b57a0b767b8e"
+    },
+    {
+      "bytes": 28817,
+      "git_blob": "e2865e1ee2e5923b9c506109228272ac4657ad40",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/AnisetteKit.connector-publication-receipt.json",
+      "sha256": "78d06a6c03c98c16f94d3658f49c57440a98251aeb0d64d7c8d58937ac354cfa"
+    },
+    {
+      "bytes": 2704,
+      "git_blob": "452c59d43398579d76563e89d8f94184f8c28592",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/AnisetteKit.diagnostic-publication-original.json",
+      "sha256": "1667e3e2799eaaeac095ab6f5052d8150413ba0c05ae7e2961799174723da11d"
+    },
+    {
+      "bytes": 4230,
+      "git_blob": "b70d24ae04cf8719ed5d251bf1434188fa668914",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/AnisetteKit.final-manifest.json",
+      "sha256": "00bf6599019e720b06f936b6530f1b710e0c397e5111ca362189a31b686bf026"
+    },
+    {
+      "bytes": 1039,
+      "git_blob": "0a905535ab098ddf7cc2399ab55ced35354c3e3c",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/AnisetteKit.independent-a-review.json",
+      "sha256": "7a8d23784a2ceb553a31b0a508a8c980e79bbc694d6b6e5a68f95c00bce25777"
+    },
+    {
+      "bytes": 1366,
+      "git_blob": "fbc21b6b9379a537a1b1efbe8ef5228101be6c2a",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/AnisetteKit.independent-ab-review.json",
+      "sha256": "39cc91554f5599d2fa72bdca5dc820bebb1a6e0ac4feacf7f75ff1314581f486"
+    },
+    {
+      "bytes": 19467,
+      "git_blob": "a267a6ae2b7fbff7d8cfa4818c1a778940763daf",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/AnisetteKit.tree-api.exact-body.json",
+      "sha256": "eb272e0fd1f677e5eb450be500b08dcbc1c00b30487e1710192c3a5de5e0a786"
+    },
+    {
+      "bytes": 30510,
+      "git_blob": "c981f3e509d2990071a4c3e3bd05aa3ec190f010",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/SideSign.connector-publication-receipt.json",
+      "sha256": "9b6cea80ee569b25d3397ac2dc9dfbdd2e05fa79e2d68f5988bd0a8c95096fdf"
+    },
+    {
+      "bytes": 1076,
+      "git_blob": "635a988c012a4a034e9d3ce3bb636c6cdd7787d0",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/SideSign.diagnostic-pin-review-original.json",
+      "sha256": "a7b19c11beae5059303576c336861b18b367a4e73624db7993398964cd1bef42"
+    },
+    {
+      "bytes": 2504,
+      "git_blob": "34d52e7f1db507d888878b2606dd70f00c5d81ec",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/SideSign.diagnostic-publication-original.json",
+      "sha256": "d42063028b56bbc9c03496ad09d131068560c1dc5c1df5efdc0f3cf083cb84b5"
+    },
+    {
+      "bytes": 627,
+      "git_blob": "9d5f7ff36fa8335103b6500e46caf9be54df2b57",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/SideSign.manifest-pin-review.json",
+      "sha256": "eee5021393e4262237748bd0e8076b6956f07c2bc2fadfbd0074a95d693f4f5b"
+    },
+    {
+      "bytes": 20514,
+      "git_blob": "317e219a26dffea7b94a730b5d02f3d9b4b15a73",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/SideSign.tree-api.exact-body.json",
+      "sha256": "9efa3c76b8c50baf59ee84e4abb65001c9a5535c9a1b9aece2a9a723dedb9da5"
+    },
+    {
+      "bytes": 909,
+      "git_blob": "d89f36bbe0ad7ed14c879c5e2babe9a793a65c87",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/artifacts.json",
+      "sha256": "9a67f9876d14f10673725e31ca1f62f3b6c2179182a6d8bdc2662db21668c1e6"
+    },
+    {
+      "bytes": 5404,
+      "git_blob": "2628da6817855bfdd050167b38e209b28582a60f",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/capture-host-build.before.yml",
+      "sha256": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4"
+    },
+    {
+      "bytes": 13481,
+      "git_blob": "279d0591ab641fecbcba38d9159a35d2320f9847",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/defensive-source-seal.json",
+      "sha256": "b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408"
+    },
+    {
+      "bytes": 9054,
+      "git_blob": "b61aae5e8aa1225ba3f7fb8d3e55d944593126f8",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/diagnostic-review-seal.json",
+      "sha256": "101025545b417c304ec192f5cf71599548270838b9c1ca804893a2aae439756c"
+    },
+    {
+      "bytes": 17640,
+      "git_blob": "e4465b54fd2b6451e33a518e5dcab0b98f4332d0",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/diagnostic-source-inventory.json",
+      "sha256": "7f8ae5ca1cdf06e5b5ee6ebb7e808fadafd6f23294d0768b9fa0b3d34f5cac23"
+    },
+    {
+      "bytes": 10438,
+      "git_blob": "9692c6d2b9f55cfbdd0e5ca24758c33b81c748bb",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/diagnostic-source-review.md",
+      "sha256": "a85290262cb4a0384340b0931c4a9d8eed899e048de6592aca6229b708d4d188"
+    },
+    {
+      "bytes": 2037,
+      "git_blob": "79bbe9994103aaeebb9740f051eaf06205af4f81",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/inventory.proposed.json",
+      "sha256": "0eca8ae96c05de414e327c7ee3ea3d722ba67714b1ad68fab661606356fd4298"
+    },
+    {
+      "bytes": 9024,
+      "git_blob": "af3c8ad43453ef6151efc1651b3d4375675397b4",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/prior-inventory.py",
+      "sha256": "abd53616e6688a7bbe216a1d38f303c7b3762b404a2b397e5c202ec56cc59cf5"
+    },
+    {
+      "bytes": 8554,
+      "git_blob": "1d3ac854fef881db43e6d2339a179beeb22012dd",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/prior-lifecycle.py",
+      "sha256": "f40dee619ffad65bb102071774a1d677dda7a8343f284713701d1adc9d258b8f"
+    },
+    {
+      "bytes": 10544,
+      "git_blob": "de622583a08592f86865c95a66334827681d5702",
+      "mode": "100644",
+      "path": "ci/p0defensive/reviewed/prior-source_primitives.py",
+      "sha256": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2"
+    },
+    {
+      "bytes": 452,
+      "git_blob": "3971f0c555ddcdcadceb1e77d45ca30c6d258a1d",
+      "mode": "100644",
+      "path": "ci/p0defensive/run_diagnostic_checks.py",
+      "sha256": "3abd372d6411e99b69e3eed80f431cf313da06ecada84705e1dfaf985162aefb"
+    },
+    {
+      "bytes": 3910,
+      "git_blob": "8cf8825abb81f87c992ce8f5ef1dea5dce5e478c",
+      "mode": "100644",
+      "path": "ci/p0defensive/run_host_test.py",
+      "sha256": "8b4812ec412d68605be7d05155a64de9124de63d5445f545c4764da0b08190ab"
+    },
+    {
+      "bytes": 10544,
+      "git_blob": "de622583a08592f86865c95a66334827681d5702",
+      "mode": "100644",
+      "path": "ci/p0defensive/source_primitives.py",
+      "sha256": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2"
+    },
+    {
+      "bytes": 5388,
+      "git_blob": "923603ce6c25fe3954e3957dd84cebde7837cffb",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/AnisetteKit/Tests/AnisetteKitTests/AnisetteKitTests.swift",
+      "sha256": "3a3b13ad711b4e4bb8e5b552f4ccc4b06bafd5b29455cd05e4d5e6b09feb0561"
+    },
+    {
+      "bytes": 4715,
+      "git_blob": "48509b85ccf8849d566aefa30797c150321db3b1",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/AnisetteKit/Tests/AnisetteKitTests/LoginDiagnosticTraceTests.swift",
+      "sha256": "0a04f3657123356af34ad0c51a50291b1d494dd50376478684aa066996790bbf"
+    },
+    {
+      "bytes": 3819,
+      "git_blob": "969d109f1e69f4ad4a8412d24dd15ac214155932",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/SideSign/Tests/SideSignTests/SideSignTests.swift",
+      "sha256": "511c3fe77e5b4e5e8903ada85e8b2ee4b17f08016cf6ac8db90446158bcd0ad6"
+    },
+    {
+      "bytes": 15415,
+      "git_blob": "1bfae32c02cbe5b3478a97f8f8d9d958eb14c0f3",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/diagnostic-source/.ci/native-tests/fixtures/bounded_fault_host.cpp",
+      "sha256": "a078337ae433c6505f7c72a7fb47c8978585e9a99a0520d39e9c0a1b2aaec2cf"
+    },
+    {
+      "bytes": 5612,
+      "git_blob": "572edefc5bb2d452dbcd62fffd69ab6e30b46a28",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/diagnostic-source/.ci/native-tests/test_bounded_fault_host.py",
+      "sha256": "ab8d4018979673d3cc7c6231b514f404a8506af0173ad8a7edb94dce1e926ebf"
+    },
+    {
+      "bytes": 16577,
+      "git_blob": "1cfdfb9d161878ef5d025812ff35f7a9a330a2c6",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/diagnostic-source/Sources/AnisetteDataProvider.swift",
+      "sha256": "2b3913be77f019de3f0520e8ea8fcdad1a1b4a638c2493e84d063f07f813e855"
+    },
+    {
+      "bytes": 10556,
+      "git_blob": "39fbc98346f60b3ad29356042b083fee34820814",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/diagnostic-source/Sources/LoginDiagnosticTrace.swift",
+      "sha256": "bd86c77eb520cf0721cfbbdb1e9100261bd53324ef0f912713873357fc76ae2e"
+    },
+    {
+      "bytes": 1568,
+      "git_blob": "a4eb21fa0a428faa782d5d8d52041f6274701880",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/host-run-diagnostic-checks.command.json",
+      "sha256": "6e681bd396af60d7d865e509be70d57db5f37133d007fad6e722e82457b63273"
+    },
+    {
+      "bytes": 1218,
+      "git_blob": "e920896d1d92f25565818a5c3fed45b9e4f61aef",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.command.json",
+      "sha256": "2f4aaf7ca4d91bd277617340b2048633cc8e4e523e6331c99d64386796085b77"
+    },
+    {
+      "bytes": 1215,
+      "git_blob": "e62bac6356749e78ee8574b8846cfd438b2138f9",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.result.json",
+      "sha256": "98f80306aece72a0bc9055dededfca020878d2201c796472fd2af640380f3ba2"
+    },
+    {
+      "bytes": 1460,
+      "git_blob": "d31f42fd95d565607a3ba6a7f4b678fe7984ce9f",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.stderr",
+      "sha256": "de4a97639ac8dd3957dc1641ffd59d452b64adfcc988e08fa8a13d10766930a4"
+    },
+    {
+      "bytes": 1368,
+      "git_blob": "0828faf4a3535b8fb79cd771b945dcf2037d6e59",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/provenance.json",
+      "sha256": "4256663fb2e9323bedc3f62197779c09f438c3cce83184b1ce450456599cf56c"
+    },
+    {
+      "bytes": 774,
+      "git_blob": "71f70ecb83308dd3aec788b8dd1199e3c0ea58ab",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.provenance.json",
+      "sha256": "fbd957ccd33057b4868c56cccd1126317c515abb40b8197af57f9c7ee452c9a0"
+    },
+    {
+      "bytes": 0,
+      "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 24649,
+      "git_blob": "788326f47e8e1c364bfb903aba11984b74592474",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stdout.txt",
+      "sha256": "7a26d61f19c730e3a4560475bda866fc41a7c26eff06934db6f476fd2698938e"
+    },
+    {
+      "bytes": 21321,
+      "git_blob": "f11f7d0bb2ba0935a1ce021640375b892f040955",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/test_adapter.py",
+      "sha256": "b46d784f8d5c8666a6e69f2492dc29037673a84bde4776704ec9a1aa51432dab"
+    },
+    {
+      "bytes": 20667,
+      "git_blob": "690da337ad9773a9228c6e19aff42564c9db1f0c",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/test_capture_contract.py",
+      "sha256": "fbae054e377ecf2a3fa4cbdd1c1086d2e88290a6352daf53508a9752bb42c624"
+    },
+    {
+      "bytes": 13042,
+      "git_blob": "2d6c0a0d95c13da8e77c133a4f9bfa8cd98b8595",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/test_diagnostic_checks.py",
+      "sha256": "99db3abaf22ba4b39c05ac48ca202b1c15e56512f1d8178b9086a3bc7a49c2f6"
+    },
+    {
+      "bytes": 4771,
+      "git_blob": "ac83bc609c6fc766a341e7416579eec6b7f3b07a",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/test_failure_summary.py",
+      "sha256": "32a7d52488ab0efa881cdaf397688eb8b7af1268b6cb17e0fa847a7c7d7fce91"
+    },
+    {
+      "bytes": 7460,
+      "git_blob": "a073c2179be940a1b2ae17da4350abe957e62f78",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/test_host_tests.py",
+      "sha256": "a58bebb3f5c6ed15343cc71e31b27c578cb72e0c0faa97ff6822e0792dc6c22c"
+    },
+    {
+      "bytes": 3148,
+      "git_blob": "089f6603fc3fcf927127a2c06aedc3545d0ea955",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/test_lifecycle.py",
+      "sha256": "886236cdc0e7158b1be29f52db414091245016d13cac16d5a4fc96cc1f16f1d6"
+    },
+    {
+      "bytes": 19343,
+      "git_blob": "7476eb2fedee5e70d657928606f8f823ebdf6102",
+      "mode": "100644",
+      "path": "ci/p0defensive/tests/test_retention.py",
+      "sha256": "ef915c8bafa14a3d4f849b86938608beec6ad3c919ab28029f28f0e0c7bf6e28"
+    }
+  ],
+  "input_sha256": "1f129661ec646e3a7781bbca795603fe908d2ab72ecfd0d06affead097f8c62c",
+  "native_execution": false,
+  "payload_sha256": "42f2d07fe5124694293cdd4d453b7e317307531aaa315c124fda2cb3aa94bd76",
+  "publication": false,
+  "source_seal_sha256": "b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408",
+  "status": "FROZEN_PENDING_INDEPENDENT_REVIEW",
+  "tests": {
+    "count_each": 143,
+    "normal": {
+      "file": "normal.stderr",
+      "sha256": "b987d113f760a272c5c604c924824cc978ae9356785962edb8e6f4a14fe0a3f7"
+    },
+    "optimized": {
+      "file": "optimized.stderr",
+      "sha256": "355a1a2553d34b0133aa12e86c195fcf000baa84266f7af82f2439077aba970c"
+    },
+    "skips": 0
+  }
+}

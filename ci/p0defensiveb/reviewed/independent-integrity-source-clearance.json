@@ -1,0 +1,16 @@
+{
+  "SideSign": {
+    "commit": "a3617d2eab547665480324034571cf22aa684257",
+    "tree": "a9d414cd1c28000af90f141ed049424ff27f408c"
+  },
+  "SideSign_lock": {
+    "commit": "24f0ba8e701cded5deadce115f93e99a6263c599",
+    "tree": "62c794730c63bf5d674e95e25d6c2e82ac43bd8c"
+  },
+  "compiled_final_commit": false,
+  "lock_sha256": "834a2bdd30ceaa2fcbcd5c4826d6fd291ab5651692c99e39348e47da29e3deb9",
+  "patch_review_sha256": "661d9573cd73f55a8a83289836f69b6a016e6723502c6460c682b37c5d5815d1",
+  "phase_b_execution_approved": false,
+  "schema_version": 1,
+  "scope": "EXACT_LOCK_PRESERVING_INTEGRITY_SOURCE_CHILD"
+}

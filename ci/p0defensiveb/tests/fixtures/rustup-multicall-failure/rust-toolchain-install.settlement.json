@@ -1,0 +1,16 @@
+{
+  "ownedProcessGroup": {
+    "errors": [],
+    "identityRetainedForSignals": false,
+    "leaderReaped": true,
+    "pgid": 3895,
+    "pipesJoined": true,
+    "postReapPolicy": "read-only-group-disappearance",
+    "quiescent": true,
+    "reapedBeforeSignals": true,
+    "signals": []
+  },
+  "returncode": 1,
+  "terminationReturncode": 1,
+  "timeout_seconds": 1200
+}

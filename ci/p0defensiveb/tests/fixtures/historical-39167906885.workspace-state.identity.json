@@ -1,0 +1,11 @@
+{
+  "artifact_id": 12152932040,
+  "artifact_zip_bytes": 26321838,
+  "artifact_zip_sha256": "ffa758e74d0fb40460c0ca4a7c7dd223e527b4ceaee5a36aa87ddbf5483fe5b9",
+  "host_commit": "083b0f425549f987081005a97cacba814f456e11",
+  "member": "dependencies/workspace-state.json",
+  "member_bytes": 12910,
+  "member_sha256": "8689c8fccf3f9a1381be2462096af1e85f793678d0c296e12a6ac88b6b5a4275",
+  "purpose": "Historical raw SwiftPM schema fixture only; never current-run source observation",
+  "run_id": 39167906885
+}

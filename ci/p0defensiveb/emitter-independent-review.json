@@ -1,0 +1,24 @@
+{
+  "status": "CLEARED_FOR_EXACT_CAPTURE_ONLY",
+  "payload_sha256": "42f2d07fe5124694293cdd4d453b7e317307531aaa315c124fda2cb3aa94bd76",
+  "freeze_sha256": "7fc229ae6a4d201de39c78920fd4941fe8d978e36339d796e7fd91e741bca165",
+  "parent": "1f1230372551c4aa0a4f39d93f58be76a8ee163d",
+  "base_tree": "32ef2a048de23323fae43d8765e119e80379d3cd",
+  "activated_tree": "3b3ff76bec2d99729a34f4c484e90d624ff9de46",
+  "files": 63,
+  "changed_paths": 20,
+  "adapter_seals": 60,
+  "independent_tests": {
+    "normal": 143,
+    "optimized": 143,
+    "failures": 0,
+    "skips": 0
+  },
+  "scope": "Only two exact Swift compile commands run outside synthetic network-denial wrapper; all generated execution and other drivers retain wrapper. No compiler security flags or source macro changes.",
+  "limitations": [
+    "Native compile/runtime remain unproven.",
+    "Independent16-row logical/policy/executed-argv join with raw command/result receipts and trusted outer context remains required in separately reviewed post-capture parser.",
+    "Small failure-log view is diagnostic only; full immutable artifact remains required."
+  ],
+  "external_mutations": false
+}

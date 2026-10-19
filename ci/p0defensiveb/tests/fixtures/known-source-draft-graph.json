@@ -1,0 +1,68 @@
+{
+  "SideSign_lock_sha256": null,
+  "SideStore_app_lock_after_sha256": null,
+  "children": {
+    "LiveContainer/OpenSSL": {
+      "commit": "623c84da314e85363236507ca38a4bde65df21c3",
+      "tree": "21bc09387e7f91a46eb8bd26587ce1d052277801"
+    },
+    "LiveContainer/litehook": {
+      "commit": "8025e0c8ebdf5cdd1d2a4f45025813234bf9dc55",
+      "tree": "62bc06a17a1c12d805aec1ada25910bfa9f89781"
+    },
+    "SideStore/Dependencies/SideSign": {
+      "commit": null,
+      "tree": null
+    },
+    "SideStore/Dependencies/minimuxer": {
+      "commit": "efbcab05d7d636aa37c6bf6c7f364d122c5610f6",
+      "tree": "30aa947645c5befb0c3210700095c8b039893d83"
+    },
+    "idevice/cpp/plist_ffi": {
+      "commit": "66e6e6362b58bc361725c3e1b0a34af498aa2b3a",
+      "tree": "1dc97bcad12d41a13417ae05fbcdc4408c6df553"
+    }
+  },
+  "kind": "PENDING_GENUINE_PHASE_A_AND_DESCENDANTS",
+  "owners": {
+    "AnisetteKit": {
+      "commit": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+      "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
+      "tree": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd"
+    },
+    "LiveContainer": {
+      "commit": "545438e1f0a89fdef375f73273c5c9fc2735cbce",
+      "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
+      "tree": "e8014dd771c25c4a05dc76ab0aa304a233642a83"
+    },
+    "SideSign": {
+      "base": "b28fb0b72937849d4428e9ae313209b606f859b4",
+      "base_tree": "6ecab37d6f7d73763f50cc1f09ff1f93bd4ab9ee",
+      "commit": null,
+      "repository": "https://github.com/NRG-Wardog/SideSign.git",
+      "tree": null
+    },
+    "SideStore": {
+      "base": "d507f9e417f12c262b4d7e717c84d4a244c8e625",
+      "base_tree": "829d5e86ae2365b2870d268e77735f11f16944fb",
+      "commit": null,
+      "repository": "https://github.com/NRG-Wardog/SideStore.git",
+      "tree": null
+    },
+    "idevice": {
+      "commit": "803f9368e6b27a43d8a9f22dc0ec281c87883113",
+      "repository": "https://github.com/NRG-Wardog/idevice.git",
+      "tree": "f5ac11668bae97e577e7c4fc098b5484df1c9af1"
+    },
+    "jktcp": {
+      "commit": "32c0210f286b4fd16efe05be4f57167a9d94459b",
+      "repository": "https://github.com/NRG-Wardog/jktcp.git",
+      "tree": "e94eaefdcae5fe54a535186e36a0b2ebccc9bf13"
+    },
+    "minimuxer": {
+      "commit": "efbcab05d7d636aa37c6bf6c7f364d122c5610f6",
+      "repository": "https://github.com/NRG-Wardog/minimuxer.git",
+      "tree": "30aa947645c5befb0c3210700095c8b039893d83"
+    }
+  }
+}

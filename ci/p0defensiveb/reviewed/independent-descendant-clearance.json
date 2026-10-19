@@ -1,0 +1,19 @@
+{
+  "SideSign": {
+    "commit": "a3617d2eab547665480324034571cf22aa684257",
+    "tree": "a9d414cd1c28000af90f141ed049424ff27f408c"
+  },
+  "SideSign_lock": {
+    "commit": "24f0ba8e701cded5deadce115f93e99a6263c599",
+    "tree": "62c794730c63bf5d674e95e25d6c2e82ac43bd8c"
+  },
+  "SideStore": {
+    "commit": "9d90c9db20a5b07bd4a34254efb596fbc7c04616",
+    "tree": "f67804f80036d5e50c4ca3846e25c5001c0386d9"
+  },
+  "compiled_final_commit": false,
+  "phase_a_artifact_sha256": "4b9fe2ef1b783e00c154563966ab4141c75b71d28794322f28dba0690bd81989",
+  "phase_b_execution_approved": false,
+  "schema_version": 1,
+  "scope": "DEFENSIVE_AB_SOURCE_ONLY_DESCENDANT_EQUIVALENCE"
+}

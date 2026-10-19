@@ -1,0 +1,153 @@
+{
+  "commit": {
+    "author": {
+      "date": "2026-10-19T19:47:16Z",
+      "email": "72792463+NRG-Wardog@users.noreply.github.com",
+      "name": "Dorian Salomon"
+    },
+    "committer": {
+      "date": "2026-10-19T19:47:16Z",
+      "email": "72792463+NRG-Wardog@users.noreply.github.com",
+      "name": "Dorian Salomon"
+    },
+    "html_url": "https://github.com/NRG-Wardog/SideSign/commit/a3617d2eab547665480324034571cf22aa684257",
+    "message": "Reject declared anisette library digest mismatch before extraction [skip ci]",
+    "node_id": "C_kwDOU_vADNoAKGEzNjE3ZDJlYWI1NDc2NjU0ODAzMjQwMzQ1NzFjZjIyYWE2ODQyNTc",
+    "parents": [
+      {
+        "html_url": "https://github.com/NRG-Wardog/SideSign/commit/24f0ba8e701cded5deadce115f93e99a6263c599",
+        "sha": "24f0ba8e701cded5deadce115f93e99a6263c599",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/commits/24f0ba8e701cded5deadce115f93e99a6263c599"
+      }
+    ],
+    "sha": "a3617d2eab547665480324034571cf22aa684257",
+    "tree": {
+      "sha": "a9d414cd1c28000af90f141ed049424ff27f408c",
+      "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/a9d414cd1c28000af90f141ed049424ff27f408c"
+    },
+    "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/commits/a3617d2eab547665480324034571cf22aa684257",
+    "verification": {
+      "payload": null,
+      "reason": "unsigned",
+      "signature": null,
+      "verified": false,
+      "verified_at": null
+    }
+  },
+  "ref": {
+    "node_id": "REF_kwDOU_vADNoAQHJlZnMvaGVhZHMvdmFsaWRhdGlvbi9wMC1kZWZlbnNpdmUtZGlhZ25vc3RpYy1pbnRlZ3JpdHktMjAyNjEwMTk",
+    "object": {
+      "sha": "a3617d2eab547665480324034571cf22aa684257",
+      "type": "commit",
+      "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/commits/a3617d2eab547665480324034571cf22aa684257"
+    },
+    "ref": "refs/heads/validation/p0-defensive-diagnostic-integrity-20261019",
+    "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/refs/heads/validation/p0-defensive-diagnostic-integrity-20261019"
+  },
+  "repository": "NRG-Wardog/SideSign",
+  "tree": {
+    "sha": "a9d414cd1c28000af90f141ed049424ff27f408c",
+    "tree": [
+      {
+        "mode": "040000",
+        "path": ".ci",
+        "sha": "825c1257b27ddc42e0195fb29190f1534ab3c3c5",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/825c1257b27ddc42e0195fb29190f1534ab3c3c5"
+      },
+      {
+        "mode": "040000",
+        "path": ".github",
+        "sha": "20c1a69d202bb41d130c3e7dd68a4a795d0cba2a",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/20c1a69d202bb41d130c3e7dd68a4a795d0cba2a"
+      },
+      {
+        "mode": "100644",
+        "path": ".gitignore",
+        "sha": "7f58c86d025d2c66dbdee2b24a163b8bcabc5b57",
+        "size": 465,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/blobs/7f58c86d025d2c66dbdee2b24a163b8bcabc5b57"
+      },
+      {
+        "mode": "040000",
+        "path": "CLI",
+        "sha": "6301b213a06175cedbd9dc74993896058fb9291d",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/6301b213a06175cedbd9dc74993896058fb9291d"
+      },
+      {
+        "mode": "100644",
+        "path": "NOTICE-NRG-Wardog",
+        "sha": "c174e61c5733277dae1b0f758f170b2fe6377829",
+        "size": 1445,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/blobs/c174e61c5733277dae1b0f758f170b2fe6377829"
+      },
+      {
+        "mode": "100644",
+        "path": "Package.resolved",
+        "sha": "85dad9c7321c22e44a37ad76cf9b15e918f9d5ff",
+        "size": 1700,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/blobs/85dad9c7321c22e44a37ad76cf9b15e918f9d5ff"
+      },
+      {
+        "mode": "100644",
+        "path": "Package.swift",
+        "sha": "b8dae9e9875d9fd3cc7c3bb5c2dfee3a09e2981c",
+        "size": 2422,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/blobs/b8dae9e9875d9fd3cc7c3bb5c2dfee3a09e2981c"
+      },
+      {
+        "mode": "100644",
+        "path": "README.md",
+        "sha": "d9d7da2730a01c92b5a4b4c9b6bbf80f78ffbe53",
+        "size": 6718,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/blobs/d9d7da2730a01c92b5a4b4c9b6bbf80f78ffbe53"
+      },
+      {
+        "mode": "040000",
+        "path": "Sources",
+        "sha": "7669d4a41a146bd2302992d4a2b6319885617cdd",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/7669d4a41a146bd2302992d4a2b6319885617cdd"
+      },
+      {
+        "mode": "040000",
+        "path": "Tests",
+        "sha": "49a532ca43871526eb3dc8675321e6093d8f5ec6",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/49a532ca43871526eb3dc8675321e6093d8f5ec6"
+      },
+      {
+        "mode": "100755",
+        "path": "build.sh",
+        "sha": "0383d327da3c6c15856299be140d4c557d4d9969",
+        "size": 455,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/blobs/0383d327da3c6c15856299be140d4c557d4d9969"
+      },
+      {
+        "mode": "100644",
+        "path": "sample-usages.sh",
+        "sha": "466ba41f26268188b0e95534b23b1c78916747f9",
+        "size": 18715,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/blobs/466ba41f26268188b0e95534b23b1c78916747f9"
+      },
+      {
+        "mode": "040000",
+        "path": "specs",
+        "sha": "306271f353e501f6fab49d3608e3f45249c64edc",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/306271f353e501f6fab49d3608e3f45249c64edc"
+      }
+    ],
+    "truncated": false,
+    "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/a9d414cd1c28000af90f141ed049424ff27f408c"
+  }
+}

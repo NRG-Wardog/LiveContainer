@@ -1,0 +1,56 @@
+{
+  "schema": "exact-reviewed-manifest-publication-v1",
+  "repository": "NRG-Wardog/SideSign",
+  "branch": "validation/p0-defensive-diagnostic-20261019",
+  "commit": "b28fb0b72937849d4428e9ae313209b606f859b4",
+  "tree": "6ecab37d6f7d73763f50cc1f09ff1f93bd4ab9ee",
+  "parent": "a375e72d1ff39319c14d22ab98ddecd46c758783",
+  "reviewed_local_commit": "14f568d3dc232f3be51f2c2e0951e5dfe01591f9",
+  "review_sha256": "a7b19c11beae5059303576c336861b18b367a4e73624db7993398964cd1bef42",
+  "commit_api": {
+    "sha": "b28fb0b72937849d4428e9ae313209b606f859b4",
+    "node_id": "C_kwDOU_vADNoAKGIyOGZiMGI3MjkzNzg0OWQ0NDI4ZTlhZTMxMzIwOWI2MDZmODU5YjQ",
+    "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/commits/b28fb0b72937849d4428e9ae313209b606f859b4",
+    "html_url": "https://github.com/NRG-Wardog/SideSign/commit/b28fb0b72937849d4428e9ae313209b606f859b4",
+    "author": {
+      "name": "Dorian Salomon",
+      "email": "72792463+NRG-Wardog@users.noreply.github.com",
+      "date": "2026-10-19T18:00:40Z"
+    },
+    "committer": {
+      "name": "Dorian Salomon",
+      "email": "72792463+NRG-Wardog@users.noreply.github.com",
+      "date": "2026-10-19T18:00:40Z"
+    },
+    "tree": {
+      "sha": "6ecab37d6f7d73763f50cc1f09ff1f93bd4ab9ee",
+      "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/trees/6ecab37d6f7d73763f50cc1f09ff1f93bd4ab9ee"
+    },
+    "message": "Pin reviewed bounded constructor fault diagnostics [skip ci]",
+    "parents": [
+      {
+        "sha": "a375e72d1ff39319c14d22ab98ddecd46c758783",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/commits/a375e72d1ff39319c14d22ab98ddecd46c758783",
+        "html_url": "https://github.com/NRG-Wardog/SideSign/commit/a375e72d1ff39319c14d22ab98ddecd46c758783"
+      }
+    ],
+    "verification": {
+      "verified": false,
+      "reason": "unsigned",
+      "signature": null,
+      "payload": null,
+      "verified_at": null
+    }
+  },
+  "ref_api": {
+    "ref": "refs/heads/validation/p0-defensive-diagnostic-20261019",
+    "node_id": "REF_kwDOU_vADNoANnJlZnMvaGVhZHMvdmFsaWRhdGlvbi9wMC1kZWZlbnNpdmUtZGlhZ25vc3RpYy0yMDI2MTAxOQ",
+    "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/refs/heads/validation/p0-defensive-diagnostic-20261019",
+    "object": {
+      "sha": "b28fb0b72937849d4428e9ae313209b606f859b4",
+      "type": "commit",
+      "url": "https://api.github.com/repos/NRG-Wardog/SideSign/git/commits/b28fb0b72937849d4428e9ae313209b606f859b4"
+    }
+  },
+  "build_dispatched": false
+}

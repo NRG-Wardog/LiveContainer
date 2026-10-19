@@ -1,0 +1,10 @@
+{
+  "brew": {
+    "path": "/opt/homebrew/bin/brew",
+    "sha256": "c9a27029eb72dab04f4595041f7670bb03b4cb467297abba817883afb23e0bf3"
+  },
+  "rustup": {
+    "path": "/opt/homebrew/Cellar/rustup/1.29.0/bin/rustup-init",
+    "sha256": "9dada6167fb0bc26e44e23f09179ea15b4d9a8ec491fef1ac5a16484699540ac"
+  }
+}

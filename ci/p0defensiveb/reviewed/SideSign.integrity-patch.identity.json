@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-10-19T19:25:48.239097+00:00",
+  "status": "LOCAL_ONLY_FROZEN_PENDING_INDEPENDENT_REVIEW_AND_APPLE_RUNTIME",
+  "base_commit": "b28fb0b72937849d4428e9ae313209b606f859b4",
+  "base_tree": "6ecab37d6f7d73763f50cc1f09ff1f93bd4ab9ee",
+  "candidate_commit": "aed9e5ff3fa9d8d88c51788e82af9d780a41cbb9",
+  "candidate_tree": "e05139bb18388abbe659f99ae0391b80fc2d3ea0",
+  "candidate_clean": true,
+  "changed_files": [
+    {
+      "path": ".ci/library-integrity/ATOMIC_PAIR_DESIGN.md",
+      "mode": "100644",
+      "git_blob": "a2480de8bacb67b4742392b80e687e40d125754e",
+      "sha256": "006206b13458bfbb69bfb62c4e4569b32649f4a3a3e2055e2df631f4c1b835d6",
+      "bytes": 2722,
+      "previous_sha256": null,
+      "previous_bytes": null,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": ".ci/library-integrity/BoundaryDoubles.swift",
+      "mode": "100644",
+      "git_blob": "b45787cd72eecc09f31c70595839123b0fe4fe14",
+      "sha256": "1fe6c58fbd11c633ea34edea4a52ff56ed197af1745df152f9153c9857155df9",
+      "bytes": 4044,
+      "previous_sha256": null,
+      "previous_bytes": null,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": ".ci/library-integrity/README.md",
+      "mode": "100644",
+      "git_blob": "8d344da5ab8321c49d853a2e28391b57f3fd406a",
+      "sha256": "d8fd62429ba95d7ba21ab7e4ce23f08d6ccfa82ae3ff9a0b753ad8f61e3eb302",
+      "bytes": 4962,
+      "previous_sha256": null,
+      "previous_bytes": null,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": ".ci/library-integrity/RuntimeTests.swift",
+      "mode": "100644",
+      "git_blob": "318292c3bff5789f4d54db2de5f0a68cf9742b9f",
+      "sha256": "5b1a498eec1131f2c1e483f1e94d17fc309bef5f70a35c1bc883447a6ad50683",
+      "bytes": 6592,
+      "previous_sha256": null,
+      "previous_bytes": null,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": ".ci/library-integrity/generate.py",
+      "mode": "100644",
+      "git_blob": "9d95297401409e2ef45a9239b60a40aa327c474a",
+      "sha256": "0fdc81d168c4f8945ece72d9e1f09659b5b340dbdff8b44942546881829ae663",
+      "bytes": 5317,
+      "previous_sha256": null,
+      "previous_bytes": null,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": ".ci/library-integrity/run-apple.sh",
+      "mode": "100644",
+      "git_blob": "93d0570703f0eac86cd65e0a6937148d1322857d",
+      "sha256": "b936ed9d7cbd68bb523253348b395649aa6a5695d9af6645bd172e1f1089e1e2",
+      "bytes": 1790,
+      "previous_sha256": null,
+      "previous_bytes": null,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": ".ci/library-integrity/source-spans.json",
+      "mode": "100644",
+      "git_blob": "447f44d9a4ddcca35444ddcccd886f58023ee29c",
+      "sha256": "98483ad836c48c4acb91cb891bb75d3e81f395aa3b7d7c8829c012957bd07aea",
+      "bytes": 2975,
+      "previous_sha256": null,
+      "previous_bytes": null,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": ".ci/library-integrity/test_source.py",
+      "mode": "100644",
+      "git_blob": "4a4ddaaa5bfde752ae4e76732f9cfef9581bbb4a",
+      "sha256": "1c2dab5c6d15eec807c11385ddf73f7b18b905fb8c8548ab7a917ccfde77d1c0",
+      "bytes": 7917,
+      "previous_sha256": null,
+      "previous_bytes": null,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": ".ci/test_login_trace_source.py",
+      "mode": "100644",
+      "git_blob": "79dbe3f67c0171dcc0ba3974abdf237382871d11",
+      "sha256": "d2d6d1a8ffb757351e7fdeac0d283a833de783f7952d922aa2d9509c39dd2bf5",
+      "bytes": 12870,
+      "previous_sha256": "3b9134aabc689fee620cfc6cf51d0a70611fca7f34e5a9f688435c6e2d8bb70f",
+      "previous_bytes": 12167,
+      "workspace_bytes_match_commit": true
+    },
+    {
+      "path": "Sources/Anisette/AnisetteDataManager.swift",
+      "mode": "100644",
+      "git_blob": "080adafa9690056392c9efb0c2b6e5cbaf2ad3cf",
+      "sha256": "6159f83d125b3b9a898754179e0168c061d44510ccd1e84a174fe77c83f3e5e5",
+      "bytes": 30132,
+      "previous_sha256": "bdcb3b55ae889313116081af79a8d21d731010ebd0e27e9b4f16890c0535d2ae",
+      "previous_bytes": 30138,
+      "workspace_bytes_match_commit": true
+    }
+  ],
+  "dependency_files": {
+    "Package.swift": {
+      "sha256": "fb91426412f07b968131f2511bdd297874c418729466b2952a6e49d2313aa5a1",
+      "unchanged_from_base": true,
+      "git_blob": "b8dae9e9875d9fd3cc7c3bb5c2dfee3a09e2981c"
+    },
+    "Package.resolved": {
+      "sha256": "cdfe27d752edde2e836cd0c25166139223e233ba1c18aa6df69ba893d0a07c35",
+      "unchanged_from_base": true,
+      "git_blob": "1c28e107f09e4ca08121a9a9145a32b82c22dc7b"
+    }
+  },
+  "source_object_store": {
+    "path": "/workspace/scratch/84418b38653d/p0-defensive-diagnostic-cascade/SideSign",
+    "head": "b28fb0b72937849d4428e9ae313209b606f859b4",
+    "status_porcelain": "",
+    "head_preserved": true
+  },
+  "proofs": {
+    "candidate.patch": {
+      "sha256": "3934155e7f9c359d115b3a97d72d010a37ec0bf07508aa5863270f221e4e5f58",
+      "bytes": 41949
+    },
+    "production-only.patch": {
+      "sha256": "5864aa9525c25136c707f698504f105aaf744d119bfc959895c8999387093d9c",
+      "bytes": 724
+    },
+    "final-checks.json": {
+      "sha256": "3a6256e8bf9f4acee4f3e622e15b431e5611919c4370427e874eb74b1dbb59df",
+      "bytes": 4096
+    },
+    "generated-final/generation-receipt.json": {
+      "sha256": "ff32354d6e841a15fd2a02442dd2564f1f6b3b1150126e81d43cda515e27b1bf",
+      "bytes": 4711
+    },
+    "audit/REPORT.md": {
+      "sha256": "4e9930eb16889aa01697aa1c762a470843a53d687d43147cc3119846f072f38d",
+      "bytes": 7879
+    },
+    "audit/identity-receipt.json": {
+      "sha256": "e4049d27ce6a8223a5db944d0e3fa8c5593f7744c9f687839a1691850707c8a8",
+      "bytes": 11085
+    }
+  },
+  "verification": {
+    "portable_source_tests": "10/10 PASS; normal and optimized Python",
+    "login_trace_tests": "10/10 PASS; normal and optimized Python",
+    "diagnostic_dependency_tests": "36/36 PASS",
+    "legacy_source_parity": "FAIL 7 failures in 6 tests, same at candidate and clean b28 baseline; frozen committed inventory",
+    "legacy_production_dependencies": "FAIL 15 failures and 6 errors in 23 tests, same at candidate and clean b28 baseline; historical graph/inventory contracts",
+    "shell_syntax": "PASS",
+    "git_diff_check": "PASS",
+    "swift_compile": "NOT RUN; no Swift compiler available",
+    "swift_runtime": "NOT RUN; prepared 8 genuine-source synthetic cases require reviewed Apple Phase B",
+    "full_build": "NOT RUN"
+  },
+  "scope": {
+    "production_delta": "One existing log replaced by AnisetteError.sha256Mismatch(expected: expectedSHA, actual: zipSHA)",
+    "filesystem_before_verification": "Two existing createDirectory calls remain",
+    "hash_policy": "Only supplied nonempty mismatches reject; empty/absent unchanged",
+    "existing_cache_reuse": "Existence-only remains; no retrospective authentication",
+    "atomic_pair_publication": "Not implemented; separate design assessment only",
+    "network": false,
+    "asset_downloads": false,
+    "proprietary_fixtures": false,
+    "native_provider_or_guest_execution": false,
+    "provisioning": false,
+    "publication": false,
+    "dispatch": false,
+    "frozen_capture_modified": false
+  }
+}

@@ -1,0 +1,670 @@
+{
+  "original_publication_receipt_sha256": "1667e3e2799eaaeac095ab6f5052d8150413ba0c05ae7e2961799174723da11d",
+  "original_tree_body_sha256": "eb272e0fd1f677e5eb450be500b08dcbc1c00b30487e1710192c3a5de5e0a786",
+  "readback": {
+    "commit": {
+      "author": {
+        "date": "2026-10-19T17:57:11Z",
+        "email": "72792463+NRG-Wardog@users.noreply.github.com",
+        "name": "Dorian Salomon"
+      },
+      "committer": {
+        "date": "2026-10-19T17:57:11Z",
+        "email": "72792463+NRG-Wardog@users.noreply.github.com",
+        "name": "Dorian Salomon"
+      },
+      "html_url": "https://github.com/NRG-Wardog/AnisetteKit/commit/227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+      "message": "Add reviewed bounded constructor fault diagnostics without changing engine failure behavior [skip ci]",
+      "node_id": "C_kwDOU_u52doAKDIyN2RmZDhjODQ1NmNkNjJlNGNlZmY0OTcxYjE3YWZiMjAwM2Q3ZTg",
+      "parents": [
+        {
+          "html_url": "https://github.com/NRG-Wardog/AnisetteKit/commit/e72d04b84123823c93e9162daffa73b7afcfd2c9",
+          "sha": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/e72d04b84123823c93e9162daffa73b7afcfd2c9"
+        }
+      ],
+      "sha": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+      "tree": {
+        "sha": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd",
+        "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd"
+      },
+      "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+      "verification": {
+        "payload": null,
+        "reason": "unsigned",
+        "signature": null,
+        "verified": false,
+        "verified_at": null
+      }
+    },
+    "ref": {
+      "node_id": "REF_kwDOU_u52doANnJlZnMvaGVhZHMvdmFsaWRhdGlvbi9wMC1kZWZlbnNpdmUtZGlhZ25vc3RpYy0yMDI2MTAxOQ",
+      "object": {
+        "sha": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+        "type": "commit",
+        "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8"
+      },
+      "ref": "refs/heads/validation/p0-defensive-diagnostic-20261019",
+      "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/refs/heads/validation/p0-defensive-diagnostic-20261019"
+    },
+    "tree": {
+      "sha": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd",
+      "tree": [
+        {
+          "mode": "040000",
+          "path": ".ci",
+          "sha": "1ad6c490bc6ffcb0d8cc01691beb68299c303f76",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/1ad6c490bc6ffcb0d8cc01691beb68299c303f76"
+        },
+        {
+          "mode": "040000",
+          "path": ".ci/native-tests",
+          "sha": "2b5579382758cd8607f876af1f1b3022c63b85b9",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/2b5579382758cd8607f876af1f1b3022c63b85b9"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/ADI_CONSUMPTION_DEBUG.md",
+          "sha": "5021ccbe2b23e5955d4656154257bdc2fe62e004",
+          "size": 7347,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/5021ccbe2b23e5955d4656154257bdc2fe62e004"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/BOUNDED_FAULT_DIAGNOSTICS.md",
+          "sha": "6ae78c08998b30460c33a9cae3251b60d7f712db",
+          "size": 6528,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/6ae78c08998b30460c33a9cae3251b60d7f712db"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/CONSTRUCTOR_DIAGNOSTICS.md",
+          "sha": "d21f56c4a63e57ccd84e702c3b037e811888df57",
+          "size": 2133,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/d21f56c4a63e57ccd84e702c3b037e811888df57"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/CXX_ALLOCATION_REVIEW.md",
+          "sha": "1693871e506266e37c6cd96b2c4696a6bb38448f",
+          "size": 3720,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/1693871e506266e37c6cd96b2c4696a6bb38448f"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/MEMORY_BOUNDARIES_REVIEW.md",
+          "sha": "54add67a9498fd9a2fc3706f0ac7dfc153de8b1a",
+          "size": 6265,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/54add67a9498fd9a2fc3706f0ac7dfc153de8b1a"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/README.md",
+          "sha": "7e97b1e44f375df8245061fa36f99e449eca69fe",
+          "size": 5412,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/7e97b1e44f375df8245061fa36f99e449eca69fe"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/VM_SETUP_REVIEW.md",
+          "sha": "fae81d34f6862b4db48190e9d4f8fce112f13ddc",
+          "size": 1896,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/fae81d34f6862b4db48190e9d4f8fce112f13ddc"
+        },
+        {
+          "mode": "040000",
+          "path": ".ci/native-tests/fixtures",
+          "sha": "3003e1a4ad2abf14cdbe30270e14d1c1d1ee705f",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/3003e1a4ad2abf14cdbe30270e14d1c1d1ee705f"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/adi_consumption_harness.cpp",
+          "sha": "5abe48e1af88519278d133dce7ced32586b2d970",
+          "size": 14602,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/5abe48e1af88519278d133dce7ced32586b2d970"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/android_tls_constructor.cpp",
+          "sha": "f6fb867f0358fe7f87e4c97cdb175e6f49d9ff85",
+          "size": 5107,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/f6fb867f0358fe7f87e4c97cdb175e6f49d9ff85"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/bounded_fault_host.cpp",
+          "sha": "1bfae32c02cbe5b3478a97f8f8d9d958eb14c0f3",
+          "size": 15415,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/1bfae32c02cbe5b3478a97f8f8d9d958eb14c0f3"
+        },
+        {
+          "mode": "040000",
+          "path": ".ci/native-tests/fixtures/commoncrypto-host-double",
+          "sha": "21c2f25c245af297ff32d9a8f1a55fa8de4797ff",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/21c2f25c245af297ff32d9a8f1a55fa8de4797ff"
+        },
+        {
+          "mode": "040000",
+          "path": ".ci/native-tests/fixtures/commoncrypto-host-double/CommonCrypto",
+          "sha": "2c7a7a0fa4c60c95c7f3fb7b7cddda32f5cbf1cd",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/2c7a7a0fa4c60c95c7f3fb7b7cddda32f5cbf1cd"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/commoncrypto-host-double/CommonCrypto/CommonDigest.h",
+          "sha": "4a89773735e0977366dfe4c77cad2e2e25a1c3d4",
+          "size": 445,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/4a89773735e0977366dfe4c77cad2e2e25a1c3d4"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/constructor_diagnostics.cpp",
+          "sha": "7a94b2ef7336c504776eaf4b5577285813cd2491",
+          "size": 13087,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/7a94b2ef7336c504776eaf4b5577285813cd2491"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/cxx_allocation_hook_unit.cpp",
+          "sha": "6338961c9fd721ba79b51566b775b776fd57e7e9",
+          "size": 3833,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/6338961c9fd721ba79b51566b775b776fd57e7e9"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/cxx_allocation_unit.cpp",
+          "sha": "dc474fda8eb3f37e893799a0fdcf8ffc753fd754",
+          "size": 1565,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/dc474fda8eb3f37e893799a0fdcf8ffc753fd754"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/elf_metadata_bounds_unit.cpp",
+          "sha": "d0a38ca27cf61770010803ca86c44620051ae182",
+          "size": 13973,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/d0a38ca27cf61770010803ca86c44620051ae182"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/isolated_anisette_core_harness.cpp",
+          "sha": "19a159e82e2afa15365953da08f8c81d949ebbd2",
+          "size": 41562,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/19a159e82e2afa15365953da08f8c81d949ebbd2"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/isolated_anisette_loader_harness.cpp",
+          "sha": "c8e0fa343644f8f84f5e37369e1dc0e47c97908c",
+          "size": 9284,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/c8e0fa343644f8f84f5e37369e1dc0e47c97908c"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/isolated_anisette_vm_double.h",
+          "sha": "f4d424e44d473d46c1cca8a766c9c5c03b978eac",
+          "size": 2732,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/f4d424e44d473d46c1cca8a766c9c5c03b978eac"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/memory_boundaries_host.cpp",
+          "sha": "7db229ee2c6ee86c0342faf48c2f49aeb7d034a5",
+          "size": 10427,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/7db229ee2c6ee86c0342faf48c2f49aeb7d034a5"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/fixtures/vm_setup_host.cpp",
+          "sha": "e80bc2626305e473fd40da66b64bbeb3e18aec9f",
+          "size": 6454,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/e80bc2626305e473fd40da66b64bbeb3e18aec9f"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/run_tests.py",
+          "sha": "edf386268dcf0448c1839539442be20b1fc1551c",
+          "size": 25796,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/edf386268dcf0448c1839539442be20b1fc1551c"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/test_android_tls_runtime.py",
+          "sha": "e079607940e639b64965fe1d8b86287364465bbe",
+          "size": 3421,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/e079607940e639b64965fe1d8b86287364465bbe"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/test_bounded_fault_host.py",
+          "sha": "572edefc5bb2d452dbcd62fffd69ab6e30b46a28",
+          "size": 5612,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/572edefc5bb2d452dbcd62fffd69ab6e30b46a28"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/test_constructor_diagnostics.py",
+          "sha": "352e758101a1523ab447381b2adee8b59b9e8ac6",
+          "size": 6621,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/352e758101a1523ab447381b2adee8b59b9e8ac6"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/test_constructor_diagnostics_driver.py",
+          "sha": "00d5c0ee991072e83bb2606678473bc81675d21f",
+          "size": 4958,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/00d5c0ee991072e83bb2606678473bc81675d21f"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/test_cxx_allocation.py",
+          "sha": "1a468f4c14f28300a1db2c5196657ee3429ac0cd",
+          "size": 4167,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/1a468f4c14f28300a1db2c5196657ee3429ac0cd"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/test_elf_metadata_bounds.py",
+          "sha": "f74dd05d0605e59298e42338527b6866d1aacf41",
+          "size": 4478,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/f74dd05d0605e59298e42338527b6866d1aacf41"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/test_memory_boundaries_host.py",
+          "sha": "b24a500cff42421df90edd7080427f799a59884e",
+          "size": 2588,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/b24a500cff42421df90edd7080427f799a59884e"
+        },
+        {
+          "mode": "100644",
+          "path": ".ci/native-tests/test_vm_setup_host.py",
+          "sha": "aaad80dafc4d51bbc50d026eb422edf17f5e2a2b",
+          "size": 3985,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/aaad80dafc4d51bbc50d026eb422edf17f5e2a2b"
+        },
+        {
+          "mode": "040000",
+          "path": ".github",
+          "sha": "8095d66a5916bdd36439fc0a01876468599f4bde",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/8095d66a5916bdd36439fc0a01876468599f4bde"
+        },
+        {
+          "mode": "040000",
+          "path": ".github/workflows",
+          "sha": "20791ed2f7c76ffb5d9b3bf926afac0487b6b919",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/20791ed2f7c76ffb5d9b3bf926afac0487b6b919"
+        },
+        {
+          "mode": "100644",
+          "path": ".github/workflows/native-source-parity.yml",
+          "sha": "eac22880dca4224d6fcbc3ec60c9c5263b24a010",
+          "size": 694,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/eac22880dca4224d6fcbc3ec60c9c5263b24a010"
+        },
+        {
+          "mode": "100644",
+          "path": ".gitignore",
+          "sha": "3b4720ff8657a24d6a8780d8ed95de2e37831925",
+          "size": 66,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/3b4720ff8657a24d6a8780d8ed95de2e37831925"
+        },
+        {
+          "mode": "100644",
+          "path": "LICENSE",
+          "sha": "f9560f456051f60dd4ed7e2f17dbd7fe247a863c",
+          "size": 32868,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/f9560f456051f60dd4ed7e2f17dbd7fe247a863c"
+        },
+        {
+          "mode": "100644",
+          "path": "NOTICE-NRG-Wardog",
+          "sha": "0ab6235716eb86e8ef619017e5684f3b430579b7",
+          "size": 1617,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/0ab6235716eb86e8ef619017e5684f3b430579b7"
+        },
+        {
+          "mode": "040000",
+          "path": "Native",
+          "sha": "6de735fc613190576507867274d4267c3e004d3b",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/6de735fc613190576507867274d4267c3e004d3b"
+        },
+        {
+          "mode": "040000",
+          "path": "Native/Loader",
+          "sha": "00c5bd1c9fc034ff8a97353ea4c4d88a1bb8b9fd",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/00c5bd1c9fc034ff8a97353ea4c4d88a1bb8b9fd"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/adi_consumption_debug.h",
+          "sha": "ade371dbbd687c251e4bade39c788442b7620c25",
+          "size": 9018,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/ade371dbbd687c251e4bade39c788442b7620c25"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/android_tls_runtime.h",
+          "sha": "1a084e8314f94eb30a1591b6fc0112616d29ea87",
+          "size": 1889,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/1a084e8314f94eb30a1591b6fc0112616d29ea87"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/bounded_asset_digest.h",
+          "sha": "5e37a71e26db8ce550749ecb22a9df7dde751ecb",
+          "size": 1586,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/5e37a71e26db8ce550749ecb22a9df7dde751ecb"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/bounded_fault_diagnostics.h",
+          "sha": "613f7b8ee2b5b88a9893608ff7fb0b5998839e64",
+          "size": 3654,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/613f7b8ee2b5b88a9893608ff7fb0b5998839e64"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/bounded_fault_runtime.h",
+          "sha": "b2840c8cbebabc8acdd5ed77f6fdbbd1e32998a6",
+          "size": 4859,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/b2840c8cbebabc8acdd5ed77f6fdbbd1e32998a6"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/cxx_allocation_runtime.h",
+          "sha": "4e8475f3c192a36cb2507679d39dcf571b4d58b4",
+          "size": 1217,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/4e8475f3c192a36cb2507679d39dcf571b4d58b4"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/elf_loader_emulator.cpp",
+          "sha": "acd57ed01253e0b3f1c6bab807560424c78c8e56",
+          "size": 64918,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/acd57ed01253e0b3f1c6bab807560424c78c8e56"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/elf_loader_emulator.h",
+          "sha": "7328acfe9ed38f1dccedb7f589489e83bd9ec093",
+          "size": 4748,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/7328acfe9ed38f1dccedb7f589489e83bd9ec093"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/elf_loader_host.cpp",
+          "sha": "5a5e428b8f41f94b4abec7337c10e0a04e71d8b0",
+          "size": 41842,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/5a5e428b8f41f94b4abec7337c10e0a04e71d8b0"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/elf_loader_host.h",
+          "sha": "4db6798a3a6ba9663db910592249c10c800d7f48",
+          "size": 1399,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/4db6798a3a6ba9663db910592249c10c800d7f48"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/elf_metadata_bounds.h",
+          "sha": "4dbeeb6949fbc0fa87f050fcc8c571e6fef06b40",
+          "size": 14829,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/4dbeeb6949fbc0fa87f050fcc8c571e6fef06b40"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/Loader/vm_initialization_diagnostics.h",
+          "sha": "57b251f72f4700bc041703cefc34110f0c5feba2",
+          "size": 3629,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/57b251f72f4700bc041703cefc34110f0c5feba2"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/anisette_base.cpp",
+          "sha": "edaeeb56e44eeee60b78af5687977f43d1f36a5e",
+          "size": 5249,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/edaeeb56e44eeee60b78af5687977f43d1f36a5e"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/anisette_base.h",
+          "sha": "e1042ed6be207eeaae26fd86ccbde25b1f691ebd",
+          "size": 5303,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/e1042ed6be207eeaae26fd86ccbde25b1f691ebd"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/anisette_core_mac.cpp",
+          "sha": "16224cbcffaa3090200556cd889f9a675434e159",
+          "size": 11792,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/16224cbcffaa3090200556cd889f9a675434e159"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/anisette_core_uc.cpp",
+          "sha": "fe49c6d2343f3d2644685157b4df440dd831e76d",
+          "size": 54105,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/fe49c6d2343f3d2644685157b4df440dd831e76d"
+        },
+        {
+          "mode": "040000",
+          "path": "Native/include",
+          "sha": "7f0c9ae39bbf91a5b0e2e6bd70cce0696089e09b",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/7f0c9ae39bbf91a5b0e2e6bd70cce0696089e09b"
+        },
+        {
+          "mode": "100644",
+          "path": "Native/include/anisette_core.h",
+          "sha": "9af771f6e34f85b722d739dfcfa6cb91dc0f6f5a",
+          "size": 3902,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/9af771f6e34f85b722d739dfcfa6cb91dc0f6f5a"
+        },
+        {
+          "mode": "100644",
+          "path": "Package.swift",
+          "sha": "e90a4e5289edecbce5cfecb2a6d86374640c1ae0",
+          "size": 1956,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/e90a4e5289edecbce5cfecb2a6d86374640c1ae0"
+        },
+        {
+          "mode": "100644",
+          "path": "README.md",
+          "sha": "3987deb95dbe490e85144df3cdd19906e69ce7f3",
+          "size": 7307,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/3987deb95dbe490e85144df3cdd19906e69ce7f3"
+        },
+        {
+          "mode": "040000",
+          "path": "Sources",
+          "sha": "68293bed30f41f5b9be317dcae14d891703c1540",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/68293bed30f41f5b9be317dcae14d891703c1540"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteClient.swift",
+          "sha": "9787607fad16e5d92a7613ca23553b3cc8eb6e23",
+          "size": 18897,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/9787607fad16e5d92a7613ca23553b3cc8eb6e23"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteDataProvider.swift",
+          "sha": "1cfdfb9d161878ef5d025812ff35f7a9a330a2c6",
+          "size": 16577,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/1cfdfb9d161878ef5d025812ff35f7a9a330a2c6"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteDataResponse.swift",
+          "sha": "71d76796448a1d9c7a908b82f35ad4f5d3b5e1db",
+          "size": 944,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/71d76796448a1d9c7a908b82f35ad4f5d3b5e1db"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteError.swift",
+          "sha": "a8ad306e469d7c730317a842a8fb2503a9d93612",
+          "size": 1469,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/a8ad306e469d7c730317a842a8fb2503a9d93612"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteHeaderResponse.swift",
+          "sha": "635e30190a3048a32b724ae283942745d9a93942",
+          "size": 472,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/635e30190a3048a32b724ae283942745d9a93942"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteHeadersDTO.swift",
+          "sha": "1242d9ecedbe2343766ef209f464ab6246f6743b",
+          "size": 4746,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/1242d9ecedbe2343766ef209f464ab6246f6743b"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteKit.swift",
+          "sha": "256db1da8e9a28f00c4ea94cf018f113cbd77981",
+          "size": 1391,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/256db1da8e9a28f00c4ea94cf018f113cbd77981"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteKitLogging.swift",
+          "sha": "ef0b1dd79482e2d0b4b9a18dcd9dc2d895a06d62",
+          "size": 5163,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/ef0b1dd79482e2d0b4b9a18dcd9dc2d895a06d62"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/AnisetteRequestHeaders.swift",
+          "sha": "4ebb5c02049b80fae5c3294a5ef8d81cb73e17a4",
+          "size": 3146,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/4ebb5c02049b80fae5c3294a5ef8d81cb73e17a4"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/Constants.swift",
+          "sha": "a3acb92385ee46c6ce1f20b850af5e695af3a133",
+          "size": 2288,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/a3acb92385ee46c6ce1f20b850af5e695af3a133"
+        },
+        {
+          "mode": "100644",
+          "path": "Sources/LoginDiagnosticTrace.swift",
+          "sha": "39fbc98346f60b3ad29356042b083fee34820814",
+          "size": 10556,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/39fbc98346f60b3ad29356042b083fee34820814"
+        },
+        {
+          "mode": "040000",
+          "path": "Tests",
+          "sha": "2a6f0b08f85a4486174bd03a9bfeb223d1472a75",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/2a6f0b08f85a4486174bd03a9bfeb223d1472a75"
+        },
+        {
+          "mode": "040000",
+          "path": "Tests/AnisetteKitTests",
+          "sha": "2d0bffbd40e7a6bbbd28ab74337d0f3cc8817e95",
+          "type": "tree",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/2d0bffbd40e7a6bbbd28ab74337d0f3cc8817e95"
+        },
+        {
+          "mode": "100644",
+          "path": "Tests/AnisetteKitTests/AnisetteKitTests.swift",
+          "sha": "923603ce6c25fe3954e3957dd84cebde7837cffb",
+          "size": 5388,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/923603ce6c25fe3954e3957dd84cebde7837cffb"
+        },
+        {
+          "mode": "100644",
+          "path": "Tests/AnisetteKitTests/LoginDiagnosticTraceTests.swift",
+          "sha": "48509b85ccf8849d566aefa30797c150321db3b1",
+          "size": 4715,
+          "type": "blob",
+          "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/blobs/48509b85ccf8849d566aefa30797c150321db3b1"
+        }
+      ],
+      "truncated": false,
+      "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd"
+    }
+  },
+  "schema": "diagnostic-publication-readback-bridge-v1"
+}

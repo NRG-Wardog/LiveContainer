@@ -1,0 +1,482 @@
+{
+  "schema_version": 1,
+  "reviewed_utc": "2026-10-19T19:28:26.519405+00:00",
+  "reviewer": "independent review_library_hash_rejection",
+  "verdict": "SOURCE_REVIEW_PASS_RUNTIME_NOT_EXECUTED",
+  "candidate": {
+    "commit": "aed9e5ff3fa9d8d88c51788e82af9d780a41cbb9",
+    "tree": "e05139bb18388abbe659f99ae0391b80fc2d3ea0",
+    "status": ""
+  },
+  "parent": "b28fb0b72937849d4428e9ae313209b606f859b4",
+  "changed_paths": [
+    {
+      "path": ".ci/library-integrity/ATOMIC_PAIR_DESIGN.md",
+      "mode": "100644",
+      "git_blob": "a2480de8bacb67b4742392b80e687e40d125754e",
+      "sha256": "006206b13458bfbb69bfb62c4e4569b32649f4a3a3e2055e2df631f4c1b835d6",
+      "bytes": 2722,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": ".ci/library-integrity/BoundaryDoubles.swift",
+      "mode": "100644",
+      "git_blob": "b45787cd72eecc09f31c70595839123b0fe4fe14",
+      "sha256": "1fe6c58fbd11c633ea34edea4a52ff56ed197af1745df152f9153c9857155df9",
+      "bytes": 4044,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": ".ci/library-integrity/README.md",
+      "mode": "100644",
+      "git_blob": "8d344da5ab8321c49d853a2e28391b57f3fd406a",
+      "sha256": "d8fd62429ba95d7ba21ab7e4ce23f08d6ccfa82ae3ff9a0b753ad8f61e3eb302",
+      "bytes": 4962,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": ".ci/library-integrity/RuntimeTests.swift",
+      "mode": "100644",
+      "git_blob": "318292c3bff5789f4d54db2de5f0a68cf9742b9f",
+      "sha256": "5b1a498eec1131f2c1e483f1e94d17fc309bef5f70a35c1bc883447a6ad50683",
+      "bytes": 6592,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": ".ci/library-integrity/generate.py",
+      "mode": "100644",
+      "git_blob": "9d95297401409e2ef45a9239b60a40aa327c474a",
+      "sha256": "0fdc81d168c4f8945ece72d9e1f09659b5b340dbdff8b44942546881829ae663",
+      "bytes": 5317,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": ".ci/library-integrity/run-apple.sh",
+      "mode": "100644",
+      "git_blob": "93d0570703f0eac86cd65e0a6937148d1322857d",
+      "sha256": "b936ed9d7cbd68bb523253348b395649aa6a5695d9af6645bd172e1f1089e1e2",
+      "bytes": 1790,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": ".ci/library-integrity/source-spans.json",
+      "mode": "100644",
+      "git_blob": "447f44d9a4ddcca35444ddcccd886f58023ee29c",
+      "sha256": "98483ad836c48c4acb91cb891bb75d3e81f395aa3b7d7c8829c012957bd07aea",
+      "bytes": 2975,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": ".ci/library-integrity/test_source.py",
+      "mode": "100644",
+      "git_blob": "4a4ddaaa5bfde752ae4e76732f9cfef9581bbb4a",
+      "sha256": "1c2dab5c6d15eec807c11385ddf73f7b18b905fb8c8548ab7a917ccfde77d1c0",
+      "bytes": 7917,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": ".ci/test_login_trace_source.py",
+      "mode": "100644",
+      "git_blob": "79dbe3f67c0171dcc0ba3974abdf237382871d11",
+      "sha256": "d2d6d1a8ffb757351e7fdeac0d283a833de783f7952d922aa2d9509c39dd2bf5",
+      "bytes": 12870,
+      "workspace_matches_committed_bytes": true
+    },
+    {
+      "path": "Sources/Anisette/AnisetteDataManager.swift",
+      "mode": "100644",
+      "git_blob": "080adafa9690056392c9efb0c2b6e5cbaf2ad3cf",
+      "sha256": "6159f83d125b3b9a898754179e0168c061d44510ccd1e84a174fe77c83f3e5e5",
+      "bytes": 30132,
+      "workspace_matches_committed_bytes": true
+    }
+  ],
+  "patch_sha256": "3934155e7f9c359d115b3a97d72d010a37ec0bf07508aa5863270f221e4e5f58",
+  "production_patch_sha256": "5864aa9525c25136c707f698504f105aaf744d119bfc959895c8999387093d9c",
+  "dependency_files_unchanged": {
+    "Package.swift": {
+      "sha256": "fb91426412f07b968131f2511bdd297874c418729466b2952a6e49d2313aa5a1",
+      "unchanged_from_base": true,
+      "git_blob": "b8dae9e9875d9fd3cc7c3bb5c2dfee3a09e2981c"
+    },
+    "Package.resolved": {
+      "sha256": "cdfe27d752edde2e836cd0c25166139223e233ba1c18aa6df69ba893d0a07c35",
+      "unchanged_from_base": true,
+      "git_blob": "1c28e107f09e4ca08121a9a9145a32b82c22dc7b"
+    }
+  },
+  "author_frozen_deliverables_verified": {
+    "REPORT.md": {
+      "sha256": "fb2655ac59c7d8831519c06900a6728b77fe708d24ff423f34a04face4268cbe",
+      "bytes": 5588
+    },
+    "identity-receipt.json": {
+      "sha256": "3d4c749be225b76e5d6b397708a06e9d0391754edc26e4b88151c4f67e542420",
+      "bytes": 7268
+    },
+    "candidate.patch": {
+      "sha256": "3934155e7f9c359d115b3a97d72d010a37ec0bf07508aa5863270f221e4e5f58",
+      "bytes": 41949
+    },
+    "production-only.patch": {
+      "sha256": "5864aa9525c25136c707f698504f105aaf744d119bfc959895c8999387093d9c",
+      "bytes": 724
+    },
+    "final-checks.json": {
+      "sha256": "3a6256e8bf9f4acee4f3e622e15b431e5611919c4370427e874eb74b1dbb59df",
+      "bytes": 4096
+    },
+    "generated-final/generation-receipt.json": {
+      "sha256": "ff32354d6e841a15fd2a02442dd2564f1f6b3b1150126e81d43cda515e27b1bf",
+      "bytes": 4711
+    }
+  },
+  "author_frozen_manifest_sha256": "4c5cd57af23a0d3b14cba515f5542e10ed3fbd120b220ad5a43b75d7e89dc130",
+  "checks": [
+    {
+      "name": "source",
+      "argv": [
+        "python3",
+        "-B",
+        ".ci/library-integrity/test_source.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 0,
+      "stdout": {
+        "path": "source.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "source.stderr",
+        "sha256": "8e18403cd8eb9cd986dff07c9b09432a785457c00ffbee03a032bf3deb6af41a",
+        "bytes": 1659
+      }
+    },
+    {
+      "name": "source-optimized",
+      "argv": [
+        "python3",
+        "-B",
+        "-O",
+        ".ci/library-integrity/test_source.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 0,
+      "stdout": {
+        "path": "source-optimized.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "source-optimized.stderr",
+        "sha256": "1312cf2238b10b483dc6d0abc3f91f8357446a586ef1f18552144a2cb48c1c5d",
+        "bytes": 1659
+      }
+    },
+    {
+      "name": "trace",
+      "argv": [
+        "python3",
+        "-B",
+        ".ci/test_login_trace_source.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 0,
+      "stdout": {
+        "path": "trace.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "trace.stderr",
+        "sha256": "82d59c43b69af7847b74cee629882d3e28ed3912d6c6aa483830ae78f4f8bb5d",
+        "bytes": 1573
+      }
+    },
+    {
+      "name": "trace-optimized",
+      "argv": [
+        "python3",
+        "-B",
+        "-O",
+        ".ci/test_login_trace_source.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 0,
+      "stdout": {
+        "path": "trace-optimized.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "trace-optimized.stderr",
+        "sha256": "7324829ed526aba785f1e8e14ad29486af44a035ebdb0aa5e16b6af061b37ab8",
+        "bytes": 1573
+      }
+    },
+    {
+      "name": "diagnostic",
+      "argv": [
+        "python3",
+        "-B",
+        ".ci/test_diagnostic_dependencies.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 0,
+      "stdout": {
+        "path": "diagnostic.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "diagnostic.stderr",
+        "sha256": "f3a9fbd32e7f39dc1a02bfeb94708de793cb32f11cd6496b7d5051eb62778b21",
+        "bytes": 25597
+      }
+    },
+    {
+      "name": "candidate-legacy-parity",
+      "argv": [
+        "python3",
+        "-B",
+        ".ci/test-source-parity.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 1,
+      "stdout": {
+        "path": "candidate-legacy-parity.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "candidate-legacy-parity.stderr",
+        "sha256": "d6b27ec1c9882648ee574b477de260b612f6f8888618e8913c6707a4ae200383",
+        "bytes": 11253
+      }
+    },
+    {
+      "name": "candidate-legacy-production",
+      "argv": [
+        "python3",
+        "-B",
+        ".ci/test_production_dependencies.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 1,
+      "stdout": {
+        "path": "candidate-legacy-production.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "candidate-legacy-production.stderr",
+        "sha256": "8b8722525ee1b25dfc4f065d53a95abe40443c65ff88a351ee740fea0729cbb6",
+        "bytes": 32169
+      }
+    },
+    {
+      "name": "baseline-legacy-parity",
+      "argv": [
+        "python3",
+        "-B",
+        ".ci/test-source-parity.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix-checks/baseline-b28",
+      "exit_code": 1,
+      "stdout": {
+        "path": "baseline-legacy-parity.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "baseline-legacy-parity.stderr",
+        "sha256": "fb2b3e5e552c6547f44a0bf494c14011e7a16e75e309c90a60becf6e9ee5216b",
+        "bytes": 11513
+      }
+    },
+    {
+      "name": "baseline-legacy-production",
+      "argv": [
+        "python3",
+        "-B",
+        ".ci/test_production_dependencies.py"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix-checks/baseline-b28",
+      "exit_code": 1,
+      "stdout": {
+        "path": "baseline-legacy-production.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "baseline-legacy-production.stderr",
+        "sha256": "4f941487520025c2d65b9c852323ef375e0bbcbda9965ec074a5e59ea5e5bb53",
+        "bytes": 32869
+      }
+    },
+    {
+      "name": "shell-syntax",
+      "argv": [
+        "bash",
+        "-n",
+        ".ci/library-integrity/run-apple.sh"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 0,
+      "stdout": {
+        "path": "shell-syntax.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "shell-syntax.stderr",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    },
+    {
+      "name": "diff-check",
+      "argv": [
+        "git",
+        "diff",
+        "--check",
+        "b28fb0b72937849d4428e9ae313209b606f859b4",
+        "aed9e5ff3fa9d8d88c51788e82af9d780a41cbb9"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 0,
+      "stdout": {
+        "path": "diff-check.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stderr": {
+        "path": "diff-check.stderr",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    },
+    {
+      "name": "generate",
+      "argv": [
+        "python3",
+        "-B",
+        ".ci/library-integrity/generate.py",
+        "/workspace/scratch/84418b38653d/p0-library-integrity-independent-review/generated"
+      ],
+      "cwd": "/workspace/scratch/84418b38653d/p0-library-integrity-fix",
+      "exit_code": 0,
+      "stdout": {
+        "path": "generate.stdout",
+        "sha256": "8c786569fcd3e6411f0fdd26fceccbcfff4fd676475f5036668c3cbc57433095",
+        "bytes": 157
+      },
+      "stderr": {
+        "path": "generate.stderr",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    }
+  ],
+  "baseline": {
+    "commit": "b28fb0b72937849d4428e9ae313209b606f859b4",
+    "tree": "6ecab37d6f7d73763f50cc1f09ff1f93bd4ab9ee",
+    "status": ""
+  },
+  "generation_matches_frozen_author_output": true,
+  "swift": {
+    "swift": null,
+    "swiftc": null,
+    "compilation": "NOT RUN",
+    "runtime": "NOT RUN",
+    "full_build": "NOT RUN"
+  },
+  "candidate_clean_after_checks": true,
+  "scope": {
+    "candidate_edited": false,
+    "network": false,
+    "publication": false,
+    "activation": false,
+    "guest_or_proprietary_fixture_execution": false
+  },
+  "legacy_baseline_comparison": {
+    "legacy-parity": {
+      "same_failing_test_ids": true,
+      "test_ids": [
+        "FAIL: test_exact_import_passes (__main__.TestImportParity.test_exact_import_passes)",
+        "FAIL: test_missing_or_additional_import_and_changed_assertion_fail (__main__.TestImportParity.test_missing_or_additional_import_and_changed_assertion_fail) (case='missing import')",
+        "FAIL: test_missing_or_additional_import_and_changed_assertion_fail (__main__.TestImportParity.test_missing_or_additional_import_and_changed_assertion_fail) (case='duplicate import')",
+        "FAIL: test_missing_or_additional_import_and_changed_assertion_fail (__main__.TestImportParity.test_missing_or_additional_import_and_changed_assertion_fail) (case='changed assertion')",
+        "FAIL: test_runtime_changes_fail (__main__.TestImportParity.test_runtime_changes_fail) (path='Sources/Logging.swift')",
+        "FAIL: test_runtime_changes_fail (__main__.TestImportParity.test_runtime_changes_fail) (path='Sources/Models/X509Certificate.swift')",
+        "FAIL: test_test_mode_change_fails (__main__.TestImportParity.test_test_mode_change_fails)"
+      ],
+      "candidate_summary": [
+        "FAILED (failures=7)"
+      ],
+      "baseline_summary": [
+        "FAILED (failures=7)"
+      ]
+    },
+    "legacy-production": {
+      "same_failing_test_ids": true,
+      "test_ids": [
+        "ERROR: test_only_anisette_changed (__main__.LockTests.test_only_anisette_changed)",
+        "ERROR: test_clean_initialized_submodule_passes (__main__.RepositoryTests.test_clean_initialized_submodule_passes)",
+        "ERROR: test_clean_linked_worktree_passes (__main__.RepositoryTests.test_clean_linked_worktree_passes)",
+        "ERROR: test_exact_transition_and_repeatability (__main__.RepositoryTests.test_exact_transition_and_repeatability)",
+        "ERROR: test_pending_child_pin_fails_default (__main__.RepositoryTests.test_pending_child_pin_fails_default)",
+        "ERROR: test_resolver_and_native_reports_name_their_actual_tested_commits (__main__.RepositoryTests.test_resolver_and_native_reports_name_their_actual_tested_commits)",
+        "FAIL: test_duplicate_package_identity_rejected (__main__.LockTests.test_duplicate_package_identity_rejected)",
+        "FAIL: test_floating_anisette_branch_rejected (__main__.LockTests.test_floating_anisette_branch_rejected)",
+        "FAIL: test_unrelated_revision_drift_rejected (__main__.LockTests.test_unrelated_revision_drift_rejected)",
+        "FAIL: test_assume_unchanged_cannot_hide_source_edit (__main__.RepositoryTests.test_assume_unchanged_cannot_hide_source_edit)",
+        "FAIL: test_changed_native_receipt_rejected (__main__.RepositoryTests.test_changed_native_receipt_rejected)",
+        "FAIL: test_changed_resolver_receipt_rejected (__main__.RepositoryTests.test_changed_resolver_receipt_rejected)",
+        "FAIL: test_commit_cannot_expand_dependency_allowlist (__main__.RepositoryTests.test_commit_cannot_expand_dependency_allowlist)",
+        "FAIL: test_committed_runtime_drift_rejected (__main__.RepositoryTests.test_committed_runtime_drift_rejected)",
+        "FAIL: test_hidden_proof_metadata_drift_rejected (__main__.RepositoryTests.test_hidden_proof_metadata_drift_rejected)",
+        "FAIL: test_index_override_cannot_hide_staged_change (__main__.RepositoryTests.test_index_override_cannot_hide_staged_change)",
+        "FAIL: test_missing_native_receipt_rejected (__main__.RepositoryTests.test_missing_native_receipt_rejected)",
+        "FAIL: test_missing_resolver_receipt_rejected (__main__.RepositoryTests.test_missing_resolver_receipt_rejected)",
+        "FAIL: test_readiness_cannot_rebaseline_a_manifest_change (__main__.RepositoryTests.test_readiness_cannot_rebaseline_a_manifest_change)",
+        "FAIL: test_runtime_symlink_substitution_rejected (__main__.RepositoryTests.test_runtime_symlink_substitution_rejected)",
+        "FAIL: test_unknown_untracked_file_rejected (__main__.RepositoryTests.test_unknown_untracked_file_rejected)"
+      ],
+      "candidate_summary": [
+        "FAILED (failures=15, errors=6)"
+      ],
+      "baseline_summary": [
+        "FAILED (failures=15, errors=6)"
+      ]
+    }
+  },
+  "historical_trace_preservation": {
+    "inverse_matches_exact_full_parent_source": true,
+    "unchanged_historical_core_sha256": "cb49423d8ae3cfe2a5f6712eb491eef8159b8f5537416383f829527c8cfda38a",
+    "missing_or_duplicate_throw_rejection_under_python_optimization": "PASS via source suite",
+    "log_count_change": "exactly 9 to 8 for removed mismatch log"
+  },
+  "review_findings": {
+    "blocking_patch_defects": [],
+    "all_ten_changed_paths_reviewed": true,
+    "production_change": "Exactly one existing log replaced by existing AnisetteError.sha256Mismatch(expected: expectedSHA, actual: zipSHA)",
+    "source_order": "Two directory creations and acquisition precede nonempty expected-hash comparison; throw precedes temporary ZIP getter/write, extraction, validation and provider assignment; defer resets isCaching",
+    "existing_pair": "Within this rejection invocation, existing pair bytes and provider assignment are untouched; parallel mutation is not addressed",
+    "fixture_fidelity": "Hash-bound complete production methods/declarations and unzip method plus whole Archive.swift; boundary substitutions explicitly disclosed",
+    "runtime_cases_prepared": 8,
+    "runtime_cases_executed": 0,
+    "remaining_requirements": [
+      "Reviewed Apple Swift compilation and synthetic runtime execution with genuine reviewed libdeflate outputs",
+      "Final composed graph must receive fresh source seal and runtime receipts",
+      "Full production build remains unexecuted"
+    ],
+    "scope_limitations": [
+      "Supplied nonempty mismatches only; absent and empty hashes remain accepted",
+      "Existing cache reuse remains existence-only",
+      "No atomic pair publication, concurrency fix, metadata authentication, retrofit cache validation, or initializer root-cause proof",
+      "URL transport, native provider and compressed-archive branch not exercised by prepared inert ZIP_STORED inline fixtures"
+    ]
+  }
+}

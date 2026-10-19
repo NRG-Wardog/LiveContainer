@@ -1,0 +1,23 @@
+[
+  {
+    "bundle": "Unicorn.xcframework",
+    "identity": "anisettekit",
+    "sha256": "4f61907db6aafc56fb3e336b524d742342312f498bb40739f1da55fb4a24614a",
+    "target": "Unicorn",
+    "url": "https://github.com/mahee96/unicorn/releases/download/2.1.4-multiarch/Unicorn.xcframework.zip#AnisetteKit"
+  },
+  {
+    "bundle": "OpenSSL.xcframework",
+    "identity": "codesignkit",
+    "sha256": "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+    "target": "OpenSSL",
+    "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#CodeSignKit"
+  },
+  {
+    "bundle": "OpenSSL.xcframework",
+    "identity": "gsacryptokit",
+    "sha256": "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+    "target": "OpenSSL",
+    "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#GSACryptoKit"
+  }
+]

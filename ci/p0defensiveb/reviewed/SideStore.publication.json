@@ -1,0 +1,249 @@
+{
+  "commit": {
+    "author": {
+      "date": "2026-10-19T19:52:45Z",
+      "email": "72792463+NRG-Wardog@users.noreply.github.com",
+      "name": "Dorian Salomon"
+    },
+    "committer": {
+      "date": "2026-10-19T19:52:45Z",
+      "email": "72792463+NRG-Wardog@users.noreply.github.com",
+      "name": "Dorian Salomon"
+    },
+    "html_url": "https://github.com/NRG-Wardog/SideStore/commit/9d90c9db20a5b07bd4a34254efb596fbc7c04616",
+    "message": "Pin reviewed defensive diagnostic and integrity SideSign input [skip ci]",
+    "node_id": "C_kwDOUXBaYtoAKDlkOTBjOWRiMjBhNWIwN2JkNGEzNDI1NGVmYjU5NmZiYzdjMDQ2MTY",
+    "parents": [
+      {
+        "html_url": "https://github.com/NRG-Wardog/SideStore/commit/d507f9e417f12c262b4d7e717c84d4a244c8e625",
+        "sha": "d507f9e417f12c262b4d7e717c84d4a244c8e625",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/commits/d507f9e417f12c262b4d7e717c84d4a244c8e625"
+      }
+    ],
+    "sha": "9d90c9db20a5b07bd4a34254efb596fbc7c04616",
+    "tree": {
+      "sha": "f67804f80036d5e50c4ca3846e25c5001c0386d9",
+      "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/f67804f80036d5e50c4ca3846e25c5001c0386d9"
+    },
+    "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/commits/9d90c9db20a5b07bd4a34254efb596fbc7c04616",
+    "verification": {
+      "payload": null,
+      "reason": "unsigned",
+      "signature": null,
+      "verified": false,
+      "verified_at": null
+    }
+  },
+  "ref": {
+    "node_id": "REF_kwDOUXBaYtoAQHJlZnMvaGVhZHMvdmFsaWRhdGlvbi9wMC1kZWZlbnNpdmUtZGlhZ25vc3RpYy1pbnRlZ3JpdHktMjAyNjEwMTk",
+    "object": {
+      "sha": "9d90c9db20a5b07bd4a34254efb596fbc7c04616",
+      "type": "commit",
+      "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/commits/9d90c9db20a5b07bd4a34254efb596fbc7c04616"
+    },
+    "ref": "refs/heads/validation/p0-defensive-diagnostic-integrity-20261019",
+    "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/refs/heads/validation/p0-defensive-diagnostic-integrity-20261019"
+  },
+  "repository": "NRG-Wardog/SideStore",
+  "tree": {
+    "sha": "f67804f80036d5e50c4ca3846e25c5001c0386d9",
+    "tree": [
+      {
+        "mode": "040000",
+        "path": ".ci",
+        "sha": "3f74fb8168339db40851ffb371f651aa5ce4d6f4",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/3f74fb8168339db40851ffb371f651aa5ce4d6f4"
+      },
+      {
+        "mode": "100644",
+        "path": ".editorconfig",
+        "sha": "1082d2c88c76fcb9761a6f5beace42bafabb9a81",
+        "size": 793,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/1082d2c88c76fcb9761a6f5beace42bafabb9a81"
+      },
+      {
+        "mode": "040000",
+        "path": ".github",
+        "sha": "c86c292b3ea861915059addb6b01f3334a9c555a",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/c86c292b3ea861915059addb6b01f3334a9c555a"
+      },
+      {
+        "mode": "100644",
+        "path": ".gitignore",
+        "sha": "cf5b74e6e1ec302c0965ad409b019dfd5f49f071",
+        "size": 1225,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/cf5b74e6e1ec302c0965ad409b019dfd5f49f071"
+      },
+      {
+        "mode": "100644",
+        "path": ".gitmodules",
+        "sha": "dbf550fe752b7de6b2fb3e9a96eaebd270f90680",
+        "size": 310,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/dbf550fe752b7de6b2fb3e9a96eaebd270f90680"
+      },
+      {
+        "mode": "040000",
+        "path": "AltStore.xcodeproj",
+        "sha": "f818996c1d3e0282a55884ba52e02d9e3025bf6e",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/f818996c1d3e0282a55884ba52e02d9e3025bf6e"
+      },
+      {
+        "mode": "040000",
+        "path": "AltStore",
+        "sha": "930c30cf7dc16cc8a9dee39c1684d1e021b10f9f",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/930c30cf7dc16cc8a9dee39c1684d1e021b10f9f"
+      },
+      {
+        "mode": "040000",
+        "path": "AltWidget",
+        "sha": "1ff92cab39f7dc7e589b99e17df3cf2ba08baf10",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/1ff92cab39f7dc7e589b99e17df3cf2ba08baf10"
+      },
+      {
+        "mode": "100644",
+        "path": "Build.xcconfig",
+        "sha": "3fd3b5c99379480a6ac6b25b14a1691e823f92d3",
+        "size": 1189,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/3fd3b5c99379480a6ac6b25b14a1691e823f92d3"
+      },
+      {
+        "mode": "100644",
+        "path": "CERTIFICATE-OF-ORIGIN.md",
+        "sha": "eb98960effaf38c51cd8bd35539e3b1c8120ccea",
+        "size": 1406,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/eb98960effaf38c51cd8bd35539e3b1c8120ccea"
+      },
+      {
+        "mode": "100644",
+        "path": "CONTRIBUTING.md",
+        "sha": "375d625a3b5f5458210cd150a5caeedde416951f",
+        "size": 5717,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/375d625a3b5f5458210cd150a5caeedde416951f"
+      },
+      {
+        "mode": "100644",
+        "path": "CodeSigning.xcconfig.sample",
+        "sha": "f8d8440289fe073211b2d88cbe44ed717046adaa",
+        "size": 2376,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/f8d8440289fe073211b2d88cbe44ed717046adaa"
+      },
+      {
+        "mode": "040000",
+        "path": "Dependencies",
+        "sha": "e6a1b514ec8026087dfa038fe3e834e96155761b",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/e6a1b514ec8026087dfa038fe3e834e96155761b"
+      },
+      {
+        "mode": "100644",
+        "path": "LICENSE",
+        "sha": "0ad25db4bd1d86c452db3f9602ccdbe172438f52",
+        "size": 34523,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/0ad25db4bd1d86c452db3f9602ccdbe172438f52"
+      },
+      {
+        "mode": "040000",
+        "path": "LICENSES",
+        "sha": "c160909878af54b4ff6784555766598d9295b53d",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/c160909878af54b4ff6784555766598d9295b53d"
+      },
+      {
+        "mode": "100755",
+        "path": "Makefile",
+        "sha": "70d71ab28e1a92b5870bcd59ba6e5d2d2bde718f",
+        "size": 12470,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/70d71ab28e1a92b5870bcd59ba6e5d2d2bde718f"
+      },
+      {
+        "mode": "100644",
+        "path": "README.md",
+        "sha": "f6b214e2ce2f80d61f2616d53163e13e03ddf1e1",
+        "size": 3523,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/f6b214e2ce2f80d61f2616d53163e13e03ddf1e1"
+      },
+      {
+        "mode": "040000",
+        "path": "Shared",
+        "sha": "eb8542e5f91c1b8781b5c2a75fc7ef97f0f5b45f",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/eb8542e5f91c1b8781b5c2a75fc7ef97f0f5b45f"
+      },
+      {
+        "mode": "040000",
+        "path": "SideBackup",
+        "sha": "f11486300a40aa678827b8a1bda6c2a078449a49",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/f11486300a40aa678827b8a1bda6c2a078449a49"
+      },
+      {
+        "mode": "100644",
+        "path": "SideStore.conf",
+        "sha": "30b1954a1e0a5f4c6fa651b07fc4591e72ad0f2f",
+        "size": 235,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/30b1954a1e0a5f4c6fa651b07fc4591e72ad0f2f"
+      },
+      {
+        "mode": "040000",
+        "path": "SideStore",
+        "sha": "b7ca388780c887ff765e6870c66b26a27120b381",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/b7ca388780c887ff765e6870c66b26a27120b381"
+      },
+      {
+        "mode": "040000",
+        "path": "docs",
+        "sha": "e7091bdcf92f8a6c092f9cea48f6daee38f76f88",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/e7091bdcf92f8a6c092f9cea48f6daee38f76f88"
+      },
+      {
+        "mode": "040000",
+        "path": "scripts",
+        "sha": "bc564fffe6f22906365c8a9c0efa38e3987fa205",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/bc564fffe6f22906365c8a9c0efa38e3987fa205"
+      },
+      {
+        "mode": "040000",
+        "path": "tests",
+        "sha": "8697e7e43aaecc48409774939b4e5d34d54d828b",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/8697e7e43aaecc48409774939b4e5d34d54d828b"
+      },
+      {
+        "mode": "100644",
+        "path": "trustedapps.json",
+        "sha": "9979438fc9d667aefef39561c450e85f418f09b9",
+        "size": 4817,
+        "type": "blob",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/blobs/9979438fc9d667aefef39561c450e85f418f09b9"
+      },
+      {
+        "mode": "040000",
+        "path": "xcconfigs",
+        "sha": "f2bd21351d2330e97adbdb353478b89cc85da821",
+        "type": "tree",
+        "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/f2bd21351d2330e97adbdb353478b89cc85da821"
+      }
+    ],
+    "truncated": false,
+    "url": "https://api.github.com/repos/NRG-Wardog/SideStore/git/trees/f67804f80036d5e50c4ca3846e25c5001c0386d9"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "approved_inputs_sha256": "1f129661ec646e3a7781bbca795603fe908d2ab72ecfd0d06affead097f8c62c",
+  "checks": {
+    "authenticated_original_capture": true,
+    "binary_archive_raw_members": true,
+    "complete_raw_evidence_index": true,
+    "finite_test_execution": true,
+    "genuine_observed_terminal_lock": true,
+    "ordered_argv_cwd_environment": true,
+    "owned_writer_settlement": true,
+    "resolved_package_sources": true,
+    "source_origin_full_tree": true,
+    "tool_sdk_compiler_product_bytes": true
+  },
+  "expected": {
+    "artifact_id": 12214974536,
+    "artifact_sha256": "4b9fe2ef1b783e00c154563966ab4141c75b71d28794322f28dba0690bd81989",
+    "artifact_size": 859501378,
+    "evidence_index_sha256": "044bfccf68ad75e5ba75362f09f7e6768f92673e50b04c98d8176048ecf1b610",
+    "host_commit": "4df0baa4f92274983a0d750cc5c3a3553600296b",
+    "host_tree": "3b3ff76bec2d99729a34f4c484e90d624ff9de46",
+    "lock_sha256": "834a2bdd30ceaa2fcbcd5c4826d6fd291ab5651692c99e39348e47da29e3deb9",
+    "repository": "NRG-Wardog/LiveContainer",
+    "run_attempt": 1,
+    "run_id": 39309171320
+  },
+  "frozen_adapter_sha256": "ed9b9bf8c963b2447c3b28b434c9c8a4d5be41a3e2bf076260a8701642ccff6b",
+  "original_receipt_sha256": {
+    "archive": "4b9fe2ef1b783e00c154563966ab4141c75b71d28794322f28dba0690bd81989",
+    "artifact_api": "df3ba46930e8f4b3c53600357df42e891f6fdf0c7f5cddffedc554c041ca9861",
+    "artifact_list_api": "10690599bbde969cafcdc48a95823826a2956f1a1d55f8cd4e5fc0f01f08a3d4",
+    "commit_api": "2ccdacca93b0c99676d3270490b05b29d8b2861f1e0bbf25c69c3333a79f2289",
+    "run_api": "3f55336540b54981d2f1972ea00ff9d6ca120d335cd106f25833337b247e8cab",
+    "upload_identity": "af44b4a7b3cababeb9b0124f8b85c0551e5ade9b65cf9cf1e348fa085f4d319f"
+  },
+  "replay_report_sha256": "f515f1a33e835b0810c14a007379ad66c1454220c5e0c10bb355419f59545a77",
+  "reviewer": "independent-original-reviewer-verify-successful-diagnostic-capture",
+  "schema_version": 1,
+  "scope": {
+    "compiled_final_lock_child": false,
+    "execution_admitted": false,
+    "guest_execution": false,
+    "live_provider_or_apple_requests": false,
+    "production_ready": false
+  },
+  "source_basis": "defensive-diagnostic-phase-a-swift-split-v1",
+  "status": "INDEPENDENT_DEFENSIVE_DIAGNOSTIC_PHASE_A_REVIEW_PASSED"
+}

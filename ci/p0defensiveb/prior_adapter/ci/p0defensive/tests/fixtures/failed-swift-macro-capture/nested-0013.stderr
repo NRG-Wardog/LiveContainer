@@ -1,0 +1,13 @@
+sandbox-exec: sandbox_apply: Operation not permitted
+/Users/runner/work/_temp/p0defensive-phase-a-work/sources/AnisetteKit/Sources/LoginDiagnosticTrace.swift:30:34: error: external macro implementation type 'SwiftMacros.TaskLocalMacro' could not be found for macro 'TaskLocal()'; '/Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server' produced malformed response
+ 28 | /// Detached tasks and IPC must propagate owned metadata explicitly, never credentials.
+ 29 | public final class LoginDiagnosticTrace: @unchecked Sendable {
+ 30 |     @TaskLocal public static var current: LoginDiagnosticTrace? = nil
+    |                                  `- error: external macro implementation type 'SwiftMacros.TaskLocalMacro' could not be found for macro 'TaskLocal()'; '/Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server' produced malformed response
+ 31 |     public static let maximumEvents = 128
+ 32 |     public static let maximumSnapshotBytes = 8192
+
+_Concurrency.TaskLocal:2:72: note: 'TaskLocal()' declared here
+1 | @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+2 | @attached(accessor) @attached(peer, names: prefixed(`$`)) public macro TaskLocal() = #externalMacro(module: "SwiftMacros", type: "TaskLocalMacro")
+  |                                                                        `- note: 'TaskLocal()' declared here

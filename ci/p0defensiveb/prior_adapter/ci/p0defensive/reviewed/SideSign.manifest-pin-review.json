@@ -1,0 +1,9 @@
+{
+  "after_manifest_sha256": "fb91426412f07b968131f2511bdd297874c418729466b2952a6e49d2313aa5a1",
+  "before_manifest_sha256": "42ff907b9d8600a9b2775bff06d53e5354361840bff975869c81c4360abf4fa3",
+  "original_independent_review_sha256": "a7b19c11beae5059303576c336861b18b367a4e73624db7993398964cd1bef42",
+  "published_reconstruction_required_sole_parent": "a375e72d1ff39319c14d22ab98ddecd46c758783",
+  "published_reconstruction_required_tree": "6ecab37d6f7d73763f50cc1f09ff1f93bd4ab9ee",
+  "schema": "diagnostic-pin-review-bridge-v1",
+  "unchanged_lock_sha256": "cdfe27d752edde2e836cd0c25166139223e233ba1c18aa6df69ba893d0a07c35"
+}

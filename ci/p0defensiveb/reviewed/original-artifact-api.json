@@ -1,0 +1,20 @@
+{
+  "archive_download_url": "https://api.github.com/repos/NRG-Wardog/LiveContainer/actions/artifacts/12214974536/zip",
+  "created_at": "2026-10-19T19:25:23Z",
+  "digest": "sha256:4b9fe2ef1b783e00c154563966ab4141c75b71d28794322f28dba0690bd81989",
+  "expired": false,
+  "expires_at": "2026-11-02T19:23:02Z",
+  "id": 12214974536,
+  "name": "p0-defensive-diagnostic-phase-a-4df0baa4f92274983a0d750cc5c3a3553600296b-39309171320-1",
+  "node_id": "MDg6QXJ0aWZhY3QxMjIxNDk3NDUzNg==",
+  "size_in_bytes": 859501378,
+  "updated_at": "2026-10-19T19:25:23Z",
+  "url": "https://api.github.com/repos/NRG-Wardog/LiveContainer/actions/artifacts/12214974536",
+  "workflow_run": {
+    "head_branch": "validation/p0-defensive-diagnostic-phase-a-swift-split",
+    "head_repository_id": 1366314274,
+    "head_sha": "4df0baa4f92274983a0d750cc5c3a3553600296b",
+    "id": 39309171320,
+    "repository_id": 1366314274
+  }
+}
