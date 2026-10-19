@@ -56,7 +56,7 @@
             let originalWindow = try await select(nil, phase: "initial"); deadline.cancel()
             deadline.arm(15, "owned-window-resize")
             let window = try await directResizeOwnedWindow(originalWindow, owner: owner, pid: pid,
-                directory: directory, select: { id, phase in try await select(id, phase: phase) })
+                session: session, directory: directory, select: { id, phase in try await select(id, phase: phase) })
             deadline.cancel()
             var timebase = mach_timebase_info_data_t()
             try require(mach_timebase_info(&timebase) == KERN_SUCCESS && timebase.numer > 0 && timebase.denom > 0, "invalid-mach-timebase")

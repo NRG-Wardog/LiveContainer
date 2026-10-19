@@ -33,7 +33,7 @@ def build(source,expected_sha):
         '''let originalWindow = try await select(nil, phase: "initial"); deadline.cancel()
             deadline.arm(15, "owned-window-resize")
             let window = try await directResizeOwnedWindow(originalWindow, owner: owner, pid: pid,
-                directory: directory, select: { id, phase in try await select(id, phase: phase) })
+                session: session, directory: directory, select: { id, phase in try await select(id, phase: phase) })
             deadline.cancel()''')
     source=replace_once(source,'            try require(CGPreflightScreenCaptureAccess(),',
         '            try require(session.utf8.count == 32 && session.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }, "invalid-direct-session")\n            result["session"] = session\n            try require(CGPreflightScreenCaptureAccess(),')
