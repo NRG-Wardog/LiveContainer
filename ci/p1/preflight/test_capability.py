@@ -886,8 +886,8 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def test_workflow_only_public_capture_probe_and_preserved_budgets(self):
         import yaml
         row=yaml.safe_load((HERE.parents[2]/'.github/workflows/p1-native-candidate.yml').read_text());jobs=row['jobs'];self.assertEqual(len(jobs),1)
-        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],10)
-        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],3);self.assertNotIn('--calibration-only',step['run']);self.assertIn('--capture-prerequisites',step['run']);self.assertEqual(step['run'].count('--full-recovery'),0);self.assertIn('preflight/budget.py',step['run'])
+        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],30)
+        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertNotIn('--calibration-only',step['run']);self.assertIn('preflight/window_capture.py',step['run']);self.assertNotIn('--capture-prerequisites',step['run']);self.assertEqual(step['run'].count('--full-recovery'),0);self.assertIn('preflight/budget.py',step['run'])
         self.assertNotIn("--device-class",step['run']);self.assertNotIn('native_gate.py',step['run'])
     def test_cli_rejects_unknown_class(self):
         import subprocess
