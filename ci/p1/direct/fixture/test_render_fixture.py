@@ -49,8 +49,8 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(overlay.count('clipsToBounds = true'),2)
         self.assertEqual(overlay.count('"source":"packet", "anchor":ordinal'),2)
         self.assertEqual(overlay.count('"source":"feature", "anchor":ordinal'),2)
-        self.assertIn('geometry.size.width-5',overlay)
-        self.assertIn('geometry.size.height-5',overlay)
+        self.assertIn('geometry.size.width-4.5',overlay)
+        self.assertIn('geometry.size.height-4.5',overlay)
         self.assertIn('whole\n// actual AX rectangle',overlay)
 
     def test_flush_after_start_event_before_polling(self):

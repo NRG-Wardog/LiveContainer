@@ -614,8 +614,8 @@ private struct P1DirectRegistrationConfiguration {
                                   y:value <= 2 ? 41 : geometry.size.height-41-Self.bottomRegistrationLift)
                     P1DirectFeature(configuration:configuration,ordinal:UInt32(value),receipt:receipt)
                         .frame(width:3,height:3)
-                        .position(x:(value == 1 || value == 3) ? 5 : geometry.size.width-5,
-                                  y:value <= 2 ? 5 : geometry.size.height-5-Self.bottomRegistrationLift)
+                        .position(x:(value == 1 || value == 3) ? 4.5 : geometry.size.width-4.5,
+                                  y:value <= 2 ? 4.5 : geometry.size.height-4.5-Self.bottomRegistrationLift)
                 }
             } else {
                 Color.red.accessibilityIdentifier("p1-direct-registration-error")

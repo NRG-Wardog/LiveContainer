@@ -10,7 +10,7 @@ import unittest
 import registration_bridge as bridge
 sys.path.insert(0, str(bridge.LOCAL / 'registration-experiment'))
 import explore as e
-FEATURES3 = tuple((Fraction(x)-Fraction(1,2),Fraction(y)-Fraction(1,2),3,3) for x,y,_,_ in e.FEATURE_RECTS)
+FEATURES3 = tuple((Fraction(x)+(-1 if i%2==0 else 0),Fraction(y)+(-1 if i<2 else 0),3,3) for i,(x,y,_,_) in enumerate(e.FEATURE_RECTS))
 from test_handoff_contract import request as basic_request
 from test_draw_receipts import events as draw_events
 
@@ -52,7 +52,7 @@ class BridgeTests(unittest.TestCase):
 
     def test_actual_retained_bytes_produce_six_frozen_rois(self):
         result = self.run_bridge(); proof = json.loads(result.proof_bytes)
-        self.assertEqual(proof['sameSampleROIs']['copiedBytes'], 430336)
+        self.assertEqual(proof['sameSampleROIs']['copiedBytes'], 438368)
         self.assertEqual(proof['liveMarker']['marker'], 456)
         self.assertEqual(proof['fitAnchors'], ['anchor-1','anchor-2','anchor-3'])
         self.assertEqual(proof['independentHoldout'], ['anchor-4'])

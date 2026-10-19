@@ -81,7 +81,7 @@ from the workspace root. The same tests pass under `python3 -B -O`.
 
 ## Isolated tiny features and explicit premise
 
-The overlay also draws four clipped, non-hit-testing, opaque magenta 3×3-point UIViews with AX identifiers `p1-direct-feature-1` through `-4`. Each sits diagonally outward from its corresponding packet board with a fixed 1.5-point source gap. The whole actual AX frame is measured by the handoff; nominal layout coordinates are never substituted for the measurement. Packet draws carry `source=packet`; feature draws carry `source=feature`. All eight draw bodies and their first-draw inventory must be retained. No production layout constraints or action/delay statements change.
+The overlay also draws four clipped, non-hit-testing, opaque magenta 3×3-point UIViews with AX identifiers `p1-direct-feature-1` through `-4`. Each sits diagonally outward from its corresponding packet board with a fixed 2-point source gap. The whole actual AX frame is measured by the handoff; nominal layout coordinates are never substituted for the measurement. Packet draws carry `source=packet`; feature draws carry `source=feature`. All eight draw bodies and their first-draw inventory must be retained. No production layout constraints or action/delay statements change.
 
 The interval adapter is conditional on exclusive source locality: observed qualifying magenta comes from that corresponding source-owned clipped UIView, under a single upright positive affine transform whose native filtering behavior is separately validated. An exact-color component and adjacency do not authenticate a same-colored foreign replacement. No exact vector edge, center, fixed pixel rendering error, or native presentation is asserted. Source binding, real pixel rejection of overlap/clipping, and independent holdout remain mandatory.
 
@@ -95,14 +95,14 @@ The native before screenshot is an XCTest3× attachment of1206×2622pixels. It d
 
 The actual370×74-point Copy AX rectangle, unlike the earlier210×44-point synthetic control, exceeded the superseded512KiB six-ROI budget at representative1.4× scale. The coordinated successor allows1MiB combined per complete frame while independently enforcing6000total records,3GiB cumulative raw pixels and4GiB inclusive archive. The exact actual-AX synthetic model now passes1.4×; larger-scale positives and an over1MiB negative retain every source region. These are area-renderer tests, not predictions of native window scale, filtering, or admission.
 
-## Three-point source feature successor
+## Historical centered three-point source feature successor
 
 Run39299912951 retained a783×1600 baseline in which each upper2-point feature
 formed two exact-magenta components separated by a BGRA(255,1,255,255) sample.
 The strict detector rejected all six components; that failure remains unchanged.
-The successor grows only the four source-owned features symmetrically to3×3points,
+That successor grew only the four source-owned features symmetrically to3×3points,
 with unchanged centers and packet/control positions. Whole measured3×3 AX bounds
-are mandatory. In the historical placement model feature3 is now
+are mandatory. In the historical placement model feature3 was
 [3.5,737.5,3,3], its full envelope ends at740.5, and the exact modeled marker gap
 is30.83333333333337points. All whole-region non-overlap checks remain.
 
@@ -111,3 +111,16 @@ holdout, whole-cell marker interiors, timing limits and storage bounds are
 unchanged. A4-point proposal failed the existing synthetic whole-cell interval
 check and was not adopted. Three-point synthetic success is not proof of native
 filtering/connectivity or capture acceptance.
+
+## Integral-origin three-point placement
+
+Run39302741403 rejected feature1 against the unchanged exact3×3 AX check;
+the returned rectangle was not retained, so snapping versus binary64 subtraction
+is unresolved. The new fixture moves each feature center0.5point outward
+(5→4.5 from its corner), giving integral source bounds while retaining3×3size.
+Packet boards and all product controls remain fixed. The historical layout model
+now gives feature3[3,738,3,3], with the full envelope ending741 and marker gap
+30.33333333333337points. Actual AX bounds are still measured in full, never
+replaced by these modeled coordinates. Failure text now retains the sampled
+feature identity/rectangle and window rectangle. No tolerance or decoder change
+is introduced; native geometry and pixel connectivity remain unproven.
