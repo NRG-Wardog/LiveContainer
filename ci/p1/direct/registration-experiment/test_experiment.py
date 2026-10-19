@@ -114,7 +114,7 @@ class ActualRenderedExperiment(unittest.TestCase):
     def test_revised_local_retention_cap_is_explicit(self):
         self.assertEqual(self.report["diagnosticROIBytes"], 410496)
         self.assertTrue(self.report["exceedsSuperseded256KiB"])
-        self.assertTrue(self.report["fitsCurrent512KiB"])
+        self.assertTrue(self.report["fitsCurrent1MiB"])
         self.assertEqual(self.report["recordCap"], 6000)
 
     def test_live_strip_uncertainty_is_not_collapsed(self):

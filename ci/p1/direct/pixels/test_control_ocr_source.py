@@ -22,4 +22,12 @@ class Tests(unittest.TestCase):
             self.assertIn(text,new)
         self.assertNotIn('"expectedLabel"',new)
 
+    def test_one_mib_and_three_gib_reader_caps(self):
+        source=(ROOT/'pixels/control_ocr.swift').read_text()
+        self.assertIn('maximum: 1024 * 1024',source)
+        cap=source.index('totalPackedBytes <= 3 * 1024 * 1024 * 1024 - packed.count')
+        self.assertLess(cap,source.index('totalPackedBytes += packed.count'))
+        self.assertLess(cap,source.index('var result = try inspect(control'))
+        self.assertIn('frames.count <= 6000',source)
+
 if __name__=='__main__':unittest.main()

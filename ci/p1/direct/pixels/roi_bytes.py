@@ -5,14 +5,14 @@ import re
 ROLES = ('control', 'marker', 'anchor-1', 'anchor-2', 'anchor-3', 'anchor-4')
 
 
-def extract(raw, width, height, stride, regions, *, session, record, max_bytes=512*1024):
+def extract(raw, width, height, stride, regions, *, session, record, max_bytes=1024*1024):
     if type(raw) is not bytes:
         raise ValueError('immutable sample bytes required')
     if any(type(x) is not int for x in (width,height,stride,record,max_bytes)):
         raise ValueError('integer geometry required')
     if not 1<=width<=2048 or not 1<=height<=2048 or not width*4<=stride<=width*4+256 or stride%4:
         raise ValueError('bounded BGRA geometry required')
-    if len(raw)!=height*stride or not 1<=record<=6000 or not 1<=max_bytes<=512*1024:
+    if len(raw)!=height*stride or not 1<=record<=6000 or not 1<=max_bytes<=1024*1024:
         raise ValueError('sample size/record/budget')
     if not isinstance(session,str) or re.fullmatch('[0-9a-f]{32}',session) is None:
         raise ValueError('session identifier')

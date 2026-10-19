@@ -28,8 +28,8 @@ class StripTests(unittest.TestCase):
         with self.assertRaises(ValueError):s.decode(raster(1)[:-1],192,16,self.cells())
     def test_strip_bytes_respect_revised_combined_frame_ceiling(self):
         row=raster(1)[:192*4]+bytes((1024-192)*4)
-        self.assertEqual(s.decode(row*128,1024,128,self.cells())['marker'],1)
+        self.assertEqual(s.decode(row*256,1024,256,self.cells())['marker'],1)
         with self.assertRaisesRegex(ValueError,'retained immutable strip bytes'):
-            s.decode(row*129,1024,129,self.cells())
+            s.decode(row*257,1024,257,self.cells())
 
 if __name__=='__main__':unittest.main()

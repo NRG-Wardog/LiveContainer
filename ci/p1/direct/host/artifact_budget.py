@@ -7,13 +7,13 @@ MAX_FILES=65536;MAX_PATH_BYTES=512;ARCHIVE_OVERHEAD=128*MIB
 MAX_EVIDENCE=4*GIB-ARCHIVE_OVERHEAD
 
 def preflight(root):
-    # Every frame's six ROIs together, not six independent512KiB allowances.
-    raw=6000*512*1024;metadata=6000*8192;context=64*MIB;journal=64*MIB;ancillary=512*MIB
+    # Every frame's six ROIs together, not six independent1MiB allowances.
+    raw_limit=3*GIB;raw=min(6000*MIB,raw_limit);metadata=6000*8192;context=64*MIB;journal=64*MIB;ancillary=512*MIB
     evidence=raw+metadata+context+journal+ancillary;archive=evidence+ARCHIVE_OVERHEAD
     peak=evidence+2*archive+512*MIB
     require(archive<=4*GIB,'declared evidence does not fit16 uncompressed parts')
     free=shutil.disk_usage(root).free;require(free>=peak,'insufficient conservative evidence/archive/parts/temp disk')
-    return dict(schema='p1-direct-inclusive-storage-plan-v1',maxRecords=6000,combinedROIPerRecord=512*1024,
+    return dict(schema='p1-direct-inclusive-storage-plan-v1',maxRecords=6000,combinedROIPerRecord=MIB,rawByteLimit=raw_limit,plannedRawBytes=raw,
                 metadataPerRecord=8192,contextBytes=context,journalBytes=journal,ancillaryBytes=ancillary,
                 archiveOverheadBytes=ARCHIVE_OVERHEAD,maxEvidenceBytes=MAX_EVIDENCE,
                 plannedEvidenceBytes=evidence,plannedArchiveBytes=archive,plannedPeakAdditionalBytes=peak,

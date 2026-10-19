@@ -12,6 +12,15 @@ HERE=Path(__file__).parent
 def build(source,expected_sha):
     if hashlib.sha256(source.encode()).hexdigest()!=expected_sha:raise ValueError('lifecycle source drift')
     source=source[source.index('@main struct Main'):]
+    source=replace_once(source,'        let args = CommandLine.arguments', '''        let args = CommandLine.arguments
+        if args.count == 2 && args[1] == "--check-existing-accessibility" {
+            let proof: [String: Any] = ["schema": "p1-direct-accessibility-prerequisite-v1",
+                "existingAccessibilityTrust": AXIsProcessTrusted(), "permissionRequested": false,
+                "windowsEnumerated": false, "pixelsCaptured": false, "admissionEligible": false]
+            guard let bytes = try? JSONSerialization.data(withJSONObject: proof, options: [.sortedKeys]) else { exit(2) }
+            FileHandle.standardOutput.write(bytes)
+            return
+        }''')
     source=replace_once(source,'args.count == 4','args.count == 7')
     source=replace_once(source,'let executable = args[2], directory = URL(fileURLWithPath: args[3], isDirectory: true)',
         'let executable = args[2], directory = URL(fileURLWithPath: args[3], isDirectory: true)\n        let session = args[4]\n        guard let observationDeadline = UInt64(args[5]), let cleanupDeadline = UInt64(args[6]) else { exit(2) }')
@@ -20,6 +29,12 @@ def build(source,expected_sha):
     source=replace_once(source,'let sink = Sink(directory: directory, pid: pid, executable: executable)',
         'let owner = DirectOwner(pid: pid, executable: executable)\n        var sink: DirectSink?')
     source=source.replace('sink.ownerValid()','owner.valid()')
+    source=replace_once(source,'let window = try await select(nil, phase: "initial"); deadline.cancel()',
+        '''let originalWindow = try await select(nil, phase: "initial"); deadline.cancel()
+            deadline.arm(15, "owned-window-resize")
+            let window = try await directResizeOwnedWindow(originalWindow, owner: owner, pid: pid,
+                directory: directory, select: { id, phase in try await select(id, phase: phase) })
+            deadline.cancel()''')
     source=replace_once(source,'            try require(CGPreflightScreenCaptureAccess(),',
         '            try require(session.utf8.count == 32 && session.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }, "invalid-direct-session")\n            result["session"] = session\n            try require(CGPreflightScreenCaptureAccess(),')
     start=source.index('            let configuration = SCStreamConfiguration()')

@@ -18,7 +18,7 @@ def assemble():
     a=reader.index('// P1_REQUEST_READER_BEGIN');b=reader.index('// P1_REQUEST_READER_END')+len('// P1_REQUEST_READER_END')
     transport=reader[a:b]
     prefix=source[:source.index('final class Sink:')]
-    pieces=[prefix,transport,(HERE/'roi_capture.swift').read_text(),(HERE/'session_io.swift').read_text(),sink_build(source,expected),main_build(source,expected)]
+    pieces=[prefix,transport,(HERE/'roi_capture.swift').read_text(),(HERE/'session_io.swift').read_text(),(HERE/'window_resize.swift').read_text(),sink_build(source,expected),main_build(source,expected)]
     output='\n\n'.join(pieces)
     (HERE/'direct_capture.swift').write_text(output)
     (HERE/'assembly-binding.json').write_text(json.dumps({'schema':'p1-direct-capture-local-assembly-v1',

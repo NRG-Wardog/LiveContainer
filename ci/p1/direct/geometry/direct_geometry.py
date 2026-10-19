@@ -536,25 +536,28 @@ class RetentionPlan:
     peak_disk_limit: int
     case_count: int = 1
     archive_limit: int = 4 * GIB
+    raw_limit: int = 3 * GIB
 
     def bounds(self):
         for name in self.__dataclass_fields__:
             integer(getattr(self, name))
         integer(self.record_limit, 1, 6000)
-        integer(self.roi_bytes_per_record, 1, 512 * 1024)
+        integer(self.roi_bytes_per_record, 1, 1024 * 1024)
         integer(self.metadata_bytes_per_record, 1)
         require(self.case_count == 1, "only one case per package is supported")
         require(self.archive_limit <= 4 * GIB and self.case_inclusive_limit <= self.archive_limit,
                 "existing 16-part archive ceiling exceeded")
-        require(self.record_limit * self.roi_bytes_per_record <= 3 * GIB,
-                "one-case raw pixel ceiling exceeded")
-        evidence = (self.record_limit * (self.roi_bytes_per_record + self.metadata_bytes_per_record)
+        integer(self.raw_limit, 1, 3 * GIB)
+        # The cumulative ceiling is enforced independently before every record.
+        raw = min(self.record_limit * self.roi_bytes_per_record, self.raw_limit)
+        evidence = (raw + self.record_limit * self.metadata_bytes_per_record
                     + self.context_bytes + self.journal_bytes + self.ancillary_bytes)
         archive = evidence + self.archive_overhead_bytes
         peak = evidence + archive * 2 + self.temporary_bytes
         require(archive <= self.case_inclusive_limit, "inclusive case/archive plan does not fit")
         require(peak <= self.peak_disk_limit, "source/archive/parts/temp peak does not fit")
-        return {"evidenceBytes": evidence, "archiveBytes": archive,
+        return {"rawBytes": raw, "rawByteLimit": self.raw_limit,
+                "evidenceBytes": evidence, "archiveBytes": archive,
                 "partBytes": archive, "peakDiskBytes": peak, "admissionEligible": False}
 
 
@@ -581,6 +584,7 @@ class RetentionLedger:
             require(self.records < self.plan.record_limit, "record ceiling exceeded")
             require(size <= self.plan.roi_bytes_per_record and
                     len(metadata) <= self.plan.metadata_bytes_per_record, "per-record byte ceiling exceeded")
+            require(self.raw <= self.plan.raw_limit - size, "cumulative raw pixel ceiling exceeded")
             self.records += 1; self.raw += size; self.metadata += len(metadata)
         except Exception:
             self.failed = True; raise

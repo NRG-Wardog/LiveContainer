@@ -74,17 +74,19 @@ guard let input = try JSONSerialization.jsonObject(with: inputBytes) as? [String
 let canonicalInput = try JSONSerialization.data(withJSONObject: input, options: [.sortedKeys, .withoutEscapingSlashes])
 try require(canonicalInput == inputBytes, "canonical unique OCR manifest")
 try require(session.utf8.count == 32 && session.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } && !frames.isEmpty && frames.count <= 6000, "session/frame inventory")
-var results: [[String: Any]] = []; var previous = 0
+var results: [[String: Any]] = []; var previous = 0; var totalPackedBytes = 0
 for frame in frames {
     try autoreleasepool {
         try require(Set(frame.keys) == ["record", "file", "packedSHA256", "offset", "width", "height", "controlSHA256"], "frame schema")
         let record = try integer(frame["record"], maximum: 6000)
-        let offset = try integer(frame["offset"], maximum: 512 * 1024)
+        let offset = try integer(frame["offset"], maximum: 1024 * 1024)
         let width = try integer(frame["width"], maximum: 2048), height = try integer(frame["height"], maximum: 2048)
         try require(record > previous && width > 0 && height > 0, "ordered frame/layout")
         guard let name = frame["file"] as? String else { throw DecodeFailure(reason: "frame name") }
         try require(name == String(format: "frame-%05d.rois.bgra", record - 1), "exact frame filename")
-        let packed = try read(root, name, maximum: 512 * 1024)
+        let packed = try read(root, name, maximum: 1024 * 1024)
+        try require(totalPackedBytes <= 3 * 1024 * 1024 * 1024 - packed.count, "cumulative packed-byte limit")
+        totalPackedBytes += packed.count
         try require(hash(packed) == frame["packedSHA256"] as? String && offset <= packed.count && width * height * 4 <= packed.count - offset, "packed pixel binding")
         let control = packed.subdata(in: offset..<(offset + width * height * 4))
         try require(hash(control) == frame["controlSHA256"] as? String, "control pixel binding")

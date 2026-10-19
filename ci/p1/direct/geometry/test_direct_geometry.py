@@ -39,7 +39,7 @@ def bundle(f):
 
 
 def plan(**changes):
-    base = g.RetentionPlan(6000, 512*1024, 4096, 16*1024*1024, 16*1024*1024,
+    base = g.RetentionPlan(6000, 1024*1024, 4096, 16*1024*1024, 16*1024*1024,
                            32*1024*1024, 64*1024*1024, 128*1024*1024,
                            4*g.GIB, 12*g.GIB)
     return replace(base, **changes)
@@ -279,8 +279,9 @@ class AbsenceSemantics(unittest.TestCase):
 class Retention(unittest.TestCase):
     def test_inclusive_proposed_plan_and_peak(self):
         result = plan().bounds()
-        self.assertEqual(6000*512*1024, 3145728000)
-        self.assertLess(6000*512*1024, 3*g.GIB)
+        self.assertEqual(6000*1024*1024, 6291456000)
+        self.assertEqual(result["rawBytes"], 3*g.GIB)
+        self.assertEqual(result["rawByteLimit"], 3*g.GIB)
         self.assertLess(result["archiveBytes"], 4*g.GIB)
         self.assertGreater(result["peakDiskBytes"], 3*result["evidenceBytes"])
         self.assertFalse(result["admissionEligible"])
@@ -295,7 +296,7 @@ class Retention(unittest.TestCase):
         p = plan()
         for changed in (replace(p, peak_disk_limit=p.bounds()["peakDiskBytes"]-1), replace(p, case_count=2),
                         replace(p, archive_limit=5*g.GIB), replace(p, record_limit=6001),
-                        replace(p, record_limit=12000), replace(p, roi_bytes_per_record=512*1024+1)):
+                        replace(p, record_limit=12000), replace(p, roi_bytes_per_record=1024*1024+1)):
             with self.assertRaises(g.InvalidEvidence):
                 changed.bounds()
 
@@ -316,14 +317,31 @@ class Retention(unittest.TestCase):
             ledger.verify_archive_size(24000)
 
     def test_maximum_raw_payload_and_one_byte_over(self):
-        payload = bytes(512*1024)
+        payload = bytes(1024*1024)
         ledger = g.RetentionLedger(plan())
         ledger.record((payload,), b"m")
-        self.assertEqual(ledger.raw, 512*1024)
+        self.assertEqual(ledger.raw, 1024*1024)
         with self.assertRaisesRegex(g.InvalidEvidence, "per-record"):
             ledger.record((payload, b"x"), b"m")
         with self.assertRaisesRegex(g.InvalidEvidence, "latched"):
             ledger.record((), b"m")
+
+    def test_exact_cumulative_three_gib_and_one_pixel_over_latches(self):
+        payload = bytes(1024*1024)
+        ledger = g.RetentionLedger(plan())
+        for _ in range(3072):
+            ledger.record((payload,), b"m")
+        self.assertEqual(ledger.raw, 3*g.GIB)
+        self.assertEqual(ledger.records, 3072)
+        with self.assertRaisesRegex(g.InvalidEvidence, "cumulative raw"):
+            ledger.record((b"pixel"[:4],), b"m")
+        self.assertEqual(ledger.raw, 3*g.GIB)
+        self.assertEqual(ledger.records, 3072)
+        with self.assertRaisesRegex(g.InvalidEvidence, "latched"):
+            ledger.record((), b"m")
+        with self.assertRaises(g.InvalidEvidence):
+            plan(raw_limit=3*g.GIB+1).bounds()
+        self.assertEqual(plan(record_limit=2).bounds()["rawBytes"], 2*1024*1024)
 
     def test_archive_four_gib_boundary_and_one_byte_over(self):
         small = plan(record_limit=1, roi_bytes_per_record=1, metadata_bytes_per_record=1,

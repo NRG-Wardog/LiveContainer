@@ -91,7 +91,8 @@ def trial(*, scale=F(7, 5), tx=F(28, 5), ty=F(231, 5), rendered_feature_rects=e.
                   geometryFreezeSucceeded=frozen is not None, geometryFailure=freeze_error,
                   diagnosticROIs=roi_rows, diagnosticROIBytes=total,
                   exceedsSuperseded256KiB=total > 256 * 1024,
-                  fitsCurrent512KiB=total <= 512 * 1024, recordCap=6000,
+                  exceedsSuperseded512KiB=total > 512 * 1024,
+                  fitsCurrent1MiB=total <= 1024 * 1024, recordCap=6000,
                   stripCellXInteriorDiagnostics=interior_diagnostics,
                   stripInteriorsFound=cells is not None, stripFailure=strip_error, stripDecoded=decoded_strip,
                   wholeCellExperiment=dict(interiorsFound=whole_cells is not None, failure=whole_error,
@@ -110,7 +111,7 @@ if __name__ == "__main__":
     (e.HERE / "tiny-feature-result.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
     print("components:", [r["bounds"] for r in report["componentObservation"]["components"]])
     print("viewport:", report["viewportOutwardPixels"], "freeze:", report["geometryFailure"] or "passed")
-    print("ROI bytes:", report["diagnosticROIBytes"], "fits current 512KiB:", report["fitsCurrent512KiB"])
+    print("ROI bytes:", report["diagnosticROIBytes"], "fits current1MiB:", report["fitsCurrent1MiB"])
     print("strip:", report["stripFailure"] or report["stripDecoded"]["marker"], "admissionEligible=false")
     whole = report["wholeCellExperiment"]
     print("whole-cell strip:", whole["failure"] or whole["decoded"]["marker"], "admissionEligible=false")

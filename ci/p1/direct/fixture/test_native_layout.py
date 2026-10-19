@@ -92,9 +92,9 @@ class NativeLayoutTests(unittest.TestCase):
         self.assertIn('[copyFrame, markerFrame, baselineFrame] + anchorFrames',observer)
         self.assertIn('$0.intersects(frame)',observer)
 
-    def test_actual_sized_control_retains_current_roi_cap_at_representative_scale(self):
+    def test_actual_sized_control_fits_one_mib_successor_at_representative_scale(self):
         # Synthetic upright1.4x area-coverage model only. The actual SCS scale
-        #is not established by the3x XCTest screenshot. Keep this rejection.
+        #is not established by the3x XCTest screenshot. No native admission.
         sys.path[:0]=[str(LOCAL/'pixels'),str(LOCAL.parent/'window-capture-candidate/ci/p1/preflight')]
         import test_registration_bridge as t
         b=t.bridge;e=t.e;boards,features=modeled(96);row=t.request();geometry=row['geometry']
@@ -107,12 +107,60 @@ class NativeLayoutTests(unittest.TestCase):
         def inspect(*args,**kwargs):
             observed['plan']=deepcopy(args[4]);return original(*args,**kwargs)
         with patch.object(b.roi_bytes,'extract',side_effect=inspect):
-            with self.assertRaisesRegex(ValueError,'ROI byte ceiling exceeded'):
-                b.freeze_registration(b.handoff.canonical(row),raw,e.WIDTH,e.HEIGHT,stride,
-                    identity=b.g.RasterIdentity(e.SESSION,101,99,e.WIDTH,e.HEIGHT,e.APP),
-                    expected_frame_sha256=sha256(raw).hexdigest(),event_files=t.event_files(),expected_source_hashes=b.source_hashes())
+            result=b.freeze_registration(b.handoff.canonical(row),raw,e.WIDTH,e.HEIGHT,stride,
+                identity=b.g.RasterIdentity(e.SESSION,101,99,e.WIDTH,e.HEIGHT,e.APP),
+                expected_frame_sha256=sha256(raw).hexdigest(),event_files=t.event_files(),expected_source_hashes=b.source_hashes())
+        proof=json.loads(result.proof_bytes)
+        self.assertFalse(proof['admissionEligible'])
+        self.assertEqual(proof['liveMarker']['marker'],456)
+        self.assertEqual(proof['independentHoldout'],['anchor-4'])
         regions=list(observed['plan'].values())
         for i,region in enumerate(regions):self.assertTrue(all(not overlap(region,other) for other in regions[:i]))
         self.assertGreater(sum(w*h*4 for _,_,w,h in regions),512*1024)
+        self.assertLessEqual(sum(w*h*4 for _,_,w,h in regions),1024*1024)
+
+    def test_actual_ax_at_larger_source_scales_and_one_mib_rejection(self):
+        # Exact area-coverage renderer only; these are source scales, never an
+        # assumed Simulator outer-window size or native filtering guarantee.
+        from fractions import Fraction as F
+        import math
+        sys.path[:0]=[str(LOCAL/'pixels'),str(LOCAL.parent/'window-capture-candidate/ci/p1/preflight')]
+        import test_registration_bridge as t
+        b=t.bridge;e=t.e;boards,features=modeled(96)
+        row=t.request();geometry=row['geometry']
+        for key in ('windowFrame','copyFrame','markerFrame','baselineFrame'):geometry[key]=deepcopy(FIXTURE['actualAX'][key])
+        for item,rect in zip(geometry['anchors'],boards):item['frame']=rect
+        for item,rect in zip(geometry['features'],features):item['frame']=rect
+        for scale in (F(3,2),F(8,5),F(9,5),F(41,20)):
+            with self.subTest(scale=str(scale)):
+                width=math.ceil(402*scale)+64;height=math.ceil(874*scale)+128
+                self.assertLessEqual(height,2048)
+                with patch.multiple(e,WIDTH=width,HEIGHT=height,AX_RECTS=tuple(map(tuple,boards)),MARKER=b.exact_rect(geometry['markerFrame'])):
+                    raw,stride=e.render(scale=scale,tx=F(32),ty=F(96),tiny_features=True,strip=True,feature_rects=features)
+                def freeze():
+                    return b.freeze_registration(b.handoff.canonical(row),raw,width,height,stride,
+                        identity=b.g.RasterIdentity(e.SESSION,101,99,width,height,e.APP),
+                        expected_frame_sha256=sha256(raw).hexdigest(),event_files=t.event_files(),expected_source_hashes=b.source_hashes())
+                if scale==F(41,20):
+                    with self.assertRaisesRegex(ValueError,'ROI byte ceiling exceeded'):freeze()
+                    continue
+                result=freeze();proof=json.loads(result.proof_bytes)
+                self.assertLessEqual(proof['sameSampleROIs']['copiedBytes'],1024*1024)
+                self.assertGreater(proof['sameSampleROIs']['copiedBytes'],512*1024)
+                self.assertEqual(proof['liveMarker']['marker'],456)
+                self.assertEqual(proof['independentHoldout'],['anchor-4'])
+                self.assertFalse(proof['admissionEligible'])
+                for axis,translation in (('x',F(32)),('y',F(96))):
+                    for app,pixel in b.g._observations(result.frozen.anchors,axis):
+                        self.assertLessEqual(pixel.lo-scale*app.hi,translation)
+                        self.assertLessEqual(translation,pixel.hi-scale*app.lo)
+                crop=dict(result.frozen.rois)['marker'];marker=tuple(F(v) for v in geometry['markerFrame'])
+                cells=b.live_strip.cell_interiors(marker,result.frozen.x_region,result.frozen.y_region,(crop.x,crop.y,crop.width,crop.height))
+                for index,(x0,y0,x1,y1) in enumerate(cells):
+                    left,top,mw,mh=marker
+                    self.assertLessEqual(F(32)+scale*(left+mw*F(index,24)),crop.x+x0)
+                    self.assertLessEqual(crop.x+x1,F(32)+scale*(left+mw*F(index+1,24)))
+                    self.assertLessEqual(F(96)+scale*top,crop.y+y0)
+                    self.assertLessEqual(crop.y+y1,F(96)+scale*(top+mh))
 
 if __name__=='__main__':unittest.main()

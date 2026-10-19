@@ -2,6 +2,14 @@
 @main struct Main {
     @MainActor static func main() async {
         let args = CommandLine.arguments
+        if args.count == 2 && args[1] == "--check-existing-accessibility" {
+            let proof: [String: Any] = ["schema": "p1-direct-accessibility-prerequisite-v1",
+                "existingAccessibilityTrust": AXIsProcessTrusted(), "permissionRequested": false,
+                "windowsEnumerated": false, "pixelsCaptured": false, "admissionEligible": false]
+            guard let bytes = try? JSONSerialization.data(withJSONObject: proof, options: [.sortedKeys]) else { exit(2) }
+            FileHandle.standardOutput.write(bytes)
+            return
+        }
         guard args.count == 7, let pid = Int32(args[1]), pid > 1 else { exit(2) }
         let executable = args[2], directory = URL(fileURLWithPath: args[3], isDirectory: true)
         let session = args[4]
@@ -45,7 +53,11 @@
                 return windows[0]
             }
             deadline.arm(15, "window-enumeration")
-            let window = try await select(nil, phase: "initial"); deadline.cancel()
+            let originalWindow = try await select(nil, phase: "initial"); deadline.cancel()
+            deadline.arm(15, "owned-window-resize")
+            let window = try await directResizeOwnedWindow(originalWindow, owner: owner, pid: pid,
+                directory: directory, select: { id, phase in try await select(id, phase: phase) })
+            deadline.cancel()
             var timebase = mach_timebase_info_data_t()
             try require(mach_timebase_info(&timebase) == KERN_SUCCESS && timebase.numer > 0 && timebase.denom > 0, "invalid-mach-timebase")
             result["windowID"] = window.windowID; result["ownerPID"] = pid; result["executable"] = executable

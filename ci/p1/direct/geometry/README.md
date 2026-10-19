@@ -92,12 +92,16 @@ lower bound is therefore intentional. This API must not be reused for a
 compressed archive without an explicit reviewed contract change. No producer or
 packaging behavior has been changed by this primitive.
 
-The revised local prototype caps all delivered records at 6,000 and the combined
-raw ROI payload per complete record at 512 KiB. Their product is 3,145,728,000
-bytes (2.9296875 GiB), below the unchanged 3 GiB raw ceiling. This is the same
-raw maximum as the superseded 12,000 × 256 KiB draft. Metadata, full contexts,
-journals, ancillary output and ZIP_STORED overhead still must fit the inclusive
-4 GiB single-case archive ceiling; peak-disk accounting is unchanged.
+The bounded successor caps all delivered records at6,000 and the six combined
+raw ROI payloads per complete record at1MiB. The independent3GiB cumulative
+raw ceiling is checked before admitting each record; maximum raw storage is
+min(6000×1MiB,3GiB), never the unenforced6,291,456,000-byte product. At exactly
+1MiB per complete frame the raw ceiling permits3072complete frames; an additional
+nonempty frame fails without sample dropping. Metadata still budgets all6000rows.
+Full contexts, journals, ancillary output and ZIP_STORED overhead must fit the
+unchanged inclusive4GiB single-case archive; peak disk includes evidence, archive,
+parts and temporary storage. This supersedes512KiB per record without changing
+measurement, ownership, timing or acceptance criteria.
 
 At requested 30 Hz, 6,000 records would cover only about 200 seconds before
 counting noncomplete status records. This is not a native rate/duration promise,

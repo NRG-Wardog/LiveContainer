@@ -6,7 +6,7 @@ Not compiled or executed. No published source or workflow is changed.
 copies their rows losslessly from one locked BGRA buffer into one packed payload.
 The order is control, live marker, and four independent registration anchors.
 It enforces the same width/height/stride contract as `pixels/roi_bytes.py` and
-caps total retained ROI bytes at 512 KiB per complete frame. There is no PNG
+caps total retained ROI bytes at 1 MiB per complete frame. There is no PNG
 conversion, OCR, color normalization or resampling in this path.
 
 `direct_sink.swift` is generated from the exact previously reviewed owned-window
@@ -59,3 +59,10 @@ records its effective remaining allowance; delayed startup cannot reset it.
 A terminal watchdog is independent of stage cancellation. The original
 240-second native test allowance remains separate and unchanged. Timeout or
 forced settlement still fails collection. These are uncompiled draft semantics.
+
+
+## Owned-window source sizing
+
+The compiled direct helper first reports existing accessibility trust in a bounded10-second, read-only preflight before fixture checkout/build/boot. A false result stops immediately. It checks trust again at the actual resize without requesting it. Before freezing its single-window capture filter, it matches the sole accessibility window of the retained Simulator process to the sole ScreenCaptureKit window by exact PID and frame, and makes at most one public size request of700x1550 points. The15-second observation-stage watchdog covers the complete operation, including bounded AX messaging and stable-frame verification. No window position, permission, global display setting or unrelated window is changed. An already requested size requires no mutation.
+
+This is a source-window sizing attempt, not output-image enlargement. The helper still configures output from the actual content rectangle and native pointPixelScale. Requested dimensions do not establish source resolution or timing: actual four-board decoding, feature locality, whole-ROI geometry, identity and all timing predicates must still pass. Missing trust, ambiguous AX/SC correspondence or an unsettled window fails closed.

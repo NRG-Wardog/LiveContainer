@@ -41,7 +41,7 @@ struct DirectROIPlan {
                             "overlapping-rois")
             }
         }
-        try require(byteCount <= 512 * 1024, "roi-byte-limit")
+        try require(byteCount <= 1024 * 1024, "roi-byte-limit")
     }
 }
 

@@ -13,6 +13,11 @@ def require(ok,message):
 def integer(value,minimum=0,maximum=2**64-1):
     require(type(value) is int and minimum<=value<=maximum,'bounded record integer');return value
 
+def _add_raw_bytes(total,size):
+    integer(total,0,3*1024**3);integer(size,0,1024*1024)
+    require(total<=3*1024**3-size,'aggregate raw limit')
+    return total+size
+
 def _inspect(samples,plan,*,timebase,load,expected_geometry,single=False):
     require(type(samples) is dict and set(samples)=={'frames','completeFrames','deliveredRecords','overflowRecords','copiedBytes','error'},'exact sample inventory')
     require(samples['error'] is None and type(samples['overflowRecords']) is int and samples['overflowRecords']==0,'sample failure/overflow')
@@ -44,7 +49,7 @@ def _inspect(samples,plan,*,timebase,load,expected_geometry,single=False):
             require(not (x<ox+ow and ox<x+w and y<oy+oh and oy<y+h),'overlapping plan regions')
         expected.append({'role':region['role'],'rectangle':[x,y,w,h],'offset':offset,'bytes':w*h*4,'stride':w*4})
         offset+=w*h*4
-    require(offset<=512*1024,'combined ROI budget')
+    require(offset<=1024*1024,'combined ROI budget')
     result=[];complete=0;total=0;previous_callback=None;previous_display=None;geometry=None;started=False;stopped=False
     for ordinal,row in enumerate(rows):
         index=integer(row.get('index'),0,5999) if single else ordinal
@@ -82,6 +87,7 @@ def _inspect(samples,plan,*,timebase,load,expected_geometry,single=False):
         if not single:require(current==expected_geometry,'initial geometry differs from finalized identity')
         geometry=deepcopy(current)
         filename=f'frame-{index:05d}.rois.bgra';require(row.get('packedPixels')==filename,'packed filename')
+        next_total=_add_raw_bytes(total,offset)
         raw=load(filename)
         require(type(raw) is bytes and len(raw)==offset and sha256(raw).hexdigest()==row.get('packedPixelSHA256'),'retained packed bytes/hash')
         require(integer(row.get('copiedBytes'))==offset,'copied-byte receipt')
@@ -95,8 +101,7 @@ def _inspect(samples,plan,*,timebase,load,expected_geometry,single=False):
             crop=raw[wanted['offset']:wanted['offset']+wanted['bytes']]
             require(sha256(crop).hexdigest()==measured['sha256'],'region hash')
             crops[wanted['role']]=crop
-        total+=len(raw);complete+=1
-        require(total<=3*1024**3,'aggregate raw limit')
+        total=next_total;complete+=1
         result.append({'index':index,'status':name,'newFrame':True,'displayTicks':display,
                        'timebaseNumer':numer,'timebaseDenom':denom,'crops':crops,'regions':deepcopy(actual),
                        'packedPixels':filename,'packedSHA256':sha256(raw).hexdigest(),

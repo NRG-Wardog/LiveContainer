@@ -20,7 +20,7 @@ for path in (LOCAL/'analysis',LOCAL/'pixels'):
     if str(path) not in sys.path:sys.path.insert(0,str(path))
 import timeout_case,evidence_joins,packed_frames,registration_bridge as bridge
 import build_independent_ocr
-CONTROL_SHA='7e7295d90410780625815b6bddc287de4dd4be79b1762fb0436a3c32faa50722'
+CONTROL_SHA='b7c2b1574323621d981f2984a6ffcb568dea116e251007118154a5119489d8cc'
 INDEPENDENT_SHA='820bd947cd3b2ac43ef3078f620634f4199846a732c8165d046a14cf04a80592'
 VIDEO_CAPTURE_SHA='4f2d23438100bf2baa0805623fbb534e72588798d34d6c7245754786694b802d'
 
@@ -260,7 +260,7 @@ def run(runtime,context):
         expected=parse(replay_binding.proof_bytes)['nativeStreamMetadata']
         geometry=(expected['contentRect'],expected['contentScale'],expected['scaleFactor'])
         records=packed_frames.inspect(result['samples'],capture.plan,timebase=capture.timebase,
-                                      load=lambda name:frames.read(name,512*1024),expected_geometry=geometry)
+                                      load=lambda name:frames.read(name,1024*1024),expected_geometry=geometry)
         frame_inventory(frames,records)
         report['finalContext']=final_context(frames,capture.plan,runtime.session)
         for phase in ('final','after-final-context'):
@@ -308,7 +308,7 @@ def run(runtime,context):
         for row in records:
             runtime.remaining(1)
             if row['newFrame']:
-                require(sha256(frames.read(row['packedPixels'],512*1024)).hexdigest()==row['packedSHA256'],'retained frame bytes changed after replay')
+                require(sha256(frames.read(row['packedPixels'],1024*1024)).hexdigest()==row['packedSHA256'],'retained frame bytes changed after replay')
         require({p:sha256(read(Path(p),256*1024)).hexdigest() for p in journal_hashes}==journal_hashes,'journal changed during offline decoding')
         report['stage']='conditional-timeout-analysis'
         analysis=timeout_case.inspect(clock_document=protocol['clockDocument'],expected_identity=identity,

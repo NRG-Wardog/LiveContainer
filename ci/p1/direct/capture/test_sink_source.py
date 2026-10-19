@@ -23,7 +23,7 @@ class SinkTests(unittest.TestCase):
         source=(HERE/'roi_capture.swift').read_text()
         self.assertIn('base.advanced(by: row * plan.sourceStride + region.x * 4)',source)
         self.assertIn('region.width * 4',source)
-        self.assertIn('byteCount <= 512 * 1024',source)
+        self.assertIn('byteCount <= 1024 * 1024',source)
         self.assertNotIn('byteCount <= 256 * 1024',source)
         self.assertIn('"displayTimeEstablished": false',source)
         self.assertIn('CGPreflightScreenCaptureAccess()',source)

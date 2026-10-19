@@ -28,4 +28,17 @@ class Tests(unittest.TestCase):
         with patch.object(b.shutil,'disk_usage',return_value=type('D',(),{'free':100*b.GIB})()):
             r=b.preflight(Path('/tmp'));self.assertLessEqual(r['plannedArchiveBytes'],4*b.GIB)
             self.assertGreater(r['plannedPeakAdditionalBytes'],3*r['plannedEvidenceBytes'])
+            self.assertEqual(r['combinedROIPerRecord'],b.MIB)
+            self.assertEqual(r['rawByteLimit'],3*b.GIB)
+            self.assertEqual(r['plannedRawBytes'],min(6000*b.MIB,3*b.GIB))
+            self.assertEqual(r['plannedEvidenceBytes'],3*b.GIB+6000*8192+64*b.MIB+64*b.MIB+512*b.MIB)
+            self.assertEqual(r['plannedArchiveBytes'],r['plannedEvidenceBytes']+128*b.MIB)
+    def test_exact_peak_free_bytes_and_one_byte_less(self):
+        with patch.object(b.shutil,'disk_usage',return_value=type('D',(),{'free':100*b.GIB})()):
+            required=b.preflight(Path('/tmp'))['plannedPeakAdditionalBytes']
+        with patch.object(b.shutil,'disk_usage',return_value=type('D',(),{'free':required})()):
+            self.assertEqual(b.preflight(Path('/tmp'))['observedFreeBytes'],required)
+        with patch.object(b.shutil,'disk_usage',return_value=type('D',(),{'free':required-1})()):
+            with self.assertRaisesRegex(ValueError,'insufficient conservative'):b.preflight(Path('/tmp'))
+
 if __name__=='__main__':unittest.main()

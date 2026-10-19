@@ -31,7 +31,7 @@ PINNED={
 SOURCES=(Path(__file__),Path(native_process.__file__),LOCAL/'host/fixture_channel.py',LOCAL/'host/journal.py',
          Path(case_budget.__file__),Path(native_channels.__file__),Path(native_case.__file__),*(PREFLIGHT/name for name in PINNED),
          *(LOCAL/'capture'/name for name in ('direct_capture.swift','assembly-binding.json','assemble.py',
-             'build_main.py','build_sink.py','direct_main.swift','direct_sink.swift','roi_capture.swift','session_io.swift')))
+             'build_main.py','build_sink.py','direct_main.swift','direct_sink.swift','roi_capture.swift','session_io.swift','window_resize.swift')))
 
 
 def source_hashes():
@@ -439,7 +439,7 @@ class CaptureHandoff:
                     'native Mach timebase differs from owned budget sample')
             integer(row['startCaptureReturnedMach'],self.budget['startSample']['machTicks'],self.budget['observationDeadlineMach']-1)
             manifest=parse(first);index=integer(manifest.get('index'),0,5999)
-            packed=self._read(self.frames,f'frame-{index:05d}.rois.bgra',512*1024)
+            packed=self._read(self.frames,f'frame-{index:05d}.rois.bgra',1024*1024)
             require(packed is not None,'first complete packed pixels absent')
             self.bridge.packed_frames.inspect_first(manifest,self.plan,timebase=self.timebase,
                 load=lambda name:packed if name==f'frame-{index:05d}.rois.bgra' else None)

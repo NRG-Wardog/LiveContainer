@@ -47,7 +47,7 @@ def cell_interiors(marker, x_region, y_region, crop):
 def decode(data,width,height,cells):
     if type(width) is not int or type(height) is not int or not 1<=width<=2048 or not 1<=height<=2048:
         raise ValueError('bounded strip geometry')
-    if type(data) is not bytes or len(data)!=width*height*4 or len(data)>512*1024:raise ValueError('retained immutable strip bytes')
+    if type(data) is not bytes or len(data)!=width*height*4 or len(data)>1024*1024:raise ValueError('retained immutable strip bytes')
     if type(cells) is not tuple or len(cells)!=24:raise ValueError('all24 cell interiors required')
     bits=[];prior=-1
     for rectangle in cells:
