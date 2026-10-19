@@ -9,6 +9,21 @@ class CoverageTests(unittest.TestCase):
         value=c.coverage(self.rows(),(-1_000_000,1_000_000),(150_000_000,160_000_000),(440_000_000,450_000_000))
         self.assertEqual((value['firstRecord'],value['lastRecord']),(1,5))
         self.assertFalse(value['admissionEligible'])
+    def test_late_callback_or_persistence_cannot_move_observation_or_fill_stale_gap(self):
+        rows=self.rows();bounds=((0,0),(150_000_000,160_000_000),(440_000_000,450_000_000))
+        expected=c.coverage(rows,*bounds)
+        for row in rows:
+            row.update(callbackBeforeMach=9_000_000_000,callbackAfterMach=9_200_000_000,
+                       persistenceFinishedMach=10_000_000_000,historical5msExceeded=True)
+        self.assertEqual(c.coverage(rows,*bounds),expected)
+        rows[2]['displayTicks']=rows[1]['displayTicks']
+        with self.assertRaisesRegex(ValueError,'nonmonotonic'):
+            c.coverage(rows,*bounds)
+        rows=self.rows();rows[2]['displayTicks']+=21_000_000
+        rows[2]['callbackAfterMach']=301_000_000
+        with self.assertRaisesRegex(ValueError,'gap exceeds 120 ms'):
+            c.coverage(rows,*bounds)
+
     def test_idle_cannot_repair_gap(self):
         rows=self.rows();rows[2]['status']='idle'
         with self.assertRaises(ValueError):c.coverage(rows,(0,0),(150_000_000,160_000_000),(440_000_000,450_000_000))

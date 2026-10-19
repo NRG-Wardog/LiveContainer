@@ -10,13 +10,28 @@ class SinkTests(unittest.TestCase):
         self.assertEqual(result,(HERE/'direct_sink.swift').read_text())
         for token in ('CGImageDestination','CGDataProvider','UTType.png','read(contentsOf:'):
             self.assertNotIn(token,result)
-        self.assertIn('records.count < 6000',result)
-        self.assertNotIn('records.count < 12000',result)
+        self.assertIn('delivered <= 6000',result)
+        self.assertNotIn('delivered <= 12000',result)
         self.assertIn('3 * 1024 * 1024 * 1024 - size',result)
         for token in ('ownerValid()', 'display > 0 && display > lastDisplay',
                       'prior == currentGeometry','prior-frame-failure-latched',
                       'noncomplete-frame-status','frame-after-stopped','queue.sync'):
             self.assertIn(token,result)
+    def test_bounded_persistence_and_drain_preserve_first_byte_readiness(self):
+        source=(HERE/'direct_sink.swift').read_text()
+        self.assertIn('guard pendingRecords < 2',source)
+        self.assertIn('failed("persistence-backpressure")',source)
+        self.assertLess(source.index('pendingRecords += 1'),source.index('directCopyROIs('))
+        self.assertLess(source.index('captured.data = nil'),source.index('pendingRecords -= 1'))
+        self.assertLess(source.index('row["callbackAfterMach"]'),source.index('persistence.async'))
+        self.assertLess(source.index('persistence.async'),source.index('directROIManifest(plan, packed: data)'))
+        self.assertLess(source.index('try data.write('),source.index('firstCompleteRecord = retained'))
+        self.assertLess(source.index('records.append(retained)'),source.index('firstCompleteRecord = retained'))
+        self.assertIn('retained["error"] = code; failed(code)',source)
+        self.assertIn('queue.sync {}\n        return persistence.sync',source)
+        self.assertNotIn('asyncAfter',source)
+        self.assertNotIn('sample:',source[source.index('persistence.async'):])
+
     def test_source_drift_fails(self):
         with self.assertRaises(ValueError):build_sink.build(build_sink.SOURCE.read_text()+'\n',(HERE/'source-sha256.txt').read_text().strip())
     def test_exact_lossless_regions_and_full_context_are_distinct(self):
@@ -31,7 +46,7 @@ class SinkTests(unittest.TestCase):
         self.assertNotIn('SCContentFilter(display:',source)
     def test_record_and_raw_cap_checks_precede_copy_and_write(self):
         source=(HERE/'direct_sink.swift').read_text()
-        cap=source.index('records.count < 6000')
+        cap=source.index('delivered <= 6000')
         byte_cap=source.index('copiedBytes <= 3 * 1024 * 1024 * 1024 - size')
         copy=source.index('directCopyROIs(buffer, plan: plan)')
         write=source.index('try data.write(')

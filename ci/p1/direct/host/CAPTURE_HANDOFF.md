@@ -49,3 +49,11 @@ The host enforces its stage allowance, a 120-second local setup ceiling and the 
 The ack is published only after validated owned-device/GUI/helper/XCTest evidence, both exact censuses, real decoded nonce boards/features, unchanged full-control ROIs, accepted plan, native stream start and retained first complete pixels. It retains exact ack/proof bytes and resolvable evidence hashes before atomic publication. A final helper report or stage-timeout file, early stop request, stale ack, foreign directory, mutation or owner error prevents publication. A later callback or future failure remains a final-collection failure; readiness does not assert that all future records or ownership observations are valid.
 
 Native source locality/exclusivity, upright affine rendering and native filtering behavior remain explicit prerequisites not proven by synthetic raster tests. Registration and readiness are therefore conditional and never grant timing/product admission. All-record clocks, OCR, coverage, observer costs, final full context, source identity, cleanup and external review remain separate gates.
+
+The live-window binding v2 retains the initial owned census, the exact successful
+direct-preset resize receipt, and the fresh resized census. Session, PID, CG ID,
+initial frame and final validated frame must join exactly. Registration freezes
+that post-resize frame; stream readiness and both final censuses must match it.
+The original pre-resize frame remains evidence of the transition and cannot be
+mistaken for the captured window geometry. Failed actions, ambiguous windows,
+stale resized evidence or a later frame change still fail closed.

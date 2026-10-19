@@ -365,6 +365,40 @@ class CaptureHandoff:
         found=[w for w in row['windows'] if w['windowID']==expected['windowID']]
         require(found==[expected],'registered window/frame changed');return found[0]
 
+    def _resized_window(self,initial,raw,census):
+        row=parse(raw)
+        require(type(row) is dict,'resize object')
+        optional=('activationRequestAccepted',) if 'activationRequestAccepted' in row else ()
+        row=exact(row,('schema','session','ownerPID','windowID','existingAccessibilityTrust',
+            'permissionRequested','mutationAttempted','requestedPreset','beforeFrame','afterFrame',
+            'activationAttempted','ownerActiveBefore','ownerActiveAfter',
+            'matchingWindowMenus','matchingPixelAccurateItems','directPresetEnabledAXError',
+            'directPresetEnabledBoolean','directPresetEnabledTypeID','directPresetEnabledTypeIsBoolean',
+            'actionAXError','presetAttemptMach','route','menuOpenAttempted','menuNotificationEvidenceClaimed',
+            'sameOwnedWindowSettled','sourceResolutionEstablished','admissionEligible')+optional)
+        require(row['schema']=='p1-direct-owned-window-resize-v1' and row['session']==self.session and
+            type(row['ownerPID']) is int and row['ownerPID']==self.gui.process.pid and
+            type(row['windowID']) is int and row['windowID']==initial['windowID'] and
+            rectangle(row['beforeFrame'])==initial['frame'],'resize initial owner/window binding')
+        for key in ('existingAccessibilityTrust','mutationAttempted','ownerActiveAfter',
+                    'directPresetEnabledBoolean','directPresetEnabledTypeIsBoolean','sameOwnedWindowSettled'):
+            require(row[key] is True,'resize required true: '+key)
+        for key in ('permissionRequested','menuOpenAttempted','menuNotificationEvidenceClaimed',
+                    'sourceResolutionEstablished','admissionEligible'):
+            require(row[key] is False,'resize required false: '+key)
+        for key in ('activationAttempted','ownerActiveBefore')+optional:
+            require(type(row[key]) is bool,'resize activation Boolean')
+        require((row['ownerActiveBefore'] and not row['activationAttempted'] and not optional) or
+            (not row['ownerActiveBefore'] and row['activationAttempted'] and row.get('activationRequestAccepted') is True),
+            'resize activation route')
+        require(row['requestedPreset']=='Pixel Accurate' and row['route']=='direct-enabled-preset-item-v1',
+            'reviewed direct preset route')
+        for key in ('matchingWindowMenus','matchingPixelAccurateItems'):integer(row[key],1,1)
+        for key in ('directPresetEnabledAXError','actionAXError'):integer(row[key],0,0)
+        integer(row['directPresetEnabledTypeID'],1);integer(row['presetAttemptMach'],1)
+        after=rectangle(row['afterFrame']);require(after!=initial['frame'],'resize unchanged frame')
+        return self._census(census,'resized',dict(windowID=initial['windowID'],frame=after))
+
     def register_baseline(self,timeout):
         deadline=self._enter('new','registering',timeout)
         try:
@@ -376,10 +410,12 @@ class CaptureHandoff:
                     except FileNotFoundError:time.sleep(.02);continue
                 census=self._read(self.frames,'window-census-initial.json')
                 metadata=self._read(self.frames,'baseline.json')
+                resized=self._read(self.frames,'window-census-resized.json');resize=self._read(self.frames,'window-resize.json')
                 rows=self.journal.events()
-                if census is not None and metadata is not None and any(r['type']=='direct-anchor-initial-draws' for r in rows):break
+                if all(value is not None for value in (census,metadata,resized,resize)) and any(r['type']=='direct-anchor-initial-draws' for r in rows):break
                 time.sleep(.02)
-            self.window_identity=self._census(census,'initial')
+            initial=self._census(census,'initial')
+            self.window_identity=self._resized_window(initial,resize,resized)
             row=exact(parse(metadata),('schema','format','width','height','stride','bytes','sha256','displayTimeEstablished','admissionEligible','windowID','session'))
             require(row['schema']=='p1-direct-registration-buffer-v1' and row['format']=='BGRA8' and row['session']==self.session and
                     type(row['windowID']) is int and row['windowID']==self.window_identity['windowID'] and
@@ -471,8 +507,10 @@ class CaptureHandoff:
             require(gui==dict(schema='p1-owned-simulator-gui-v1',argv=self.gui.argv,pid=self.gui.process.pid,
                     launch_receipt=owners['gui'],stopped=False,admissionEligible=False),'retained live GUI owner binding differs')
             device_raw=canonical(owners['device']);self._retain('capture-owned-device',device_raw)
-            owner_raw=canonical(dict(schema='p1-direct-live-window-binding-v1',session=self.session,simulatorUDID=self.device,
+            owner_raw=canonical(dict(schema='p1-direct-live-window-binding-v2',session=self.session,simulatorUDID=self.device,
                 initialCensusSHA256=sha256(self.receipts['capture-window-census-initial.json']).hexdigest(),
+                resizeReceiptSHA256=sha256(self.receipts['capture-window-resize.json']).hexdigest(),
+                resizedCensusSHA256=sha256(self.receipts['capture-window-census-resized.json']).hexdigest(),
                 registeredCensusSHA256=sha256(self.receipts['capture-window-census-registered.json']).hexdigest(),
                 helperCompilationSHA256=sha256(self.compiled.proof_bytes).hexdigest(),helperLaunch=owners['helper'],nativeLaunch=owners['native'],
                 appContainerCommandSHA256=sha256(self.receipts['capture-app-container-command']).hexdigest(),

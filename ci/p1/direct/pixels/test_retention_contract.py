@@ -19,7 +19,7 @@ class RetentionContractTests(unittest.TestCase):
         bounds = plan.bounds()
         self.assertLess(bounds["archiveBytes"], 4*1024**3)
         self.assertIn('byteCount <= 1024 * 1024', (ROOT/'capture/roi_capture.swift').read_text())
-        self.assertIn('records.count < 6000', (ROOT/'capture/direct_sink.swift').read_text())
+        self.assertIn('delivered <= 6000', (ROOT/'capture/direct_sink.swift').read_text())
         self.assertIn('copiedBytes <= 3 * 1024 * 1024 * 1024 - size',
                       (ROOT/'capture/direct_sink.swift').read_text())
 

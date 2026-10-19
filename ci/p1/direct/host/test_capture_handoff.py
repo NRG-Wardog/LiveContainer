@@ -243,7 +243,19 @@ class LocalCase:
             admissionEligible=False)
 
     def baseline_files(self):
-        self.write('window-census-initial.json', self.census('initial'))
+        initial=self.census('initial');initial['windows'][0]['frame']=[368,36,287,658]
+        self.write('window-census-initial.json', initial)
+        self.write('window-census-resized.json', self.census('resized'))
+        self.write('window-resize.json', dict(schema='p1-direct-owned-window-resize-v1',session=SESSION,
+            ownerPID=self.gui.process.pid,windowID=WINDOW_ID,existingAccessibilityTrust=True,
+            permissionRequested=False,mutationAttempted=True,requestedPreset='Pixel Accurate',
+            beforeFrame=[368,36,287,658],afterFrame=[0,0,402,874],activationAttempted=True,
+            activationRequestAccepted=True,ownerActiveBefore=False,ownerActiveAfter=True,
+            matchingWindowMenus=1,matchingPixelAccurateItems=1,directPresetEnabledAXError=0,
+            directPresetEnabledBoolean=True,directPresetEnabledTypeID=21,directPresetEnabledTypeIsBoolean=True,
+            actionAXError=0,presetAttemptMach=1,route='direct-enabled-preset-item-v1',menuOpenAttempted=False,
+            menuNotificationEvidenceClaimed=False,sameOwnedWindowSettled=True,sourceResolutionEstablished=False,
+            admissionEligible=False))
         self.write('baseline.bgra', RAW)
         self.write('baseline.json', dict(schema='p1-direct-registration-buffer-v1', format='BGRA8',
             width=WIDTH, height=HEIGHT, stride=STRIDE, bytes=len(RAW), sha256=sha256(RAW).hexdigest(),
@@ -538,6 +550,45 @@ class CaptureHandoffTests(unittest.TestCase):
                 case.handoff.register_baseline(3)
             self.assert_failed(case)
 
+    def test_resize_transition_preserves_initial_and_freezes_final_frame(self):
+        with LocalCase() as case:
+            case.first()
+            self.assertEqual(case.handoff.window_identity, dict(windowID=WINDOW_ID,frame=[0,0,402,874]))
+            self.assertEqual(parse(case.handoff.receipts['capture-window-census-initial.json'])['windows'][0]['frame'],[368,36,287,658])
+            self.assertIn('capture-window-resize.json',case.handoff.receipts)
+            self.assertIn('capture-window-census-resized.json',case.handoff.receipts)
+
+    def test_resize_transition_rejects_foreign_failed_stale_or_changed_evidence(self):
+        changes=(
+            ('session',lambda r:r.__setitem__('session','f'*32)),
+            ('owner',lambda r:r.__setitem__('ownerPID',12)),
+            ('window',lambda r:r.__setitem__('windowID',100)),
+            ('before',lambda r:r.__setitem__('beforeFrame',[0,0,1,1])),
+            ('after',lambda r:r.__setitem__('afterFrame',[0,0,403,874])),
+            ('failed action',lambda r:r.__setitem__('actionAXError',-25204)),
+            ('disabled',lambda r:r.__setitem__('directPresetEnabledBoolean',False)),
+            ('unsettled',lambda r:r.__setitem__('sameOwnedWindowSettled',False)),
+            ('foreign route',lambda r:r.__setitem__('route','other')),
+            ('permission',lambda r:r.__setitem__('permissionRequested',True)),
+            ('activation',lambda r:r.pop('activationRequestAccepted')),
+        )
+        with LocalCase() as case:
+            case.baseline_files()
+            initial=case.handoff._census((case.frame_path/'window-census-initial.json').read_bytes(),'initial')
+            raw=(case.frame_path/'window-resize.json').read_bytes()
+            census=(case.frame_path/'window-census-resized.json').read_bytes()
+            for name,change in changes:
+                with self.subTest(name=name):
+                    row=parse(raw);change(row)
+                    with self.assertRaises(ValueError):case.handoff._resized_window(initial,canonical(row),census)
+            row=parse(raw);row.update(ownerActiveBefore=True,activationAttempted=False);row.pop('activationRequestAccepted')
+            self.assertEqual(case.handoff._resized_window(initial,canonical(row),census)['frame'],[0,0,402,874])
+            for key,value in (('ownerPID',12),('phase','initial')):
+                row=parse(census);row[key]=value
+                with self.assertRaises(ValueError):case.handoff._resized_window(initial,raw,canonical(row))
+            row=parse(census);row['windows'][0]['windowID']=100
+            with self.assertRaises(ValueError):case.handoff._resized_window(initial,raw,canonical(row))
+
     def test_initial_census_and_baseline_identity_fail_closed(self):
         changes = (
             ('owner', 'window-census-initial.json', lambda r: r.__setitem__('ownerPID', 12)),
@@ -554,7 +605,7 @@ class CaptureHandoffTests(unittest.TestCase):
                 self.assert_failed(case)
 
     def test_retained_byte_mutations_prevent_roi_or_ack(self):
-        for name in ('baseline.bgra', 'baseline.json', 'window-census-initial.json'):
+        for name in ('baseline.bgra', 'baseline.json', 'window-census-initial.json', 'window-census-resized.json', 'window-resize.json'):
             with self.subTest(name=name), LocalCase() as case:
                 case.register(); old=(case.frame_path/name).read_bytes(); case.write(name,b'x'+old[1:])
                 with self.assertRaisesRegex(ValueError, 'removed or mutated'): case.handoff.publish_roi(1)

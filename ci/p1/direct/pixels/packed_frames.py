@@ -56,7 +56,9 @@ def _inspect(samples,plan,*,timebase,load,expected_geometry,single=False):
         require(type(row) is dict and 'error' not in row and integer(row.get('index'))==index,'record sequence/error')
         before=integer(row.get('callbackBeforeMach'),1);after=integer(row.get('callbackAfterMach'),1)
         require(before<=after and (previous_callback is None or previous_callback<=before),'callback chronology')
-        require(Fraction((after-before)*numer,denom)<=5_000_000,'measured callback exceeds5ms')
+        callback_ns=Fraction((after-before)*numer,denom)
+        # Observer cost is diagnostic. Presentation/coverage uses exact display ticks
+        # and separately enforces the unchanged 120 ms confidence bounds.
         previous_callback=after
         base_fields={'index','callbackBeforeMach','callbackAfterMach','status','statusName','newFrame','ptsValue','ptsTimescale','ptsFlags'}
         complete_fields={'session','geometrySHA256','displayTimeMach','width','height','bytesPerRow','contentRect','contentScale','scaleFactor','copiedBytes','packedPixels','packedPixelSHA256','regions'}
@@ -76,6 +78,7 @@ def _inspect(samples,plan,*,timebase,load,expected_geometry,single=False):
             result.append({'index':index,'status':name,'newFrame':False});continue
         require(row.get('newFrame') is True and row.get('session')==plan['session'] and row.get('geometrySHA256')==plan['geometrySHA256'],'frame plan/session binding')
         display=integer(row.get('displayTimeMach'),1)
+        require(display<=before,'display timestamp after callback arrival')
         require(previous_display is None or previous_display<display,'display chronology');previous_display=display
         require([row.get('width'),row.get('height'),row.get('bytesPerRow')]==[plan['sourceWidth'],plan['sourceHeight'],plan['sourceStride']],'frame layout differs')
         rect=row.get('contentRect');scale=row.get('contentScale');factor=row.get('scaleFactor')
@@ -105,7 +108,10 @@ def _inspect(samples,plan,*,timebase,load,expected_geometry,single=False):
         result.append({'index':index,'status':name,'newFrame':True,'displayTicks':display,
                        'timebaseNumer':numer,'timebaseDenom':denom,'crops':crops,'regions':deepcopy(actual),
                        'packedPixels':filename,'packedSHA256':sha256(raw).hexdigest(),
-                       'sourceGeometry':deepcopy(current),'callbackBeforeMach':before,'callbackAfterMach':after})
+                       'sourceGeometry':deepcopy(current),'callbackBeforeMach':before,'callbackAfterMach':after,
+                       'callbackWorkNsNumerator':callback_ns.numerator,'callbackWorkNsDenominator':callback_ns.denominator,
+                       'historical5msExceeded':callback_ns>5_000_000,
+                       'callbackTimingPolicy':'display-time-with-diagnostic-observer-cost-v2'})
     require(integer(samples['completeFrames'])==complete and complete>=(1 if single else 2),'complete record count')
     require(integer(samples['copiedBytes'])==total,'total bytes mismatch')
     return result

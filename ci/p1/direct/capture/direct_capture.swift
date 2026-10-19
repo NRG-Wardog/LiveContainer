@@ -633,6 +633,11 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
 
 
 // Generated from the exact reviewed owned-window Sink. Local draft.
+final class DirectPendingPixels {
+    var data: Data?
+    init(_ data: Data?) { self.data = data }
+}
+
 final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
     let directory: URL
     let plan: DirectROIPlan
@@ -643,6 +648,8 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
     private var failure: String?
     private var records: [[String: Any]] = []
     private var copiedBytes = 0
+    private let persistence = DispatchQueue(label: "p1.owned.window.persistence")
+    private var pendingRecords = 0
     private var lastDisplay: UInt64 = 0
     private var geometry: [Double]?
     private var complete = 0
@@ -669,8 +676,13 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
         guard type == .screen else { failed("unexpected-output-type"); return }
         let callbackBefore = mach_absolute_time()
         delivered += 1
-        guard records.count < 6000 else { overflow += 1; failed("frame-record-limit"); return }
-        var row: [String: Any] = ["index": records.count, "callbackBeforeMach": callbackBefore]
+        guard delivered <= 6000 else { overflow += 1; failed("frame-record-limit"); return }
+        lock.lock()
+        guard pendingRecords < 2 else { lock.unlock(); overflow += 1; failed("persistence-backpressure"); return }
+        pendingRecords += 1; lock.unlock()
+        // Each reserved record can own at most the existing 1 MiB ROI plan.
+        var payload: Data?
+        var row: [String: Any] = ["index": delivered - 1, "callbackBeforeMach": callbackBefore]
         do {
             try require(ownerValid(), "owner-changed")
             try require(sample.isValid, "invalid-sample")
@@ -710,29 +722,51 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
                 let size = plan.byteCount
                 try require(copiedBytes <= 3 * 1024 * 1024 * 1024 - size, "pixel-byte-limit")
                 let data = try directCopyROIs(buffer, plan: plan)
-                let regions = try directROIManifest(plan, packed: data)
-                let rawName = String(format: "frame-%05d.rois.bgra", records.count)
-                try data.write(to: directory.appendingPathComponent(rawName), options: .atomic)
+                payload = data
+                let rawName = String(format: "frame-%05d.rois.bgra", delivered - 1)
                 row.merge(["newFrame": true, "session": plan.session,
                            "geometrySHA256": plan.geometrySHA256, "displayTimeMach": display,
                            "width": width, "height": height, "bytesPerRow": stride,
                            "contentRect": rect(content), "contentScale": scale.doubleValue,
                            "scaleFactor": factor.doubleValue, "copiedBytes": size,
-                           "packedPixels": rawName, "packedPixelSHA256": digest(data),
-                           "regions": regions]) { _, new in new }
+                           "packedPixels": rawName]) { _, new in new }
                 copiedBytes += size; lastDisplay = display; geometry = currentGeometry; complete += 1
             }
         } catch { let code = (error as? Failure)?.code ?? "frame-processing-error"; row["error"] = code; failed(code) }
-        row["callbackAfterMach"] = mach_absolute_time(); records.append(row)
-        if row["statusName"] as? String == "complete" && row["error"] == nil {
-            lock.lock(); if firstCompleteRecord == nil { firstCompleteRecord = row }; lock.unlock()
+        // This bracket covers synchronous validation and immutable pixel copying.
+        // Dispatch submission and persistence have no presentation-time meaning.
+        row["callbackAfterMach"] = mach_absolute_time()
+        let capturedRow = row, captured = DirectPendingPixels(payload)
+        payload = nil
+        persistence.async { [self] in
+            var retained = capturedRow
+            defer { captured.data = nil; lock.lock(); pendingRecords -= 1; lock.unlock() }
+            do {
+                if let data = captured.data {
+                    try require(errorCode() == nil, "prior-persistence-failure-latched")
+                    try require(ownerValid(), "persistence-owner-changed")
+                    let regions = try directROIManifest(plan, packed: data)
+                    guard let name = retained["packedPixels"] as? String else { throw Failure("persistence-filename-missing") }
+                    try data.write(to: directory.appendingPathComponent(name), options: .atomic)
+                    retained["packedPixelSHA256"] = digest(data)
+                    retained["regions"] = regions
+                }
+            } catch {
+                let code = (error as? Failure)?.code ?? "frame-persistence-error"
+                retained["error"] = code; failed(code)
+            }
+            records.append(retained)
+            if retained["statusName"] as? String == "complete" && retained["error"] == nil && errorCode() == nil {
+                lock.lock(); if firstCompleteRecord == nil { firstCompleteRecord = retained }; lock.unlock()
+            }
         }
     }
     func firstComplete() -> [String: Any]? {
         lock.lock(); defer { lock.unlock() }; return firstCompleteRecord
     }
     func result() -> [String: Any] {
-        queue.sync { ["frames": records, "completeFrames": complete, "deliveredRecords": delivered, "overflowRecords": overflow, "copiedBytes": copiedBytes, "error": errorCode() as Any? ?? NSNull()] }
+        queue.sync {}
+        return persistence.sync { ["frames": records, "completeFrames": complete, "deliveredRecords": delivered, "overflowRecords": overflow, "copiedBytes": copiedBytes, "error": errorCode() as Any? ?? NSNull()] }
     }
 }
 

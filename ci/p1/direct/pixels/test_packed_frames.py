@@ -52,6 +52,26 @@ class Tests(unittest.TestCase):
             s,plan,raw=self.fixture();s['frames'][1].update(update)
             with self.assertRaises(ValueError):p.inspect(s,plan,timebase=(125,3),expected_geometry=([0,0,20,4],1,1),load=lambda n:raw)
 
+    def test_delayed_observer_work_keeps_exact_display_time_and_diagnostic(self):
+        s,plan,raw=self.fixture()
+        # Long callback work is not a new frame timestamp. Keep all bytes and
+        # display ticks; the separate coverage gate still sees the original gaps.
+        s['frames'][0].update(callbackBeforeMach=1_000_000_000,callbackAfterMach=1_200_000_000)
+        s['frames'][1].update(callbackBeforeMach=1_300_000_000,callbackAfterMach=1_500_000_000)
+        rows=p.inspect(s,plan,timebase=(1,1),expected_geometry=([0,0,20,4],1,1),load=lambda n:raw)
+        self.assertEqual([r['displayTicks'] for r in rows],[50,60])
+        self.assertTrue(all(r['historical5msExceeded'] for r in rows))
+        self.assertTrue(all(r['callbackTimingPolicy']=='display-time-with-diagnostic-observer-cost-v2' for r in rows))
+        self.assertEqual(rows[0]['callbackWorkNsNumerator'],200_000_000)
+        with self.assertRaisesRegex(ValueError,'retained packed bytes/hash'):
+            p.inspect_first(s['frames'][0],plan,timebase=(1,1),load=lambda n:None)
+        future=copy.deepcopy(s);future['frames'][0]['displayTimeMach']=future['frames'][0]['callbackBeforeMach']+1
+        with self.assertRaisesRegex(ValueError,'after callback arrival'):
+            p.inspect_first(future['frames'][0],plan,timebase=(1,1),load=lambda n:raw)
+        s['frames'][1]['displayTimeMach']=49
+        with self.assertRaisesRegex(ValueError,'display chronology'):
+            p.inspect(s,plan,timebase=(1,1),expected_geometry=([0,0,20,4],1,1),load=lambda n:raw)
+
     def test_combined_one_mib_boundary_and_one_pixel_over(self):
         s,plan,_=self.fixture();row=s['frames'][0]
         def document(over):

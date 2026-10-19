@@ -76,3 +76,36 @@ References:
 The menu-state successor records typed enabled status before opening. It registers exact-submenu open/close notifications, opens only the unique enabled Window menu once, then reacquires and reads Pixel Accurate again. A false or unknown enabled value still stops without invoking the preset. Success requires a matching owned-menu closed notification after the one preset attempt, followed by same-window settlement. The observer is removed on every exit; failure paths perform no capture and rely on existing verified exact-GUI cleanup. No menu enabling setter, global shortcut or permission change is used. The total sizing stage remains15 seconds. Menu notification support and live enabled state remain native prerequisites.
 
 Before menu inspection, the helper normally foregrounds only the already-owned Simulator application if inactive, using its verified NSRunningApplication instance. The request is attempted once, retained, and must yield actual isActive=true with unchanged exact window/PID/frame before proceeding. This ordinary reversible isolated-CI UI operation is inside the same15-second stage and uses existing trust. It neither launches another app nor expands permissions.
+
+## Bounded persistence and timing policy v2
+
+The callback copies the six exact BGRA regions into independently owned Data and
+retains the original ScreenCaptureKit displayTime. One serial persistence queue
+then computes region/file hashes and atomically writes those same bytes. There
+are at most two reserved records, including the callback currently copying and
+the writer currently persisting. Each can retain at most the existing 1 MiB ROI
+plan. The holder releases its Data before releasing its reservation. Region
+hashing can additionally use one temporary subdata slice of at most 1 MiB, so the
+explicit copied-pixel working bound is 3 MiB including that scratch, apart from
+the unchanged SCK buffer pool and bounded 6,000-record metadata inventory. No
+CMSampleBuffer or CVPixelBuffer is queued. Reservation overflow, write failure,
+owner failure or any missing record permanently fails collection.
+
+First-complete is published only after the immutable pixels have been written
+and their hashes recorded. After stop and output detachment, the existing drain
+watchdog covers the callback queue followed by the persistence queue. Final
+success requires the drained result and all retained bytes; queueing alone is
+never evidence of successful persistence.
+
+The callback bracket now measures synchronous metadata validation and ROI copy,
+ending immediately before dispatch submission. It is not a presentation clock.
+The historical 5 ms observer-work limit is retained as a diagnostic exceedance
+under `display-time-with-diagnostic-observer-cost-v2`, rather than a product
+acceptance limit. No fixed overhead is subtracted. Pixel observation intervals
+still use the original displayTime converted with the actual Mach timebase and
+the measured clock mapping. The unchanged coverage validator requires the full
+protocol window, strictly increasing display observations, and at most 120 ms
+between observation bounds. Delayed writes do not move a frame's displayTime,
+backdate an acknowledgement, fill missing coverage, or establish visual state
+between unknown frames. App-side draw-cost and combined observer-work checks are
+unchanged. This policy does not make any historical failed run successful.
