@@ -1,6 +1,6 @@
-name: P1 owned window acquisition feasibility
+name: P1 direct timeout feedback validation
 
-# Exact owned simulator window only. No permission changes or timing admission.
+# One exact-owned timeout case. Original timing and correctness gates remain.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'edd3a1749b29c11eae2d5adf6898c3af68eed35bcc058b6adbd174c025351c02'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '846d3779d727b05d8403ce8d16c4b0b47e96dda24b71c52d930f8f98fddec890'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -38,7 +38,7 @@ jobs:
       - name: Verify sealed capability inputs
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/preflight/capture.py \
+          python3 -B validation/ci/p1/direct/entry.py --verify-only \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation"
@@ -56,13 +56,33 @@ jobs:
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_window_capture.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_window_fixture.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_window_bgra.py -v
-      - name: Collect bounded owned window frames
+      - name: Check sealed direct observer primitives
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p1/direct/entry.py --stage-only \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --inputs validation/ci/p1/preflight/inputs.json \
+            --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
+            --work "$GITHUB_WORKSPACE/p1-direct-unit-work"
+          export PYTHONPATH="$GITHUB_WORKSPACE/p1-direct-unit-work/runtime-source/window-capture-candidate/ci/p1/preflight:$GITHUB_WORKSPACE/p1-direct-unit-work/runtime-source/window-capture-candidate/ci/p1/video"
+          direct="$GITHUB_WORKSPACE/p1-direct-unit-work/runtime-source/direct-feedback-local"
+          for suite in clock protocol geometry fixture handoff pixels capture analysis; do
+            python3 -B -m unittest discover -s "$direct/$suite" -p 'test*.py'
+          done
+          for test in "$direct"/host/test*.py; do
+            # Real pinned production/builder preparation tests run locally;
+            # those source checkouts do not exist until the collector acquires them.
+            if [[ "$test" != */test_project_setup.py && "$test" != */test_native_prepare.py ]]; then
+              python3 -B -m unittest discover -s "$direct/host" -p "$(basename "$test")"
+            fi
+          done
+      - name: Validate one bounded direct timeout case
         id: collect
         timeout-minutes: 22
         run: |
           set -euo pipefail
           python3 -B validation/ci/p1/preflight/budget.py --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
-            python3 -B validation/ci/p1/preflight/window_capture.py \
+            python3 -B validation/ci/p1/direct/entry.py \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
@@ -75,7 +95,7 @@ jobs:
           COLLECTION_OUTCOME: ${{ steps.collect.outcome }}
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/preflight/capture.py \
+          python3 -B validation/ci/p1/direct/entry.py --verify-only \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation"

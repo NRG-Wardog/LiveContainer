@@ -1,0 +1,22 @@
+--- original pixel method and suffix
++++ local observer-instrumented method and suffix
+@@ -1,6 +1,8 @@
+     @MainActor private func pixel(_ scenario: String) {
++        let directMethodStarted = ProcessInfo.processInfo.systemUptime
++        guard let directSession = P1DirectHandoff.sessionOrFail() else { return }
+         continueAfterFailure = false; XCUIDevice.shared.orientation = .portrait
+-        let app = XCUIApplication(); app.launchArguments = ["--scenario", scenario]; app.launch()
++        let app = XCUIApplication(); app.launchArguments = ["--scenario", scenario, "--session", directSession]; app.launch()
+         let copy = app.buttons["signin.prompt.copy-details"]
+         XCTAssertTrue(copy.waitForExistence(timeout: 10)); XCTAssertTrue(copy.isHittable)
+         XCTAssertEqual(copy.label, "Copy Details")
+@@ -14,6 +16,9 @@
+             "copyLabel": copy.label, "copyHittable": copy.isHittable], "video-\(scenario)-controls")
+         let baselineReady = app.buttons["p1-video-baseline-ready"]
+         XCTAssertTrue(baselineReady.exists && baselineReady.isHittable)
++        guard P1DirectHandoff.beforeBaseline(test: self, app: app, scenario: scenario,
++            session: directSession, methodStarted: directMethodStarted,
++            copy: copy, marker: marker, baselineReady: baselineReady) else { return }
+         let baselineBefore = ProcessInfo.processInfo.systemUptime; baselineReady.tap()
+         let baselineAfter = ProcessInfo.processInfo.systemUptime
+         XCTAssertTrue(phase(app, "ready"), "External pre-calibration did not finish")

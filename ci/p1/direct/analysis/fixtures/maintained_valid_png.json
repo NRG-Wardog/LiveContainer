@@ -1,0 +1,7 @@
+{
+  "extraction": "ast.get_source_segment(source, function) + newline",
+  "fixtureSHA256": "3c29c59cd9dd4d9479b61c123a54f8201b8eed9fc97ef37f4e04cbeb3cae47bb",
+  "function": "valid_png",
+  "source": "scripts/run_p0_signin_rendering.py",
+  "sourceSHA256": "8682c21e8e499a45d0090a7db8e5cc606f83a98d527a777aa3f2736645c494c8"
+}

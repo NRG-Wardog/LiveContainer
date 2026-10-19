@@ -1,0 +1,14 @@
+{
+  "admissionEligible": false,
+  "candidateSHA256": "6b28da627609af668ab6a7252dfad0529e0e3626077950d3dc2ed309aa647726",
+  "nativeCompiled": false,
+  "nativeExecuted": false,
+  "observerSHA256": "25989f83873183dd609ee353f5c3614f67ada15f18fb14e36dac073e3162070e",
+  "originalSource": "../../window-capture-candidate/ci/p1/video/ui_tests.swift",
+  "originalSourceSHA256": "9105711cd1b10860549025109bdc2087976d6661201ab44307e08473b7a7a783",
+  "primitivesBlockSHA256": "c8f21f91675173c959f73c92bbc49a2466d66c133def65779c79501ebee182c2",
+  "primitivesSource": "../../window-capture-candidate/ci/p1/preflight/runner_ui_tests.swift",
+  "primitivesSourceSHA256": "0e6504ffd4b964822f2b87a4cb5be89e99e1565882d5935a8dd18ae078efd131",
+  "schema": "p1-direct-observer-source-binding-v1",
+  "sourceDelta": "environment guard, session launch argument, and one pre-baseline handoff guard"
+}

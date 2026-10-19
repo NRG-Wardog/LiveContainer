@@ -367,8 +367,8 @@ class CollectorRoutes(unittest.TestCase):
         self.assertIn('shutdown-state', [c[0] for c in calls])
     def test_workflow_probe_route_and_unchanged_outer_budget(self):
         workflow = (Path(__file__).resolve().parents[3] / '.github/workflows/p1-native-candidate.yml').read_text()
-        block = workflow.split('      - name: Collect bounded owned window frames', 1)[1].split('      - name: Package', 1)[0]
-        self.assertIn('preflight/window_capture.py', block); self.assertIn('preflight/budget.py --evidence', block); self.assertNotIn('--capture-prerequisites',block)
+        block = workflow.split('      - name: Validate one bounded direct timeout case', 1)[1].split('      - name: Package', 1)[0]
+        self.assertIn('direct/entry.py', block); self.assertIn('preflight/budget.py --evidence', block); self.assertNotIn('--capture-prerequisites',block)
         self.assertNotIn('--execute', block);self.assertNotIn('--calibration-only',block);self.assertNotIn('--simctl-capture-probe',block); self.assertNotIn('--install-completion-diagnostic',block); self.assertIn('timeout-minutes: 22', block); self.assertEqual(block.count('--full-recovery'),0)
         self.assertNotIn('boot_diagnostic.py', block); self.assertNotIn('--boot-diagnostic', workflow)
 

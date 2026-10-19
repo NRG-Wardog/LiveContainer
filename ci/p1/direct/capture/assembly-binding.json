@@ -1,0 +1,10 @@
+{
+  "admissionEligible": false,
+  "assembledSHA256": "1757a84c845bf37720e613bc8972f9ce2f91b4201710e33fe189f660cdb6839b",
+  "nativeCompiled": false,
+  "nativeExecuted": false,
+  "nativeSourceSHA256": "7c5cca36356149c325256d0f03d29393e670c10142625f9bf374001e72f504d1",
+  "readerBlockSHA256": "7cdb2c7389b73748c70f5f77b949455b5e6b1b0d2c2c9724f4e5d7ecbb001312",
+  "readerSourceSHA256": "0e6504ffd4b964822f2b87a4cb5be89e99e1565882d5935a8dd18ae078efd131",
+  "schema": "p1-direct-capture-local-assembly-v1"
+}
