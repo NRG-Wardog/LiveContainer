@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "scope": "defensive-A+B-only",
+  "swift_files": {
+    "AnisetteKit": {
+      "Tests/AnisetteKitTests/AnisetteKitTests.swift": {
+        "bytes": 5388,
+        "sha256": "3a3b13ad711b4e4bb8e5b552f4ccc4b06bafd5b29455cd05e4d5e6b09feb0561",
+        "test_ids": [
+          "AnisetteKitTests.AnisetteKitTests/anisetteDataResponseStructure()",
+          "AnisetteKitTests.AnisetteKitTests/anisetteHeadersDTORoundtrip()",
+          "AnisetteKitTests.AnisetteKitTests/anisetteRequestHeadersCustomization()",
+          "AnisetteKitTests.AnisetteKitTests/unicornAnisetteProvisioningAndHeaders()"
+        ]
+      },
+      "Tests/AnisetteKitTests/LoginDiagnosticTraceTests.swift": {
+        "bytes": 4715,
+        "sha256": "0a04f3657123356af34ad0c51a50291b1d494dd50376478684aa066996790bbf",
+        "test_ids": [
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testBoundsRetainFinalFailureAndMarkLoss",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testErrorMetadataNeverIncludesProviderStrings",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testIndependentTaskLocalScopesDoNotBleed",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testNativeTimingIsStrictAndAtomic",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testTerminalEventIsExactlyOnceAndDurationIsMonotonicBounded",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testWrappersPreserveSuccessAndError"
+        ]
+      }
+    },
+    "SideSign": {
+      "Tests/SideSignTests/SideSignTests.swift": {
+        "bytes": 3819,
+        "sha256": "511c3fe77e5b4e5e8903ada85e8b2ee4b17f08016cf6ac8db90446158bcd0ad6",
+        "test_ids": [
+          "SideSignTests.SideSignTests/archiveDeflateRoundtrip()",
+          "SideSignTests.SideSignTests/archiveStoreRoundtrip()",
+          "SideSignTests.SideSignTests/certificateRequestCSRGeneration()",
+          "SideSignTests.SideSignTests/developerPortalSingleton()",
+          "SideSignTests.SideSignTests/deviceInitializationAndFiltering()"
+        ]
+      }
+    }
+  }
+}

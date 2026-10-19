@@ -1,0 +1,20 @@
+{
+  "reviewer": "review_checked_vm_setup",
+  "status": "no production blocker found, static A scope only",
+  "production_slice_sha256": {
+    "constructor_destructor": "7f8c7690cbe6e4d705b201ec4cc29d8ea40cece6f2b93fbf8138c8676d5a8230",
+    "core_setup_prefix": "6ba2dd5a2cc5fa248a2985c58a5152bae65c18348a11d6866fa6e393a74b98d8",
+    "isolated_scope": "a207e45b8fe43dff1aafb9c97bc799ef117a1dd1f55c486a33442664ff745e4f"
+  },
+  "sha256": {
+    "Native/anisette_core_uc.cpp": "34d933181fd68b3cf0db3310219f95f7061d77c33f6468d1fbbd24b1089fe041",
+    ".ci/native-tests/fixtures/vm_setup_host.cpp": "aa77223ce94c8aceaf328036bece1599ac2c76994db6d57ec3e528923fac9e35",
+    ".ci/native-tests/test_vm_setup_host.py": "e0f2d244c2365031aebba0ffcf43ad4583edc54d6749f71076cf6b9f7e930195",
+    ".ci/native-tests/VM_SETUP_REVIEW.md": "5f8970cc05a4a671aaf89e8c4173d96d4bee5676d4e9416c79d63a57758cf306"
+  },
+  "limitations": [
+    "B not reviewed",
+    "final combined source-guarded test replay required",
+    "no guest execution or device validation"
+  ]
+}

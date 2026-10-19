@@ -1,0 +1,171 @@
+{
+  "adapter_files": {
+    "ci/p0defensive/README.md": "def2a02f4227ef0cd7f7a7bc4d367c74b2b0c77a68e75f71b3166a9066c5db29",
+    "ci/p0defensive/TEST_DISCOVERY_AUDIT.md": "cc64d08035123f84b321c6bdaa99d9a23a8fc9606ec102c743ba83663073b216",
+    "ci/p0defensive/capture_contract.py": "fef52bc283b5ab38f4e77a6ec90e02a393c4daa0fdf23a6995f910068188d8ae",
+    "ci/p0defensive/host_tests.py": "ef90f6ab558e4ac8d4a4c071fbd2da0a895fd3a95901cd798b72bceaca7b36e5",
+    "ci/p0defensive/inventory.py": "fb696ca44f1256929850d2e06ee6f2bba60ed9301f069c3d1443dd538d55d899",
+    "ci/p0defensive/lifecycle.py": "b4bd301d9d1b96f8792668b05efe9d89f2e421a0c71baef2592ba6c4aa38e9e4",
+    "ci/p0defensive/native_gate.py": "9808df48025abdd7911091ec28ca6587176e52205bda91e233acfd4d22b2f048",
+    "ci/p0defensive/observe_host_subprocess.py": "8f7b3ca0f188816902407d5da81189f9c8e3c4b0e1c470070dc19ecb6389757c",
+    "ci/p0defensive/prepare_inputs.py": "dff9be2778614c41b584e4b3945bc9d71c4105764eaecfb86e67c722ffcb612c",
+    "ci/p0defensive/publication.json": "0dda3b7c587adb7fc8cdb2dee87296784b7f3c8f296b39fa4b27f88d8da74b5d",
+    "ci/p0defensive/retention.py": "dbaad35789c7d3048d70ef070585f1bc5aced4698b0980bff384b57a0b767b8e",
+    "ci/p0defensive/reviewed/AnisetteKit.connector-publication-receipt.json": "419fe8ef029c073ea4034627cc63115ef8db6f006889e6c7e42854f55cbc1127",
+    "ci/p0defensive/reviewed/AnisetteKit.final-manifest.json": "00bf6599019e720b06f936b6530f1b710e0c397e5111ca362189a31b686bf026",
+    "ci/p0defensive/reviewed/AnisetteKit.independent-a-review.json": "7a8d23784a2ceb553a31b0a508a8c980e79bbc694d6b6e5a68f95c00bce25777",
+    "ci/p0defensive/reviewed/AnisetteKit.independent-ab-review.json": "39cc91554f5599d2fa72bdca5dc820bebb1a6e0ac4feacf7f75ff1314581f486",
+    "ci/p0defensive/reviewed/SideSign.connector-publication-receipt.json": "081518e4b532dd3126a97374523c4e7a71f15b5ce2b92905e1eaa8283ea4e958",
+    "ci/p0defensive/reviewed/SideSign.manifest-pin-review.json": "add77ed02faa20908ef1b9636a3910da4567d8cc0458e8db57e6f4caecfecca7",
+    "ci/p0defensive/reviewed/artifacts.json": "9a67f9876d14f10673725e31ca1f62f3b6c2179182a6d8bdc2662db21668c1e6",
+    "ci/p0defensive/reviewed/capture-host-build.before.yml": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4",
+    "ci/p0defensive/reviewed/defensive-source-seal.json": "4227944ac9904238faff32c0daa74ae74f370cd23f28145eb4052845c3baf07e",
+    "ci/p0defensive/reviewed/inventory.proposed.json": "ee2e9516e99785628104398200ace05e3293114199c7e9442d1593fdd2eff7d2",
+    "ci/p0defensive/reviewed/prior-inventory.py": "abd53616e6688a7bbe216a1d38f303c7b3762b404a2b397e5c202ec56cc59cf5",
+    "ci/p0defensive/reviewed/prior-lifecycle.py": "f40dee619ffad65bb102071774a1d677dda7a8343f284713701d1adc9d258b8f",
+    "ci/p0defensive/reviewed/prior-source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
+    "ci/p0defensive/run_host_test.py": "545b6633771e07990d05008855ef86f7c6b37626511b8d197a55c2d364f32708",
+    "ci/p0defensive/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
+    "ci/p0defensive/tests/fixtures/AnisetteKit/Tests/AnisetteKitTests/AnisetteKitTests.swift": "3a3b13ad711b4e4bb8e5b552f4ccc4b06bafd5b29455cd05e4d5e6b09feb0561",
+    "ci/p0defensive/tests/fixtures/AnisetteKit/Tests/AnisetteKitTests/LoginDiagnosticTraceTests.swift": "0a04f3657123356af34ad0c51a50291b1d494dd50376478684aa066996790bbf",
+    "ci/p0defensive/tests/fixtures/SideSign/Tests/SideSignTests/SideSignTests.swift": "511c3fe77e5b4e5e8903ada85e8b2ee4b17f08016cf6ac8db90446158bcd0ad6",
+    "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.provenance.json": "fbd957ccd33057b4868c56cccd1126317c515abb40b8197af57f9c7ee452c9a0",
+    "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stdout.txt": "7a26d61f19c730e3a4560475bda866fc41a7c26eff06934db6f476fd2698938e",
+    "ci/p0defensive/tests/test_adapter.py": "4f787a94e742dc0fcefa4e631bdae5328faf71a06c491e184d03bc8f367c14c8",
+    "ci/p0defensive/tests/test_capture_contract.py": "fbae054e377ecf2a3fa4cbdd1c1086d2e88290a6352daf53508a9752bb42c624",
+    "ci/p0defensive/tests/test_host_tests.py": "33f93b66416d0df77ba71bf794c64094348c031d6067ba51c5eda52b8cf5ea5d",
+    "ci/p0defensive/tests/test_lifecycle.py": "886236cdc0e7158b1be29f52db414091245016d13cac16d5a4fc96cc1f16f1d6",
+    "ci/p0defensive/tests/test_retention.py": "ef915c8bafa14a3d4f849b86938608beec6ad3c919ab28029f28f0e0c7bf6e28"
+  },
+  "artifacts": [
+    {
+      "bundle": "Unicorn.xcframework",
+      "identity": "anisettekit",
+      "sha256": "4f61907db6aafc56fb3e336b524d742342312f498bb40739f1da55fb4a24614a",
+      "target": "Unicorn",
+      "url": "https://github.com/mahee96/unicorn/releases/download/2.1.4-multiarch/Unicorn.xcframework.zip#AnisetteKit"
+    },
+    {
+      "bundle": "OpenSSL.xcframework",
+      "identity": "codesignkit",
+      "sha256": "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+      "target": "OpenSSL",
+      "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#CodeSignKit"
+    },
+    {
+      "bundle": "OpenSSL.xcframework",
+      "identity": "gsacryptokit",
+      "sha256": "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+      "target": "OpenSSL",
+      "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#GSACryptoKit"
+    }
+  ],
+  "basis": "defensive-ab-phase-a-v1",
+  "command_counts": {
+    "filtered_test_execution": 2,
+    "owner_acquisition": 8,
+    "package_build": 2,
+    "package_resolve": 4,
+    "selected_tests": 11,
+    "synthetic_host_suites": 4,
+    "test_discovery": 2
+  },
+  "host": {
+    "base": "545438e1f0a89fdef375f73273c5c9fc2735cbce",
+    "ordinary_build_after_sha256": "429f15d971b4986de396f523edbc56ea4cec64ab55b55aeebe9aa337ce0e8cb2",
+    "ordinary_build_before_sha256": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4",
+    "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
+    "tree": "e8014dd771c25c4a05dc76ab0aa304a233642a83"
+  },
+  "owners": {
+    "AnisetteKit": {
+      "base": "e6e9d4aac698de2a5219aaef02c9a417da45f4e9",
+      "commit": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
+      "manifest_delta": null,
+      "parents": [
+        "e6e9d4aac698de2a5219aaef02c9a417da45f4e9"
+      ],
+      "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
+      "reviewed_tree": "a03f5a4284b67560629cdb52b8e6b246b835a56a",
+      "tree": "a03f5a4284b67560629cdb52b8e6b246b835a56a"
+    },
+    "SideSign": {
+      "base": "c733332b0d64022cd603ab9ac5de054413729aab",
+      "commit": "a375e72d1ff39319c14d22ab98ddecd46c758783",
+      "manifest_delta": {
+        "after_sha256": "42ff907b9d8600a9b2775bff06d53e5354361840bff975869c81c4360abf4fa3",
+        "before_sha256": "258f5ae3aac78c32662211c8f6f594f0740d378c522802b4a7ca33cccee168f5",
+        "new_ak": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
+        "old_ak": "e6e9d4aac698de2a5219aaef02c9a417da45f4e9"
+      },
+      "parents": [
+        "c733332b0d64022cd603ab9ac5de054413729aab"
+      ],
+      "repository": "https://github.com/NRG-Wardog/SideSign.git",
+      "reviewed_tree": "6559fa8c226ea7496e1fb1aa813c058bfee3e342",
+      "tree": "7cf5311daf9e25cb356f9d63736422111afe740d"
+    }
+  },
+  "phase": "phase-a",
+  "retention_bounds": {
+    "depth": 128,
+    "directories": 20000,
+    "file_bytes": 536870912,
+    "files": 100000,
+    "git_output_bytes": 33554432,
+    "path_bytes": 4096,
+    "symlink_hops": 32,
+    "total_bytes": 8589934592
+  },
+  "schema": 1,
+  "source_seal_sha256": "4227944ac9904238faff32c0daa74ae74f370cd23f28145eb4052845c3baf07e",
+  "test_source_audit": {
+    "AnisetteKit": {
+      "Tests/AnisetteKitTests/AnisetteKitTests.swift": {
+        "bytes": 5388,
+        "sha256": "3a3b13ad711b4e4bb8e5b552f4ccc4b06bafd5b29455cd05e4d5e6b09feb0561",
+        "test_ids": [
+          "AnisetteKitTests.AnisetteKitTests/anisetteDataResponseStructure()",
+          "AnisetteKitTests.AnisetteKitTests/anisetteHeadersDTORoundtrip()",
+          "AnisetteKitTests.AnisetteKitTests/anisetteRequestHeadersCustomization()",
+          "AnisetteKitTests.AnisetteKitTests/unicornAnisetteProvisioningAndHeaders()"
+        ]
+      },
+      "Tests/AnisetteKitTests/LoginDiagnosticTraceTests.swift": {
+        "bytes": 4715,
+        "sha256": "0a04f3657123356af34ad0c51a50291b1d494dd50376478684aa066996790bbf",
+        "test_ids": [
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testBoundsRetainFinalFailureAndMarkLoss",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testErrorMetadataNeverIncludesProviderStrings",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testIndependentTaskLocalScopesDoNotBleed",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testNativeTimingIsStrictAndAtomic",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testTerminalEventIsExactlyOnceAndDurationIsMonotonicBounded",
+          "AnisetteKitTests.LoginDiagnosticTraceTests/testWrappersPreserveSuccessAndError"
+        ]
+      }
+    },
+    "SideSign": {
+      "Tests/SideSignTests/SideSignTests.swift": {
+        "bytes": 3819,
+        "sha256": "511c3fe77e5b4e5e8903ada85e8b2ee4b17f08016cf6ac8db90446158bcd0ad6",
+        "test_ids": [
+          "SideSignTests.SideSignTests/archiveDeflateRoundtrip()",
+          "SideSignTests.SideSignTests/archiveStoreRoundtrip()",
+          "SideSignTests.SideSignTests/certificateRequestCSRGeneration()",
+          "SideSignTests.SideSignTests/developerPortalSingleton()",
+          "SideSignTests.SideSignTests/deviceInitializationAndFiltering()"
+        ]
+      }
+    }
+  },
+  "toolchain": {
+    "architecture": "arm64",
+    "clang": "Apple clang version 21.0.0 (clang-2100.0.123.102)",
+    "developer_dir": "/Applications/Xcode_26.4.1.app/Contents/Developer",
+    "swift_stderr": "swift-driver version: 1.148.6 ",
+    "swift_stdout": "Apple Swift version 6.3.1 (swiftlang-6.3.1.1.2 clang-2100.0.123.102)\nTarget: arm64-apple-macosx26.0\n",
+    "xcode": "Xcode 26.4.1\nBuild version 17E202"
+  },
+  "workflow_template_sha256": "33c2bb9e56bb34427f161cfe5eaeed0112bb465ad275f45ef1735a6e01cb01b3"
+}
