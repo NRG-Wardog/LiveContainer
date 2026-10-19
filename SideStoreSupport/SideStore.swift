@@ -665,6 +665,10 @@ public struct CombinedFailure: Error, LocalizedError {
         }
         guard fields.count <= 20 else { return nil }
         for (key, text) in fields {
+            if key == V3LoginDiagnosticSnapshot.contextKey {
+                guard V3LoginDiagnosticSnapshot(encoded: text) != nil else { return nil }
+                continue
+            }
             if key == V3TemporaryADIConsumption.contextKey {
                 guard V3TemporaryADIConsumption(encoded: text) != nil else { return nil }
                 continue
@@ -1216,8 +1220,8 @@ public struct CombinedFailure: Error, LocalizedError {
     }
     public var technicalDetails: String {
         let displayedUnderlyingCode = underlyingDomain == "redacted" ? "unknown" : String(underlyingCode)
-        let signingDetails = signingContext.filter { $0.key != V3TemporaryAnisetteTrace.contextKey && $0.key != V3TemporaryADIConsumption.contextKey }.sorted(by: { $0.key < $1.key }).map { " \($0.key)=\($0.value)" }.joined()
-        return "schema=1 diagnostic_code=\(diagnosticCode) builder_commit=\(V3DiagnosticBuild.commit) operation=\(operation) stage=\(stage.rawValue) code=\(code.rawValue) correlation=\(correlationID) underlying_domain=\(underlyingDomain) underlying_code=\(displayedUnderlyingCode) retryable=\(retryable.map(String.init) ?? "unknown") source_step=\(sourceStep?.rawValue ?? "unknown") safe_cause=\(safeCause?.rawValue ?? "unknown")" + signingDetails + installVerdict + requestContextSuffix + (launchContext?.technicalDetails ?? "") + (temporaryAnisetteTrace?.technicalDetails ?? "") + (signingContext[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "")
+        let signingDetails = signingContext.filter { $0.key != V3TemporaryAnisetteTrace.contextKey && $0.key != V3TemporaryADIConsumption.contextKey && $0.key != V3LoginDiagnosticSnapshot.contextKey }.sorted(by: { $0.key < $1.key }).map { " \($0.key)=\($0.value)" }.joined()
+        return "schema=1 diagnostic_code=\(diagnosticCode) builder_commit=\(V3DiagnosticBuild.commit) operation=\(operation) stage=\(stage.rawValue) code=\(code.rawValue) correlation=\(correlationID) underlying_domain=\(underlyingDomain) underlying_code=\(displayedUnderlyingCode) retryable=\(retryable.map(String.init) ?? "unknown") source_step=\(sourceStep?.rawValue ?? "unknown") safe_cause=\(safeCause?.rawValue ?? "unknown")" + signingDetails + installVerdict + requestContextSuffix + (launchContext?.technicalDetails ?? "") + (temporaryAnisetteTrace?.technicalDetails ?? "") + (signingContext[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "") + (signingContext[V3LoginDiagnosticSnapshot.contextKey].flatMap(V3LoginDiagnosticSnapshot.init(encoded:))?.technicalDetails ?? "")
     }
     public var temporaryAnisetteTrace: V3TemporaryAnisetteTrace? {
         signingContext[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))
@@ -1268,6 +1272,7 @@ public struct CombinedFailure: Error, LocalizedError {
         if let sourceStep { result["sourceStep"] = sourceStep.rawValue }
         if !signingContext.isEmpty { result["signingContext"] = signingContext }
         if let retryable { result["retryable"] = retryable }
+        result = V3LoginDiagnosticSnapshot.boundingWire(result)
         return V3TemporaryADIConsumption.boundingWire(result)
     }
     public var encodedString: String {
@@ -1711,6 +1716,89 @@ public struct V3TemporaryADIConsumption {
     }
 }
 
+// LOGIN_DIAGNOSTIC_WIRE_V1: finite counterpart to AnisetteKit.LoginDiagnosticTrace.
+// Host support deliberately has no dependency on AnisetteKit or account state.
+public struct V3LoginDiagnosticSnapshot {
+    public static let contextKey = "debug_login_trace"
+    public static let maximumBytes = 2048
+    public static let maximumEvents = 128
+    public static let maximumWireBytes = 4096
+    private let correlation: String
+    private let truncated: Bool
+    private let rows: [[Int]]
+
+    public init?(encoded: String) {
+        guard encoded.utf8.count <= Self.maximumBytes,
+              encoded.utf8.allSatisfy({ $0 < 128 }) else { return nil }
+        let parts = encoded.split(separator: ";", omittingEmptySubsequences: false)
+        guard parts.count >= 5, parts.count <= Self.maximumEvents + 4,
+              parts[0] == "v1", parts[1] == "login_trace_v1",
+              parts[2].utf8.count == 12,
+              parts[2].utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+              parts[3] == "0" || parts[3] == "1" else { return nil }
+        var decoded: [[Int]] = []
+        for row in parts.dropFirst(4) {
+            // The producer permits a trace created before any observed stage.
+            if parts.count == 5 && row.isEmpty { break }
+            let columns = row.split(separator: ",", omittingEmptySubsequences: false)
+            let values = columns.compactMap { Int($0) }
+            guard columns.count == 7, values.count == 7,
+                  zip(columns, values).allSatisfy({ String($0.1) == String($0.0) }),
+                  (0...56).contains(values[0]), (0...3).contains(values[1]),
+                  (0...11).contains(values[2]), (0...86_400_000).contains(values[3]),
+                  (0...86_400_000).contains(values[4]), (0...8).contains(values[5]),
+                  (-2_147_483_648...2_147_483_647).contains(values[6]) else { return nil }
+            switch values[5] {
+            case 0, 1, 8: guard values[6] == 0 else { return nil }
+            case 4: guard (1...6).contains(values[6]) else { return nil }
+            case 3, 5, 6, 7: guard (-999_999...999_999).contains(values[6]) else { return nil }
+            default: break
+            }
+            decoded.append(values)
+        }
+        correlation = String(parts[2]); truncated = parts[3] == "1"; rows = decoded
+    }
+    private init(correlation: String, truncated: Bool, rows: [[Int]]) {
+        self.correlation = correlation; self.truncated = truncated; self.rows = rows
+    }
+    public var encoded: String {
+        "v1;login_trace_v1;\(correlation);\(truncated ? 1 : 0);" +
+            rows.map { $0.map(String.init).joined(separator: ",") }.joined(separator: ";")
+    }
+    public var technicalDetails: String { "\nDEBUG TEMPORARY login_trace=\(encoded)" }
+
+    public static func attaching(_ encoded: String?, to supplied: [String: Any]) -> [String: Any] {
+        guard let encoded, let snapshot = Self(encoded: encoded) else { return supplied }
+        var result = supplied
+        var context = supplied["signingContext"] as? [String: String] ?? [:]
+        guard context[contextKey] != nil || context.count < 20 else { return supplied }
+        context[contextKey] = snapshot.encoded
+        result["signingContext"] = context
+        return boundingWire(result)
+    }
+    public static func boundingWire(_ supplied: [String: Any]) -> [String: Any] {
+        guard var context = supplied["signingContext"] as? [String: String],
+              let raw = context.removeValue(forKey: contextKey) else { return supplied }
+        var result = supplied
+        result["signingContext"] = context
+        guard var snapshot = Self(encoded: raw), context.count < 20 else { return result }
+        while true {
+            context[contextKey] = snapshot.encoded
+            result["signingContext"] = context
+            if let data = try? PropertyListSerialization.data(fromPropertyList: result, format: .binary, options: 0),
+               data.count <= maximumWireBytes { return result }
+            if snapshot.rows.isEmpty {
+                context.removeValue(forKey: contextKey)
+                result["signingContext"] = context
+                return result
+            }
+            // Only trim this optional trace. Preserve the original failure and native evidence.
+            snapshot = Self(correlation: snapshot.correlation, truncated: true,
+                            rows: Array(snapshot.rows.dropFirst()))
+        }
+    }
+}
+
 public struct V3TemporaryAnisetteTrace: Equatable, Sendable {
     public static let temporaryAnisetteTraceEnabled = true
     public static let contextKey = "debug_temporary_anisette_trace"
@@ -1772,6 +1860,10 @@ public struct V3TemporaryAnisetteTrace: Equatable, Sendable {
         case androidIdCached = "android_id.cached"
         case nativeSymbolOk = "native.symbol.ok"
         case nativeSymbolFailed = "native.symbol.failed"
+        case nativeStartOk = "native.start.ok"
+        case nativeStartFailed = "native.start.failed"
+        case nativeEndOk = "native.end.ok"
+        case nativeEndFailed = "native.end.failed"
         case nativeOtpOk = "native.otp.ok"
         case nativeOtpFailed = "native.otp.failed"
         case nativeOutputOk = "native.output.ok"
@@ -4604,7 +4696,7 @@ enum V3ServiceReadinessReply: Equatable {
                 let fields = V3TemporaryADIConsumption.sanitizingContext(suppliedFields)
                 guard fields.count <= 20,
                       fields.allSatisfy({ $0.key.utf8.count <= 64 &&
-                          $0.value.utf8.count <= ([V3TemporaryAnisetteTrace.contextKey, V3TemporaryADIConsumption.contextKey].contains($0.key) ? 2048 : 512) }) else { return .invalid }
+                          $0.value.utf8.count <= ([V3TemporaryAnisetteTrace.contextKey, V3TemporaryADIConsumption.contextKey, V3LoginDiagnosticSnapshot.contextKey].contains($0.key) ? 2048 : 512) }) else { return .invalid }
                 // The typed failure boundary validates the fixed keys
                 // and values before any diagnostic publication.
                 failure.signingContext = fields
@@ -9831,7 +9923,8 @@ enum V3AuthFailureDiagnosticsPolicy {
         } ?? ""
         return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + nativeDetails + initializerDetails + attemptDetails + probeDetails +
             (fields[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))?.technicalDetails ?? "") +
-            (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "")
+            (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "") +
+            (fields[V3LoginDiagnosticSnapshot.contextKey].flatMap(V3LoginDiagnosticSnapshot.init(encoded:))?.technicalDetails ?? "")
     }
 }
 

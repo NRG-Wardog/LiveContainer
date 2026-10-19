@@ -5236,7 +5236,33 @@ enum V3AuthFailureDiagnosticsPolicy {
         } ?? ""
         return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + nativeDetails + initializerDetails + attemptDetails + probeDetails +
             (fields[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))?.technicalDetails ?? "") +
-            (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "")
+            (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "") +
+            (fields[V3LoginDiagnosticSnapshot.contextKey].flatMap(V3LoginDiagnosticSnapshot.init(encoded:))?.technicalDetails ?? "")
+    }
+}
+
+// Diagnostic-only retention. This must never feed retry or authentication policy.
+enum V3AuthTimeoutDiagnosticRetentionPolicy {
+    static func failure(reply: [String: Any], expectedID: String?) -> [String: Any]? {
+        guard reply["state"] as? String == "timedOut", let expectedID,
+              let supplied = reply["failure"] as? [String: Any],
+              let data = try? PropertyListSerialization.data(fromPropertyList: supplied, format: .binary, options: 0),
+              data.count <= V3LoginDiagnosticSnapshot.maximumWireBytes,
+              let decoded = CombinedFailure.decode(supplied, expectedID: expectedID),
+              decoded.operation == "signIn",
+              decoded.stage == .authentication || decoded.stage == .provisioning,
+              let raw = decoded.signingContext[V3LoginDiagnosticSnapshot.contextKey],
+              V3LoginDiagnosticSnapshot(encoded: raw) != nil else { return nil }
+        return decoded.wire
+    }
+    static func shouldClearOnSessionChange(from old: String?, to new: String?, state: String) -> Bool {
+        // Reconciliation retires an already-terminal owner to nil. Its copied
+        // diagnostics remain useful until a new attempt or different reply.
+        old != new && (new != nil || state != "timedOut")
+    }
+    static func selecting(state: String, timeout: [String: Any]?,
+                          previous: [String: Any]?) -> [String: Any]? {
+        state == "timedOut" ? (timeout ?? previous) : previous
     }
 }
 
@@ -12318,6 +12344,7 @@ final class V3AuthStore: ObservableObject {
     @Published var state = "idle"
     @Published var prompt: [String: Any]?
     @Published var previousFailure: [String: Any]?
+    @Published private(set) var timeoutDiagnosticFailure: [String: Any]?
     @Published var attempts = 0
     @Published private(set) var revision = 0
     @Published var message = ""
@@ -12365,7 +12392,12 @@ final class V3AuthStore: ObservableObject {
     private var accountRecoveryProtocolAvailable = false
     private var reauthenticationSessionID: String?
     private var pendingCertificateActivationSessionID: String?
-    private var session: String?
+    private var session: String? {
+        didSet {
+            if V3AuthTimeoutDiagnosticRetentionPolicy.shouldClearOnSessionChange(
+                from: oldValue, to: session, state: state) { timeoutDiagnosticFailure = nil }
+        }
+    }
     private var authoritativeActiveAuthenticationSessionID: String?
     private var task: Task<Void, Never>?
     private var reconciliationGate = V3AuthReconciliationGate()
@@ -12376,6 +12408,10 @@ final class V3AuthStore: ObservableObject {
     // whether provisioning then failed.
     var isSignedIn: Bool { signedIn }
     var hasSession: Bool { session != nil }
+    var terminalDiagnosticFailure: [String: Any]? {
+        V3AuthTimeoutDiagnosticRetentionPolicy.selecting(state: state,
+            timeout: timeoutDiagnosticFailure, previous: previousFailure)
+    }
     private var terminalFailureKind: String? { previousFailure?["kind"] as? String }
     private var terminalFailureRetryable: Bool? {
         V3ServiceBridge.strictBool(previousFailure?["retryable"])
@@ -12486,6 +12522,7 @@ final class V3AuthStore: ObservableObject {
         twoFactorTransientStep = nil
         prompt = nil
         previousFailure = nil
+        timeoutDiagnosticFailure = nil
         promptSubmitting = false
         cancellationConfirmed = true
         cancellationWasAttempted = false
@@ -12537,6 +12574,7 @@ final class V3AuthStore: ObservableObject {
         currentAttemptFailure.clear()
         prompt = nil
         previousFailure = nil
+        timeoutDiagnosticFailure = nil
         promptSubmitting = false
         promptResponseDiagnostics = ""
         promptResponseBlocked = false
@@ -13520,6 +13558,8 @@ final class V3AuthStore: ObservableObject {
         revision = V3ServiceBridge.strictInt(reply["revision"]) ?? revision
         prompt = reply["prompt"] as? [String: Any]
         previousFailure = V3AuthPromptFailurePolicy.applying(reply: reply, current: previousFailure)
+        // Clear on every non-timeout/missing/invalid reply; never retain across attempts.
+        timeoutDiagnosticFailure = V3AuthTimeoutDiagnosticRetentionPolicy.failure(reply: reply, expectedID: session)
         if V3ServiceBridge.strictBool(reply["authenticated"]) == true { signedIn = true }
         if oldPromptID != (prompt?["id"] as? String) {
             promptSubmitting = false
@@ -13953,8 +13993,8 @@ struct V3SignInView: View {
         }
         if V3AuthFailureDiagnosticsPolicy.shouldShowTerminalDetails(
             state: auth.state, hasPrompt: auth.prompt != nil,
-            hasFailure: auth.previousFailure != nil),
-           let failure = auth.previousFailure {
+            hasFailure: auth.terminalDiagnosticFailure != nil),
+           let failure = auth.terminalDiagnosticFailure {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Sign-in diagnostics")
                     .font(.subheadline.weight(.semibold))
