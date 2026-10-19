@@ -32,7 +32,7 @@ METHOD='testScreenshotCalibrationCapability'
 CLASS='P1ScreenshotCapabilityUITests'
 RUNNER_ID=analysis.RUNNER_ID
 # Fixed list, independent of the supplied manifest. Updated only by reviewed source.
-ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py','test_query_reuse.py','test_full_recovery.py','full-recovery-baseline.json','test_structural_tabs.py','test_observation_snapshot.py','test_screen_calibration.py','test_calibration_discovery.py']}
+ADAPTERS=set(video.ADAPTERS)|{'ci/p1/video/test_layout_capabilities.py'}|{'ci/p1/preflight/'+name for name in ['app.swift','runner_ui_tests.swift','decode.swift','protocol.py','analyze_capability.py','capture.py','budget.py','process_scope.py','README.md','test_runner_source.py','test_capability.py','test_process_lifecycle.py','test_simulator_cleanup.py','simulator_cleanup.py','cleanup_gate.py','test_cleanup_gate.py','request_reader_gate.py','request_reader_regression.swift','test_request_reader_gate.py','boot_diagnostic.py','test_boot_diagnostic.py','stall_diagnostic.py','probe_pair.py','minimal_gate.py','test_stall_diagnostic.py','test_stall_probes.py','test_stall_receipts.py','launch_gate.py','test_stall_fix.py','fresh_device.py','test_stall_fresh.py','test_fresh_ui.py','test_install_observation.py','test_query_reuse.py','test_full_recovery.py','full-recovery-baseline.json','test_structural_tabs.py','test_observation_snapshot.py','test_screen_calibration.py','test_calibration_discovery.py','test_tablet_profile.py']}
 
 
 def validate(host,inputs,approved):
@@ -40,7 +40,7 @@ def validate(host,inputs,approved):
     require(re.fullmatch('[0-9a-f]{64}',approved or '') and sha(inputs)==approved,'unreviewed inputs')
     data=parse(inputs)
     require(set(data)=={'schema','scope','livecontainer','builder','source_sha256','adapter_files'},'unexpected input fields')
-    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope'] in {'phone-recovery-capability-only-no-admission','phone-full-recovery-only-no-admission','phone-default-tabs-only-no-admission','phone-calibration-only-no-admission'},'wrong capability scope')
+    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope'] in {'phone-recovery-capability-only-no-admission','phone-full-recovery-only-no-admission','phone-default-tabs-only-no-admission','phone-calibration-only-no-admission','tablet-recovery-capability-only-no-admission'},'wrong capability scope')
     require(data['livecontainer']==SOURCE and data['builder']==BUILDER and data['source_sha256']==SOURCE_SHA,'wrong source pin')
     require(set(data['adapter_files'])==ADAPTERS,'wrong adapter inventory')
     for path,digest in data['adapter_files'].items():require(sha(ordinary(host,path))==digest,'adapter drift: '+path)
@@ -479,8 +479,9 @@ def observe_install(command,device,app,output):
 
 def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_recovery=False,default_tabs=False,calibration_only=False):
     require(sum(bool(v) for v in (install_diagnostic,full_recovery,default_tabs,calibration_only))<=1,'incompatible collection profiles')
-    require(kind=='phone' and not work.exists() and not output.exists(),'fresh paths and phone-only device class required')
-    require(parse(inputs)['scope']==('phone-calibration-only-no-admission' if calibration_only else 'phone-full-recovery-only-no-admission' if full_recovery else 'phone-default-tabs-only-no-admission' if default_tabs else 'phone-recovery-capability-only-no-admission'),'sealed execution scope differs')
+    require(kind in ('phone','tablet') and not work.exists() and not output.exists(),'fresh paths and supported device class required')
+    require(kind=='phone' or not any((install_diagnostic,full_recovery,default_tabs,calibration_only)),'tablet capability profile only')
+    require(parse(inputs)['scope']==('phone-calibration-only-no-admission' if calibration_only else 'phone-full-recovery-only-no-admission' if full_recovery else 'phone-default-tabs-only-no-admission' if default_tabs else kind+'-recovery-capability-only-no-admission'),'sealed execution scope differs')
     work.mkdir(parents=True);output.mkdir(parents=True)
     result={'schema':'p1-phone-recovery-collection-v1','scope':'phone-recovery-capability-only','admission_eligible':False,'production_ready':False,'full_native_lane_executed':False,'full_matrix_complete':False,
         'source':SOURCE,'source_sha256':SOURCE_SHA,'approved_inputs_sha256':approved,'device_class':kind,'collection_complete':False,'capabilities_passed':False,'errors':[],
@@ -488,8 +489,9 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
         'prior_context':{'run_url':'https://github.com/NRG-Wardog/LiveContainer/actions/runs/39118482058',
             'commit':'3c4c92b87e29132056e94f3f3f9b838c92ab627f','used_for_current_pass':False,
             'calibration':'prior run failed fixed uncertainty limits on both devices; current execution is reported separately',
-            'tablet_recovery':'two bounded methods passed in that prior run only; not rerun here'},
+            'tablet_recovery':'two bounded methods passed in that prior run only; current execution is reported separately'},
         'github':{k:os.environ.get(k) for k in ['GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_REPOSITORY']}}
+    if kind=='tablet':result.update(schema='p1-tablet-recovery-collection-v1',scope='tablet-recovery-capability-only',tablet_executed=False)
     if calibration_only:result.update(scope='phone-calibration-only',calibration_feasible=False)
     if default_tabs:result.update(scope='phone-default-tabs-only')
     if full_recovery:result.update(scope='phone-full-recovery-only',phone_recovery_matrix_passed=False)
@@ -507,6 +509,8 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
         project,renderer=prepare(live/base.SHELL,builder,work/'build',output)
         if calibration_only:
             identity=parse(output/'source-identity.json');identity['scope']='phone calibration only; recovery and tablet not executed';write(output/'source-identity.json',identity)
+        if kind=='tablet':
+            identity=parse(output/'source-identity.json');identity['scope']='tablet recovery capability only; calibration and phone not executed';write(output/'source-identity.json',identity)
         if full_recovery:
             identity=parse(output/'source-identity.json');identity['scope']='full phone recovery only; calibration and tablet not executed';write(output/'source-identity.json',identity)
         command('env','MAINTAINED_LIVE_CONTAINER_TEST_SOURCE='+str(live),'P1_FROZEN_BUILDER_TEST_SOURCE='+str(builder),'python3','-B','-m','unittest','discover','-s',HERE,'-p','test_capability.py','-k','test_exact_generated_source','-v',timeout=60)
@@ -515,7 +519,7 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
         apps=list(products.glob('Debug-iphonesimulator/P0SignIn.app'));require(len(apps)==1,'ambiguous fixture app');shutil.copy2(apps[0]/'Info.plist',output/'app-Info.plist')
         session=uuid.uuid4().hex;candidate=configure_runner(candidates[0],products,session,output)
         import fresh_device
-        proof=fresh_device.create_for_ui(scope,output/'created-device')
+        proof=fresh_device.create_for_ui(scope,output/'created-device',device_class=kind)
         device=proof['device'];runtime=proof['runtime'];booted_here=True
         write(output/'selected-device.json',{'device_class':kind,'simulator_udid':device,'runtime':runtime,'owned_created':proof})
         command('xcrun','simctl','boot',device,timeout=30)
@@ -538,6 +542,7 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
                 result['calibration_executed']=True
                 result['calibration']=run_calibration(command,candidate,device,session,output/'calibration',renderer.valid_png)
             else:
+                result['tablet_executed']=kind=='tablet'
                 result['recovery']=run_layout(command,candidate,device,kind,output/'recovery',renderer.valid_png,full_recovery=full_recovery,default_tabs=default_tabs)
         write(output/'source-after.json',{'LiveContainer':base.checkout_proof(live,SOURCE,command),'builder':base.checkout_proof(builder,BUILDER,command)})
         require(parse(output/'source-before.json')==parse(output/'source-after.json') and sha(live/base.SHELL)==SOURCE_SHA,'source drift')
@@ -555,7 +560,7 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--host-root',type=Path,required=True);p.add_argument('--inputs',type=Path,required=True);p.add_argument('--approved-inputs-sha256',required=True)
-    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone']);p.add_argument('--execute',action='store_true');p.add_argument('--install-completion-diagnostic',action='store_true');p.add_argument('--full-recovery',action='store_true');p.add_argument('--default-tabs',action='store_true');p.add_argument('--calibration-only',action='store_true');a=p.parse_args()
+    p.add_argument('--work',type=Path);p.add_argument('--evidence',type=Path);p.add_argument('--device-class',choices=['phone','tablet']);p.add_argument('--execute',action='store_true');p.add_argument('--install-completion-diagnostic',action='store_true');p.add_argument('--full-recovery',action='store_true');p.add_argument('--default-tabs',action='store_true');p.add_argument('--calibration-only',action='store_true');a=p.parse_args()
     validate(a.host_root,a.inputs,a.approved_inputs_sha256)
     if a.execute:
         require(a.work is not None and a.evidence is not None and a.device_class is not None,'execution paths/class required')

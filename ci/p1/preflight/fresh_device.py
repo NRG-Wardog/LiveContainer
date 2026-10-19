@@ -8,6 +8,15 @@ import process_scope
 import simulator_cleanup
 
 TYPE='com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro'
+TABLET_REFERENCE='3E32E66C-0037-43D0-BA3B-F54380A0040D'
+
+def reference(kind):
+    if kind not in ('phone','tablet'):raise ValueError('unknown created device class')
+    return boot.DEVICE if kind=='phone' else TABLET_REFERENCE
+
+def type_matches(kind,value):
+    prefix='iPhone-' if kind=='phone' else 'iPad-'
+    return isinstance(value,str) and re.fullmatch(r'com\.apple\.CoreSimulator\.SimDeviceType\.'+prefix+r'[A-Za-z0-9-]{1,60}',value) is not None
 
 def canonical(value):
     if not isinstance(value,str) or str(uuid.UUID(value))!=value.lower():raise ValueError('canonical device UUID required')
@@ -26,13 +35,16 @@ def inventory(raw):
             result.append({'udid':device,'runtime':runtime,'state':row.get('state'),'isAvailable':row.get('isAvailable'),'deviceTypeIdentifier':row.get('deviceTypeIdentifier')})
     return result
 
-def before(raw):
-    rows=inventory(raw);original=[r for r in rows if r['udid']==boot.DEVICE]
+def before(raw,device_class="phone"):
+    anchor=reference(device_class)
+    rows=inventory(raw);original=[r for r in rows if r['udid']==anchor]
     if len(original)!=1:raise ValueError('original comparison device identity drift')
     original=original[0];kind=original.get('deviceTypeIdentifier')
-    if original['runtime']!=boot.RUNTIME or original['state']!='Shutdown' or original['isAvailable'] is not True or not isinstance(kind,str) or re.fullmatch(r'com\.apple\.CoreSimulator\.SimDeviceType\.iPhone-[A-Za-z0-9-]{1,60}',kind) is None:raise ValueError('original comparison device identity drift')
+    if original['runtime']!=boot.RUNTIME or original['state']!='Shutdown' or original['isAvailable'] is not True or not type_matches(device_class,kind):raise ValueError('original comparison device identity drift')
     if any(r['state']=='Booted' for r in rows):raise ValueError('preexisting booted device')
-    return {'preexisting':sorted(r['udid'] for r in rows),'runtime':boot.RUNTIME,'device_type':kind}
+    result={'preexisting':sorted(r['udid'] for r in rows),'runtime':boot.RUNTIME,'device_type':kind}
+    if device_class=='tablet':result.update(device_class=device_class,reference_device=anchor)
+    return result
 
 def available_type(kind):
     def parse(raw):
@@ -48,11 +60,13 @@ def created_uuid(raw):
 
 def validate(proof,session,device=None):
     if not isinstance(proof,dict) or proof.get('schema')!='p1-created-device-v1' or proof.get('session')!=session or re.fullmatch('[0-9a-f]{32}',session) is None:raise ValueError('created ownership session invalid')
-    if proof.get('name')!='P1-stall-'+session or proof.get('runtime')!=boot.RUNTIME or not isinstance(proof.get('device_type'),str) or re.fullmatch(r'com\.apple\.CoreSimulator\.SimDeviceType\.iPhone-[A-Za-z0-9-]{1,60}',proof.get('device_type','')) is None or proof.get('type_verified') is not True:raise ValueError('created ownership identity invalid')
+    device_class=proof.get('device_class','phone');anchor=reference(device_class)
+    if device_class=='tablet' and proof.get('reference_device')!=anchor:raise ValueError('tablet reference identity invalid')
+    if proof.get('name')!='P1-stall-'+session or proof.get('runtime')!=boot.RUNTIME or not type_matches(device_class,proof.get('device_type')) or proof.get('type_verified') is not True:raise ValueError('created ownership identity invalid')
     prior=proof.get('preexisting')
-    if not isinstance(prior,list) or not prior or len(prior)!=len(set(prior)) or any(canonical(v)!=v for v in prior) or boot.DEVICE not in prior:raise ValueError('pre-create inventory invalid')
+    if not isinstance(prior,list) or not prior or len(prior)!=len(set(prior)) or any(canonical(v)!=v for v in prior) or anchor not in prior:raise ValueError('pre-create inventory invalid')
     if device is not None:
-        if canonical(device)!=device or device in prior or device==boot.DEVICE or proof.get('device')!=device or proof.get('create_complete') is not True:raise ValueError('created UUID ownership unproved')
+        if canonical(device)!=device or device in prior or device==anchor or proof.get('device')!=device or proof.get('create_complete') is not True:raise ValueError('created UUID ownership unproved')
     return proof
 
 def state_parser(device,allow_absent=False,kind=TYPE):
@@ -116,8 +130,9 @@ def backstop(evidence,errors,unsettled,wrap_error,proof):
     root=evidence/'bounded-created-backstop';root.mkdir(exist_ok=False)
     return Commands(Scope(),root,proof,sink)
 
-def create_for_ui(scope,root):
-    """Use the reviewed same-image/type/runtime creation route for phone UI."""
+def create_for_ui(scope,root,device_class="phone"):
+    """Create an exact-owned device from the requested class inventory anchor."""
+    reference(device_class)
     import os
     if os.environ.get('ImageVersion')!='20261013.0424.1':raise ValueError('comparison runner image drift')
     root.mkdir(exist_ok=False);commands=boot.Commands(scope,root)
@@ -128,7 +143,7 @@ def create_for_ui(scope,root):
     if version['exact_public_tool_output'].strip()!='Xcode 26.4.1\nBuild version 17E202':raise ValueError('comparison Xcode drift')
     runtime=require(commands.run('runtime',['xcrun','simctl','list','runtimes','--json'],boot.exact_runtime))
     if runtime['buildversion']!='23C54':raise ValueError('comparison runtime build drift')
-    state=require(commands.run('before-state',['xcrun','simctl','list','devices','--json'],before))
+    state=require(commands.run('before-state',['xcrun','simctl','list','devices','--json'],lambda raw:before(raw,device_class)))
     verified=require(commands.run('device-type',['xcrun','simctl','list','devicetypes','--json'],available_type(state['device_type'])))
     proof={'schema':'p1-created-device-v1','session':scope.session,'name':'P1-stall-'+scope.session,**state,**verified}
     scope.begin_creation(proof)

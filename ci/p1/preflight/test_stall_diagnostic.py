@@ -27,7 +27,7 @@ class Integration(unittest.TestCase):
     def test_exact_seal(self):
         path=HERE/'inputs.json'
         data=capture.validate(HOST,path,hashlib.sha256(path.read_bytes()).hexdigest())
-        self.assertEqual(data['scope'],'phone-calibration-only-no-admission')
+        self.assertEqual(data['scope'],'tablet-recovery-capability-only-no-admission')
         for name in ['minimal_gate.py','process_scope.py','probe_pair.py','stall_diagnostic.py','budget.py']:
             self.assertIn('ci/p1/preflight/'+name,data['adapter_files'])
     def test_shared_observation_and_cleanup_deadlines(self):

@@ -734,9 +734,9 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
     def execute_phone(self,recovery_passed=True,cleanup_failure=False,source_drift=False,
-                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False,install_observation=None,install_failure=False,calibration_only=False,calibration_feasible=True):
+                      uninstall_failure=None,uninstall_settled=False,uninstall_cleanup_error=True,missing_app=False,install_observation=None,install_failure=False,calibration_only=False,calibration_feasible=True,device_class="phone"):
         from types import SimpleNamespace
-        host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text(json.dumps({'scope':'phone-calibration-only-no-admission' if calibration_only else 'phone-recovery-capability-only-no-admission'}))
+        host=HERE.parents[2];work=self.root/'work';output=self.root/'evidence';inputs=self.root/'inputs.json';inputs.write_text(json.dumps({'scope':'phone-calibration-only-no-admission' if calibration_only else device_class+'-recovery-capability-only-no-admission'}))
         device='12345678-1234-1234-1234-123456789abc';scope=mock.Mock();scope.fixture=None;scope.rows=[];scope.session=SESSION;scope.deadline=time.monotonic()+1020
         scope.remaining.side_effect=lambda requested,cleanup=False:float(requested)
         if cleanup_failure:scope.close.side_effect=ValueError('unsettled fixture writer')
@@ -779,8 +779,9 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             return actual_sha(path)
         import fresh_device
         from test_stall_fresh import proof as created_proof
-        def create_device(owner,path):
+        def create_device(owner,path,device_class="phone"):
             proof=created_proof();proof['device']=device
+            if device_class=='tablet':proof.update(device_class='tablet',reference_device=fresh_device.TABLET_REFERENCE,device_type='com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB',preexisting=[fresh_device.TABLET_REFERENCE])
             owner.fixture={'device':device,'owned_boot':True,'owned_created':proof,'stopped':False,'deleted':False}
             if uninstall_failure is not None or missing_app:owner.fixture={'device':device,'owned_boot':True}
             return proof
@@ -805,7 +806,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
             layout=stack.enter_context(mock.patch.object(capture,'run_layout',return_value=recovery))
             stop=stack.enter_context(mock.patch.object(capture,'stop_fixture',return_value=True))
             if install_observation is not None:stack.enter_context(mock.patch.object(capture,'observe_install',return_value=install_observation))
-            with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,'phone',install_observation is not None,calibration_only=calibration_only)
+            with contextlib.redirect_stdout(io.StringIO()):passed=capture.execute(host,work,output,inputs,'a'*64,device_class,install_observation is not None,calibration_only=calibration_only)
         native.assert_called_once();acquire.assert_any_call(work/'LiveContainer',capture.SOURCE,command)
         if calibration_only:
             calibration.assert_called_once();layout.assert_not_called()
@@ -814,7 +815,7 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         elif install_observation is not None or install_failure:
             layout.assert_not_called()
         elif uninstall_failure is None:
-            layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,'phone',output/'recovery',renderer.valid_png,full_recovery=False,default_tabs=False)
+            layout.assert_called_once_with(command,work/'build/DerivedData/Build/Products/Fixture.xctestrun',device,device_class,output/'recovery',renderer.valid_png,full_recovery=False,default_tabs=False)
         else:
             layout.assert_not_called()
             calls=command.call_args_list;optional=[c for c in calls if c.args[:3]==('xcrun','simctl','uninstall')]
@@ -867,22 +868,30 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
         for receipt in optional:
             self.assertEqual(receipt['exit_code'],1);self.assertEqual(receipt['primary_error']['type'],'CalledProcessError');self.assertEqual(receipt['cleanup_errors'],[])
         self.assertEqual(len([c for c in command.call_args_list if c.args[:3]==('xcrun','simctl','install')]),1)
-    def test_tablet_rejected_before_any_work(self):
+    def test_actual_tablet_route_and_cleanup_failure(self):
+        passed,row,_=self.execute_phone(device_class='tablet');self.assertTrue(passed)
+        self.assertTrue(row['tablet_executed']);self.assertFalse(row['calibration_executed']);self.assertFalse(row['full_matrix_complete'])
+        self.assertEqual(row['scope'],'tablet-recovery-capability-only');self.assertEqual(row['device_class'],'tablet')
+    def test_tablet_cleanup_failure_revokes_pass(self):
+        passed,row,_=self.execute_phone(device_class='tablet',cleanup_failure=True)
+        self.assertFalse(passed);self.assertFalse(row['collection_complete']);self.assertFalse(row['capabilities_passed'])
+    def test_tablet_requires_matching_sealed_scope_before_work(self):
+        put(self.root/'inputs',{'scope':'phone-recovery-capability-only-no-admission'})
         with mock.patch.object(capture.process_scope,'Scope') as scope:
-            with self.assertRaisesRegex(ValueError,'phone-only'):capture.execute(self.root,self.root/'work',self.root/'evidence',self.root/'inputs','a'*64,'tablet')
+            with self.assertRaisesRegex(ValueError,'sealed execution scope'):capture.execute(self.root,self.root/'work',self.root/'evidence',self.root/'inputs','a'*64,'tablet')
             scope.assert_not_called();self.assertFalse((self.root/'work').exists());self.assertFalse((self.root/'evidence').exists())
     def test_old_combined_input_scope_rejected(self):
         helper=SealsAndExports();helper.root=self.root;host,path,data=helper.sealed();data['scope']='calibration-and-recovery-capabilities-only-no-admission';put(path,data)
         with self.assertRaisesRegex(ValueError,'wrong capability scope'):capture.validate(host,path,capture.sha(path))
-    def test_workflow_only_phone_and_preserved_budgets(self):
+    def test_workflow_only_tablet_and_preserved_budgets(self):
         import yaml
         row=yaml.safe_load((HERE.parents[2]/'.github/workflows/p1-native-candidate.yml').read_text());jobs=row['jobs'];self.assertEqual(len(jobs),1)
-        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['phone']);self.assertEqual(job['timeout-minutes'],35)
-        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertEqual(step['run'].count('--calibration-only'),1);self.assertNotIn('--full-recovery',step['run']);self.assertIn('preflight/budget.py',step['run'])
+        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['tablet']);self.assertEqual(job['timeout-minutes'],35)
+        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertNotIn('--calibration-only',step['run']);self.assertNotIn('--full-recovery',step['run']);self.assertIn('preflight/budget.py',step['run'])
         self.assertIn("--device-class '${{ matrix.device }}'",step['run']);self.assertNotIn('native_gate.py',step['run'])
-    def test_cli_rejects_tablet(self):
+    def test_cli_rejects_unknown_class(self):
         import subprocess
-        reply=subprocess.run([sys.executable,'-B',str(HERE/'capture.py'),'--device-class','tablet'],text=True,capture_output=True,timeout=20)
-        self.assertNotEqual(reply.returncode,0);self.assertIn("invalid choice: 'tablet'",reply.stderr)
+        reply=subprocess.run([sys.executable,'-B',str(HERE/'capture.py'),'--device-class','watch'],text=True,capture_output=True,timeout=20)
+        self.assertNotEqual(reply.returncode,0);self.assertIn("invalid choice: 'watch'",reply.stderr)
 
 if __name__=='__main__':unittest.main()

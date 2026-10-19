@@ -1,6 +1,6 @@
-name: P1 bounded phone screen calibration
+name: P1 bounded tablet recovery capability
 
-# Full phone recovery only. Calibration, tablet and broader acceptance remain excluded.
+# Tablet capability only. Calibration, full recovery and broader acceptance remain excluded.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'e255b0919e67ad2bcd8d193a334818cd453146263d2fa03e0e65b81685586e65'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '3c42df30f7314896cb1c487109cde64619d2769bbcc31a5404fd85411735ded9'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [phone]
+        device: [tablet]
     runs-on: macos-26
     timeout-minutes: 35
     defaults:
@@ -51,7 +51,8 @@ jobs:
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_observation_snapshot.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_screen_calibration.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_calibration_discovery.py -v
-      - name: Collect bounded phone screen calibration
+          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_tablet_profile.py -v
+      - name: Collect bounded tablet recovery capability
         id: collect
         timeout-minutes: 22
         run: |
@@ -62,7 +63,7 @@ jobs:
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
             --work "$RUNNER_TEMP/p1-capability-work" --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
-            --device-class '${{ matrix.device }}' --execute --calibration-only
+            --device-class '${{ matrix.device }}' --execute
       - name: Package every original evidence byte into bounded parts
         id: package
         if: always()
