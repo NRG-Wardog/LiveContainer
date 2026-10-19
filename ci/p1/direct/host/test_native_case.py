@@ -54,6 +54,18 @@ class CaseTests(unittest.TestCase):
         self.assertLess(calls.index('await_strip_complete'),calls.index('send_stop'))
         self.assertEqual(calls[-6:],list(n.CLEANUP));self.assertEqual(len(case.context['protocol']['commands']),29)
         with self.assertRaises(ValueError):case.run()
+    def test_startup_uses_shared_observation_deadline_without_reset(self):
+        b=Backend();original=b.await_started
+        def delayed(context,timeout):
+            self.assertGreater(timeout,90);self.assertLessEqual(timeout,280)
+            result=original(context,timeout);b.tick+=120_000_000_000;return result
+        b.await_started=delayed;case=n.Case(SESSION,b,now_ns=b.now);result=case.run()
+        self.assertTrue(result['sequenceCompleted'])
+        self.assertEqual(case.budget['effectiveCommandBudgetNs'],360_000_000_000)
+        self.assertEqual(case.budget['cleanupReserveNs'],70_000_000_000)
+        self.assertEqual(case.budget['nativeMethodAllowanceSeconds'],240)
+        self.assertLess(case._remaining(360),160)
+
     def test_every_main_stage_failure_runs_all_cleanup(self):
         for failure in n.OPERATIONS[:-len(n.CLEANUP)]:
             with self.subTest(failure=failure):

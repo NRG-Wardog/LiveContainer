@@ -189,7 +189,9 @@ class Case:
             self.context['nativeMethodTimeoutSeconds'] = 240
             self._persist()
             self._stage('launch_native', 15)
-            self._stage('await_started', 90)
+            # Startup shares the original absolute observation deadline; no separate
+            # 90-second cutoff cancels an otherwise live runner installation.
+            self._stage('await_started', 360)
             # Exactly one bounded container lookup per role, only after the hint.
             self._stage('discover_app', 30)
             self._stage('discover_runner', 30)
