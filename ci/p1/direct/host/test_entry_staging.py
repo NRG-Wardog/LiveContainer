@@ -42,4 +42,27 @@ class Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d).resolve();work=p/'work';work.mkdir()
             with self.assertRaises(ValueError):entry.stage(p,work,{'adapter_files':{'../x':'0'*64}})
+    def startup_row(self,elapsed=7):
+        return dict(exit_code=0,writer_settled=True,failure_type=None,primary_error=None,cleanup_errors=[],stdout='Xcode\n',
+                    launch_receipt=dict(state='pre-exec-observed',closed=True,eof=True,exec_failure=None),
+                    wait_timing=dict(command_started=100,wait_finished=100+elapsed))
+    def test_startup_one_bounded_call_retains_historical_metric(self):
+        result={};row=self.startup_row()
+        from unittest.mock import Mock
+        command=Mock(return_value=row)
+        self.assertEqual(entry.startup_observation(command,result,'version','xcodebuild','-version',historical=5),'Xcode')
+        command.assert_called_once_with('xcodebuild','-version',timeout=30,receipt=True)
+        self.assertTrue(result['startupObservations']['version']['historicalAllowanceExceeded'])
+    def test_startup_unknown_failed_unsettled_retained_and_rejected(self):
+        from unittest.mock import Mock
+        for key,value in [('exit_code',-15),('writer_settled',False),('primary_error',{'type':'TimeoutExpired'}),('cleanup_errors',[{}]),('launch_receipt',{})]:
+            row=self.startup_row();row[key]=value;result={};command=Mock(return_value=row)
+            with self.assertRaises(ValueError):entry.startup_observation(command,result,'version','xcodebuild','-version',historical=5)
+            self.assertIs(result['startupObservations']['version'],row);self.assertEqual(command.call_count,1)
+    def test_startup_original_boundary_and_missing_timing(self):
+        from unittest.mock import Mock
+        row=self.startup_row(5);entry.startup_observation(Mock(return_value=row),{},'version','xcodebuild',historical=5)
+        self.assertFalse(row['historicalAllowanceExceeded'])
+        row=self.startup_row();row['wait_timing']={}
+        with self.assertRaises(ValueError):entry.startup_observation(Mock(return_value=row),{},'version','xcodebuild',historical=5)
 if __name__=='__main__':unittest.main()

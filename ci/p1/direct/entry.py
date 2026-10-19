@@ -16,6 +16,22 @@ EXPECTED_DIRECT_ADAPTERS=frozenset(['ci/p1/direct/README.md', 'ci/p1/direct/anal
 def require(ok,message):
     if not ok:raise ValueError(message)
 
+def startup_observation(command,result,name,*argv,historical):
+    """One bounded startup observation; original allowance remains diagnostic."""
+    row=command(*argv,timeout=30,receipt=True)
+    result.setdefault('startupObservations',{})[name]=row
+    timing=row.get('wait_timing') or {}
+    start=timing.get('command_started');end=timing.get('wait_finished')
+    require(type(start) in (int,float) and type(end) in (int,float) and 0<=start<=end<float('inf'),'startup timing absent')
+    row['historicalAllowanceSeconds']=historical
+    row['historicalAllowanceExceeded']=end>start+historical
+    launch=row.get('launch_receipt') or {}
+    require(row.get('exit_code')==0 and row.get('writer_settled') is True and
+            row.get('failure_type') is None and row.get('primary_error') is None and not row.get('cleanup_errors') and
+            launch.get('state')=='pre-exec-observed' and launch.get('closed') is True and launch.get('eof') is True and
+            launch.get('exec_failure') is None,'startup command failed or execution unresolved')
+    return row['stdout'].strip()
+
 def bootstrap(host,inputs,approved):
     raw=inputs.read_bytes();require(sha256(raw).hexdigest()==approved,'approved input bytes differ')
     def pairs(items):
@@ -92,14 +108,14 @@ def execute(host,work,output,inputs,approved):
         result['github']={k:os.environ.get(k) for k in ('GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_REPOSITORY')}
         result['workflowSHA256']=capture.sha(host/'.github/workflows/p1-native-candidate.yml')
         require(os.environ.get('ImageVersion')=='20261013.0424.1','pinned image differs')
-        version=command('xcodebuild','-version',timeout=5);require(version=='Xcode 26.4.1\nBuild version 17E202','pinned toolchain differs')
+        version=startup_observation(command,result,'xcode-version','xcodebuild','-version',historical=5);require(version=='Xcode 26.4.1\nBuild version 17E202','pinned toolchain differs')
         result['xcodeVersion']=version
-        sdk=command('xcrun','--sdk','macosx','--show-sdk-path',timeout=10)
+        sdk=startup_observation(command,result,'sdk-path','xcrun','--sdk','macosx','--show-sdk-path',historical=10)
         header=json.loads(command(sys.executable,'-B',preserved/'preflight/capture_prerequisites.py','--header-only',sdk,timeout=5))
         require(header['headerSHA256']=='025ce72289d842191571495dfc98ba1f5fec0c00b77ed598ab7cc765a649e9aa','pinned timestamp documentation differs');result['sdk']=header
         prerequisite=work/'capture-prerequisites'
         command('xcrun','swiftc',preserved/'preflight/capture_prerequisites.swift','-o',prerequisite,timeout=30)
-        check=json.loads(command(prerequisite,timeout=10))
+        check=json.loads(startup_observation(command,result,'capture-prerequisites',prerequisite,historical=10))
         require(window.capture_prerequisites.validate_result(check) and check['screenCapturePreflight'] and
                 check['simulatorProcessCount']==0 and check['simulatorOnScreenWindowCount']==0,'permission or GUI prerequisite absent')
         result['prerequisites']=check
@@ -109,7 +125,7 @@ def execute(host,work,output,inputs,approved):
         compiled=capture_handoff.bind_compilation(source,helper,json.dumps(receipt,sort_keys=True,separators=(',',':')).encode(),
                     scope=scope,expected_source_sha256=host_sources['direct-feedback-local/capture/direct_capture.swift'])
         capture.write(output/'helper-compile.json',receipt)
-        accessibility=json.loads(command(helper,'--check-existing-accessibility',timeout=10))
+        accessibility=json.loads(startup_observation(command,result,'accessibility-prerequisite',helper,'--check-existing-accessibility',historical=10))
         capture.write(output/'accessibility-prerequisite.json',accessibility)
         result['accessibilityPrerequisite']=accessibility
         require(set(accessibility)=={'schema','existingAccessibilityTrust','permissionRequested','windowsEnumerated','pixelsCaptured','admissionEligible'} and
