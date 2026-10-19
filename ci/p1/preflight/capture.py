@@ -86,10 +86,19 @@ def configure_runner(candidate,products,session,output):
     return target
 
 
-def container(command,device,bundle,timeout=10):
+def container(command,device,bundle,timeout=10,startup_timing=None):
     require(bundle in [APP_ID,RUNNER_ID],'unallowlisted container discovery')
-    require(0<timeout<=10,'invalid container discovery budget')
+    require(0<timeout<=(30 if startup_timing is not None else 10),'invalid container discovery budget')
     receipt=command('xcrun','simctl','get_app_container',device,bundle,'data',timeout=timeout,receipt=True)
+    if startup_timing is not None:
+        timing=receipt.get('wait_timing',{})
+        start=timing.get('command_started');end=timing.get('wait_finished')
+        elapsed=end-start if isinstance(start,(int,float)) and isinstance(end,(int,float)) and end>=start else None
+        write(startup_timing,{'bundle':bundle,'allowance_seconds':timeout,'historical_allowance_seconds':10,
+            'wait_elapsed_seconds':elapsed,'historical_10s_exceeded':elapsed>10 if elapsed is not None else None,
+            'exit_code':receipt.get('exit_code'),'failure_type':receipt.get('failure_type'),
+            'cleanup_errors':receipt.get('cleanup_errors'),'wait_timing':timing,'launch_receipt':receipt.get('launch_receipt'),
+            'infrastructure_only':True,'admissionEligible':False})
     require(receipt.get('writer_settled') is True and not receipt.get('cleanup_errors'),'container discovery writer settlement failed')
     launch=receipt.get('launch_receipt',{})
     require(launch.get('state')=='pre-exec-observed' and launch.get('closed') is True and launch.get('eof') is True and launch.get('exec_failure') is None,'container discovery launch unknown')
@@ -299,9 +308,9 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
                         write(folder/'startup-hint.json',{'host_monotonic':time.monotonic(),'log':'xctest-command/command-0001.stdout','readiness_hint_only':True})
                         for role,identifier in [('app',APP_ID),('runner',RUNNER_ID)]:
                             require(not future.done(),'XCTest ended before container discovery')
-                            remaining=min(10,deadline-time.monotonic())
+                            remaining=min(30,deadline-time.monotonic())
                             require(remaining>0,'channel deadline expired before discovery')
-                            containers[role]=container(command,device,identifier,timeout=remaining)
+                            containers[role]=container(command,device,identifier,timeout=remaining,startup_timing=folder/(role+'-container-timing.json'))
                             require(containers[role] is not None,'started XCTest container absent')
                         require(time.monotonic()<deadline,'channel deadline expired during discovery')
                     if hint_observed:

@@ -33,7 +33,7 @@ class Discovery(unittest.TestCase):
         self.assertNotIn('app_container=container',source)
         self.assertIn("if not hint_observed and calibration_started(native_logs/'command-0001.stdout',startup_state):",source)
         self.assertIn('channel_at(containers[role],identifier,session)',source)
-        self.assertIn('remaining=min(10,deadline-time.monotonic())',source)
+        self.assertIn('remaining=min(30,deadline-time.monotonic())',source)
         self.assertIn('channel_root(command,device,identifier,session)',source)
         self.assertIn('command.scope.remaining(180)',source)
         self.assertIn("native_command=process_scope.Commands(command.scope,native_logs)",source)
@@ -66,6 +66,19 @@ class Discovery(unittest.TestCase):
             for timeout in [0,-1,11]:
                 with self.assertRaises(ValueError):capture.container(command,'device',capture.APP_ID,timeout=timeout)
             command.assert_not_called()
+    def test_startup_allowance_and_historical_failure_retained(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);timing=root/'timing.json';row=self.receipt(root)
+            row['wait_timing']={'command_started':1,'wait_finished':18}
+            command=mock.Mock(return_value=row)
+            self.assertEqual(capture.container(command,'device',capture.APP_ID,timeout=30,startup_timing=timing),root.resolve())
+            self.assertEqual(command.call_args.kwargs['timeout'],30)
+            self.assertTrue(json.loads(timing.read_text())['historical_10s_exceeded'])
+            row.update(failure_type='TimeoutExpired',exit_code=-15)
+            with self.assertRaises(ValueError):capture.container(command,'device',capture.APP_ID,timeout=30,startup_timing=timing)
+            self.assertEqual(json.loads(timing.read_text())['failure_type'],'TimeoutExpired')
+            with self.assertRaises(ValueError):capture.container(command,'device',capture.APP_ID,timeout=31,startup_timing=timing)
     def test_recovery_only_retained_completed_discovery(self):
         with tempfile.TemporaryDirectory() as tmp:
             raw=mock.Mock(pid=99,returncode=-15);owned=process_scope.OwnedProcess(raw)
