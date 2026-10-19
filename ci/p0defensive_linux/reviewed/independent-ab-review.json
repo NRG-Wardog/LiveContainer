@@ -1,0 +1,27 @@
+{
+  "reviewer": "review_checked_vm_setup",
+  "status": "Exact-byte independent clearance; no remaining A/B source blocker",
+  "resolved_finding": "Unchecked wrapper output-slot callers after allocator failure changed to zero return",
+  "loader_sha256": "7d6877197184487db61f4acde602e14622213c97cc01424f3637a015f465464f",
+  "header_sha256": "49cdcd0e7250837426f680ff33e721f3422044c7cf06b3a60b69d3d5b5e44bf7",
+  "core_sha256": "9c3150812a9fc4559c32e4bbafa39cd91c82d9bfdc3954a8d2af2bfc08c14c12",
+  "scope": "Non-author verified final committed bytes, all manifest file/blob hashes, final patch and test receipts; independently reran aggregate; no edits or guest execution",
+  "limitations": [
+    "No device or real engine validation",
+    "No proprietary guest execution",
+    "Inherited unbounded host I/O buffers and unrelated import semantics remain"
+  ],
+  "reviewer_authored_candidate": false,
+  "commit": "bf62027f02d87d4c950e6868fd94defa3f8bea73",
+  "tree": "a03f5a4284b67560629cdb52b8e6b246b835a56a",
+  "manifest_sha256": "00bf6599019e720b06f936b6530f1b710e0c397e5111ca362189a31b686bf026",
+  "verified_changed_files": 13,
+  "verified_receipts": 5,
+  "verified_receipt_source_hash_entries": 43,
+  "host_assertions_from_receipts": 4290,
+  "independent_aggregate_replay": {
+    "passed": 8,
+    "skipped": 1,
+    "skip_reason": "Swift compiler unavailable"
+  }
+}

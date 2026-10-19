@@ -1,0 +1,48 @@
+{
+  "adapter_files": {
+    "ci/p0defensive_linux/README.md": "f6bc240fe650ffb688fc4e945e5ba64e8909ec7ea6fa3b54bca29b1c6ce1fafb",
+    "ci/p0defensive_linux/allocation_contract.py": "302757a891cec7a561633d84acbd180cc900cd8102e01475739b7c8aead48e0a",
+    "ci/p0defensive_linux/evidence.py": "fe1d19aa0a2daf9572f733d9859e67addcdeba9df4395d6d0ca94f99e510a032",
+    "ci/p0defensive_linux/host_contract.py": "e3127c74e5edb2a4868b44123db944ade96fff8692532cae455fa2a47aef1731",
+    "ci/p0defensive_linux/inventory.py": "ff7b5bfe7fd6ff3b468bb0d7e88b49a857b572d6dcc3c37de28b02e35608ee2f",
+    "ci/p0defensive_linux/lifecycle.py": "b4bd301d9d1b96f8792668b05efe9d89f2e421a0c71baef2592ba6c4aa38e9e4",
+    "ci/p0defensive_linux/native_gate.py": "e69a1d3657565c9848b3fe2c08f090a845d40a44b243c2c502376d1d35b38778",
+    "ci/p0defensive_linux/observe_host_subprocess.py": "527bd6d0f79d092103a59eaa3b600ac12febdeef913d6f7593167c39761f1fe1",
+    "ci/p0defensive_linux/prepare_inputs.py": "79e0be1b476f533b8f15ba272b4f8ccf91b91a56e087511df986cc917fb5ebe7",
+    "ci/p0defensive_linux/retention.py": "dbaad35789c7d3048d70ef070585f1bc5aced4698b0980bff384b57a0b767b8e",
+    "ci/p0defensive_linux/reviewed/allocation_gate.py": "93f4b5032a0bf1b22db0ce9385fc4fba8e1f52635a7d221af8a898c9a879763f",
+    "ci/p0defensive_linux/reviewed/capture-host-build.before.yml": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4",
+    "ci/p0defensive_linux/reviewed/connector-publication-receipt.json": "419fe8ef029c073ea4034627cc63115ef8db6f006889e6c7e42854f55cbc1127",
+    "ci/p0defensive_linux/reviewed/final-manifest.json": "00bf6599019e720b06f936b6530f1b710e0c397e5111ca362189a31b686bf026",
+    "ci/p0defensive_linux/reviewed/independent-ab-review.json": "39cc91554f5599d2fa72bdca5dc820bebb1a6e0ac4feacf7f75ff1314581f486",
+    "ci/p0defensive_linux/reviewed/lifecycle.py": "b4bd301d9d1b96f8792668b05efe9d89f2e421a0c71baef2592ba6c4aa38e9e4",
+    "ci/p0defensive_linux/reviewed/native_gate.py": "b4f1c6e39f990fd1b86972b739dca6ef4df81f3d1353863071f7a767563b49b0",
+    "ci/p0defensive_linux/reviewed/observe_host_subprocess.py": "8f7b3ca0f188816902407d5da81189f9c8e3c4b0e1c470070dc19ecb6389757c",
+    "ci/p0defensive_linux/reviewed/prepare_candidate_inventory.py": "ba903bd310d29ae774d4f23292c999f3345426a7c5f66c898c5e8cb43f2c7489",
+    "ci/p0defensive_linux/reviewed/prior-linux-workflow.yml": "3aa573a077b8d7a81fbbb4836379d1b4963d55ac207610442d7eb974a779ab66",
+    "ci/p0defensive_linux/reviewed/retention.py": "dbaad35789c7d3048d70ef070585f1bc5aced4698b0980bff384b57a0b767b8e",
+    "ci/p0defensive_linux/reviewed/run_host_test.py": "545b6633771e07990d05008855ef86f7c6b37626511b8d197a55c2d364f32708",
+    "ci/p0defensive_linux/reviewed/source-seal.json": "7e2975ef6924f3debe75ac7ef57b7a93edd4e3e365df11e2880553713ec513cb",
+    "ci/p0defensive_linux/reviewed/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
+    "ci/p0defensive_linux/run_host_test.py": "dc12cbc0351a3fb42174ee4e780fd0b33b5ba06a18c99873496d18bd166bca7b",
+    "ci/p0defensive_linux/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
+    "ci/p0defensive_linux/tests/test_capture.py": "e6c2b420592501315d60229874d92c925d3ece61063e29f2d3d3a08c5e1aef6c"
+  },
+  "basis": "defensive-ab-linux-v1",
+  "drivers": [
+    "test_vm_setup_host.py",
+    "test_memory_boundaries_host.py",
+    "test_cxx_allocation.py",
+    "test_elf_metadata_bounds.py"
+  ],
+  "host": {
+    "base": "545438e1f0a89fdef375f73273c5c9fc2735cbce",
+    "branch": "validation/p0-defensive-ab-linux",
+    "build_guard": "    if: github.ref != 'refs/heads/validation/p0-defensive-ab-linux'\n",
+    "tree": "e8014dd771c25c4a05dc76ab0aa304a233642a83"
+  },
+  "retained_patterns_status": "PENDING_INDEPENDENT_CAPTURE_REVIEW",
+  "schema": 1,
+  "source_seal_sha256": "7e2975ef6924f3debe75ac7ef57b7a93edd4e3e365df11e2880553713ec513cb",
+  "workflow_template_sha256": "dc03c10c7736e4503c97d994896e0d6f52a41b3a65c8c2e5f5cd61897c245545"
+}

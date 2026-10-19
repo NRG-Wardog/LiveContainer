@@ -1,0 +1,71 @@
+name: P0 C++ allocation Linux host capture
+
+# Independent review is required before publication or triggering.
+on:
+  push:
+    branches: [validation/p0-cxx-allocation-linux]
+permissions:
+  contents: read
+concurrency:
+  group: p0-cxx-allocation-linux-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  allocation-host:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-cxx-allocation-linux'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APPROVED_P0_INPUTS_SHA256: '9e85241e092fa405c406cd4ccaec2cb755942ed0fb073d4df5c1a223f25e0b51'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Verify exact reviewed Linux inputs and capture contracts
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0cxx/allocation_gate.py \
+            --inputs validation/ci/p0cxx/inputs-allocation.json \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation"
+          python3 -B -m unittest discover -s validation/ci/p0cxx/tests -p 'test_capture*.py' -v
+      - name: Capture production allocation helper with host API doubles only
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0cxx/allocation_gate.py \
+            --inputs validation/ci/p0cxx/inputs-allocation.json \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --work "$RUNNER_TEMP/p0-cxx-allocation-work" \
+            --evidence "$GITHUB_WORKSPACE/allocation-evidence" --execute
+      - name: Verify settled evidence before transport
+        id: transport
+        if: always()
+        run: |
+          if python3 -B validation/ci/p0cxx/allocation_gate.py \
+            --inputs validation/ci/p0cxx/inputs-allocation.json \
+            --approved-inputs-sha256 "$APPROVED_P0_INPUTS_SHA256" \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --evidence "$GITHUB_WORKSPACE/allocation-evidence" --check-transport; then
+            echo 'settled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'settled=false' >> "$GITHUB_OUTPUT"
+            echo 'Evidence upload blocked: unknown writers or unstable evidence index.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve actual allocation capture for independent review
+        if: always() && steps.transport.outputs.settled == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p0-cxx-allocation-linux-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: allocation-evidence/**
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,65 @@
+name: P0 defensive A+B Linux synthetic host capture
+# LOCAL PROPOSAL ONLY. Exact independent review is required before activation.
+on:
+  push:
+    branches: [validation/p0-defensive-ab-linux]
+permissions:
+  contents: read
+concurrency:
+  group: p0-defensive-ab-linux-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  defensive-host:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-defensive-ab-linux'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APPROVED_P0DEFENSIVE_LINUX_INPUTS_SHA256: e07bd51b6e168a75930d64e58eec1bdc7bf9a5a5eee02a0d21901e1f35879cc7
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          fetch-depth: 0
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Validate exact successor inputs and finite capture guards
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0defensive_linux/native_gate.py --host-root validation
+          python3 -B validation/ci/p0defensive_linux/tests/test_capture.py
+      - name: Capture exact synthetic Linux source scripts
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0defensive_linux/native_gate.py \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --approved-inputs-sha256 "$APPROVED_P0DEFENSIVE_LINUX_INPUTS_SHA256" \
+            --work "$RUNNER_TEMP/p0-defensive-linux-work" \
+            --evidence "$GITHUB_WORKSPACE/defensive-linux-evidence" --execute
+      - name: Verify settled complete evidence before transport
+        id: transport
+        if: always()
+        run: |
+          if python3 -B validation/ci/p0defensive_linux/native_gate.py \
+            --host-root "$GITHUB_WORKSPACE/validation" \
+            --evidence "$GITHUB_WORKSPACE/defensive-linux-evidence" --check-transport; then
+            echo 'settled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'settled=false' >> "$GITHUB_OUTPUT"
+            echo 'Upload blocked: incomplete retention, unknown writers or changed evidence.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve actual synthetic capture for independent review
+        if: always() && steps.transport.outputs.settled == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p0-defensive-ab-linux-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: defensive-linux-evidence/**
+          if-no-files-found: error
+          retention-days: 14
