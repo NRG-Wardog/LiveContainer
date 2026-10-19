@@ -192,9 +192,10 @@ class Case:
             # Startup shares the original absolute observation deadline; no separate
             # 90-second cutoff cancels an otherwise live runner installation.
             self._stage('await_started', 360)
-            # Exactly one bounded container lookup per role, only after the hint.
-            self._stage('discover_app', 30)
-            self._stage('discover_runner', 30)
+            # Each one-shot simctl lookup retains its own 30-second command cap.
+            # Receipt/path/owner checks share the absolute observation deadline.
+            self._stage('discover_app', 360)
+            self._stage('discover_runner', 360)
             self._stage('await_geometry', 30)
             self._stage('start_helper', 30)
             self._stage('register_baseline', 30)

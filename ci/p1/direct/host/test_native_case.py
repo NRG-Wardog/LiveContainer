@@ -66,6 +66,29 @@ class CaseTests(unittest.TestCase):
         self.assertEqual(case.budget['nativeMethodAllowanceSeconds'],240)
         self.assertLess(case._remaining(360),160)
 
+    def test_discovery_checks_share_budget_without_extending_command_cap(self):
+        b=Backend()
+        for name in ('discover_app','discover_runner'):
+            original=getattr(b,name)
+            def delayed(context,timeout,original=original):
+                self.assertGreater(timeout,30)
+                value=original(context,timeout);b.tick+=31_000_000_000;return value
+            setattr(b,name,delayed)
+        case=n.Case(SESSION,b,now_ns=b.now);self.assertTrue(case.run()['sequenceCompleted'])
+        self.assertLess(case._remaining(360),218)
+        source=(Path(__file__).parent/'native_channels.py').read_text()
+        self.assertIn('timeout=min(30,self.remaining(timeout)),receipt=True',source)
+        self.assertIn('role not in self.attempted',source)
+
+    def test_discovery_cannot_exceed_absolute_observation_deadline(self):
+        b=Backend();original=b.discover_app
+        def late(context,timeout):
+            value=original(context,timeout);b.tick+=280_000_000_000;return value
+        b.discover_app=late;case=n.Case(SESSION,b,now_ns=b.now)
+        with self.assertRaises(ValueError):case.run()
+        calls=[name for name,_ in b.calls]
+        self.assertNotIn('discover_runner',calls);self.assertEqual(calls[-6:],list(n.CLEANUP))
+
     def test_every_main_stage_failure_runs_all_cleanup(self):
         for failure in n.OPERATIONS[:-len(n.CLEANUP)]:
             with self.subTest(failure=failure):
