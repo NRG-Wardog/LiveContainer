@@ -564,7 +564,7 @@ private struct P1DirectRegistrationConfiguration {
         guard !failed else { return }
         let before = ProcessInfo.processInfo.systemUptime
         draws += 1
-        guard draws <= 64, bounds.width == 2, bounds.height == 2,
+        guard draws <= 64, bounds.width == 3, bounds.height == 3,
               let context = UIGraphicsGetCurrentContext() else {
             failed = true
             receipt(["type":"direct-anchor-draw", "session":configuration.session,
@@ -613,7 +613,7 @@ private struct P1DirectRegistrationConfiguration {
                         .position(x:(value == 1 || value == 3) ? 65 : geometry.size.width-65,
                                   y:value <= 2 ? 41 : geometry.size.height-41-Self.bottomRegistrationLift)
                     P1DirectFeature(configuration:configuration,ordinal:UInt32(value),receipt:receipt)
-                        .frame(width:2,height:2)
+                        .frame(width:3,height:3)
                         .position(x:(value == 1 || value == 3) ? 5 : geometry.size.width-5,
                                   y:value <= 2 ? 5 : geometry.size.height-5-Self.bottomRegistrationLift)
                 }

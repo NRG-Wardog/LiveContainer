@@ -1,9 +1,9 @@
 {
   "admissionEligible": false,
-  "candidateSHA256": "6b28da627609af668ab6a7252dfad0529e0e3626077950d3dc2ed309aa647726",
+  "candidateSHA256": "2b10754d076e1adb13f937f81e27215e2ef79451296e0af576e94f1fbeb815ef",
   "nativeCompiled": false,
   "nativeExecuted": false,
-  "observerSHA256": "25989f83873183dd609ee353f5c3614f67ada15f18fb14e36dac073e3162070e",
+  "observerSHA256": "bd76b9dad17fffcf9bfe682b66522af97a8a3d7285d0e53c1e0388df7a88874f",
   "originalSource": "../../window-capture-candidate/ci/p1/video/ui_tests.swift",
   "originalSourceSHA256": "9105711cd1b10860549025109bdc2087976d6661201ab44307e08473b7a7a783",
   "primitivesBlockSHA256": "c8f21f91675173c959f73c92bbc49a2466d66c133def65779c79501ebee182c2",

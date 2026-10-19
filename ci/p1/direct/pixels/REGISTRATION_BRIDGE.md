@@ -2,7 +2,7 @@
 
 `registration_bridge.freeze_registration` consumes:
 
-- Exact immutable handoff geometry JSON bytes, including four real measured packet AX frames and four real measured 2×2-point feature AX frames.
+- Exact immutable handoff geometry JSON bytes, including four real measured packet AX frames and four real measured 3×3-point feature AX frames.
 - The full retained BGRA baseline bytes, dimensions/stride, and independently expected retained-frame SHA256.
 - Caller-owned `direct_geometry.RasterIdentity`: session, owner PID/window ID, actual raster dimensions, AX viewport and orientation only. Screenshot baseline supplies no SCStream content rectangle or scale metadata, and the adapter never invents those fields.
 - An immutable tuple of `(filename, exactBytes)` for the actual contiguous original `event-001.json`… prefix. It checks all eight source-tagged draw=1 receipts, subsequent draw errors/gaps, and the initial inventory. Each original leaf hash and the ordered inventory hash are bound into the proof. Caller must establish owned collection, prefix completeness, all journal error files, and write-cost validity. This adapter cannot prove completeness by parsing filenames.

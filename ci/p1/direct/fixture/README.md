@@ -81,7 +81,7 @@ from the workspace root. The same tests pass under `python3 -B -O`.
 
 ## Isolated tiny features and explicit premise
 
-The overlay also draws four clipped, non-hit-testing, opaque magenta 2×2-point UIViews with AX identifiers `p1-direct-feature-1` through `-4`. Each sits diagonally outward from its corresponding packet board with a fixed 2-point source gap. The whole actual AX frame is measured by the handoff; nominal layout coordinates are never substituted for the measurement. Packet draws carry `source=packet`; feature draws carry `source=feature`. All eight draw bodies and their first-draw inventory must be retained. No production layout constraints or action/delay statements change.
+The overlay also draws four clipped, non-hit-testing, opaque magenta 3×3-point UIViews with AX identifiers `p1-direct-feature-1` through `-4`. Each sits diagonally outward from its corresponding packet board with a fixed 1.5-point source gap. The whole actual AX frame is measured by the handoff; nominal layout coordinates are never substituted for the measurement. Packet draws carry `source=packet`; feature draws carry `source=feature`. All eight draw bodies and their first-draw inventory must be retained. No production layout constraints or action/delay statements change.
 
 The interval adapter is conditional on exclusive source locality: observed qualifying magenta comes from that corresponding source-owned clipped UIView, under a single upright positive affine transform whose native filtering behavior is separately validated. An exact-color component and adjacency do not authenticate a same-colored foreign replacement. No exact vector edge, center, fixed pixel rendering error, or native presentation is asserted. Source binding, real pixel rejection of overlap/clipping, and independent holdout remain mandatory.
 
@@ -89,8 +89,25 @@ The interval adapter is conditional on exclusive source locality: observed quali
 
 The retained AX log measured anchor3 at `[8,766,114,66]` and the live marker at `[105,771.33333333333337,192,16]`:17×16points overlap. The safe-area-sized overlay shares the original bottom inset with the live marker. Its geometry origin/size inferred from queried anchors is `[0,62]` / `[402,778]`, not the full `[0,0,402,874]` app viewport used by the early synthetic layout.
 
-Only the bottom packet+feature pairs now receive a fixed96-point upward offset. On those retained bounds, board3 becomes `[8,670,114,66]`, its modeled feature becomes `[4,738,2,2]`, and their full retained envelope ends at740, leaving31.333points before the unchanged live marker. The fourth board/features were not queried before failure; their coordinates in regression tests are explicitly source-model predictions, not native AX measurements. Both members move together because a board-only or64-point move can leave the full retained packet+feature ROI overlapping the marker. The minimum overlay height guard increases by the same fixed96points. No production view layout, test action/delay, baseline control, or whole-region overlap check changes.
+The historical2-point-feature correction gave only the bottom packet+feature pairs a fixed96-point upward offset. On those retained bounds, board3 became `[8,670,114,66]`, its historical modeled feature became `[4,738,2,2]`, and their historical full retained envelope ended at740, leaving31.333points before the unchanged live marker. The fourth board/features were not queried before failure; their coordinates in regression tests are explicitly source-model predictions, not native AX measurements. Both members move together because a board-only or64-point move can leave the full retained packet+feature ROI overlapping the marker. The minimum overlay height guard increases by the same fixed96points. No production view layout, test action/delay, baseline control, or whole-region overlap check changes.
 
-The native before screenshot is an XCTest3× attachment of1206×2622pixels. It does not establish ScreenCaptureKit dimensions, scale, timing, or admission. `native-layout-39262135354.json` binds the retained log/attachment hashes and measured viewport/control bounds. `test_native_layout.py` reconstructs the exact previous overlay source by removing only the placement delta, reproduces the original overlap, and checks the corrected full source envelopes.
+The native before screenshot is an XCTest3× attachment of1206×2622pixels. It does not establish ScreenCaptureKit dimensions, scale, timing, or admission. `native-layout-39262135354.json` binds the retained log/attachment hashes and measured viewport/control bounds. `test_native_layout.py` reconstructs the exact previous overlay source by removing the placement and explicitly declared feature-size deltas, reproduces the original overlap, and checks the corrected full source envelopes.
 
 The actual370×74-point Copy AX rectangle, unlike the earlier210×44-point synthetic control, exceeded the superseded512KiB six-ROI budget at representative1.4× scale. The coordinated successor allows1MiB combined per complete frame while independently enforcing6000total records,3GiB cumulative raw pixels and4GiB inclusive archive. The exact actual-AX synthetic model now passes1.4×; larger-scale positives and an over1MiB negative retain every source region. These are area-renderer tests, not predictions of native window scale, filtering, or admission.
+
+## Three-point source feature successor
+
+Run39299912951 retained a783×1600 baseline in which each upper2-point feature
+formed two exact-magenta components separated by a BGRA(255,1,255,255) sample.
+The strict detector rejected all six components; that failure remains unchanged.
+The successor grows only the four source-owned features symmetrically to3×3points,
+with unchanged centers and packet/control positions. Whole measured3×3 AX bounds
+are mandatory. In the historical placement model feature3 is now
+[3.5,737.5,3,3], its full envelope ends at740.5, and the exact modeled marker gap
+is30.83333333333337points. All whole-region non-overlap checks remain.
+
+The exact-color detector, four-component requirement, three-anchor fit, fourth
+holdout, whole-cell marker interiors, timing limits and storage bounds are
+unchanged. A4-point proposal failed the existing synthetic whole-cell interval
+check and was not adopted. Three-point synthetic success is not proof of native
+filtering/connectivity or capture acceptance.

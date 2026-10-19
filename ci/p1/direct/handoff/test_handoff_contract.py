@@ -21,8 +21,8 @@ def request():
                                   for n, frame in enumerate(([10, 10, 96, 16], [290, 10, 96, 16],
                                                               [10, 770, 96, 16], [290, 770, 96, 16]), 1)],
                               features=[dict(identifier=f"p1-direct-feature-{n}", ordinal=n, frame=frame)
-                                        for n, frame in enumerate(([4, 4, 2, 2], [394, 4, 2, 2],
-                                                                  [4, 794, 2, 2], [394, 794, 2, 2]), 1)],
+                                        for n, frame in enumerate(([3.5, 3.5, 3, 3], [393.5, 3.5, 3, 3],
+                                                                  [3.5, 793.5, 3, 3], [393.5, 793.5, 3, 3]), 1)],
                               registrationModel="whole-source-view-to-observed-support-v1",
                               sourceLocalityEstablished=False),
                 sampleBeforeUptime=111, sampleAfterUptime=112, observerEnteredUptime=110,
@@ -218,8 +218,8 @@ class SchemaTests(unittest.TestCase):
         for mutation in (lambda a: a.pop(), lambda a: a.append(deepcopy(a[0])),
                          lambda a: a.__setitem__(1, deepcopy(a[0])), lambda a: a.reverse()):
             row = request(); mutation(row["geometry"]["features"]); self.invalid_request(row)
-        for frame in ([4, 4, 1, 2], [-1, 4, 2, 2], [20, 30, 2, 2], [100, 300, 2, 2],
-                      [100, 400, 2, 2], [100, 450, 2, 2], [11, 11, 2, 2], [394, 4, 2, 2]):
+        for frame in ([3.5, 3.5, 2, 3], [-1, 4, 3, 3], [20, 30, 3, 3], [100, 300, 3, 3],
+                      [100, 400, 3, 3], [100, 450, 3, 3], [11, 11, 3, 3], [393.5, 3.5, 3, 3]):
             row = request(); row["geometry"]["features"][0]["frame"] = frame; self.invalid_request(row)
         for key in ("identifier", "ordinal", "frame"):
             row = request(); del row["geometry"]["features"][0][key]; self.invalid_request(row)

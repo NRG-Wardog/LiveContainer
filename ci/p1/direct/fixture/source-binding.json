@@ -1,12 +1,12 @@
 {
   "admissionEligible": false,
-  "candidateSHA256": "1f1221fad761c5e252c3a3c6920bbbdaf5420a6550ecc1c76fb55c5520a5ba8d",
+  "candidateSHA256": "78e07bb4843531d6a7b15eb95c91123884abee1be930505fbd9625b13e42a9ea",
   "generatorSHA256": "8509d58cf44d13bec9bf461e8e637f5c5f8c474c48f5eb30e69ad0c246e18f48",
   "nativeCompiled": false,
   "nativeExecuted": false,
   "originalSHA256": "3fa3f4329dd0dac18a94d8c43922e545be87ebed5136b7a49d18b02ca57118ff",
   "packetSourceSHA256": "8b6493a7015ff5c4dbf33a81ba37f27972ba1069653bfca31d9ecf6c0b4da0ee",
-  "registrationSourceSHA256": "56c3e64ac3c534a64fe8cc50124ec8a5fe21748aa89e1fe589a16e5924fafd24",
+  "registrationSourceSHA256": "845e3a34735dfcfb4e433f34263212e797d0af822db7377ba8f3372835c3553b",
   "schema": "p1-direct-fixture-source-binding-v1",
-  "sourceDelta": "receipt buffer/forwarder, one post-start-event attachment, non-hit-testing four-packet/four-feature overlay; fixed96-point bottom packet/feature lift after native overlap"
+  "sourceDelta": "receipt buffer/forwarder, one post-start-event attachment, non-hit-testing four-packet/four-feature overlay; fixed96-point bottom packet/feature lift after native overlap;3-point registration features with unchanged centers"
 }

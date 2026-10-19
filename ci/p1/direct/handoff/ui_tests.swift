@@ -299,8 +299,8 @@ private enum P1DirectHandoff {
             let element = query.element
             try require(element.exists && element.identifier == identifier, "wrong feature identity")
             let frame = element.frame, values = try rectangle(frame)
-            try require(frame.width == 2 && frame.height == 2 && windowFrame.contains(frame),
-                        "whole actual 2-by-2-point feature AX frame required inside app window")
+            try require(frame.width == 3 && frame.height == 3 && windowFrame.contains(frame),
+                        "whole actual 3-by-3-point feature AX frame required inside app window")
             try require(!([copyFrame, markerFrame, baselineFrame] + anchorFrames + featureFrames).contains {
                 $0.intersects(frame)
             }, "feature AX frame overlaps another retained region or control")

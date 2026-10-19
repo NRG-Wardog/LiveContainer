@@ -38,11 +38,11 @@ import window_capture
 
 PS = window_capture.process_scope
 # Deterministically render actual BGRA bytes; no retained binary fixture is needed.
-RAW, STRIDE = raster_fixtures.e.render(tiny_features=True, strip=True)
+RAW, STRIDE = raster_fixtures.e.render(tiny_features=True, strip=True, feature_rects=raster_fixtures.FEATURES3)
 WIDTH, HEIGHT = raster_fixtures.e.WIDTH, raster_fixtures.e.HEIGHT
-RAW_SHA256 = 'e46ecacc4069cf0dd077819e5b8a76c3cdefba8799062e9984975122718063c2'
-PACKED_SHA256 = '4c4b3b5f85bbc7cecae537a484e434b9a01e259e75a59b5af74cb7f8f537e24f'
-REGIONS_SHA256 = '32cdbaa39505bc6c53c14a0487f7d7967e073a865d2296cf3cc069d82a145268'
+RAW_SHA256 = '145cbe6094eed3f21e7d2a298c28005145ef5f876d2c579bfa4f665adc044fc5'
+PACKED_SHA256 = '0fd0f1a73e244e08be43a0b6d0d40ebf8895f21fe17555d2373671bc69a2d400'
+REGIONS_SHA256 = '2fb27b92c4f20412738efa547711b588297f62deeae075acaff2d86e76ed1530'
 SESSION = raster_fixtures.e.SESSION
 WINDOW_ID = 99
 

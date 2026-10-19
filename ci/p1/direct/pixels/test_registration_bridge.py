@@ -10,6 +10,7 @@ import unittest
 import registration_bridge as bridge
 sys.path.insert(0, str(bridge.LOCAL / 'registration-experiment'))
 import explore as e
+FEATURES3 = tuple((Fraction(x)-Fraction(1,2),Fraction(y)-Fraction(1,2),3,3) for x,y,_,_ in e.FEATURE_RECTS)
 from test_handoff_contract import request as basic_request
 from test_draw_receipts import events as draw_events
 
@@ -23,7 +24,7 @@ def request():
     geometry['markerFrame'] = [105,730,192,16]
     geometry['baselineFrame'] = [100,750,192,30]
     for a, rectangle in zip(geometry['anchors'], e.AX_RECTS): a['frame'] = list(rectangle)
-    for a, rectangle in zip(geometry['features'], e.FEATURE_RECTS): a['frame'] = list(rectangle)
+    for a, rectangle in zip(geometry['features'], FEATURES3): a['frame'] = [float(v) if isinstance(v,Fraction) else v for v in rectangle]
     return row
 
 
@@ -37,7 +38,7 @@ def event_files():
 class BridgeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.raw, cls.stride = e.render(tiny_features=True, strip=True)
+        cls.raw, cls.stride = e.render(tiny_features=True, strip=True, feature_rects=FEATURES3)
         cls.identity = bridge.g.RasterIdentity(e.SESSION,101,99,e.WIDTH,e.HEIGHT,e.APP)
         cls.request_bytes = bridge.handoff.canonical(request())
         cls.events = event_files()
@@ -51,7 +52,7 @@ class BridgeTests(unittest.TestCase):
 
     def test_actual_retained_bytes_produce_six_frozen_rois(self):
         result = self.run_bridge(); proof = json.loads(result.proof_bytes)
-        self.assertEqual(proof['sameSampleROIs']['copiedBytes'], 410496)
+        self.assertEqual(proof['sameSampleROIs']['copiedBytes'], 430336)
         self.assertEqual(proof['liveMarker']['marker'], 456)
         self.assertEqual(proof['fitAnchors'], ['anchor-1','anchor-2','anchor-3'])
         self.assertEqual(proof['independentHoldout'], ['anchor-4'])
@@ -94,17 +95,30 @@ class BridgeTests(unittest.TestCase):
 
     def test_missing_resized_overlapping_feature_or_geometry_rejected(self):
         for mutation in (lambda g:g['features'].pop(),
-                         lambda g:g['features'][0]['frame'].__setitem__(2,3),
-                         lambda g:g['features'][0].__setitem__('frame',[100,750,2,2]),
+                         lambda g:g['features'][0]['frame'].__setitem__(2,2),
+                         lambda g:g['features'][0].__setitem__('frame',[100,750,3,3]),
                          lambda g:g.__setitem__('sourceLocalityEstablished',True),
                          lambda g:g.__setitem__('windowFrame',[0,0,402,875])):
             row=request();mutation(row['geometry'])
             with self.assertRaises(ValueError):self.run_bridge(request_bytes=bridge.handoff.canonical(row))
 
     def test_fourth_actual_feature_moved_rejects_without_refit(self):
-        raw,stride=e.render(tiny_features=True,strip=True,feature_rects=e.FEATURE_RECTS[:3]+((396,880,2,2),))
+        raw,stride=e.render(tiny_features=True,strip=True,feature_rects=FEATURES3[:3]+((Fraction(791,2),Fraction(1759,2),3,3),))
         with self.assertRaisesRegex(ValueError,'no common frozen transform'):
             self.run_bridge(raw=raw,stride=stride,expected_frame_sha256=sha256(raw).hexdigest())
+
+    def test_retained_fragmented_two_point_support_remains_rejected(self):
+        # Exact local support extracted from run39299912951 baseline SHA
+        # b8fe446592dbcd4a9ff60a86cc9efa9867511b1dce623ed6aa358e3472d703ba.
+        # No tolerance or connectivity repair is applied to that failed frame.
+        w,h=20,12;data=bytearray(bytes((240,240,240,255))*w*h)
+        for x,y in ((2,1),(2,3),(15,1),(15,3),(2,9),(3,9),(2,10),(3,10),
+                    (15,9),(16,9),(15,10),(16,10)):
+            at=(y*w+x)*4;data[at:at+4]=bridge.magenta_components.MAGENTA
+        for x in (2,15):
+            at=(2*w+x)*4;data[at:at+4]=bytes((255,1,255,255))
+        with self.assertRaisesRegex(ValueError,'more than four magenta'):
+            bridge.magenta_components.locate(bytes(data),w,h,w*4)
 
     def test_foreign_actual_magenta_component_rejected(self):
         changed=bytearray(self.raw);at=500*self.stride+300*4;changed[at:at+4]=bridge.magenta_components.MAGENTA

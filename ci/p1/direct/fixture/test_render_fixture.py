@@ -43,8 +43,8 @@ class FixtureTests(unittest.TestCase):
     def test_four_isolated_features_and_source_locality(self):
         overlay=self.sources()[2]
         self.assertIn('p1-direct-feature-',overlay)
-        self.assertIn('.frame(width:2,height:2)',overlay)
-        self.assertIn('bounds.width == 2, bounds.height == 2',overlay)
+        self.assertIn('.frame(width:3,height:3)',overlay)
+        self.assertIn('bounds.width == 3, bounds.height == 3',overlay)
         self.assertIn('UIColor(red:1,green:0,blue:1,alpha:1)',overlay)
         self.assertEqual(overlay.count('clipsToBounds = true'),2)
         self.assertEqual(overlay.count('"source":"packet", "anchor":ordinal'),2)

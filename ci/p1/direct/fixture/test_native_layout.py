@@ -36,8 +36,8 @@ def modeled(lift):
     x,y=FIXTURE['sourceModel']['geometryOrigin'];w,h=FIXTURE['sourceModel']['geometrySize']
     boards=[[x+8,y+8,114,66],[x+w-122,y+8,114,66],
             [x+8,y+h-74-lift,114,66],[x+w-122,y+h-74-lift,114,66]]
-    features=[[x+4,y+4,2,2],[x+w-6,y+4,2,2],
-              [x+4,y+h-6-lift,2,2],[x+w-6,y+h-6-lift,2,2]]
+    features=[[x+3.5,y+3.5,3,3],[x+w-6.5,y+3.5,3,3],
+              [x+3.5,y+h-6.5-lift,3,3],[x+w-6.5,y+h-6.5-lift,3,3]]
     return boards,features
 
 
@@ -75,10 +75,10 @@ class NativeLayoutTests(unittest.TestCase):
             self.assertTrue(all(not overlap(group,other) for other in protected+groups[:index]))
             self.assertTrue(window[0]<=group[0] and window[1]<=group[1] and
                             group[0]+group[2]<=window[2] and group[1]+group[3]<=window[3])
-            self.assertTrue(feature[0]+2<board[0] if index%2==0 else feature[0]>board[0]+114)
-            self.assertTrue(feature[1]+2<board[1] if index<2 else feature[1]>board[1]+66)
-        self.assertEqual(boards[2],[8,670,114,66]);self.assertEqual(features[2],[4,738,2,2])
-        self.assertGreater(ax['markerFrame'][1]-(groups[2][1]+groups[2][3]),31)
+            self.assertTrue(feature[0]+3<board[0] if index%2==0 else feature[0]>board[0]+114)
+            self.assertTrue(feature[1]+3<board[1] if index<2 else feature[1]>board[1]+66)
+        self.assertEqual(boards[2],[8,670,114,66]);self.assertEqual(features[2],[3.5,737.5,3,3])
+        self.assertAlmostEqual(ax['markerFrame'][1]-(groups[2][1]+groups[2][3]),30.83333333333337)
 
     def test_only_declared_overlay_placement_source_delta(self):
         source=(HERE/'registration.swift').read_text()
@@ -87,6 +87,7 @@ class NativeLayoutTests(unittest.TestCase):
         for value in (41,5):self.assertEqual(source.count(f'geometry.size.height-{value}-Self.bottomRegistrationLift'),1)
         original=source.replace(INSERT,'').replace('geometry.size.height >= 148 + Self.bottomRegistrationLift','geometry.size.height >= 148')
         for value in (41,5):original=original.replace(f'geometry.size.height-{value}-Self.bottomRegistrationLift',f'geometry.size.height-{value}')
+        original=original.replace('bounds.width == 3, bounds.height == 3','bounds.width == 2, bounds.height == 2').replace('.frame(width:3,height:3)','.frame(width:2,height:2)')
         self.assertEqual(sha256(original.encode()).hexdigest(),OLD_OVERLAY_SHA)
         observer=(LOCAL/'handoff/observer.swift').read_text()
         self.assertIn('[copyFrame, markerFrame, baselineFrame] + anchorFrames',observer)

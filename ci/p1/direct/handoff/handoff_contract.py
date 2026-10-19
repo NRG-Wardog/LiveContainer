@@ -140,7 +140,7 @@ def validate_geometry(geometry):
         require(feature["identifier"] == f"p1-direct-feature-{ordinal}" and
                 integer(feature["ordinal"], 1, 4) == ordinal, "four ordered distinct features required")
         frame = rect(feature["frame"])
-        require(frame[2:] == [2, 2] and contains(window, frame), "whole 2-by-2-point feature required inside window")
+        require(frame[2:] == [3, 3] and contains(window, frame), "whole 3-by-3-point feature required inside window")
         require(not any(intersects(other, frame) for other in occupied), "feature overlaps another region")
         bx, by, bw, bh = anchors[ordinal - 1]["frame"]
         x, y, w, h = frame
