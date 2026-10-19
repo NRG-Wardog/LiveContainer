@@ -247,3 +247,22 @@ class PostGUIState(unittest.TestCase):
             c,g,d,r=self.setup_case(Path(tmp));c.side_effect=TimeoutError('reserve exhausted')
             with self.assertRaises(TimeoutError):w.observe_after_gui_stop(c,g,d,Path(tmp))
             c.scope.fixture_stopped.assert_not_called()
+
+
+class WindowBinding(unittest.TestCase):
+    def test_revalidation_cannot_select_or_capture_a_different_window(self):
+        text=(w.HERE/'window_capture.swift').read_text()
+        self.assertIn('select(nil, phase: "initial")',text)
+        self.assertIn('select(window.windowID, phase: "final")',text)
+        self.assertIn('windows.count == 1, "ambiguous-owned-window"',text)
+        self.assertIn('let matching = windows.filter { $0.windowID == expected }',text)
+        self.assertIn('matching.count == 1, "original-owned-window-missing"',text)
+        self.assertIn('after.windowID == window.windowID && after.frame == window.frame',text)
+        self.assertEqual(text.count('SCContentFilter(desktopIndependentWindow: window)'),1)
+    def test_census_is_bounded_owned_only_and_rejects_duplicates(self):
+        text=(w.HERE/'window_capture.swift').read_text()
+        self.assertIn('$0.owningApplication?.processID == pid && $0.isOnScreen',text)
+        self.assertLess(text.index('windows.count <= 16'),text.index('let census:'))
+        self.assertIn('Set(windows.map { $0.windowID }).count == windows.count',text)
+        self.assertIn('windows.allSatisfy { valid($0.frame) }',text)
+        self.assertNotIn('.title',text)

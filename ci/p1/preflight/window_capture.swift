@@ -162,14 +162,26 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate {
             deadline.cancel()
             try require(CGPreflightScreenCaptureAccess(), "existing-permission-absent")
             try require(executable == "/Applications/Xcode_26.4.1.app/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator" && sink.ownerValid(), "unverified-gui-owner")
-            func select() async throws -> SCWindow {
+            func select(_ expected: CGWindowID?, phase: String) async throws -> SCWindow {
                 let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
-                let windows = content.windows.filter { $0.owningApplication?.processID == pid && $0.isOnScreen && valid($0.frame) }
+                let windows = content.windows.filter { $0.owningApplication?.processID == pid && $0.isOnScreen }
+                try require(windows.count <= 16, "owned-window-census-overflow")
+                let census: [[String: Any]] = windows.map { ["windowID": $0.windowID, "frame": rect($0.frame)] }
+                try write(["schema": "p1-owned-window-census-v1", "ownerPID": pid, "phase": phase,
+                           "count": windows.count, "windows": census, "admissionEligible": false],
+                          directory.appendingPathComponent("window-census-" + phase + ".json"))
+                try require(sink.ownerValid(), "unverified-gui-owner")
+                try require(windows.allSatisfy { valid($0.frame) } && Set(windows.map { $0.windowID }).count == windows.count, "invalid-owned-window-census")
+                if let expected = expected {
+                    let matching = windows.filter { $0.windowID == expected }
+                    try require(matching.count == 1, "original-owned-window-missing")
+                    return matching[0]
+                }
                 try require(windows.count == 1, "ambiguous-owned-window")
                 return windows[0]
             }
             deadline.arm(15, "window-enumeration")
-            let window = try await select(); deadline.cancel()
+            let window = try await select(nil, phase: "initial"); deadline.cancel()
             var timebase = mach_timebase_info_data_t()
             try require(mach_timebase_info(&timebase) == KERN_SUCCESS && timebase.numer > 0 && timebase.denom > 0, "invalid-mach-timebase")
             result["windowID"] = window.windowID; result["ownerPID"] = pid; result["executable"] = executable
@@ -195,7 +207,7 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate {
             try await capture.stopCapture(); started = false; stopConfirmed = true; deadline.cancel()
             result["captureStoppedMach"] = mach_absolute_time()
             deadline.arm(15, "window-revalidation")
-            let after = try await select(); deadline.cancel()
+            let after = try await select(window.windowID, phase: "final"); deadline.cancel()
             try require(sink.ownerValid() && after.windowID == window.windowID && after.frame == window.frame, "window-binding-changed")
             result["windowRevalidationPassed"] = true
         } catch { result["error"] = (error as? Failure)?.code ?? "native-capture-error" }
