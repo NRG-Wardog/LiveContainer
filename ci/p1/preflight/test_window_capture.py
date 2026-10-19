@@ -266,3 +266,22 @@ class WindowBinding(unittest.TestCase):
         self.assertIn('Set(windows.map { $0.windowID }).count == windows.count',text)
         self.assertIn('windows.allSatisfy { valid($0.frame) }',text)
         self.assertNotIn('.title',text)
+
+
+class FixtureLaunch(unittest.TestCase):
+    def invoke(self,elapsed=40,change=None):
+        row=StartupIsolation().row(elapsed);row['primary_error']=None
+        if change:row.update(change)
+        with tempfile.TemporaryDirectory() as tmp:
+            c=mock.Mock(return_value=row);folder=Path(tmp)
+            try:w.launch_fixture(c,'owned-device','a'*32,folder)
+            finally:
+                c.assert_called_once_with('xcrun','simctl','launch','owned-device',w.capture.APP_ID,'--window-capture-fixture','--session','a'*32,timeout=120,receipt=True)
+                self.timing=json.loads((folder/'fixture-launch-timing.json').read_text())
+    def test_completion_below_and_above_historical_threshold(self):
+        for seconds in (11,40,119):
+            self.invoke(seconds);self.assertEqual(self.timing['historical_30s_exceeded'],seconds>30);self.assertFalse(self.timing['admissionEligible'])
+    def test_timeout_unknown_and_unsettled_fail_without_retry(self):
+        for changes in ({'failure_type':'TimeoutExpired'},{'exit_code':-15},{'writer_settled':False},{'launch_receipt':{}},{'cleanup_errors':[{'type':'Error'}]}):
+            with self.subTest(changes=changes),self.assertRaises(ValueError):self.invoke(120,changes)
+            self.assertTrue(self.timing['historical_30s_exceeded'])

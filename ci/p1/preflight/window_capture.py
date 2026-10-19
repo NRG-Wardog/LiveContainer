@@ -105,6 +105,21 @@ def startup_isolation(command,preflight,output):
     require(capture_prerequisites.validate_result(check) and check['screenCapturePreflight'] and check['simulatorProcessCount']==0 and check['simulatorOnScreenWindowCount']==0,'GUI isolation changed')
     return check
 
+def launch_fixture(command,device,session,output):
+    # One startup completion observation. The former30s bound is retained
+    # as a historical metric; it is unrelated to visual timing acceptance.
+    row=command('xcrun','simctl','launch',device,capture.APP_ID,'--window-capture-fixture','--session',session,timeout=120,receipt=True)
+    timing=row.get('wait_timing',{});start=timing.get('command_started');end=timing.get('wait_finished')
+    elapsed=end-start if type(start) in (int,float) and type(end) in (int,float) and math.isfinite(start) and math.isfinite(end) and end>=start else None
+    capture.write(output/'fixture-launch-timing.json',{'allowance_seconds':120,'historical_allowance_seconds':30,
+        'wait_elapsed_seconds':elapsed,'historical_30s_exceeded':elapsed>30 if elapsed is not None else None,
+        'exit_code':row.get('exit_code'),'failure_type':row.get('failure_type'),'cleanup_errors':row.get('cleanup_errors'),
+        'wait_timing':timing,'launch_receipt':row.get('launch_receipt'),'infrastructure_only':True,'admissionEligible':False})
+    launch=row.get('launch_receipt',{})
+    require(row.get('writer_settled') is True and not row.get('cleanup_errors'),'fixture launch writer unsettled')
+    require(launch.get('state')=='pre-exec-observed' and launch.get('closed') is True and launch.get('eof') is True and launch.get('exec_failure') is None,'fixture launch execution unknown')
+    require(capture.simulator_cleanup.clean_command(row),'fixture launch failed')
+
 def await_fixture_ready(command,device,session,output):
     # One exact APP_ID discovery after launch, then ordinary bounded file polling.
     root=capture.container(command,device,capture.APP_ID,timeout=30,startup_timing=output/'fixture-startup-discovery.json')
@@ -231,7 +246,7 @@ def execute(host,work,output,inputs,approved):
         result['startupPrerequisites']=startup_isolation(command,preflight,output)
         gui=OwnedGUI(scope,device,output/'gui');gui.start()
         session=uuid.uuid4().hex;result['visualSession']=session
-        command('xcrun','simctl','launch',device,capture.APP_ID,'--window-capture-fixture','--session',session,timeout=30)
+        launch_fixture(command,device,session,output)
         await_fixture_ready(command,device,session,output)
         gui.live();frames=output/'window-frames';frames.mkdir()
         command(helper,str(gui.process.pid),SIMULATOR,frames,timeout=90)
