@@ -23,8 +23,8 @@ from journal import Journal
 LOCAL=Path(__file__).resolve().parents[1]
 PREFLIGHT=LOCAL.parent/'window-capture-candidate/ci/p1/preflight'
 PINNED={
-    'window_capture.py':'c8363863260846117925ece24261906689a79bf97e7bf562986deecdc391c42e',
-    'process_scope.py':'c13e02ee01b7429dc4f1c2026316f71cef6ac7728531ca62a64cfc3fbdf8b623',
+    'window_capture.py':'2a6ad92cd4cdf1fc48a7ab488ac31c0df8fa7bccf608e49cc71a0a3af71308d7',
+    'process_scope.py':'170f4f6231df84da80c3d0b5047c17a293685bccc1f445b96c4cb7bf3e45d637',
     'fresh_device.py':'238bbc1d51792053cb1f3686cf03f52462412ead5b9e3b285f3e515183fd18d7',
     'launch_gate.py':'b3aa49fae2fd162437bc46e16550877e79642c04a929a715f5c2ebe1651469db',
     'minimal_gate.py':'4220957d328181502e574bf24002d25044b22f71166a64cde606a946522a61d8'}

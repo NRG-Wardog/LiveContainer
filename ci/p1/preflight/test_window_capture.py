@@ -285,3 +285,32 @@ class FixtureLaunch(unittest.TestCase):
         for changes in ({'failure_type':'TimeoutExpired'},{'exit_code':-15},{'writer_settled':False},{'launch_receipt':{}},{'cleanup_errors':[{'type':'Error'}]}):
             with self.subTest(changes=changes),self.assertRaises(ValueError):self.invoke(120,changes)
             self.assertTrue(self.timing['historical_30s_exceeded'])
+
+class DeferredWriter(unittest.TestCase):
+    def fixture(self):
+        from types import SimpleNamespace
+        writer=mock.Mock();writer.pid=71;writer.poll.return_value=None
+        launch={'eof':True,'exec_failure':None};writer.launch.row=launch
+        row={'pid':71,'argv':['xcodebuild','test-without-building'],'settled':False,'launch_receipt':launch}
+        gui=w.OwnedGUI.__new__(w.OwnedGUI);gui.active_writer=writer;gui.active_argv=tuple(row['argv'])
+        gui.scope=SimpleNamespace(processes={71:writer},rows=[row])
+        return gui,writer,row
+    def test_only_exact_retained_live_writer_accepted(self):
+        gui,writer,row=self.fixture();gui.validate_writers();writer.launch.require.assert_called_once()
+    def test_default_still_rejects_any_unsettled_writer(self):
+        gui,writer,row=self.fixture();gui.active_writer=None;gui.active_argv=None
+        with self.assertRaises(ValueError):gui.validate_writers()
+    def test_foreign_second_settled_or_wrong_argv_rejected(self):
+        for kind in ('object','second','settled','unknown-settlement','argv','receipt','eof','exec','exit'):
+            with self.subTest(kind=kind):
+                gui,writer,row=self.fixture()
+                if kind=='object':gui.scope.processes[71]=mock.Mock()
+                if kind=='second':gui.scope.rows.append({'pid':72,'settled':False})
+                if kind=='settled':row['settled']=True
+                if kind=='unknown-settlement':row['settled']=None
+                if kind=='argv':row['argv']=['foreign']
+                if kind=='receipt':row['launch_receipt']=dict(writer.launch.row)
+                if kind=='eof':writer.launch.row['eof']=False
+                if kind=='exec':writer.launch.row['exec_failure']={'errno':2}
+                if kind=='exit':writer.poll.return_value=0
+                with self.assertRaises(ValueError):gui.validate_writers()

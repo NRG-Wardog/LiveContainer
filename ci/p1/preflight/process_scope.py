@@ -476,8 +476,12 @@ class Commands:
             except Exception as error:primary=error
             finally:
                 try:
-                    launch.finish()
-                    if process is not None:launch.require()
+                    if process is None:launch.finish()
+                    else:
+                        # Same owner lock as wait/early receipt handoff, including
+                        # timeout paths where the child remains live.
+                        with process.lock:
+                            launch.finish();launch.require()
                 except Exception as error:cleanup_failures.append(error)
                 if process is not None:
                     try:

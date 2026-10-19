@@ -78,3 +78,60 @@ class SharedPreparationTests(unittest.TestCase):
             with self.assertRaises(ValueError):r.prepare_service('boot','xcrun','simctl','boot','owned')
 
 if __name__=='__main__':unittest.main()
+
+class DeferredGUIStartup(unittest.TestCase):
+    def make(self):
+        import threading
+        from unittest.mock import Mock
+        r=Runtime.__new__(Runtime);r.gui=None;r.session='a'*32;r.device='owned';r.output=Path('/tmp/output');r.work=Path('/tmp/work');r._evidence={}
+        r.scope=SimpleNamespace(deadline=1000,persist=lambda:None)
+        r.calls=[];r.saved=[];r.retain=lambda name,raw:r.saved.append(name)
+        r.command=object();r.scope.remaining=lambda maximum:min(maximum,r.scope.deadline-100)
+        process=Mock();process.pid=7;process.poll.return_value=None;process.lock=threading.RLock();process.launch.row={'eof':True}
+        r.native=SimpleNamespace(scope=r.scope,process=process,argv=('xcodebuild','test-without-building'),live=lambda:r.calls.append('live'))
+        def hint(timeout):r.calls.append('hint');return {'session':r.session}
+        r.channels=SimpleNamespace(started=hint)
+        def isolation(*args):r.calls.append('isolation')
+        def gui(scope,device,folder,**kwargs):
+            self.assertIs(kwargs['active_writer'],process);self.assertEqual(kwargs['active_argv'],r.native.argv)
+            r.calls.append('construct')
+            return SimpleNamespace(process=SimpleNamespace(pid=8),start=lambda:r.calls.append('start'))
+        r.window=SimpleNamespace(startup_isolation=isolation,OwnedGUI=gui)
+        return r,{'argv':list(r.native.argv)}
+    def test_hint_then_fresh_isolation_then_exact_gui_inside_same_deadline(self):
+        from unittest.mock import patch
+        r,context=self.make()
+        with patch('native_runtime.time.monotonic',return_value=100):r.await_started(context,50)
+        self.assertEqual(r.calls,['hint','live','isolation','live','live','construct','start','live'])
+        self.assertEqual(r.scope.deadline,1000);self.assertIn('deferred-gui-start',r.saved)
+        r.native.process.launch.finish.assert_called_once();r.native.process.launch.require.assert_called_once()
+    def test_missing_hint_or_failed_isolation_never_constructs_gui(self):
+        from unittest.mock import patch
+        for stage in ('hint','isolation'):
+            r,context=self.make()
+            def fail(*args):raise TimeoutError('expected')
+            if stage=='hint':r.channels.started=fail
+            else:r.window.startup_isolation=fail
+            with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(TimeoutError):r.await_started(context,50)
+            self.assertIsNone(r.gui);self.assertEqual(r.scope.deadline,1000)
+    def test_wrong_native_binding_rejected_before_constructor(self):
+        from unittest.mock import patch
+        r,context=self.make();context['argv']=['foreign']
+        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(ValueError):r.await_started(context,50)
+        self.assertIsNone(r.gui)
+    def test_partial_gui_start_keeps_owner_for_cleanup(self):
+        from unittest.mock import patch
+        r,context=self.make();factory=r.window.OwnedGUI
+        def broken(*a,**kw):
+            gui=factory(*a,**kw)
+            gui.start=lambda:(_ for _ in ()).throw(RuntimeError('start failed'))
+            return gui
+        r.window.OwnedGUI=broken
+        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(RuntimeError):r.await_started(context,50)
+        self.assertIsNotNone(r.gui);self.assertEqual(r.scope.deadline,1000)
+
+    def test_exit_between_precheck_and_lock_never_finishes_receipt(self):
+        from unittest.mock import patch
+        r,context=self.make();r.native.process.poll.return_value=0
+        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(ValueError):r.await_started(context,50)
+        r.native.process.launch.finish.assert_not_called();self.assertIsNone(r.gui)

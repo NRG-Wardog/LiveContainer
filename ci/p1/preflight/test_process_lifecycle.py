@@ -558,3 +558,29 @@ class LaunchReceiptTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+class ReceiptFinalizationLock(unittest.TestCase):
+    def test_timeout_finalization_waits_for_retained_owner_handoff(self):
+        import threading
+        from types import SimpleNamespace
+        import process_scope as ps
+        waited=threading.Event();finished=threading.Event();lock=threading.RLock();result=[]
+        process=SimpleNamespace(pid=12345,returncode=None,lock=lock)
+        def wait(timeout):
+            waited.set();raise subprocess.TimeoutExpired(['synthetic'],timeout)
+        process.wait=wait
+        class Receipt:
+            def __init__(self,*args):self.row={};self.deadline=args[1]
+            def finish(self):finished.set()
+            def require(self):pass
+        scope=SimpleNamespace(deadline=time.monotonic()+10,remaining=lambda cap,cleanup=False:cap,
+                              spawn=lambda *a,**k:process,settle=lambda p:None)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(ps,'LaunchReceipt',Receipt):
+            command=ps.Commands(scope,Path(tmp).resolve())
+            with lock:
+                thread=threading.Thread(target=lambda:result.append(command('synthetic',timeout=1,receipt=True)))
+                thread.start();observed_wait=waited.wait(1)
+                raced=finished.wait(.05)
+            thread.join(2);self.assertFalse(thread.is_alive());self.assertTrue(finished.is_set())
+            self.assertTrue(observed_wait);self.assertFalse(raced,'timeout finalizer raced retained owner lock')
+        self.assertEqual(result[0]['failure_type'],'TimeoutExpired');self.assertTrue(result[0]['writer_settled'])

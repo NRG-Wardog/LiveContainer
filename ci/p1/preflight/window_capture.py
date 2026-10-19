@@ -23,13 +23,29 @@ def require(value,message):
     if not value:raise ValueError(message)
 
 class OwnedGUI:
-    def __init__(self,scope,device,folder):
+    def __init__(self,scope,device,folder,*,active_writer=None,active_argv=None):
+        self.active_writer=active_writer;self.active_argv=active_argv
+        self.scope=scope
+        self.validate_writers()
         fresh_device.validate(scope.fixture.get('owned_created'),scope.session,device)
-        require(all(row.get('settled') is True for row in scope.rows),'pre-GUI writers unsettled')
         self.scope=scope;self.folder=folder;self.process=None;self.file=None;self.launch=None;self.stopped=False
         folder.mkdir();self.argv=[SIMULATOR,'-CurrentDeviceUDID',device]
         self.file=(folder/'gui.log').open('xb')
+    def validate_writers(self):
+        scope=self.scope;writer=self.active_writer
+        if writer is None:
+            require(self.active_argv is None and all(row.get('settled') is True for row in scope.rows),'pre-GUI writers unsettled')
+            return
+        require(scope.processes.get(writer.pid) is writer and writer.poll() is None,'retained pre-GUI writer lost')
+        rows=[row for row in scope.rows if row.get('settled') is not True]
+        require(len(rows)==1 and rows[0].get('settled') is False and rows[0]['pid']==writer.pid and rows[0]['argv']==list(self.active_argv),
+                'unexpected pre-GUI writer')
+        launch=writer.launch
+        require(launch is not None and rows[0].get('launch_receipt') is launch.row,'pre-GUI launch identity')
+        launch.require()
+        require(launch.row.get('eof') is True and launch.row.get('exec_failure') is None,'pre-GUI execution unknown')
     def start(self):
+        self.validate_writers()
         scope=self.scope
         try:
             timeout=scope.remaining(15);self.launch=process_scope.LaunchReceipt(1,time.monotonic()+timeout,timeout)

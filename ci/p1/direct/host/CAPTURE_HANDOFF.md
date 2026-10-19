@@ -75,3 +75,19 @@ also clamped by bounded_preparation's absolute Scope deadline. GUI registration
 observes the owned process launch protocol, rather than waiting for UI completion.
 Historical run39313067116 remains failed: install exceeded120 seconds and settled
 with exit zero afterward; that result does not retrospectively pass.
+
+### Post-method GUI startup experiment
+
+The retained 39315146220 run stopped before the method hint while XCTest's log
+still showed runner installation. This does not establish GUI contention.
+This successor changes only ordering: preparation builds, boots and installs the
+fixture without starting Simulator.app. After the exact retained XCTest method
+hint, fresh isolation is checked and the exact owned GUI is started. The same
+absolute observation deadline bounds hint, isolation and GUI startup together.
+The default GUI owner still requires all writers settled. This route explicitly
+permits only the live retained XCTest process, its identical Scope registry row,
+argv and clean closed launch receipt; any other unsettled writer is rejected.
+The receipt is closed under that OwnedProcess's lock before use. Constructor and
+start both revalidate ownership. Failure before GUI construction retains native
+and device cleanup; partial GUI start retains the GUI owner. Original fixture
+actions, timing criteria, cleanup reserve and failed historical result remain.

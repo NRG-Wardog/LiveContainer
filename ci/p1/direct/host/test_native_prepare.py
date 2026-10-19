@@ -84,12 +84,12 @@ class PreparationTests(unittest.TestCase):
         self.assertEqual(sha256(extracted).hexdigest(),binding['fixtureSHA256'])
     def test_real_project_contract_and_full_preparation_order(self):
         result=self.r.prepare({},360)
-        self.assertEqual([r[0] for r in self.calls],['build','create','boot','bootstatus','install-preparation','install','storage','isolation','gui'])
+        self.assertEqual([r[0] for r in self.calls],['build','create','boot','bootstatus','install-preparation','install','storage'])
         self.assertTrue(all(r[1]==460 for r in self.calls));self.assertEqual(self.scope.deadline,1000)
         self.assertEqual(self.persisted,[460,1000])
         self.assertTrue((self.r.output/'preparation/direct-project-preparation.json').is_file())
         self.assertTrue((self.r.work/'build/P0SignIn.xcodeproj/project.pbxproj').is_file())
-        self.assertEqual(result.value['device'],'owned-device');self.assertTrue(self.r.gui.started)
+        self.assertEqual(result.value['device'],'owned-device');self.assertIsNone(self.r.gui)
         recipe=plistlib.loads(Path(result.value['xctestrun']).read_bytes())
         self.assertEqual(recipe['UITests']['EnvironmentVariables'],{'P1_DIRECT_SESSION':'a'*32})
         self.assertTrue((self.r.output/'receipts/runner-recipe.json').is_file())
@@ -111,11 +111,12 @@ class PreparationTests(unittest.TestCase):
         self.assertEqual(self.scope.fixture['owned_created']['device'],'owned-device')
         self.assertEqual(self.scope.creation_intent['device'],'owned-device')
         self.assertEqual(self.scope.deadline,1000)
-    def test_gui_object_remains_retained_if_start_fails(self):
-        self.stage_failure='gui'
-        with self.assertRaisesRegex(RuntimeError,'gui failure'):self.r.prepare({},360)
-        self.assertIsNotNone(self.r.gui);self.assertFalse(self.r.gui.started)
-        self.assertEqual(self.scope.deadline,1000)
+    def test_preparation_never_launches_or_observes_gui(self):
+        self.stage_failure='isolation'
+        self.r.prepare({},360)
+        self.assertIsNone(self.r.gui)
+        self.assertNotIn('isolation',[row[0] for row in self.calls])
+        self.assertNotIn('gui',[row[0] for row in self.calls])
     def test_existing_earlier_scope_deadline_never_extended(self):
         self.scope.deadline=140
         self.r.prepare({},360)

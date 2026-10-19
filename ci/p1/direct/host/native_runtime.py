@@ -124,8 +124,6 @@ class Runtime:
         self.retain('install-preparation',canonical(self.capture.prepare_install(self.command,self.device)))
         self.prepare_service('install','xcrun','simctl','install',self.device,apps[0])
         self.retain('inclusive-storage-plan',canonical(artifact_budget.preflight(self.output)))
-        self.window.startup_isolation(self.command,self.work/'capture-prerequisites',self.output)
-        self.gui=self.window.OwnedGUI(self.scope,self.device,self.output/'gui');self.gui.start()
         return self.evidence('prepare',dict(device=self.device,xctestrun=str(target.resolve()),resultBundle=str((self.output/'tests.xcresult').resolve())))
     def launch_native(self,context,timeout):
         self.scope.fixture_stopped(False)
@@ -136,7 +134,29 @@ class Runtime:
         self.channels=Channels(self.command,self.native,device=self.device,session=self.session,app_id=self.video.APP_ID,
                                runner_id=self.capture.RUNNER_ID,retain=self.retain,remaining=self.remaining)
         return self.evidence('launch_native',{'argv':list(context['argv']),'timeoutSeconds':duration,'session':self.session})
-    def await_started(self,context,timeout):return self.evidence('await_started',self.channels.started(timeout))
+    @bounded_preparation
+    def await_started(self,context,timeout):
+        hint=self.channels.started(timeout)
+        self.native.live()
+        # Fresh isolation is deliberately after runner installation/method start.
+        # The one retained XCTest writer is the only permitted live predecessor.
+        self.window.startup_isolation(self.command,self.work/'capture-prerequisites',self.output)
+        self.native.live();process=self.native.process
+        require(self.native.scope is self.scope and process is not None and
+                tuple(context['argv'])==self.native.argv,'exact native GUI predecessor')
+        with process.lock:
+            self.native.live()
+            require(process.poll() is None,'native exited before launch receipt handoff')
+            require(process.launch is not None,'native launch receipt missing')
+            process.launch.finish();process.launch.require()
+        self.gui=self.window.OwnedGUI(self.scope,self.device,self.output/'gui',
+                                     active_writer=process,active_argv=self.native.argv)
+        self.gui.start();self.native.live()
+        self.retain('deferred-gui-start',canonical({'schema':'p1-post-method-gui-start-v1',
+            'session':self.session,'device':self.device,'nativePID':process.pid,
+            'nativeArgv':list(self.native.argv),'nativeLaunch':process.launch.row,
+            'hint':hint,'guiPID':self.gui.process.pid,'admissionEligible':False}))
+        return self.evidence('await_started',hint)
     def discover_app(self,context,timeout):return self.evidence('discover_app',self.channels.discover('app',timeout))
     def discover_runner(self,context,timeout):return self.evidence('discover_runner',self.channels.discover('runner',timeout))
     def observation_remaining(self,context,maximum):
