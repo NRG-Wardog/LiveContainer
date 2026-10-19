@@ -1,0 +1,14 @@
+{
+  "artifact_bytes": 479336,
+  "artifact_sha256": "7573467ccabea8f8aa0513a93b88f6f81cf234a472f7c780fd8458685831cad6",
+  "compilation_started": false,
+  "indexed_payloads": 255,
+  "members": {
+    "logs/rust-toolchain-install.command.json": "2f5f53f0d52c318f27bb4428f6a1aad2122d8cce563cfb234e7b7e5f7a97097c",
+    "logs/rust-toolchain-install.settlement.json": "106a2b427a3b04600d6541cd96ca5a5a6fdfeca9724c29282cf48f1b19f2f451",
+    "logs/rust-toolchain-install.stderr.log": "d207de2d55ff9ac42ec9513c162dbe23189d22ddfaef7b63851d37e14556ebb4",
+    "provenance/native-bootstrap-tools.json": "14a8f0f83a1930ba98b1810ea1f3afefe7a65faee2391bd8fd04f3f9a1e84463"
+  },
+  "run_id": 39214998895,
+  "status": "FAILED_CAPTURE_PRESERVED"
+}

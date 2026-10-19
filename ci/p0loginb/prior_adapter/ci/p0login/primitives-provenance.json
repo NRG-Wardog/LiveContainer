@@ -1,0 +1,8 @@
+{
+  "reference": "p0-cxx-cascade/phase2-capture/LiveContainer/ci/p0cxx",
+  "copied_source_primitives_sha256": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
+  "copied_unittest_runner_sha256": "90dcfe7f52949df13e5ef4b1cdf610bf2726df4c939ce1b3ce40eb9ed4394426",
+  "lifecycle_reference_native_gate_sha256": "b4f1c6e39f990fd1b86972b739dca6ef4df81f3d1353863071f7a767563b49b0",
+  "status": "LOCAL_PROPOSAL_REQUIRES_INDEPENDENT_REVIEW",
+  "old_gate_modified": false
+}

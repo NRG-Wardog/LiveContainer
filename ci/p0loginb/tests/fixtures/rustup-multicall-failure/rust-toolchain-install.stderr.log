@@ -1,0 +1,6 @@
+error: error: unexpected argument 'toolchain' found
+
+Usage: rustup-init[EXE] [OPTIONS]
+
+For more information, try '--help'.
+

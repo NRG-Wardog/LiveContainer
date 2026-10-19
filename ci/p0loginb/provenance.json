@@ -1,0 +1,39 @@
+{
+  "lifecycle": {
+    "delta": "Finite Phase B package labels, fixed native environment receipt keys, and ephemeral token removal except sealed retrieval helper; owned-process settlement logic unchanged",
+    "source": "capture-retry-candidate/ci/p0login/lifecycle.py",
+    "source_sha256": "f40dee619ffad65bb102071774a1d677dda7a8343f284713701d1adc9d258b8f"
+  },
+  "native_build_reference": {
+    "routines": [
+      "acquire_children",
+      "sidestore transport/resolve/build command families"
+    ],
+    "sha256": "b4f1c6e39f990fd1b86972b739dca6ef4df81f3d1353863071f7a767563b49b0",
+    "source": "p0-cxx-cascade/phase2-capture/LiveContainer/ci/p0cxx/native_gate.py"
+  },
+  "old_gates_modified": false,
+  "phase_a_candidates_modified": false,
+  "prebuilt_signatures": {
+    "CydiaSubstrate": {
+      "binary_sha256": "bca859c9413cb85ca0d3ecfca494c61d67e4acd5846660e618526a152963965b",
+      "source_commit": "545438e1f0a89fdef375f73273c5c9fc2735cbce"
+    },
+    "OpenSSL": {
+      "binary_sha256": "df7faa880948b310527a191362fda21b31f6d9d261731ec1fe1ab9b7728854a4",
+      "code_resources_sha256": "2beea0ebb64b00bee3956cbc18c690fd67cd7955a088472ce863bcacc580768d",
+      "source_commit": "623c84da314e85363236507ca38a4bde65df21c3"
+    }
+  },
+  "prior_capture": {
+    "input_sha256": "4b765084e34ee1a88d35af4553327f131983d7002c0c6b6ae54acf976a171cfa",
+    "original_review_sha256": "0ad45e272a4e0f74551c7869a4db3d24b28964ed10c16cc01c23d2508ac72e57",
+    "run_id": 39210961502
+  },
+  "source_primitives": {
+    "sha256": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
+    "source": "capture-retry-candidate/ci/p0login/source_primitives.py",
+    "unchanged_copy": true
+  },
+  "status": "BOUND_CAPTURE_PROPOSAL_REVIEW_REQUIRED"
+}

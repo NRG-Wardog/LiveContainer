@@ -1,0 +1,814 @@
+{
+  "archive": {
+    "bytes": 45431584,
+    "expanded_bytes": 126591016,
+    "member_count": 1679,
+    "sha256": "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e"
+  },
+  "archive_root_names": [
+    "Info.plist",
+    "_CodeSignature",
+    "ios-arm64",
+    "ios-arm64_x86_64-maccatalyst",
+    "ios-arm64_x86_64-simulator",
+    "macos-arm64_x86_64",
+    "tvos-arm64",
+    "tvos-arm64_x86_64-simulator",
+    "watchos-arm64_arm64_32_armv7k",
+    "watchos-arm64_x86_64-simulator",
+    "xros-arm64",
+    "xros-arm64_x86_64-simulator"
+  ],
+  "expected_product_files": {
+    "Info.plist": {
+      "bytes": 765,
+      "sha256": "dfc0efb5ff3a59f5e294127351d961b2bb1420bb6682e10beaf8ad8cf19d6143"
+    },
+    "OpenSSL": {
+      "bytes": 5113136,
+      "sha256": "355ff3a21cb4eb8ef86bfba202414de1a9070b3ddf8703d03cedfcacbe9e5431"
+    },
+    "PrivacyInfo.xcprivacy": {
+      "bytes": 373,
+      "sha256": "5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084"
+    },
+    "_CodeSignature/CodeResources": {
+      "bytes": 33644,
+      "sha256": "36939ffaffe0975d13c057afaf9b51f43487f7229890f17a861fb0bdcdc6e3e3"
+    }
+  },
+  "framework_file_count": 149,
+  "other_slice_links": {
+    "OpenSSL.xcframework/ios-arm64_x86_64-maccatalyst/OpenSSL.framework/Headers": "Versions/Current/Headers",
+    "OpenSSL.xcframework/ios-arm64_x86_64-maccatalyst/OpenSSL.framework/Modules": "Versions/Current/Modules",
+    "OpenSSL.xcframework/ios-arm64_x86_64-maccatalyst/OpenSSL.framework/OpenSSL": "Versions/Current/OpenSSL",
+    "OpenSSL.xcframework/ios-arm64_x86_64-maccatalyst/OpenSSL.framework/Resources": "Versions/Current/Resources",
+    "OpenSSL.xcframework/ios-arm64_x86_64-maccatalyst/OpenSSL.framework/Versions/Current": "A",
+    "OpenSSL.xcframework/macos-arm64_x86_64/OpenSSL.framework/Headers": "Versions/Current/Headers",
+    "OpenSSL.xcframework/macos-arm64_x86_64/OpenSSL.framework/Modules": "Versions/Current/Modules",
+    "OpenSSL.xcframework/macos-arm64_x86_64/OpenSSL.framework/OpenSSL": "Versions/Current/OpenSSL",
+    "OpenSSL.xcframework/macos-arm64_x86_64/OpenSSL.framework/Resources": "Versions/Current/Resources",
+    "OpenSSL.xcframework/macos-arm64_x86_64/OpenSSL.framework/Versions/Current": "A"
+  },
+  "schema": "sidestore-openssl-reviewed-inventory-v1",
+  "slice_directories": [
+    "OpenSSL.framework",
+    "OpenSSL.framework/Headers",
+    "OpenSSL.framework/Modules",
+    "OpenSSL.framework/_CodeSignature",
+    "dSYMs",
+    "dSYMs/OpenSSL.framework.dSYM",
+    "dSYMs/OpenSSL.framework.dSYM/Contents",
+    "dSYMs/OpenSSL.framework.dSYM/Contents/Resources",
+    "dSYMs/OpenSSL.framework.dSYM/Contents/Resources/DWARF",
+    "dSYMs/OpenSSL.framework.dSYM/Contents/Resources/Relocations",
+    "dSYMs/OpenSSL.framework.dSYM/Contents/Resources/Relocations/aarch64"
+  ],
+  "slice_files": {
+    "OpenSSL.framework/Headers/OpenSSL.h": {
+      "bytes": 4148,
+      "sha256": "8f22fff3dbd7485e0c99c99c104c25dbf002f07ff9daf8497b706a1fbc3fa644"
+    },
+    "OpenSSL.framework/Headers/aes.h": {
+      "bytes": 3311,
+      "sha256": "088808e5fc0bbc28e11e05e3f2e4ff19449a5e5ff22407988e2c9f6536749b7e"
+    },
+    "OpenSSL.framework/Headers/asn1.h": {
+      "bytes": 57744,
+      "sha256": "1a1a8ac943376ef28b2aa8716fc5c148fd4cc3d9593766ef25434d47db0512fa"
+    },
+    "OpenSSL.framework/Headers/asn1err.h": {
+      "bytes": 5169,
+      "sha256": "e5842784a613a17d9cad842fffd5cd82a7f9f5ea26622047ddc76fc9a5b9f7e6"
+    },
+    "OpenSSL.framework/Headers/asn1t.h": {
+      "bytes": 38602,
+      "sha256": "83a2a28345e4d14a67fd2db675e940a4863ec160e3d42efe8499127063f326b9"
+    },
+    "OpenSSL.framework/Headers/async.h": {
+      "bytes": 3019,
+      "sha256": "8b6b4dec4644d24565868fe359b765ac3c04d0363049631e503e677076c21a54"
+    },
+    "OpenSSL.framework/Headers/asyncerr.h": {
+      "bytes": 739,
+      "sha256": "1d5708c8cc2b819276b30ff48f5500cf4c7efb4b5cc84ef3f76d6c71f289839b"
+    },
+    "OpenSSL.framework/Headers/bio.h": {
+      "bytes": 41405,
+      "sha256": "1f37fbe346a829547a22a6182ad3455b85a1007c100bdd664b932d32ae94ad91"
+    },
+    "OpenSSL.framework/Headers/bioerr.h": {
+      "bytes": 2355,
+      "sha256": "a106241062009f39a0b04d4a16cc692fd24eea6b5a9cb39501af5c91330dece2"
+    },
+    "OpenSSL.framework/Headers/blowfish.h": {
+      "bytes": 2136,
+      "sha256": "442c50dc9b96a23626d73a850b6c2ddfafcbb09ed5c1c038a8fc5ee9b10cc82a"
+    },
+    "OpenSSL.framework/Headers/bn.h": {
+      "bytes": 22309,
+      "sha256": "50f49d1c56a21708b4b844df306c3c67e34d3e4c79a708438bdfb7a96672abfb"
+    },
+    "OpenSSL.framework/Headers/bnerr.h": {
+      "bytes": 1329,
+      "sha256": "bfa5c5342dadaa89bb5a1895c385ab561aefd411e4d5c7a4e375b0ea21d0a64c"
+    },
+    "OpenSSL.framework/Headers/buffer.h": {
+      "bytes": 1591,
+      "sha256": "a90b580e5c6e59919027fcab3b7fce825399f5321e9b750a9c02f6d225d05ced"
+    },
+    "OpenSSL.framework/Headers/buffererr.h": {
+      "bytes": 587,
+      "sha256": "eba51afbec0838c73f29d399958e453259bb02da65fd8d6d386b4c826080a1ab"
+    },
+    "OpenSSL.framework/Headers/byteorder.h": {
+      "bytes": 8444,
+      "sha256": "3939b167e44b6f8089ee63bb08748ee43b93f2f03a70410b089b4836f89d1f53"
+    },
+    "OpenSSL.framework/Headers/camellia.h": {
+      "bytes": 3266,
+      "sha256": "b397d83fc160c9946a7141c02dfd26ed120036d1585ed0a0d00ed4ff14ce099a"
+    },
+    "OpenSSL.framework/Headers/cast.h": {
+      "bytes": 1880,
+      "sha256": "4e63ddad6fd065a33144003a826e801553f3854c1bbdad3a7c0fda310ef09d33"
+    },
+    "OpenSSL.framework/Headers/cmac.h": {
+      "bytes": 1449,
+      "sha256": "dc5c4b30ee7760a0aea148a243cff054a82bcfeb5ab812caba6327f6ae4210b1"
+    },
+    "OpenSSL.framework/Headers/cmp.h": {
+      "bytes": 48141,
+      "sha256": "a55f038590b826a941c7c3b79b3684b1f66be358af0614478dac1539f2aa25d9"
+    },
+    "OpenSSL.framework/Headers/cmp_util.h": {
+      "bytes": 1627,
+      "sha256": "a520d5953fa3db19a76c932320fe5eba032d5aba709b254ee6cfac197c2389d4"
+    },
+    "OpenSSL.framework/Headers/cmperr.h": {
+      "bytes": 4821,
+      "sha256": "349e820db2a264226f80d58ff76bc9156505de9cdeb51f894c11d30942628d5b"
+    },
+    "OpenSSL.framework/Headers/cms.h": {
+      "bytes": 31540,
+      "sha256": "0cdcb4b932975acc7afa09335d72b91844c0b1533c12be9346e27b72a95de98e"
+    },
+    "OpenSSL.framework/Headers/cmserr.h": {
+      "bytes": 4657,
+      "sha256": "238f1531ef85875374f27dec173fe54044347365705c27f36d967a99609031fc"
+    },
+    "OpenSSL.framework/Headers/comp.h": {
+      "bytes": 4697,
+      "sha256": "515b5731ce27f11a7b095341f501dc0cfe677d743ce7d33d5460b6d108497498"
+    },
+    "OpenSSL.framework/Headers/comperr.h": {
+      "bytes": 1002,
+      "sha256": "c9fef0e2bbd2e5e1dffdd26791c8f02cebfd36741c1e608befdb15c3f8990d65"
+    },
+    "OpenSSL.framework/Headers/conf.h": {
+      "bytes": 10388,
+      "sha256": "63da3d3ab364707520c3a2ff9c8ef5cc0bac5a7353757319ed0f52a7cbcec292"
+    },
+    "OpenSSL.framework/Headers/conf_api.h": {
+      "bytes": 1328,
+      "sha256": "36eddd7a9cd9709e69060614992b9448a3c67bd7e53da0e1d0b3bd39b9266a1d"
+    },
+    "OpenSSL.framework/Headers/conferr.h": {
+      "bytes": 1697,
+      "sha256": "301b3cff747f048aa08d627b12aa49a1975c547828be2e49e51a54bc87ab6b95"
+    },
+    "OpenSSL.framework/Headers/configuration.h": {
+      "bytes": 5230,
+      "sha256": "01aaeb2d4ea6e701dfe569f6f239557d77a2025bb383c802141f97e7804a0713"
+    },
+    "OpenSSL.framework/Headers/conftypes.h": {
+      "bytes": 1176,
+      "sha256": "3c356b7896c1c60d82136a8bebc9f629641e0bc53434dc5b2f2a8319f3fdf644"
+    },
+    "OpenSSL.framework/Headers/core.h": {
+      "bytes": 7820,
+      "sha256": "a4c81a0911114153bc646edf8015dcfee4f081f0f5777a9086556d824f914104"
+    },
+    "OpenSSL.framework/Headers/core_dispatch.h": {
+      "bytes": 47494,
+      "sha256": "706e7cb8d235a638ab08399bbe39dec255a0e62b9010e337df7bcb8a7f23ea1d"
+    },
+    "OpenSSL.framework/Headers/core_names.h": {
+      "bytes": 29925,
+      "sha256": "3dc715d27df48d19ad9a8c808467597d31aa036508a57c35a5993fc621668cd2"
+    },
+    "OpenSSL.framework/Headers/core_object.h": {
+      "bytes": 1047,
+      "sha256": "e8fa8c62ad1367bd325d59d721214d1a7afd5423205134152f60cc39a8590c8a"
+    },
+    "OpenSSL.framework/Headers/crmf.h": {
+      "bytes": 19647,
+      "sha256": "f83bdcfa7e272dc41becc62618c7d2692bac35ef5a8dc26de33fddf88e9b7a9b"
+    },
+    "OpenSSL.framework/Headers/crmferr.h": {
+      "bytes": 1858,
+      "sha256": "1efffc15382538b174056fa07e03bea313bf5a7255dcf9d1118962800987720c"
+    },
+    "OpenSSL.framework/Headers/crypto.h": {
+      "bytes": 24770,
+      "sha256": "7571d6f7f46c4f373cc8ec6edb21a8f179b9b6142a90422ccd40c38cadbe2b4c"
+    },
+    "OpenSSL.framework/Headers/cryptoerr.h": {
+      "bytes": 1986,
+      "sha256": "7b3af3b83f628cb33ff6617ff246c18e31d7f128474dc81b62ad93e6ecd6702a"
+    },
+    "OpenSSL.framework/Headers/cryptoerr_legacy.h": {
+      "bytes": 48019,
+      "sha256": "e6dba73da73665c2736255fcc5e189a9607d533ade5654b9db18d0130791907b"
+    },
+    "OpenSSL.framework/Headers/ct.h": {
+      "bytes": 22240,
+      "sha256": "a6a4a7ebc813c712a6c5726f8cead8e8e6d245c665d0836dc37948ec0a91c624"
+    },
+    "OpenSSL.framework/Headers/cterr.h": {
+      "bytes": 1241,
+      "sha256": "ec9a4f9cd353dd10ab4d9a05140e56a8f81a8e367139ac5de052b322a90a6773"
+    },
+    "OpenSSL.framework/Headers/decoder.h": {
+      "bytes": 4907,
+      "sha256": "f546262108c9130cc7daecba30f6451c8ba9796f1f76fdc8809669068416a176"
+    },
+    "OpenSSL.framework/Headers/decodererr.h": {
+      "bytes": 740,
+      "sha256": "f895e146fd6ebee8b7548209a624fbfa706a9654dc81da7043b8e986d0fb0aa3"
+    },
+    "OpenSSL.framework/Headers/des.h": {
+      "bytes": 7764,
+      "sha256": "065a2b56331e18388737c6082f80e27d244c3d704026c3c89acd633c6a70db56"
+    },
+    "OpenSSL.framework/Headers/dh.h": {
+      "bytes": 13025,
+      "sha256": "90677a8e42b61981c70dbe5993972866183832a55f33234e59d0b67c6fde8a3f"
+    },
+    "OpenSSL.framework/Headers/dherr.h": {
+      "bytes": 1702,
+      "sha256": "eed638fbc4f03e685e8b1269bd2c1f9a1e208276c25dd2b9829fd068db3bc439"
+    },
+    "OpenSSL.framework/Headers/dsa.h": {
+      "bytes": 10982,
+      "sha256": "d04f3a4df8776719e2ed1405b9132aac259c2eb598cdb2280eb8853d620e57a5"
+    },
+    "OpenSSL.framework/Headers/dsaerr.h": {
+      "bytes": 1164,
+      "sha256": "0ee1d18de74abad67a0cd56d162b53e0b9ff87a125d1f2b6f641a3d8089149ae"
+    },
+    "OpenSSL.framework/Headers/dtls1.h": {
+      "bytes": 1239,
+      "sha256": "72db7d857dbbae3eafea7a26e2092122d378bf89dc360114d118d8034f297c11"
+    },
+    "OpenSSL.framework/Headers/e_os2.h": {
+      "bytes": 8443,
+      "sha256": "5a444066ef642e03ac34b65512824411929191d4910ab16c7b2ed882e42ff208"
+    },
+    "OpenSSL.framework/Headers/e_ostime.h": {
+      "bytes": 1147,
+      "sha256": "1d7e4df63c910d93b40c750469d7c18ecd93b2b010379da4329f1d117fb37acb"
+    },
+    "OpenSSL.framework/Headers/ebcdic.h": {
+      "bytes": 1025,
+      "sha256": "0a944bb4646900625cd4d617e1a92f68060f4af3195596e6b6c9059bdb140c15"
+    },
+    "OpenSSL.framework/Headers/ec.h": {
+      "bytes": 62313,
+      "sha256": "2d5e002ed0468e3851e8ca77d36038704154e736eb2c75d5bd909605de3b9864"
+    },
+    "OpenSSL.framework/Headers/ecdh.h": {
+      "bytes": 361,
+      "sha256": "05a674c33b0bd3b1542632617ef8f5f2eb5648330aed8858c41dc0eed9245a4b"
+    },
+    "OpenSSL.framework/Headers/ecdsa.h": {
+      "bytes": 361,
+      "sha256": "05a674c33b0bd3b1542632617ef8f5f2eb5648330aed8858c41dc0eed9245a4b"
+    },
+    "OpenSSL.framework/Headers/ecerr.h": {
+      "bytes": 3359,
+      "sha256": "18019481688a102749d5d270e37f487c6829b2d67f7b1f1854b3c48db06cdd93"
+    },
+    "OpenSSL.framework/Headers/encoder.h": {
+      "bytes": 4570,
+      "sha256": "3cb7c2a1c69711d805b836a927eb99baec840fe1116a97f31b03ec8990ba9f0b"
+    },
+    "OpenSSL.framework/Headers/encodererr.h": {
+      "bytes": 741,
+      "sha256": "834e5b4c47673b6923f8afed203dd77cd38e1f27789d8ce36d193e21e7022a8c"
+    },
+    "OpenSSL.framework/Headers/engine.h": {
+      "bytes": 37536,
+      "sha256": "8d1a5449bbe109e770701f5e0d11c0621f71930bb5805852356a5cf762c2dcbe"
+    },
+    "OpenSSL.framework/Headers/engineerr.h": {
+      "bytes": 2034,
+      "sha256": "a0b1c6897c70c4a2fee8dafa051b0b55d8adbef670c45098d7dd3e50ef4cfb1b"
+    },
+    "OpenSSL.framework/Headers/err.h": {
+      "bytes": 20436,
+      "sha256": "cf4d0eaac3b66f06f25019f1224015830cadafe971d574107ace230db3f08210"
+    },
+    "OpenSSL.framework/Headers/ess.h": {
+      "bytes": 8706,
+      "sha256": "5a39bab8aea1d64b8d3f8b5f64c992ca8d9f08db8c180daffe213d7cc1308d70"
+    },
+    "OpenSSL.framework/Headers/esserr.h": {
+      "bytes": 982,
+      "sha256": "ce207cd00de0f462ebacd48b13f698789174b20be36d6ee0dd9849d958c0c199"
+    },
+    "OpenSSL.framework/Headers/evp.h": {
+      "bytes": 96306,
+      "sha256": "b546c349c5ae6e4bf04d3b4f41675268f63e788c66ecb94e36d6532349d7d1b9"
+    },
+    "OpenSSL.framework/Headers/evperr.h": {
+      "bytes": 5528,
+      "sha256": "ff28451a4bc9db0c15e4307e8728147ff4c246d379932e501b2d42ecd9a2cee3"
+    },
+    "OpenSSL.framework/Headers/fips_names.h": {
+      "bytes": 1638,
+      "sha256": "95f0ddd1271d1bb609acbe42924e903a2dda8e224cced9eb56f5680a6ae75a8e"
+    },
+    "OpenSSL.framework/Headers/fipskey.h": {
+      "bytes": 1250,
+      "sha256": "2ace9db2041934a211c6edb082798db0aace37506fcdbdd4e7e899767fc41014"
+    },
+    "OpenSSL.framework/Headers/hmac.h": {
+      "bytes": 1892,
+      "sha256": "fb8e39ce7a890414234b0ac572b8d72c8388ebdf7d926132825d8fab78852efe"
+    },
+    "OpenSSL.framework/Headers/hpke.h": {
+      "bytes": 6081,
+      "sha256": "93c655c858d501789bc97afa860fb47e8e741e3fa1f2fb98300f81573d9c39b6"
+    },
+    "OpenSSL.framework/Headers/http.h": {
+      "bytes": 4717,
+      "sha256": "e4255cd712c763a2c70f741bf0cd305867140359a5275e53a9dbbbedaf6224c4"
+    },
+    "OpenSSL.framework/Headers/httperr.h": {
+      "bytes": 1892,
+      "sha256": "1c0ebe5ccb174b8e23aa66feae04fa2bea17386482b25e6cd7a27dbb2d277bc9"
+    },
+    "OpenSSL.framework/Headers/idea.h": {
+      "bytes": 2285,
+      "sha256": "a05db114142cb50b41959669132e72e0f1642138fd8db0b9320a949cca660af3"
+    },
+    "OpenSSL.framework/Headers/indicator.h": {
+      "bytes": 818,
+      "sha256": "33472a827f4a92d9d9a23710127c16e986f972015055213e8d402b4ab46cc636"
+    },
+    "OpenSSL.framework/Headers/kdf.h": {
+      "bytes": 5184,
+      "sha256": "9374f0b07577051283ee8b9033837624b46ae7c69442b6d2fb00338adf27d3e4"
+    },
+    "OpenSSL.framework/Headers/kdferr.h": {
+      "bytes": 480,
+      "sha256": "f4a617ac06ce94826eb635f11c1fdb89ca9339774822684fa1c9d7a6bc0a60e7"
+    },
+    "OpenSSL.framework/Headers/lhash.h": {
+      "bytes": 33375,
+      "sha256": "f76a02af8fd6fec835e4173675de7651dab1f0a128a38333127848b01815be34"
+    },
+    "OpenSSL.framework/Headers/macros.h": {
+      "bytes": 11094,
+      "sha256": "4641be3d52ac930805c7608601536ed9551d33dcc379d594a03f97b83e3473ff"
+    },
+    "OpenSSL.framework/Headers/md2.h": {
+      "bytes": 1336,
+      "sha256": "ef75e7aa1e54e0efcf9225eca34ddbcc59c347e625759d2fa1dd7ca026d1a722"
+    },
+    "OpenSSL.framework/Headers/md4.h": {
+      "bytes": 1610,
+      "sha256": "69b36e6be4b3cb1caf7b3410f4b04cbfb4f96f59919dcb7818deeb20356f8e36"
+    },
+    "OpenSSL.framework/Headers/md5.h": {
+      "bytes": 1608,
+      "sha256": "d1d94edf99b4a5c66aae9a69fb7da4d6b3cd8a40e065fede036b09df6943a0d6"
+    },
+    "OpenSSL.framework/Headers/mdc2.h": {
+      "bytes": 1312,
+      "sha256": "2b39755732a9de75a7afe413afefb4fbca514a2ca1a5305468a485dfeec3e777"
+    },
+    "OpenSSL.framework/Headers/ml_kem.h": {
+      "bytes": 959,
+      "sha256": "58ecec9d4d95ab5172290a4c5725b7b6940149ecdbff5a33b93cc67ede1b25f7"
+    },
+    "OpenSSL.framework/Headers/modes.h": {
+      "bytes": 8135,
+      "sha256": "dab2632fc83ccdcfebf7d02378dbe8fd8755e441b35c62e90ac72cbbe02b7dd3"
+    },
+    "OpenSSL.framework/Headers/obj_mac.h": {
+      "bytes": 292300,
+      "sha256": "cc17d91b8603c09df02b5cb060557484f56e2a04e7d5a2756282e7bf08f059f0"
+    },
+    "OpenSSL.framework/Headers/objects.h": {
+      "bytes": 7567,
+      "sha256": "fe1a968d38a58867c24c37c36f6fdf665878596a9e364d149be6a7d20ced5fff"
+    },
+    "OpenSSL.framework/Headers/objectserr.h": {
+      "bytes": 686,
+      "sha256": "5a411a923095afdb4fd3c4851a4dc4342be2a028b1b3f45530befae7d70eba02"
+    },
+    "OpenSSL.framework/Headers/ocsp.h": {
+      "bytes": 27860,
+      "sha256": "81e008fb86baa1a8c246c1c14a3a06009f67f65382403ac4d7e65b8163ca31cd"
+    },
+    "OpenSSL.framework/Headers/ocsperr.h": {
+      "bytes": 1636,
+      "sha256": "2d8fb4d06b4c385aeaed5a1d84ee6dcb167e6be99c958e4d4c2572e5f986d7c6"
+    },
+    "OpenSSL.framework/Headers/opensslconf.h": {
+      "bytes": 1122,
+      "sha256": "c3a9f594cabb376bcb1dc475d89e09e4079739dd9f0218d6013793c3d06b11b2"
+    },
+    "OpenSSL.framework/Headers/opensslv.h": {
+      "bytes": 3447,
+      "sha256": "8cf6d4e7355d48f0ea0aa821dfb8beaf7535bb0d45f21e49cd50d7f7e09802c7"
+    },
+    "OpenSSL.framework/Headers/ossl_typ.h": {
+      "bytes": 561,
+      "sha256": "016f878d8b559d888693dae07d3e4608fb567873a41c3626c6e0f531c1e61182"
+    },
+    "OpenSSL.framework/Headers/param_build.h": {
+      "bytes": 2363,
+      "sha256": "534f0323bb774427f5c8526dd3d0000193c41bfddc4bd7be0095fa2e6eb51cd1"
+    },
+    "OpenSSL.framework/Headers/params.h": {
+      "bytes": 7149,
+      "sha256": "7f77bdbba5ed55420d8100bd9a1a94c46d8035da22c805afabc5572ddbfc4722"
+    },
+    "OpenSSL.framework/Headers/pem.h": {
+      "bytes": 22667,
+      "sha256": "4c89b4c4dd38ac82fbc4f3044c2a5e91939a5a20deb0915c8922775d6c9e99df"
+    },
+    "OpenSSL.framework/Headers/pem2.h": {
+      "bytes": 523,
+      "sha256": "622deebff0c78175a6da4aa36531fa2b58f10d5d85fdd4bab41ce209563e2621"
+    },
+    "OpenSSL.framework/Headers/pemerr.h": {
+      "bytes": 1836,
+      "sha256": "286a8ed6bee0129eebeb3aa78b2114f31def1db03325151499a8b9c9e3a74ccf"
+    },
+    "OpenSSL.framework/Headers/pkcs12.h": {
+      "bytes": 17127,
+      "sha256": "73429ce9668e4f7e56f73d7fc42b8adbed4b9e1d62b3c0ffc11ceacc88d7427a"
+    },
+    "OpenSSL.framework/Headers/pkcs12err.h": {
+      "bytes": 1427,
+      "sha256": "7303416b1144b25bdaa8caaff8a09c5533b67929bf92211cb4201398042ef6dc"
+    },
+    "OpenSSL.framework/Headers/pkcs7.h": {
+      "bytes": 21874,
+      "sha256": "3c255b8e2c1ec8885da8459bb09da937d58ddf4236655ace342454deea65f61e"
+    },
+    "OpenSSL.framework/Headers/pkcs7err.h": {
+      "bytes": 2242,
+      "sha256": "22c654b533949c93035d3f4c19d53dc3b42a61ad7149794757ab0eec3a631d77"
+    },
+    "OpenSSL.framework/Headers/prov_ssl.h": {
+      "bytes": 969,
+      "sha256": "23b96759ae94e17c7c0e7ee32a531676be2a276a6d9802828e80268e20f224fd"
+    },
+    "OpenSSL.framework/Headers/proverr.h": {
+      "bytes": 6452,
+      "sha256": "a6f3f2ad214eaf990f430d43f28dbbb23e04922f329ac2d794e2048cfa3b93bb"
+    },
+    "OpenSSL.framework/Headers/provider.h": {
+      "bytes": 3383,
+      "sha256": "69b32d1312733dc66dd19f526af5c8a547ae220bead2d3547b3e56ab5aa8db31"
+    },
+    "OpenSSL.framework/Headers/quic.h": {
+      "bytes": 2101,
+      "sha256": "f8f67da001ff66586f2ffcbd304b39efad93449ab79f3fc4be19a88d36c7caef"
+    },
+    "OpenSSL.framework/Headers/rand.h": {
+      "bytes": 4058,
+      "sha256": "cfeb880d6ad3ca7a4afa00bbddbc144617ad82cd1371ea29553e39f9a7a6ffe0"
+    },
+    "OpenSSL.framework/Headers/randerr.h": {
+      "bytes": 2486,
+      "sha256": "7b2fea33542fda2fc782a103eb344410365a61d08bfe2d265c075ba39576c9d8"
+    },
+    "OpenSSL.framework/Headers/rc2.h": {
+      "bytes": 1771,
+      "sha256": "bbd4ec9fdc68e1a3d508d2ddb5a0e0530d3da02b169e86e840063552067c313d"
+    },
+    "OpenSSL.framework/Headers/rc4.h": {
+      "bytes": 1075,
+      "sha256": "cfd57dba15813006e0098a19018c276c189edaa97ee4df2e1d200f2513676d11"
+    },
+    "OpenSSL.framework/Headers/rc5.h": {
+      "bytes": 2146,
+      "sha256": "39d68100b7278701f4f7a65997752f5bc70ef2aebfb2827b96773ff5d34be287"
+    },
+    "OpenSSL.framework/Headers/ripemd.h": {
+      "bytes": 1537,
+      "sha256": "2610fa02c82fa49b3878ee01fb251552315a498df6bc6fed0fc366851521e6f1"
+    },
+    "OpenSSL.framework/Headers/rsa.h": {
+      "bytes": 22275,
+      "sha256": "f016619bed91d0bb44e4fc88ada995a0892a1c6c08ca7a8c81fcbd52b06a5aeb"
+    },
+    "OpenSSL.framework/Headers/rsaerr.h": {
+      "bytes": 3861,
+      "sha256": "527a639a5ca0f6f4fb0667e9467f8ed23a94282e923534fcf4837ad0c2736054"
+    },
+    "OpenSSL.framework/Headers/safestack.h": {
+      "bytes": 31977,
+      "sha256": "1c72a3f34962024cb728bf323584d8a15f96e5f3bfc804678f7685e4a6ee325a"
+    },
+    "OpenSSL.framework/Headers/seed.h": {
+      "bytes": 3611,
+      "sha256": "f44aa22ac7c051e001fe3310f9cc1cb6c12b915fd6046d33c4ebfb594cd2d2b7"
+    },
+    "OpenSSL.framework/Headers/self_test.h": {
+      "bytes": 4816,
+      "sha256": "4302b2684459a8c74b00067912460bdd68489a87ebf4510ca07346da64351f75"
+    },
+    "OpenSSL.framework/Headers/sha.h": {
+      "bytes": 4404,
+      "sha256": "85e3a0c6e021df4bdaadd3c7a97a1b67c7b630df81fb4f9f2ecc28357f8eacac"
+    },
+    "OpenSSL.framework/Headers/shim.h": {
+      "bytes": 1020,
+      "sha256": "1dbf72a72b96264d59236c460c8a0206526b2b89f6ac05b99c70e546f8db8e5f"
+    },
+    "OpenSSL.framework/Headers/srp.h": {
+      "bytes": 15162,
+      "sha256": "07c5effbedbdf683da3fb4d76bdd59ef38c0cc698d16d33ecdf1725d8689081f"
+    },
+    "OpenSSL.framework/Headers/srtp.h": {
+      "bytes": 1888,
+      "sha256": "288d3f3e7fd46e3b2a924ef63d2aaf387131875ad48b1bca04c1b90c8a59b75a"
+    },
+    "OpenSSL.framework/Headers/ssl.h": {
+      "bytes": 122373,
+      "sha256": "c45367fb81616550550632de04ec9e3315939cb4a31a7f04d6e8750351305824"
+    },
+    "OpenSSL.framework/Headers/ssl2.h": {
+      "bytes": 625,
+      "sha256": "6534fd88b6172456a1c0dbf6a74d38d7012094a218c843ca523eebd420c2895e"
+    },
+    "OpenSSL.framework/Headers/ssl3.h": {
+      "bytes": 12748,
+      "sha256": "f5b61c8e9f6a30f54d54178bf9f915a10cbacb6c3dadbf9753096bc31fe24edf"
+    },
+    "OpenSSL.framework/Headers/sslerr.h": {
+      "bytes": 15413,
+      "sha256": "90cea74510dfdfa1f13e8632cb718b5776cf61805eaae3d3d60d0001f66f5fa2"
+    },
+    "OpenSSL.framework/Headers/sslerr_legacy.h": {
+      "bytes": 18269,
+      "sha256": "3740d3efcbcba68b10a2250772bf3dc6162a6a0a6596080e53670c87de80ed7b"
+    },
+    "OpenSSL.framework/Headers/stack.h": {
+      "bytes": 3290,
+      "sha256": "8a0d4e5d4243462a1b4d8feed335b82ae01ee7afe1cf60bbb95c3c8f0a4cf752"
+    },
+    "OpenSSL.framework/Headers/store.h": {
+      "bytes": 14099,
+      "sha256": "365a93f6a6c5881bcba066c45200edf8cf130a71f50d6fa4c05838489de29f64"
+    },
+    "OpenSSL.framework/Headers/storeerr.h": {
+      "bytes": 1702,
+      "sha256": "3bc0ba3f84dbb9e55ac0616919ac68c4449a7c98d0bc8b711cff42262ad5c6d6"
+    },
+    "OpenSSL.framework/Headers/symhacks.h": {
+      "bytes": 1102,
+      "sha256": "a96cb21d27ba5a16923a3fadd19d8c29c7609b6fab646e06118ccfb932820e22"
+    },
+    "OpenSSL.framework/Headers/thread.h": {
+      "bytes": 865,
+      "sha256": "be227baf807e55edb7b8669bb3cb409209fd3aabfbff4a5456ca80f1bc0dcc87"
+    },
+    "OpenSSL.framework/Headers/tls1.h": {
+      "bytes": 63577,
+      "sha256": "050b3a85103e6c13e2d4b9d01b2f430814391884dc09009414fccfceeb4cff48"
+    },
+    "OpenSSL.framework/Headers/trace.h": {
+      "bytes": 10823,
+      "sha256": "326207bcf8ae582db44e171400651dd7208c5a5308f6c75c1189ac3bae9776a6"
+    },
+    "OpenSSL.framework/Headers/ts.h": {
+      "bytes": 19419,
+      "sha256": "b151965f85df8d35b326d75b575835d082168dd8705c2d5baad5a19fedbc0fe9"
+    },
+    "OpenSSL.framework/Headers/tserr.h": {
+      "bytes": 2077,
+      "sha256": "7e93a024f4251c5d6c9a2d9133a0194e1c7696a33c329f48bb3fff44795c3c14"
+    },
+    "OpenSSL.framework/Headers/txt_db.h": {
+      "bytes": 1635,
+      "sha256": "34a9424f130673473b1e77ae20a9c7e0fa01b62e6e70ea645ff153694507ba44"
+    },
+    "OpenSSL.framework/Headers/types.h": {
+      "bytes": 7354,
+      "sha256": "03dd1b0fbedf30d15b1e45bdaaa085b4ce08017ef912ca39d3675445070690d9"
+    },
+    "OpenSSL.framework/Headers/ui.h": {
+      "bytes": 18513,
+      "sha256": "b568449b3e40dd501bf8a6aa20fa1639d1e5214d9bd249b12d83421eb3a94ece"
+    },
+    "OpenSSL.framework/Headers/uierr.h": {
+      "bytes": 1062,
+      "sha256": "73d9d956c9f124abf2c20023fa61fa22774a2be6f4308dff730bd26bbbb6e04a"
+    },
+    "OpenSSL.framework/Headers/whrlpool.h": {
+      "bytes": 1681,
+      "sha256": "40637448662b1e9eb3970d3188d6d266d655f6068d2b77a01f5cdd103a3dc9d7"
+    },
+    "OpenSSL.framework/Headers/x509.h": {
+      "bytes": 67562,
+      "sha256": "e79376279577055db67bd5b8ae225edac937478ce4a3cbe5a76d800ed797a3b2"
+    },
+    "OpenSSL.framework/Headers/x509_acert.h": {
+      "bytes": 21923,
+      "sha256": "59a62cb87555fa72612d587308c7c99f2591f60c6f4caaf251f3c511e3c306e6"
+    },
+    "OpenSSL.framework/Headers/x509_vfy.h": {
+      "bytes": 47818,
+      "sha256": "198c22a7090ede55343999eaf3b1e7d8f9766057b3a8924e9226fb44cf0513c1"
+    },
+    "OpenSSL.framework/Headers/x509err.h": {
+      "bytes": 2316,
+      "sha256": "d258e9160f7418d2c4db8931ab7bf4f0aad44c4d9ee406a47606ccf0b5b404c6"
+    },
+    "OpenSSL.framework/Headers/x509v3.h": {
+      "bytes": 129372,
+      "sha256": "e15865a5f78ed97dd785a378497e248b7ee8076547414eab52ea4dcc1b19a573"
+    },
+    "OpenSSL.framework/Headers/x509v3err.h": {
+      "bytes": 3578,
+      "sha256": "3525502144e22c06f78e99a53336152a9d53a8cfc0e58cc2ebcb91c916c75111"
+    },
+    "OpenSSL.framework/Info.plist": {
+      "bytes": 765,
+      "sha256": "dfc0efb5ff3a59f5e294127351d961b2bb1420bb6682e10beaf8ad8cf19d6143"
+    },
+    "OpenSSL.framework/Modules/module.modulemap": {
+      "bytes": 95,
+      "sha256": "232937604da22a560466721d451b4d7f8a625c7055da22da21d687b71245c4bf"
+    },
+    "OpenSSL.framework/OpenSSL": {
+      "bytes": 5113136,
+      "sha256": "355ff3a21cb4eb8ef86bfba202414de1a9070b3ddf8703d03cedfcacbe9e5431"
+    },
+    "OpenSSL.framework/PrivacyInfo.xcprivacy": {
+      "bytes": 373,
+      "sha256": "5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084"
+    },
+    "OpenSSL.framework/_CodeSignature/CodeResources": {
+      "bytes": 33644,
+      "sha256": "36939ffaffe0975d13c057afaf9b51f43487f7229890f17a861fb0bdcdc6e3e3"
+    },
+    "dSYMs/OpenSSL.framework.dSYM/Contents/Info.plist": {
+      "bytes": 666,
+      "sha256": "221ce300ba5c6a9d117d08197720940764083889b7d4b28ef9edec74e8ad4eaf"
+    },
+    "dSYMs/OpenSSL.framework.dSYM/Contents/Resources/DWARF/OpenSSL": {
+      "bytes": 771242,
+      "sha256": "b64287318aeb620eedeb7e33fd129890e4c976cb771c25f890dbfe5d28220b4d"
+    },
+    "dSYMs/OpenSSL.framework.dSYM/Contents/Resources/Relocations/aarch64/OpenSSL.yml": {
+      "bytes": 461,
+      "sha256": "86c378f38ed9a288585c99906d5d1b37bd5275d2d0b8b2481403a9917cb3c118"
+    }
+  },
+  "xcframework_libraries": [
+    {
+      "BinaryPath": "OpenSSL.framework/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "ios-arm64_x86_64-simulator",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64",
+        "x86_64"
+      ],
+      "SupportedPlatform": "ios",
+      "SupportedPlatformVariant": "simulator"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/Versions/A/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "macos-arm64_x86_64",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64",
+        "x86_64"
+      ],
+      "SupportedPlatform": "macos"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "ios-arm64",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64"
+      ],
+      "SupportedPlatform": "ios"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "xros-arm64_x86_64-simulator",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64",
+        "x86_64"
+      ],
+      "SupportedPlatform": "xros",
+      "SupportedPlatformVariant": "simulator"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "xros-arm64",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64"
+      ],
+      "SupportedPlatform": "xros"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "watchos-arm64_x86_64-simulator",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64",
+        "x86_64"
+      ],
+      "SupportedPlatform": "watchos",
+      "SupportedPlatformVariant": "simulator"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "tvos-arm64",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64"
+      ],
+      "SupportedPlatform": "tvos"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "watchos-arm64_arm64_32_armv7k",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64",
+        "arm64_32",
+        "armv7k"
+      ],
+      "SupportedPlatform": "watchos"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/Versions/A/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "ios-arm64_x86_64-maccatalyst",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64",
+        "x86_64"
+      ],
+      "SupportedPlatform": "ios",
+      "SupportedPlatformVariant": "maccatalyst"
+    },
+    {
+      "BinaryPath": "OpenSSL.framework/OpenSSL",
+      "DebugSymbolsPath": "dSYMs",
+      "LibraryIdentifier": "tvos-arm64_x86_64-simulator",
+      "LibraryPath": "OpenSSL.framework",
+      "SupportedArchitectures": [
+        "arm64",
+        "x86_64"
+      ],
+      "SupportedPlatform": "tvos",
+      "SupportedPlatformVariant": "simulator"
+    }
+  ],
+  "xcframework_metadata_files": {
+    "Info.plist": {
+      "bytes": 5245,
+      "sha256": "090546c914b323953fe946fe8005edf065f53ede6607726d616860ed9af37607"
+    },
+    "_CodeSignature/CodeDirectory": {
+      "bytes": 199,
+      "sha256": "1b9f23cc7cdc72e9dce11ad4ef733fc49e980d85e4ccfdf31e864fe9ffeb0144"
+    },
+    "_CodeSignature/CodeRequirements": {
+      "bytes": 176,
+      "sha256": "0421266246b1d7dff032b78cbcc8c7e6f03cdb804fa156fb69fab7f8d40c6640"
+    },
+    "_CodeSignature/CodeResources": {
+      "bytes": 468956,
+      "sha256": "472267ac8212f81c1edba77c44531338df815a44179fb8d0011ee0f3c378a64e"
+    },
+    "_CodeSignature/CodeSignature": {
+      "bytes": 9099,
+      "sha256": "eb407b73d6eadf6bd4158bce032450e6697da72cf30961c6fd6f679c23871c2e"
+    }
+  }
+}

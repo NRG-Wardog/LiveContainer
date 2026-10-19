@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "/opt/homebrew/Cellar/rustup/1.29.0/bin/rustup-init",
+    "toolchain",
+    "install",
+    "1.98.1-aarch64-apple-darwin",
+    "--profile",
+    "minimal",
+    "--no-self-update"
+  ],
+  "cwd": "/Users/runner/work/_temp/p0login-phase-b-work",
+  "environment": {
+    "CARGO_HOME": "/Users/runner/work/_temp/p0login-phase-b-work/cargo-home",
+    "CARGO_INSTALL_ROOT": "/Users/runner/work/_temp/p0login-phase-b-work/cargo-tools",
+    "CARGO_TARGET_DIR": "/Users/runner/work/_temp/p0login-phase-b-work/cargo-target",
+    "DEVELOPER_DIR": "/Applications/Xcode_26.4.1.app/Contents/Developer",
+    "GIT_ALLOW_PROTOCOL": "https",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_GRAFT_FILE": "/dev/null",
+    "GIT_NO_LAZY_FETCH": "1",
+    "GIT_NO_REPLACE_OBJECTS": "1",
+    "GIT_TERMINAL_PROMPT": "0",
+    "HOME": "/Users/runner",
+    "HOMEBREW_NO_AUTO_UPDATE": "1",
+    "PATH": "/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/opt/ruby@3.4/bin:/Users/runner/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/runner/.cargo/bin:/usr/local/opt/curl/bin:/usr/local/bin:/usr/local/sbin:/Users/runner/bin:/Users/runner/.yarn/bin:/Users/runner/Library/Android/sdk/tools:/Users/runner/Library/Android/sdk/platform-tools:/Library/Frameworks/Python.framework/Versions/Current/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/usr/bin:/bin:/usr/sbin:/sbin:/Users/runner/.dotnet/tools",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUSTUP_HOME": "/Users/runner/work/_temp/p0login-phase-b-work/rustup-home",
+    "RUSTUP_TOOLCHAIN": "1.98.1-aarch64-apple-darwin",
+    "TMPDIR": "/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/"
+  }
+}

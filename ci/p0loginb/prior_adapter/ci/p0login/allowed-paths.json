@@ -1,0 +1,44 @@
+{
+  "AnisetteKit": [
+    ".ci/native-tests/fixtures/isolated_anisette_core_harness.cpp",
+    ".ci/native-tests/run_tests.py",
+    "Native/anisette_core_uc.cpp",
+    "Sources/AnisetteClient.swift",
+    "Sources/AnisetteDataProvider.swift",
+    "Sources/LoginDiagnosticTrace.swift",
+    "Tests/AnisetteKitTests/LoginDiagnosticTraceTests.swift"
+  ],
+  "LiveContainer": [
+    "LiveContainerSwiftUI/Views/V3UnifiedShell.swift",
+    "SideStoreSupport/SideStore.swift",
+    "docs/debug-adi-consumption/contract-v2.json",
+    "tests/login_trace/README.md",
+    "tests/login_trace/host_harness.swift",
+    "tests/login_trace/test_contract.py",
+    "tests/login_trace/timeout_host_harness.swift"
+  ],
+  "SideSign": [
+    ".ci/test_login_trace_source.py",
+    "Package.swift",
+    "Sources/Anisette/AnisetteDataManager.swift",
+    "Sources/DeveloperPortal/Authentication.swift",
+    "Sources/DeveloperPortal/Certificates.swift",
+    "Sources/DeveloperPortal/DeveloperPortalAPI.swift",
+    "Sources/DeveloperPortal/Devices.swift",
+    "Sources/DeveloperPortal/Teams.swift"
+  ],
+  "SideStore": [
+    "AltStore/AppDelegate.swift",
+    "AltStore/Authentication/AuthenticationViewController.swift",
+    "AltStore/Settings/SettingsViewController.swift",
+    "SideStore/Core/Anisette/AnisetteConfigManager.swift",
+    "SideStore/Core/Anisette/AnisetteProvider.swift",
+    "SideStore/Core/Anisette/OnDeviceAnisetteManager.swift",
+    "SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift",
+    "docs/debug-adi-consumption/contract-v2.json",
+    "tests/login_trace/README.md",
+    "tests/login_trace/host_harness.swift",
+    "tests/login_trace/test_contract.py",
+    "tests/login_trace/timeout_host_harness.swift"
+  ]
+}

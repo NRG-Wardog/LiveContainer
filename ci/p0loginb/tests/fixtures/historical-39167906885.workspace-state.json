@@ -1,0 +1,375 @@
+{
+  "object" : {
+    "artifacts" : [
+      {
+        "kind" : {
+          "xcframework" : {
+
+          }
+        },
+        "packageRef" : {
+          "identity" : "anisettekit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/NRG-Wardog/AnisetteKit.git",
+          "name" : "AnisetteKit"
+        },
+        "path" : "/Users/runner/work/_temp/embedded-sidestore-derived-data/SourcePackages/artifacts/anisettekit/Unicorn/Unicorn.xcframework",
+        "source" : {
+          "checksum" : "4f61907db6aafc56fb3e336b524d742342312f498bb40739f1da55fb4a24614a",
+          "type" : "remote",
+          "url" : "https://github.com/mahee96/unicorn/releases/download/2.1.4-multiarch/Unicorn.xcframework.zip#AnisetteKit"
+        },
+        "targetName" : "Unicorn"
+      },
+      {
+        "kind" : {
+          "xcframework" : {
+
+          }
+        },
+        "packageRef" : {
+          "identity" : "codesignkit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/mahee96/CodeSignKit.git",
+          "name" : "CodeSignKit"
+        },
+        "path" : "/Users/runner/work/_temp/embedded-sidestore-derived-data/SourcePackages/artifacts/codesignkit/OpenSSL/OpenSSL.xcframework",
+        "source" : {
+          "checksum" : "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+          "type" : "remote",
+          "url" : "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#CodeSignKit"
+        },
+        "targetName" : "OpenSSL"
+      },
+      {
+        "kind" : {
+          "xcframework" : {
+
+          }
+        },
+        "packageRef" : {
+          "identity" : "devicegateway",
+          "kind" : "fileSystem",
+          "location" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/DeviceGateway",
+          "name" : "DeviceGateway"
+        },
+        "path" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/DeviceGateway/LocalBinary/IDevice.xcframework",
+        "source" : {
+          "type" : "local"
+        },
+        "targetName" : "IDevice"
+      },
+      {
+        "kind" : {
+          "xcframework" : {
+
+          }
+        },
+        "packageRef" : {
+          "identity" : "devicegateway",
+          "kind" : "fileSystem",
+          "location" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/DeviceGateway",
+          "name" : "DeviceGateway"
+        },
+        "path" : "/Users/runner/work/_temp/embedded-sidestore-derived-data/SourcePackages/artifacts/devicegateway/libimobiledevice/libimobiledevice.xcframework",
+        "source" : {
+          "checksum" : "7ccbdd56b074807461fc43d2e32ba92f20df2501a6c14cf9f64a917e7f3fe6e7",
+          "type" : "remote",
+          "url" : "https://github.com/SideStore/libimobiledevice-xcframework/releases/download/1.4.0-ss-0f88f7b/libimobiledevice.xcframework.zip#DeviceGateway"
+        },
+        "targetName" : "libimobiledevice"
+      },
+      {
+        "kind" : {
+          "xcframework" : {
+
+          }
+        },
+        "packageRef" : {
+          "identity" : "gsacryptokit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/mahee96/GSACryptoKit.git",
+          "name" : "GSACryptoKit"
+        },
+        "path" : "/Users/runner/work/_temp/embedded-sidestore-derived-data/SourcePackages/artifacts/gsacryptokit/OpenSSL/OpenSSL.xcframework",
+        "source" : {
+          "checksum" : "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+          "type" : "remote",
+          "url" : "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#GSACryptoKit"
+        },
+        "targetName" : "OpenSSL"
+      },
+      {
+        "kind" : {
+          "xcframework" : {
+
+          }
+        },
+        "packageRef" : {
+          "identity" : "minimuxer",
+          "kind" : "fileSystem",
+          "location" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer",
+          "name" : "minimuxer"
+        },
+        "path" : "/Users/runner/work/_temp/embedded-sidestore-derived-data/SourcePackages/artifacts/minimuxer/EMProxy/EMProxy.xcframework",
+        "source" : {
+          "checksum" : "3998789c38d09b55e488d46e31897affc7bbcb9c244d7a9d5b2d5cf6afd916c3",
+          "type" : "remote",
+          "url" : "https://github.com/SideStore/em_proxy/releases/download/v0.9.3/EMProxy.xcframework.zip#Minimuxer"
+        },
+        "targetName" : "EMProxy"
+      },
+      {
+        "kind" : {
+          "xcframework" : {
+
+          }
+        },
+        "packageRef" : {
+          "identity" : "remotepairingkit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/mahee96/RemotePairingKit.git",
+          "name" : "RemotePairingKit"
+        },
+        "path" : "/Users/runner/work/_temp/embedded-sidestore-derived-data/SourcePackages/artifacts/remotepairingkit/OpenSSL/OpenSSL.xcframework",
+        "source" : {
+          "checksum" : "37846a8bd302cb2443eff47f1045ab844d0cd40bf82cc6159cfad9aa5c3eff9e",
+          "type" : "remote",
+          "url" : "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#RemotePairingKit"
+        },
+        "targetName" : "OpenSSL"
+      }
+    ],
+    "dependencies" : [
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "anisettekit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/NRG-Wardog/AnisetteKit.git",
+          "name" : "AnisetteKit"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "161435bcc0344e1a9853669455c1ca8d9dda2bf1"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "AnisetteKit"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "codesignkit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/mahee96/CodeSignKit.git",
+          "name" : "CodeSignKit"
+        },
+        "state" : {
+          "checkoutState" : {
+            "branch" : "main",
+            "revision" : "d0c67710fda9a2646b9e829cb2cf443892728371"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "CodeSignKit"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "common",
+          "kind" : "fileSystem",
+          "location" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/Common",
+          "name" : "Common"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/Common"
+        },
+        "subpath" : "common"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "devicegateway",
+          "kind" : "fileSystem",
+          "location" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/DeviceGateway",
+          "name" : "DeviceGateway"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer/DeviceGateway"
+        },
+        "subpath" : "devicegateway"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "gsacryptokit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/mahee96/GSACryptoKit.git",
+          "name" : "GSACryptoKit"
+        },
+        "state" : {
+          "checkoutState" : {
+            "branch" : "main",
+            "revision" : "eae2590eaf17fe98ce9c76b3ec2bd42b780eb123"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "GSACryptoKit"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "keychainaccess",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/kishikawakatsumi/KeychainAccess",
+          "name" : "KeychainAccess"
+        },
+        "state" : {
+          "checkoutState" : {
+            "branch" : "master",
+            "revision" : "e0c7eebc5a4465a3c4680764f26b7a61f567cdaf"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "KeychainAccess"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "libdeflate",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/SideStore/libdeflate",
+          "name" : "libdeflate"
+        },
+        "state" : {
+          "checkoutState" : {
+            "branch" : "master",
+            "revision" : "da6c7dae03b78dc71af973664575e4209786fbfe"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "libdeflate"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "minimuxer",
+          "kind" : "fileSystem",
+          "location" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer",
+          "name" : "minimuxer"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/minimuxer"
+        },
+        "subpath" : "minimuxer"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "remotepairingkit",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/mahee96/RemotePairingKit.git",
+          "name" : "RemotePairingKit"
+        },
+        "state" : {
+          "checkoutState" : {
+            "branch" : "main",
+            "revision" : "e3f70d16c0c551540a533a39d540e78e5b0a60a8"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "RemotePairingKit"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "semanticversion",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/SwiftPackageIndex/SemanticVersion",
+          "name" : "SemanticVersion"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "ea8eea9d89842a29af1b8e6c7677f1c86e72fa42",
+            "version" : "0.4.0"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "SemanticVersion"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "sidesign",
+          "kind" : "fileSystem",
+          "location" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/SideSign",
+          "name" : "SideSign"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/runner/work/sidestore-auto-refresh/sidestore-auto-refresh/work/EmbeddedSideStore/Dependencies/SideSign"
+        },
+        "subpath" : "sidesign"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "swift-asn1",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/apple/swift-asn1.git",
+          "name" : "swift-asn1"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "9f542610331815e29cc3821d3b6f488db8715517",
+            "version" : "1.6.0"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "swift-asn1"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "swift-crypto",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/apple/swift-crypto.git",
+          "name" : "swift-crypto"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "bb4ba815dab96d4edc1e0b86d7b9acf9ff973a84",
+            "version" : "4.3.1"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "swift-crypto"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "zipfoundation",
+          "kind" : "remoteSourceControl",
+          "location" : "https://github.com/weichsel/ZIPFoundation.git",
+          "name" : "ZIPFoundation"
+        },
+        "state" : {
+          "checkoutState" : {
+            "revision" : "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
+            "version" : "0.9.20"
+          },
+          "name" : "sourceControlCheckout"
+        },
+        "subpath" : "ZIPFoundation"
+      }
+    ],
+    "prebuilts" : [
+
+    ]
+  },
+  "version" : 7
+}

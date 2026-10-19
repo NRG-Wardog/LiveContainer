@@ -1,0 +1,81 @@
+# Exact-source capture proposal. Activation requires independent input/overlay review.
+name: P0 login trace Phase B unsigned capture
+on:
+  push:
+    branches:
+      - validation/p0-login-trace-phase-b
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: p0-login-trace-phase-b-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  capture:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-login-trace-phase-b'
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      # Replace only after independent adapter/input/workflow review; this is not approval.
+      APPROVED_P0LOGINB_INPUTS_SHA256: 70a315ebe5aa6ed0505346794a17ecf96e0ab93cc31ada2a348c539aa96403ba
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          fetch-depth: 0
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Validate separately reviewed exact inputs
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0loginb/native_gate.py --inputs validation/ci/p0loginb/inputs-phase-b.json --approved-inputs-sha256 "$APPROVED_P0LOGINB_INPUTS_SHA256" --host-root "$GITHUB_WORKSPACE/validation"
+      # The owned gate first runs 191 finite self-contained tests. Local evidence/proposal replay is separately receipted, never skipped here.
+      - name: Finite self-tests, authenticated retrieval and unsigned app capture
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0loginb/native_gate.py --inputs validation/ci/p0loginb/inputs-phase-b.json --approved-inputs-sha256 "$APPROVED_P0LOGINB_INPUTS_SHA256" --host-root "$GITHUB_WORKSPACE/validation" --work "$RUNNER_TEMP/p0login-phase-b-work" --evidence "$GITHUB_WORKSPACE/p0loginb-evidence" --execute
+      - name: Verify settled immutable evidence
+        id: transport
+        if: always()
+        run: |
+          if python3 -B validation/ci/p0loginb/native_gate.py --inputs validation/ci/p0loginb/inputs-phase-b.json --approved-inputs-sha256 "$APPROVED_P0LOGINB_INPUTS_SHA256" --host-root "$GITHUB_WORKSPACE/validation" --evidence "$GITHUB_WORKSPACE/p0loginb-evidence" --check-transport; then
+            echo 'settled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'settled=false' >> "$GITHUB_OUTPUT"
+            echo 'Capture upload blocked: settled writers and immutable index were not established.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve capture for independent review
+        id: upload
+        if: always() && steps.transport.outputs.settled == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p0-login-trace-phase-b-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p0loginb-evidence/**
+          if-no-files-found: error
+          retention-days: 14
+      - name: Record actual artifact transport identity
+        if: always() && steps.upload.outputs.artifact-id != ''
+        env:
+          CAPTURE_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          CAPTURE_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          CAPTURE_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          python3 - <<'PY'
+          import json,os
+          value={k:os.environ[k] for k in ('GITHUB_REPOSITORY','GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','CAPTURE_ARTIFACT_ID','CAPTURE_ARTIFACT_DIGEST','CAPTURE_ARTIFACT_URL')}
+          text=json.dumps(value,sort_keys=True)
+          print(text)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(text+'\n')
+          PY
