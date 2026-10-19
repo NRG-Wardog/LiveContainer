@@ -24,7 +24,7 @@ class Tests(unittest.TestCase):
             with self.assertRaises(ValueError):c.discover('app',30)
     def test_linked_root_rejected(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d);(p/'link').symlink_to(p,target_is_directory=True)
+            p=Path(d).resolve();(p/'link').symlink_to(p,target_is_directory=True)
             c=self.make(d,lambda *a,**kw:dict(row(a),stdout=str(p/'link')))
             with self.assertRaises(ValueError):c.discover('runner',30)
     def test_no_hint_no_discovery(self):

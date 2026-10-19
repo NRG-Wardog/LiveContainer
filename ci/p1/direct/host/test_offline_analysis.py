@@ -45,31 +45,31 @@ class Tests(unittest.TestCase):
         return runtime
     def test_source_guards_and_generated_independent_source(self):
         with tempfile.TemporaryDirectory() as d:
-            r=self.runtime(Path(d));paths=o.source_guard(r)
+            r=self.runtime(Path(d).resolve());paths=o.source_guard(r)
             self.assertEqual(set(paths),{'control','independent'})
-            r.local=Path(d)
+            r.local=Path(d).resolve()
             with self.assertRaisesRegex(ValueError,'source root'):o.source_guard(r)
     def test_command_success_keeps_empty_real_logs(self):
         with tempfile.TemporaryDirectory() as d:
-            r=self.runtime(Path(d));c=o.Commands(r,Path(d)/'logs')
+            r=self.runtime(Path(d).resolve());c=o.Commands(r,Path(d).resolve()/'logs')
             self.assertEqual(c('swift','input',timeout=600),'')
             self.assertEqual(c.stdout(['swift','input']),b'')
             self.assertEqual(r.allowances,[600,1]);self.assertEqual(len(r.retained),1)
     def test_command_failure_retained_before_rejection(self):
         with tempfile.TemporaryDirectory() as d:
-            r=self.runtime(Path(d));c=o.Commands(r,Path(d)/'logs')
+            r=self.runtime(Path(d).resolve());c=o.Commands(r,Path(d).resolve()/'logs')
             MockCommands.behavior=lambda argv,row:row.update(exit_code=1,failure_type='CalledProcessError',stderr='failed')
             with self.assertRaises(ValueError):c('swift','input')
             self.assertEqual(json.loads(r.retained[0][1])['exit_code'],1)
     def test_deadline_is_not_reset(self):
         with tempfile.TemporaryDirectory() as d:
-            r=self.runtime(Path(d));r.remaining=lambda cap:(_ for _ in ()).throw(TimeoutError('expired'))
-            c=o.Commands(r,Path(d)/'logs')
+            r=self.runtime(Path(d).resolve());r.remaining=lambda cap:(_ for _ in ()).throw(TimeoutError('expired'))
+            c=o.Commands(r,Path(d).resolve()/'logs')
             with self.assertRaises(TimeoutError):c('swift','input')
             self.assertEqual(c.rows,[])
     def test_decoder_exact_source_input_output_and_receipt_hashes(self):
         with tempfile.TemporaryDirectory() as d:
-            root=Path(d);r=self.runtime(root);c=o.Commands(r,root/'logs')
+            root=Path(d).resolve();r=self.runtime(root);c=o.Commands(r,root/'logs')
             source=root/'source.swift';source.write_bytes(b'// synthetic, never executed')
             pixels=root/'pixels.bgra';pixels.write_bytes(b'pixels')
             def success(argv,row):Path(argv[-1]).write_bytes(b'{"answer":1}')
@@ -83,7 +83,7 @@ class Tests(unittest.TestCase):
     def test_decoder_mutated_source_pixels_or_input_is_failure(self):
         for which in ('source','pixels','input'):
             with self.subTest(which=which),tempfile.TemporaryDirectory() as d:
-                root=Path(d);r=self.runtime(root);c=o.Commands(r,root/'logs')
+                root=Path(d).resolve();r=self.runtime(root);c=o.Commands(r,root/'logs')
                 source=root/'source.swift';source.write_bytes(b'// synthetic')
                 pixels=root/'pixels.bgra';pixels.write_bytes(b'pixels')
                 def mutate(argv,row):
@@ -94,7 +94,7 @@ class Tests(unittest.TestCase):
                 self.assertFalse(json.loads(r.retained[-1][1])['completed'])
     def test_decoder_does_not_swallow_execution_failure(self):
         with tempfile.TemporaryDirectory() as d:
-            root=Path(d);r=self.runtime(root);c=o.Commands(r,root/'logs');source=root/'s.swift';source.write_bytes(b'// test')
+            root=Path(d).resolve();r=self.runtime(root);c=o.Commands(r,root/'logs');source=root/'s.swift';source.write_bytes(b'// test')
             MockCommands.behavior=lambda argv,row:row.update(exit_code=1,failure_type='error')
             with self.assertRaises(ValueError):o.decoder(c,r,root,'unit',source,b'{}',root,[])
             self.assertFalse(json.loads(r.retained[-1][1])['completed'])
@@ -115,12 +115,12 @@ class Tests(unittest.TestCase):
     def test_symlink_and_fifo_retained_evidence_rejected(self):
         import os
         with tempfile.TemporaryDirectory() as d:
-            root=Path(d);(root/'real').write_bytes(b'bytes');(root/'linked').symlink_to(root/'real');os.mkfifo(root/'fifo')
+            root=Path(d).resolve();(root/'real').write_bytes(b'bytes');(root/'linked').symlink_to(root/'real');os.mkfifo(root/'fifo')
             for leaf in ('linked','fifo'):
                 with self.assertRaises((ValueError,OSError)):o.read(root/leaf)
     def test_failed_case_cannot_start_offline_commands_and_retains_failure(self):
         with tempfile.TemporaryDirectory() as d:
-            root=Path(d);r=self.runtime(root);r.output=root;r.session='a'*32
+            root=Path(d).resolve();r=self.runtime(root);r.output=root;r.session='a'*32
             r.ps.atomic=lambda path,value:path.write_bytes(o.canonical(value))
             (root/'case-sequence.json').write_bytes(o.canonical(dict(session=r.session,sequenceCompleted=False,failed=True,errors=['native failed'])))
             with self.assertRaisesRegex(ValueError,'settled case'):o.run(r,dict(session=r.session,scenario='timeout'))
@@ -132,7 +132,7 @@ class Tests(unittest.TestCase):
 
     def test_final_full_context_requires_actual_bytes_not_flag(self):
         with tempfile.TemporaryDirectory() as d:
-            root=Path(d);directory=o.Directory(root)
+            root=Path(d).resolve();directory=o.Directory(root)
             self.addCleanup(directory.close)
             plan=dict(windowID=99,sourceWidth=2,sourceHeight=2,sourceStride=8)
             pixels=b'\xff'*16
@@ -148,7 +148,7 @@ class Tests(unittest.TestCase):
                 with self.assertRaises(ValueError):o.final_context(directory,plan,'a'*32)
     def test_frame_file_census_has_no_success_subset(self):
         with tempfile.TemporaryDirectory() as d:
-            root=Path(d);directory=o.Directory(root);self.addCleanup(directory.close)
+            root=Path(d).resolve();directory=o.Directory(root);self.addCleanup(directory.close)
             rows=[{'newFrame':False},{'newFrame':True,'packedPixels':'frame-00001.rois.bgra'}]
             (root/'frame-00001.rois.bgra').write_bytes(b'pixels')
             o.frame_inventory(directory,rows)
@@ -172,16 +172,16 @@ class ActualRasterReplay(unittest.TestCase):
                                             expected_geometry=(row['contentRect'],row['contentScale'],row['scaleFactor']))
     def test_all_actual_raster_frames_replayed_from_bound_first(self):
         with tempfile.TemporaryDirectory() as d:
-            proofs=o.replay_frames(self.binding,self.records,Path(d)/'proofs',lambda n:n)
+            proofs=o.replay_frames(self.binding,self.records,Path(d).resolve()/'proofs',lambda n:n)
             self.assertEqual([p['nativeIndex'] for p in proofs],[0,1])
             self.assertEqual([p['actualMarker'] for p in proofs],[456,456])
-            self.assertEqual(len(list((Path(d)/'proofs').iterdir())),2)
+            self.assertEqual(len(list((Path(d).resolve()/'proofs').iterdir())),2)
     def test_skipped_first_or_mutated_actual_crop_rejected(self):
         with tempfile.TemporaryDirectory() as d:
-            with self.assertRaisesRegex(ValueError,'restart'):o.replay_frames(self.binding,self.records[1:],Path(d)/'skip',lambda n:n)
+            with self.assertRaisesRegex(ValueError,'restart'):o.replay_frames(self.binding,self.records[1:],Path(d).resolve()/'skip',lambda n:n)
             rows=copy.deepcopy(self.records);raw=rows[1]['crops']['marker'];rows[1]['crops']['marker']=b'X'+raw[1:]
-            with self.assertRaises(ValueError):o.replay_frames(self.binding,rows,Path(d)/'mutated',lambda n:n)
-            self.assertTrue((Path(d)/'mutated/frame-00000.json').is_file())
-            self.assertFalse((Path(d)/'mutated/frame-00001.json').exists())
+            with self.assertRaises(ValueError):o.replay_frames(self.binding,rows,Path(d).resolve()/'mutated',lambda n:n)
+            self.assertTrue((Path(d).resolve()/'mutated/frame-00000.json').is_file())
+            self.assertFalse((Path(d).resolve()/'mutated/frame-00001.json').exists())
 
 if __name__=='__main__':unittest.main()

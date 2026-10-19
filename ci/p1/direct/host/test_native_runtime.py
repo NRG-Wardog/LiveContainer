@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from native_runtime import Runtime
 class Tests(unittest.TestCase):
     def bare(self,d,fixture=None):
-        r=Runtime.__new__(Runtime);r.output=Path(d);r.scope=SimpleNamespace(fixture=fixture,rows=[],creation_intent=None,cleanup_deadline=time.monotonic()+120)
+        r=Runtime.__new__(Runtime);r.output=Path(d).resolve();r.scope=SimpleNamespace(fixture=fixture,rows=[],creation_intent=None,cleanup_deadline=time.monotonic()+120)
         r.channels=None;r.capture_binding=None;r._evidence={};r.retain=lambda *a:None
         r.scope.fixture_deleted=lambda value:r.scope.fixture.update(deleted=value)
         r.scope.fixture_stopped=lambda value:r.scope.fixture.update(stopped=value)

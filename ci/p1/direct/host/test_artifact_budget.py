@@ -3,14 +3,21 @@ from pathlib import Path
 from unittest.mock import patch
 import artifact_budget as b
 class Tests(unittest.TestCase):
+    def test_linked_temp_ancestor_requires_resolved_fixture(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d).resolve();real=root/'real';real.mkdir();(real/'evidence').mkdir()
+            (real/'evidence/a').write_bytes(b'abc');(root/'alias').symlink_to(real,target_is_directory=True)
+            unresolved=root/'alias/evidence'
+            with self.assertRaisesRegex(ValueError,'ordinary evidence root'):b.inventory(unresolved)
+            self.assertEqual(b.inventory(unresolved.resolve())['evidenceBytes'],3)
     def test_all_files_included(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d);(p/'a').write_bytes(b'abc');(p/'nested').mkdir();(p/'nested/b').write_bytes(b'de')
+            p=Path(d).resolve();(p/'a').write_bytes(b'abc');(p/'nested').mkdir();(p/'nested/b').write_bytes(b'de')
             self.assertEqual(b.inventory(p)['evidenceBytes'],5)
     def test_link_and_hardlink_reject(self):
         import os
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d);(p/'a').write_bytes(b'1');(p/'link').symlink_to(p/'a')
+            p=Path(d).resolve();(p/'a').write_bytes(b'1');(p/'link').symlink_to(p/'a')
             with self.assertRaises(ValueError):b.inventory(p)
             (p/'link').unlink();os.link(p/'a',p/'b')
             with self.assertRaises(ValueError):b.inventory(p)
