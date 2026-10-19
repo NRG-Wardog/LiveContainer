@@ -1,0 +1,84 @@
+{
+  "actualAX": {
+    "baselineFrame": [
+      145.33333333333331,
+      815.6666666666666,
+      111.33333333333331,
+      20.33333333333337
+    ],
+    "copyFrame": [
+      16,
+      312.33333333333337,
+      370,
+      73.99999999999994
+    ],
+    "markerFrame": [
+      105,
+      771.3333333333334,
+      192,
+      16
+    ],
+    "queriedAnchors": [
+      [
+        8,
+        70,
+        114,
+        66
+      ],
+      [
+        280,
+        70,
+        114,
+        66
+      ],
+      [
+        8,
+        766,
+        114,
+        66
+      ]
+    ],
+    "windowFrame": [
+      0,
+      0,
+      402,
+      874
+    ]
+  },
+  "admissionEligible": false,
+  "correction": {
+    "bottomPairLiftPoints": 96,
+    "changesActionsDelaysCriteria": false,
+    "movesProductionUI": false
+  },
+  "run": "39262135354",
+  "schema": "p1-retained-native-layout-regression-v1",
+  "screenshot": {
+    "attachmentName": "video-timeout-before",
+    "attachmentScale": 3,
+    "pixels": [
+      1206,
+      2622
+    ],
+    "screenCaptureKitScaleEstablished": false
+  },
+  "sourceModel": {
+    "anchor4AXMeasured": false,
+    "description": "Safe-area geometry inferred from source positions and queried AX anchors; unqueried fourth anchor and features are source-model predictions, not native AX evidence.",
+    "featureAXMeasured": false,
+    "geometryOrigin": [
+      0,
+      62
+    ],
+    "geometrySize": [
+      402,
+      778
+    ]
+  },
+  "sources": {
+    "beforeScreenshotSHA256": "bb4a76efad29dfee4a2e7c1cce14b63a70be67cee7e6ebb0355cd78810464aca",
+    "controlsAttachmentSHA256": "152ecf875273249c2aa84b941c4cc999b7cdbc0f96383bcb0e9a21b069922655",
+    "observerErrorAttachmentSHA256": "dc04ba3f18715a9704c71de14e30fb2bd02a848843a57861e253233dc11c447b",
+    "sessionLogSHA256": "c5ca3c3962d4553e3d13697f9939f99b86d67ce8ddc62621bdadac036d0e4e20"
+  }
+}

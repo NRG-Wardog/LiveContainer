@@ -208,19 +208,22 @@ private struct P1DirectRegistrationConfiguration {
 
 @MainActor private struct P1DirectRegistrationOverlay: View {
     let receipt: ([String: Any]) -> Void
+    // Fixed observer-only lift: native run 39262135354 exposed marker overlap.
+    // Move each bottom packet and its feature together; never move production UI.
+    private static let bottomRegistrationLift: CGFloat = 96
     var body: some View {
         GeometryReader { geometry in
             if let configuration = P1DirectRegistrationConfiguration(ProcessInfo.processInfo.arguments),
-               geometry.size.width >= 244, geometry.size.height >= 148 {
+               geometry.size.width >= 244, geometry.size.height >= 148 + Self.bottomRegistrationLift {
                 ForEach(1...4, id: \.self) { value in
                     P1DirectAnchor(configuration:configuration,ordinal:UInt32(value),receipt:receipt)
                         .frame(width:114,height:66)
                         .position(x:(value == 1 || value == 3) ? 65 : geometry.size.width-65,
-                                  y:value <= 2 ? 41 : geometry.size.height-41)
+                                  y:value <= 2 ? 41 : geometry.size.height-41-Self.bottomRegistrationLift)
                     P1DirectFeature(configuration:configuration,ordinal:UInt32(value),receipt:receipt)
                         .frame(width:2,height:2)
                         .position(x:(value == 1 || value == 3) ? 5 : geometry.size.width-5,
-                                  y:value <= 2 ? 5 : geometry.size.height-5)
+                                  y:value <= 2 ? 5 : geometry.size.height-5-Self.bottomRegistrationLift)
                 }
             } else {
                 Color.red.accessibilityIdentifier("p1-direct-registration-error")

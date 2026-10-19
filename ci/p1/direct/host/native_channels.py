@@ -49,6 +49,19 @@ class Channels:
                 if role not in self.directories and (path.exists() or path.is_symlink()):
                     require(path.resolve()==path and path.is_dir() and not path.is_symlink(),'linked channel path')
                     self.directories[role]=Directory(path)
+            if 'runner' in self.directories:
+                failure_raw=self.directories['runner'].read('observer-error.json',32768)
+                if failure_raw is not None:
+                    # Preserve the actual native failure before rejecting it;
+                    # it must never be hidden by a later geometry timeout.
+                    self.retain('observer-error',failure_raw)
+                    failure=parse(failure_raw)
+                    require(type(failure) is dict and failure.get('schema')=='p1-direct-baseline-observer-error-v1' and
+                            failure.get('session')==self.session and failure.get('scenario')=='timeout' and
+                            failure.get('baselineTapReleased') is False and failure.get('admissionEligible') is False and
+                            type(failure.get('phase')) is str and type(failure.get('error')) is str,
+                            'foreign or malformed native observer failure')
+                    raise RuntimeError('native observer rejected baseline: '+failure['error'])
             if set(self.directories)=={'app','runner'}:
                 runner=self.directories['runner'];raw=runner.read('ready.json',8192)
                 if raw is not None:

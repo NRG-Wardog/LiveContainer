@@ -1,4 +1,5 @@
-import tempfile,unittest
+import tempfile,unittest,json
+from unittest.mock import patch
 from pathlib import Path
 from native_channels import Channels
 from native_process import clean
@@ -6,6 +7,31 @@ from test_native_process import row
 class Native:
     def live(self):pass
 class Tests(unittest.TestCase):
+    def failure_case(self,d,change=None,ready=False):
+        p=Path(d).resolve();c=self.make(d,None);retained=[];c.retain=lambda name,raw:retained.append((name,raw))
+        c.roots={'app':p/'app','runner':p/'runner'}
+        target=c.roots['runner']/'Documents/p1-capability'/c.session;target.mkdir(parents=True)
+        row=dict(schema='p1-direct-baseline-observer-error-v1',session=c.session,scenario='timeout',phase='sampling-geometry',error='anchor overlap',baselineTapReleased=False,admissionEligible=False)
+        if change:row.update(change)
+        raw=json.dumps(row).encode();(target/'observer-error.json').write_bytes(raw)
+        if ready:(target/'ready.json').write_bytes(b'{}')
+        self.addCleanup(c.close);return c,retained,raw
+    def test_native_error_retained_without_app_directory_or_wait(self):
+        with tempfile.TemporaryDirectory() as d:
+            c,retained,raw=self.failure_case(d)
+            with patch('native_channels.time.sleep',side_effect=AssertionError('must not wait')):
+                with self.assertRaisesRegex(RuntimeError,'anchor overlap'):c.geometry(30,lambda raw:None)
+            self.assertEqual(retained,[('observer-error',raw)])
+    def test_error_precedes_even_present_ready(self):
+        with tempfile.TemporaryDirectory() as d:
+            c,retained,raw=self.failure_case(d,ready=True)
+            with self.assertRaisesRegex(RuntimeError,'anchor overlap'):c.geometry(30,lambda raw:None)
+    def test_foreign_and_malformed_errors_fail_closed_after_retention(self):
+        for change in ({'session':'b'*32},{'scenario':'replacement'},{'schema':'foreign'},{'baselineTapReleased':True},{'admissionEligible':True},{'error':None}):
+            with self.subTest(change=change),tempfile.TemporaryDirectory() as d:
+                c,retained,raw=self.failure_case(d,change)
+                with self.assertRaisesRegex(ValueError,'malformed'):c.geometry(30,lambda raw:None)
+                self.assertEqual(retained,[('observer-error',raw)])
     def make(self,d,command):
         c=Channels(command,Native(),device='D',session='a'*32,app_id='app',runner_id='runner',retain=lambda *a:None,remaining=lambda x:x)
         c.hint={};return c
