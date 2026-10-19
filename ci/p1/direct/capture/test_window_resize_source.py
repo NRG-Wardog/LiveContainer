@@ -11,9 +11,9 @@ class ResizeSourceTests(unittest.TestCase):
                       'AXUIElementGetPid(target, &axPID)', 'axPID == pid',
                       'directAXRect(target) == window.frame', 'try requireMainWindow()',
                       'matching.count == 1', 'menus.count == 1', 'presets.count == 1',
-                      'postOpenPresetEnabled', 'try require(owner.valid(),'):
+                      'directPresetEnabled', 'try require(owner.valid(),'):
             self.assertLess(source.index(token),mutation)
-        self.assertEqual(source.count('AXUIElementPerformAction('),2)
+        self.assertEqual(source.count('AXUIElementPerformAction('),1)
         for forbidden in ('AXIsProcessTrustedWithOptions','AXMakeProcessTrusted','AXUIElementCreateSystemWide',
                           'CGRequestScreenCaptureAccess','AXUIElementSetAttributeValue(', 'CGEventPost'):
             self.assertNotIn(forbidden,source)
@@ -37,19 +37,15 @@ class ResizeSourceTests(unittest.TestCase):
         self.assertIn('Double(content.width) * scale',source)
         self.assertEqual(source.count('desktopIndependentWindow:'),1)
 
-    def test_normal_menu_sequence_has_bound_open_and_close_evidence(self):
+    def test_direct_enabled_item_has_no_menu_open_or_notification_dependency(self):
         source=(HERE/'window_resize.swift').read_text()
-        for token in ('AXObserverCreate(pid, directMenuCallback', 'kAXMenuOpenedNotification, kAXMenuClosedNotification',
-                      'CFEqual(element, menu)', 'sourcePID == pid', 'presetAttempt >= opened',
-                      'CFRunLoopRemoveSource', 'withExtendedLifetime(events)', 'events.waitFor(true)',
-                      'events.waitFor(false)', '"preOpenPresetEnabled"', '"postOpenPresetEnabled"',
-                      '"windowMenuEnabled"', 'kAXMenuBarItemRole', '"menuClosureObserved"'):
+        for token in ('"direct-enabled-preset-item-v1"','"menuOpenAttempted"] = false',
+                      '"menuNotificationEvidenceClaimed"] = false','kAXMenuItemRole','directRequirePress(preset, pid: pid)'):
             self.assertIn(token,source)
-        self.assertLess(source.index('AXObserverAddNotification('), source.index('AXUIElementPerformAction(matching[0],'))
-        self.assertLess(source.index('events.waitFor(true)'),source.index('"postOpenPresetEnabled"'))
         self.assertLess(source.index('try require(enabled == true'),source.index('AXUIElementPerformAction(preset,'))
-        self.assertLess(source.index('events.waitFor(false)'),source.index('var prior: CGRect?'))
-        for forbidden in ('setEnabled(','AXUIElementSetAttributeValue(', 'cancelTracking', 'NSMenu('):
+        for forbidden in ('AXObserver','kAXMenuOpenedNotification','kAXMenuClosedNotification',
+                          'AXUIElementPerformAction(matching[0]','menuClosureObserved','setEnabled(',
+                          'AXUIElementSetAttributeValue(', 'cancelTracking', 'NSMenu('):
             self.assertNotIn(forbidden,source)
 
     def test_only_owned_application_may_be_foregrounded_once(self):
@@ -65,19 +61,16 @@ class ResizeSourceTests(unittest.TestCase):
         self.assertLess(source.index('"ownerActiveAfter"'),source.index('let rawBar ='))
         self.assertNotIn('activateIgnoringOtherApps',source)
 
-    def test_notification_failure_is_rechecked_after_async_selection(self):
+    def test_owner_and_focus_rechecked_after_async_selection(self):
         source=(HERE/'window_resize.swift').read_text()
         block=source[source.index('let current = try await select(window.windowID, "resized")'):]
-        self.assertLess(block.index('if let error = events.error'),block.index('if current.frame == prior'))
-        self.assertLess(block.index('try requireMainWindow()'),block.index('if current.frame == prior'))
-        success=block[block.index('if current.frame == prior'):]
-        self.assertLess(success.index('if let error = events.error'),success.index('return current'))
+        for token in ('try require(owner.valid()', 'try requireMainWindow()', 'ownedApplication.isActive','directAXRect(target)'):
+            self.assertLess(block.index(token),block.index('if current.frame == prior'))
 
     def test_modern_runloop_api_and_synchronous_activation_phase(self):
         source=(HERE/'window_resize.swift').read_text()
         self.assertNotIn('kCFRunLoopDefaultMode',source)
         self.assertNotIn('CFRunLoopGetCurrent()',source)
-        self.assertIn('CFRunLoopGetMain()',source)
         phase=source[source.index('@MainActor func directActivateOwnedApplication'):source.index('@MainActor func directResizeOwnedWindow')]
         self.assertIn('throws -> NSRunningApplication',phase)
         self.assertNotIn('async',phase.split('{',1)[0])

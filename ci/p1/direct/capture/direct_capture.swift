@@ -487,55 +487,6 @@ func directEnabledSnapshot(_ element: AXUIElement, label: String,
     return result
 }
 
-// This observer exists only during one owned menu sequence, before capture.
-final class DirectMenuEvents {
-    let menu: AXUIElement
-    let pid: pid_t
-    let session: String
-    var openAttempt: UInt64 = 0
-    var presetAttempt: UInt64 = 0
-    var opened: UInt64 = 0
-    var closed: UInt64 = 0
-    var error: String?
-    init(menu: AXUIElement, pid: pid_t, session: String) {
-        self.menu = menu; self.pid = pid; self.session = session
-    }
-    func receive(_ element: AXUIElement, notification: String) {
-        guard AXUIElementSetMessagingTimeout(element, 2) == .success else { error = "menu-notification-timeout-setting"; return }
-        var sourcePID: pid_t = 0
-        guard CFEqual(element, menu), AXUIElementGetPid(element, &sourcePID) == .success,
-              sourcePID == pid else { error = "menu-notification-identity"; return }
-        let now = mach_absolute_time()
-        if notification == kAXMenuOpenedNotification {
-            guard openAttempt > 0, now >= openAttempt, opened == 0, closed == 0 else {
-                error = "menu-open-notification-order"; return
-            }
-            opened = now
-        } else if notification == kAXMenuClosedNotification {
-            guard opened > 0, presetAttempt >= opened, now >= presetAttempt, closed == 0 else {
-                error = "menu-close-notification-order"; return
-            }
-            closed = now
-        } else { error = "menu-notification-kind" }
-    }
-    func waitFor(_ opening: Bool) throws {
-        // Called synchronously on the same run loop used for registration.
-        // The existing independent 15-second stage watchdog bounds this wait.
-        while (opening ? opened == 0 : closed == 0) {
-            if let error = error { throw Failure(error) }
-            CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.02, true)
-        }
-        if let error = error { throw Failure(error) }
-    }
-}
-
-func directMenuCallback(_ observer: AXObserver, _ element: AXUIElement,
-                        _ notification: CFString, _ context: UnsafeMutableRawPointer?) {
-    guard let context = context else { return }
-    Unmanaged<DirectMenuEvents>.fromOpaque(context).takeUnretainedValue()
-        .receive(element, notification: notification as String)
-}
-
 func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
     try require(AXUIElementSetMessagingTimeout(element, 2) == .success, "owned-element-ax-timeout-unavailable")
     var actions: CFArray?
@@ -633,101 +584,46 @@ func directRequirePress(_ element: AXUIElement, pid: pid_t) throws {
     try require(menus.count == 1, "owned-window-submenu-unavailable-or-ambiguous")
     try require(try directAXText(matching[0], kAXRoleAttribute) == kAXMenuBarItemRole,
                 "owned-window-menu-role")
-    let beforePresets = try directAXChildren(menus[0]).filter { try directAXOptionalTitle($0) == "Pixel Accurate" }
-    try require(beforePresets.count == 1, "owned-pixel-accurate-unavailable-or-ambiguous")
-    _ = try directEnabledSnapshot(beforePresets[0], label: "preOpenPresetEnabled", proof: &proof, path: path)
-    try require(try directEnabledSnapshot(matching[0], label: "windowMenuEnabled", proof: &proof, path: path) == true,
-                "owned-window-menu-disabled-or-unknown")
-    let menu = menus[0]
-    let events = DirectMenuEvents(menu: menu, pid: pid, session: session)
-    var observer: AXObserver?
-    try require(AXObserverCreate(pid, directMenuCallback, &observer) == .success,
-                "owned-menu-observer-unavailable")
-    guard let observer = observer else { throw Failure("owned-menu-observer-empty") }
-    let loop = CFRunLoopGetMain()
-    let source = AXObserverGetRunLoopSource(observer)
-    let context = Unmanaged.passUnretained(events).toOpaque()
-    var registered: [String] = []
-    defer {
-        for notification in registered {
-            AXObserverRemoveNotification(observer, menu, notification as CFString)
-        }
-        CFRunLoopRemoveSource(loop, source, CFRunLoopMode.defaultMode)
-        withExtendedLifetime(events) {}
-    }
-    for notification in [kAXMenuOpenedNotification, kAXMenuClosedNotification] {
-        let status = AXObserverAddNotification(observer, menu, notification as CFString, context)
-        proof[notification == kAXMenuOpenedNotification ? "openNotificationAXError" : "closeNotificationAXError"] = status.rawValue
-        try write(proof, path)
-        try require(status == .success, "owned-menu-notification-unavailable")
-        registered.append(notification)
-    }
-    CFRunLoopAddSource(loop, source, CFRunLoopMode.defaultMode)
-    try directRequirePress(matching[0], pid: pid)
-    try require(owner.valid(), "resize-owner-changed")
-    try requireMainWindow()
-    try require(try directAXRect(target) == window.frame, "owned-window-changed-before-open")
-    try require(ownedApplication.isActive, "owned-application-inactive-before-menu")
-    events.openAttempt = mach_absolute_time()
-    proof["menuOpenAttemptMach"] = events.openAttempt
-    try write(proof, path)
-    let openStatus = AXUIElementPerformAction(matching[0], kAXPressAction as CFString)
-    proof["menuOpenAXError"] = openStatus.rawValue
-    try write(proof, path)
-    try require(openStatus == .success, "owned-window-menu-open-failed")
-    try events.waitFor(true)
-    proof["ownerActiveAfterMenuOpen"] = ownedApplication.isActive
-    proof["menuOpenedObservedMach"] = events.opened
-    try write(proof, path)
-    try requireMainWindow()
-    let refreshedMenus = try directAXChildren(matching[0]).filter { try directAXText($0, kAXRoleAttribute) == kAXMenuRole }
-    try require(refreshedMenus.count == 1 && CFEqual(refreshedMenus[0], menu), "owned-open-menu-replaced")
     let presets = try directAXChildren(menus[0]).filter { try directAXOptionalTitle($0) == "Pixel Accurate" }
+    proof["route"] = "direct-enabled-preset-item-v1"
+    proof["menuOpenAttempted"] = false
+    proof["menuNotificationEvidenceClaimed"] = false
     proof["matchingPixelAccurateItems"] = presets.count
     try write(proof, path)
     try require(presets.count == 1, "owned-pixel-accurate-unavailable-or-ambiguous")
     let preset = presets[0]
     try require(try directAXText(preset, kAXRoleAttribute) == kAXMenuItemRole, "owned-preset-role")
-    let enabled = try directEnabledSnapshot(preset, label: "postOpenPresetEnabled", proof: &proof, path: path)
-    try require(enabled == true, "owned-preset-disabled-or-unknown-after-open")
+    let enabled = try directEnabledSnapshot(preset, label: "directPresetEnabled", proof: &proof, path: path)
+    try require(enabled == true, "owned-preset-disabled-or-unknown")
     try directRequirePress(preset, pid: pid)
     try require(owner.valid(), "resize-owner-changed")
     try requireMainWindow()
     try require(try directAXRect(target) == window.frame, "owned-window-changed-before-action")
-    proof["mutationAttempted"] = true
-    try write(proof, path)
-    // One documented preset on the exact owned application's current window.
-    // No global keystroke, resize retry, or permission request.
     try require(ownedApplication.isActive, "owned-application-inactive-before-preset")
-    events.presetAttempt = mach_absolute_time()
-    proof["presetAttemptMach"] = events.presetAttempt
+    proof["mutationAttempted"] = true
+    proof["presetAttemptMach"] = mach_absolute_time()
     try write(proof, path)
+    // One advertised action on the already-enabled exact owned preset.
+    // No menu-opening action, notification assumption, retry or global input.
     let actionStatus = AXUIElementPerformAction(preset, kAXPressAction as CFString)
     proof["actionAXError"] = actionStatus.rawValue
     try write(proof, path)
     try require(actionStatus == .success, "owned-pixel-accurate-action-failed")
-    try events.waitFor(false)
-    proof["menuClosedObservedMach"] = events.closed
-    proof["menuClosureObserved"] = true
-    try write(proof, path)
     var prior: CGRect?
     while true {
-        if let error = events.error { throw Failure(error) }
         try require(owner.valid(), "resize-owner-changed")
         try requireMainWindow()
         let current = try await select(window.windowID, "resized")
-        if let error = events.error { throw Failure(error) }
         try require(owner.valid(), "resize-owner-changed-after-selection")
         try requireMainWindow()
         try require(current.frame.width <= 4096 && current.frame.height <= 4096,
                     "resized-source-window-outside-bounds")
+        try require(ownedApplication.isActive, "owned-application-inactive-after-selection")
         let axFrame = try directAXRect(target)
-        if let error = events.error { throw Failure(error) }
         if current.frame == prior && current.frame == axFrame && current.frame != window.frame {
             proof["afterFrame"] = rect(current.frame)
             proof["sameOwnedWindowSettled"] = true
             try write(proof, path)
-            if let error = events.error { throw Failure(error) }
             return current
         }
         prior = current.frame
