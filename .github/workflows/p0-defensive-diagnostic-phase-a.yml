@@ -2,7 +2,7 @@ name: P0 defensive A+B plus bounded diagnostic Phase A capture
 on:
   push:
     branches:
-      - validation/p0-defensive-diagnostic-phase-a
+      - validation/p0-defensive-diagnostic-phase-a-swift-split
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,13 +12,13 @@ concurrency:
   cancel-in-progress: false
 jobs:
   capture:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-defensive-diagnostic-phase-a'
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-defensive-diagnostic-phase-a-swift-split'
     runs-on: macos-26
     timeout-minutes: 150
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       # Replace only after independent adapter/input/workflow review; this is not approval.
-      APPROVED_P0DEFENSIVE_INPUTS_SHA256: f05bf4ad0a425fc459326ce796c79ba4ae55ad377be39a9d51f363d852e0f869
+      APPROVED_P0DEFENSIVE_INPUTS_SHA256: 1f129661ec646e3a7781bbca795603fe908d2ab72ecfd0d06affead097f8c62c
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
       GIT_CONFIG_NOSYSTEM: '1'
@@ -53,6 +53,25 @@ jobs:
             echo 'settled=false' >> "$GITHUB_OUTPUT"
             echo 'Capture upload blocked: settled writers and immutable index were not established.' >> "$GITHUB_STEP_SUMMARY"
           fi
+      - name: Prepare separate bounded failure-log view
+        id: failure_view
+        if: always() && steps.transport.outputs.settled == 'true'
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0defensive/failure_summary.py --evidence "$GITHUB_WORKSPACE/p0defensive-evidence" --output "$GITHUB_WORKSPACE/p0defensive-failure-logs"
+          if test -f "$GITHUB_WORKSPACE/p0defensive-failure-logs/failure-summary-manifest.json"; then
+            echo 'created=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'created=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload diagnostic view only; full evidence remains required
+        if: always() && steps.failure_view.outputs.created == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p0-defensive-diagnostic-failure-logs-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p0defensive-failure-logs/**
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve capture for independent review
         id: upload
         if: always() && steps.transport.outputs.settled == 'true'

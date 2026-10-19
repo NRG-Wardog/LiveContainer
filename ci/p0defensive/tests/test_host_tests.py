@@ -65,4 +65,13 @@ class HostTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp).resolve();row={'tests':9,'failures':0,'errors':0,'skips':1,'expected_failures':0,'unexpected_successes':0,'test_ids':['id'+str(x) for x in range(9)]};dump(root/'unittest-result.json',row)
             with self.assertRaises(ValueError):host_tests.verify_result('run_tests.py',root)
+    def test_only_exact_diagnostic_supervisor_owns_per_command_sandbox_dispatch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve();include=root/'headers';include.mkdir()
+            for (_,argv),driver in zip(host_tests.commands(HERE,root/'owner',root/'work',root/'evidence',sys.executable,include),DRIVERS):
+                executed=host_tests.execution_command(driver,argv)
+                self.assertEqual(executed,argv if driver=='run_diagnostic_checks.py' else [*host_tests.SANDBOX,*argv])
+                bad=list(argv);bad[bad.index('--driver')+1]='injected'
+                with self.assertRaises(ValueError):host_tests.execution_command(driver,bad)
+            with self.assertRaises(ValueError):host_tests.execution_command('unknown',[])
 if __name__=='__main__':unittest.main(verbosity=2)

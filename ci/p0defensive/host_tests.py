@@ -3,6 +3,7 @@ from pathlib import Path
 from source_primitives import require
 from inventory import parse,ordinary
 from run_host_test import DRIVERS
+from capture_contract import SANDBOX
 
 def commands(here,owner,work,evidence,python,include):
     require(include.is_absolute() and include.is_dir() and not include.is_symlink(),'actual pinned artifact header directory required')
@@ -10,13 +11,21 @@ def commands(here,owner,work,evidence,python,include):
         label=driver.removesuffix('.py').replace('_','-')
         yield label,[python,'-B',str(here/'run_host_test.py'),'--owner',str(owner),'--driver',driver,'--output',str(work/'host-tests'/label),'--temporary',str(work/'host-temporary'/label),'--evidence',str(evidence/'host-tests'/label),'--unicorn-include',str(include)]
 
+def execution_command(driver,argv):
+    require(driver in DRIVERS and argv.count('--driver')==1 and argv[argv.index('--driver')+1]==driver,'exact reviewed host driver required')
+    # Only this trusted supervisor dispatches its own exact per-command sandboxes.
+    # Apple macro compilation keeps the compiler's own plugin sandbox intact.
+    return list(argv) if driver=='run_diagnostic_checks.py' else [*SANDBOX,*argv]
+
 def exact_result(actual,expected):
     require(actual==expected and all(type(actual[k]) is type(v) for k,v in expected.items()),'host result/count/type differs')
 
 def verify_result(driver,output):
     if driver=='run_diagnostic_checks.py':
-        from diagnostic_checks import verify_result
-        return verify_result(parse(ordinary(output,'diagnostic-results.json').read_bytes()))
+        from diagnostic_checks import verify_result,command_context
+        work=output.parent.parent
+        context=command_context(work/'sources/AnisetteKit',work/'host-unicorn-headers',output)
+        return verify_result(parse(ordinary(output,'diagnostic-results.json').read_bytes()),context)
     if driver=='run_tests.py':
         row=parse(ordinary(output,'unittest-result.json').read_bytes())
         require(row['tests']==9 and all(row[k]==0 for k in ('failures','errors','skips','expected_failures','unexpected_successes')) and len(set(row['test_ids']))==9,'host unittest result differs')

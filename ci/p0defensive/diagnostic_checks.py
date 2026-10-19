@@ -3,6 +3,7 @@ import ast, hashlib, json, os, platform, re, subprocess
 from pathlib import Path
 from inventory import ordinary, parse, sha
 from source_primitives import require
+from capture_contract import SANDBOX
 HERE=Path(__file__).resolve().parent
 VARIANTS=(('normal',[]),('optimized',['-O2','-DNDEBUG']),('sanitized',['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer']))
 NATIVE_EXPECTED={'checks':662,'failures':0,'guest_execution':False,'real_engine_starts':0,'proprietary_input':False,'synthetic_api_starts':5}
@@ -69,8 +70,42 @@ def swift_fixture(owner):
 def native_command(owner,include,source,binary,flags):
     return ['xcrun','clang++','-std=c++17','-Wno-deprecated-declarations',*flags,'-MMD','-MF',str(binary)+'.d','-I',str(include),'-I',str(owner/'Native'),'-I',str(owner/'Native/include'),str(source),'-o',str(binary)]
 
-def verify_result(row):
-    require(set(row)=={'schema','guest_execution','real_engine_linked','proprietary_input','leak_sanitizer_enabled','apple_commoncrypto_validated','swift_boundaries_validated','source_sha256','native_fixture','swift_fixture','results'},'diagnostic result schema differs')
+def command_context(owner,include,out):
+    return dict(owner=str(owner),include=str(include),output=str(out))
+
+def command_plan(context):
+    require(set(context)=={'owner','include','output'},'diagnostic command context differs')
+    for value in context.values():
+        require(isinstance(value,str) and Path(value).is_absolute() and '..' not in Path(value).parts,'canonical absolute diagnostic command paths required')
+    owner,include,out=(Path(context[k]) for k in ('owner','include','output'))
+    require(owner.parts[-2:]==('sources','AnisetteKit'),'fixed diagnostic owner layout required')
+    work=owner.parent.parent
+    require(include==work/'host-unicorn-headers' and out==work/'host-tests/run-diagnostic-checks','fixed diagnostic include/output layout required')
+    logical=[]
+    for variant,flags in VARIANTS:
+        binary=out/('bounded-fault-'+variant)
+        logical.extend([(variant+'-compile',native_command(owner,include,out/'bounded-fault-apple.cpp',binary,flags)),
+                        (variant+'-run',[str(binary)]),(variant+'-nm',['xcrun','nm','-u',str(binary)]),
+                        (variant+'-otool',['xcrun','otool','-L',str(binary)])])
+    dependencies=[str(owner/'Sources'/name) for name in ('AnisetteDataResponse.swift','AnisetteError.swift','Constants.swift','LoginDiagnosticTrace.swift')]
+    for variant,flags in (('normal',[]),('optimized',['-O'])):
+        binary=out/('swift-boundaries-'+variant)
+        logical.extend([('swift-'+variant+'-compile',['swiftc',*flags,str(out/'main.swift'),*dependencies,'-o',str(binary)]),
+                        ('swift-'+variant+'-run',[str(binary)])])
+    rows=[]
+    for label,argv in logical:
+        compile_only=label in ('swift-normal-compile','swift-optimized-compile')
+        rows.append(dict(label=label,logical_argv=argv,argv=argv if compile_only else [*SANDBOX,*argv],
+                         sandbox_policy='apple_plugin_sandbox_compile' if compile_only else 'network_denied'))
+    return rows
+
+def dispatch_argv(context,label,logical_argv):
+    matches=[r for r in command_plan(context) if r['label']==label]
+    require(len(matches)==1 and matches[0]['logical_argv']==logical_argv,'exact finite diagnostic command dispatch required')
+    return matches[0]
+
+def verify_result(row,expected_context):
+    require(set(row)=={'schema','guest_execution','real_engine_linked','proprietary_input','leak_sanitizer_enabled','apple_commoncrypto_validated','swift_boundaries_validated','source_sha256','native_fixture','swift_fixture','command_context','results'},'diagnostic result schema differs')
     require(row['schema']==1 and type(row['schema']) is int,'diagnostic schema differs')
     inventory=parse(ordinary(HERE,'reviewed/diagnostic-source-inventory.json').read_bytes())
     require(row['source_sha256']=={p:r['sha256'] for p,r in inventory['files'].items()},'exact diagnostic runtime source closure differs')
@@ -85,9 +120,11 @@ def verify_result(row):
 
     for key in ('guest_execution','real_engine_linked','proprietary_input','leak_sanitizer_enabled'):require(row[key] is False,'diagnostic scope differs')
     require(row['apple_commoncrypto_validated'] is True and row['swift_boundaries_validated'] is True,'Apple/Swift runtime validation incomplete')
-    expected=[v+'-'+stage for v,_ in VARIANTS for stage in ('compile','run','nm','otool')]+[v+'-'+stage for v in ('swift-normal','swift-optimized') for stage in ('compile','run')]
-    results=row['results'];require([r['label'] for r in results]==expected,'finite diagnostic command order differs')
-    for r in results:
+    require(row['command_context']==expected_context,'diagnostic command context differs from trusted outer paths')
+    plan=command_plan(row['command_context']);require(row['command_context']['owner']==str(native_path.parents[3]),'diagnostic command owner differs from fixture')
+    results=row['results'];require([r['label'] for r in results]==[r['label'] for r in plan],'finite diagnostic command order differs')
+    for r,expected in zip(results,plan):
+        require(set(r)=={'label','logical_argv','argv','sandbox_policy','returncode','stdout','stderr'} and all(r[k]==v for k,v in expected.items()),'diagnostic logical/executed command or sandbox policy differs')
         require(r['returncode']==0 and r['stderr']=='','diagnostic command failed or emitted diagnostics')
         if r['label'] in [v+'-run' for v,_ in VARIANTS]:
             value=parse(r['stdout']);require(value==NATIVE_EXPECTED and all(type(value[k]) is type(v) for k,v in NATIVE_EXPECTED.items()),'diagnostic native runtime differs')
@@ -102,16 +139,17 @@ def verify_result(row):
 
 def run(owner,include,out):
     require(platform.system()=='Darwin' and platform.machine()=='arm64','Apple arm64 SDK execution required')
-    before=source_closure(owner);rows=[]
+    before=source_closure(owner);rows=[];context=command_context(owner,include,out)
     cpp,cpp_receipt=native_fixture(owner);swift,swift_receipt=swift_fixture(owner)
     (out/'bounded-fault-apple.cpp').write_text(cpp);(out/'main.swift').write_text(swift)
     for label,receipt in [('native-fixture',cpp_receipt),('swift-fixture',swift_receipt)]:
         (out/(label+'.json')).write_text(json.dumps(receipt,indent=2)+'\n')
-    row=dict(schema=1,guest_execution=False,real_engine_linked=False,proprietary_input=False,leak_sanitizer_enabled=False,apple_commoncrypto_validated=False,swift_boundaries_validated=False,source_sha256=before,native_fixture=cpp_receipt,swift_fixture=swift_receipt,results=rows)
+    row=dict(schema=1,guest_execution=False,real_engine_linked=False,proprietary_input=False,leak_sanitizer_enabled=False,apple_commoncrypto_validated=False,swift_boundaries_validated=False,source_sha256=before,native_fixture=cpp_receipt,swift_fixture=swift_receipt,command_context=context,results=rows)
     def save():(out/'diagnostic-results.json').write_text(json.dumps(row,indent=2)+'\n')
     def command(label,argv,env=None):
-        result=subprocess.run(argv,capture_output=True,text=True,timeout=120,env=env)
-        rows.append(dict(label=label,argv=argv,returncode=result.returncode,stdout=result.stdout,stderr=result.stderr));save()
+        dispatch=dispatch_argv(context,label,argv)
+        result=subprocess.run(dispatch['argv'],capture_output=True,text=True,timeout=120,env=env)
+        rows.append(dict(dispatch,returncode=result.returncode,stdout=result.stdout,stderr=result.stderr));save()
         require(result.returncode==0 and result.stderr=='','diagnostic command failed: '+label)
     for variant,flags in VARIANTS:
         binary=out/('bounded-fault-'+variant)
@@ -127,4 +165,4 @@ def run(owner,include,out):
         command('swift-'+variant+'-run',[str(binary)])
     row['swift_boundaries_validated']=True;save()
     require(before==source_closure(owner),'diagnostic sources changed during runtime checks')
-    verify_result(row)
+    verify_result(row,context)

@@ -1,0 +1,37 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-p",
+    "(version 1) (allow default) (deny network*)",
+    "/opt/homebrew/opt/python@3.15/bin/python3.15",
+    "-B",
+    "/Users/runner/work/LiveContainer/LiveContainer/validation/ci/p0defensive/run_host_test.py",
+    "--owner",
+    "/Users/runner/work/_temp/p0defensive-phase-a-work/sources/AnisetteKit",
+    "--driver",
+    "run_diagnostic_checks.py",
+    "--output",
+    "/Users/runner/work/_temp/p0defensive-phase-a-work/host-tests/run-diagnostic-checks",
+    "--temporary",
+    "/Users/runner/work/_temp/p0defensive-phase-a-work/host-temporary/run-diagnostic-checks",
+    "--evidence",
+    "/Users/runner/work/LiveContainer/LiveContainer/p0defensive-evidence/host-tests/run-diagnostic-checks",
+    "--unicorn-include",
+    "/Users/runner/work/_temp/p0defensive-phase-a-work/host-unicorn-headers"
+  ],
+  "cwd": "/Users/runner/work/_temp/p0defensive-phase-a-work",
+  "environment": {
+    "DEVELOPER_DIR": "/Applications/Xcode_26.4.1.app/Contents/Developer",
+    "GIT_ALLOW_PROTOCOL": "https",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_GRAFT_FILE": "/dev/null",
+    "GIT_NO_LAZY_FETCH": "1",
+    "GIT_NO_REPLACE_OBJECTS": "1",
+    "GIT_TERMINAL_PROMPT": "0",
+    "HOME": "/Users/runner/work/_temp/p0defensive-phase-a-work/home",
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin:/Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TMPDIR": "/Users/runner/work/_temp/p0defensive-phase-a-work/tmp"
+  }
+}

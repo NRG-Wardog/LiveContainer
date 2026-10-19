@@ -178,6 +178,24 @@ class AdapterTests(unittest.TestCase):
         for value in ('contents: read','actions: read','persist-credentials: false',"github.ref == 'refs/heads/"+BRANCH+"'",'APPROVED_P0DEFENSIVE_INPUTS_SHA256: REVIEW_REQUIRED','steps.transport.outputs.settled','if-no-files-found: error'):
             self.assertIn(value,text)
         self.assertNotIn('secrets.',text);self.assertNotIn('pull_request',text)
+    def test_corrective_parent_and_cumulative_product_overlay_are_distinct(self):
+        import inspect
+        self.assertEqual(HOST_BASE,'1f1230372551c4aa0a4f39d93f58be76a8ee163d')
+        self.assertEqual(HOST_TREE,'32ef2a048de23323fae43d8765e119e80379d3cd')
+        self.assertEqual(HOST_PRODUCT_BASE,'545438e1f0a89fdef375f73273c5c9fc2735cbce')
+        source=inspect.getsource(gate.Gate.host_proof)
+        self.assertIn("==[commit,base]",source)
+        self.assertIn('snapshot(self.host,HOST_PRODUCT_BASE,commit)',source)
+        self.assertIn('overlay_basis=HOST_PRODUCT_BASE',source)
+        self.assertIn("require(set(actual['changes'])==set(expected)",source)
+    def test_failure_view_cannot_replace_settled_full_capture_upload(self):
+        text=(self.host/WORKFLOW_PATH).read_text()
+        self.assertEqual(text.count('    runs-on: macos-26'),1)
+        self.assertLess(text.index('Prepare separate bounded failure-log view'),text.index('Preserve capture for independent review'))
+        self.assertIn("if: always() && steps.failure_view.outputs.created == 'true'",text)
+        self.assertIn("id: upload\n        if: always() && steps.transport.outputs.settled == 'true'",text)
+        self.assertIn('path: p0defensive-evidence/**',text)
+        self.assertIn('path: p0defensive-failure-logs/**',text)
     def test_genuine_historical_xctest_format_is_not_new_defensive_evidence(self):
         root=HERE/'tests/fixtures/historical-login-only'
         stdout=(root/'interleaved-xctest.stdout.txt').read_bytes();stderr=(root/'interleaved-xctest.stderr.txt').read_bytes()

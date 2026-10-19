@@ -206,7 +206,8 @@ class Gate(CommandRunner):
         row=self.data['host'];base=row['base']
         require(git(self.host,'rev-list','--parents','-n','1',commit).decode().split()==[commit,base],'capture host must be direct single-parent exact source child')
         require(git(self.host,'rev-parse',base+'^{tree}').decode().strip()==row['tree'],'capture base tree mismatch')
-        actual=snapshot(self.host,base,commit)
+        require(git(self.host,'rev-parse',HOST_PRODUCT_BASE+'^{tree}').decode().strip()==HOST_PRODUCT_TREE,'historical product tree mismatch')
+        actual=snapshot(self.host,HOST_PRODUCT_BASE,commit)
         expected={**self.data['adapter_files'],'ci/p0defensive/inputs-phase-a.json':sha(self.raw),WORKFLOW_PATH:sha(ordinary(self.host,WORKFLOW_PATH).read_bytes()),BUILD_WORKFLOW_PATH:row['ordinary_build_after_sha256']}
         require(set(actual['changes'])==set(expected),'host overlay includes unreviewed paths')
         for path,delta in actual['changes'].items():
@@ -215,7 +216,7 @@ class Gate(CommandRunner):
             require(delta['after']['mode']=='100644' and delta['after']['type']=='blob' and delta['after']['sha256']==expected[path],'host adapter bytes changed')
         host_worktree=verify_host_worktree(self.host,commit)
         raw_files={path:self.store.retain_file(ordinary(self.host,path),label='capture-host/'+path) for path in expected}
-        self.save('host-overlay',dict(commit=commit,base=base,tree=actual['tree'],origin=primitives.verify_origin(self.host,row['repository'],commit),changes=actual['changes'],raw_files=raw_files,worktree=host_worktree))
+        self.save('host-overlay',dict(commit=commit,base=base,overlay_basis=HOST_PRODUCT_BASE,tree=actual['tree'],origin=primitives.verify_origin(self.host,row['repository'],commit),changes=actual['changes'],raw_files=raw_files,worktree=host_worktree))
     def acquire(self):
         seal=parse(ordinary(HERE,'reviewed/defensive-source-seal.json').read_bytes())
         for name in OWNERS:
@@ -308,7 +309,7 @@ class Gate(CommandRunner):
         hashes=host_tests.extract_headers(self.artifact_archives[artifact['sha256']],include,artifact['sha256'])
         self.save('host-unicorn-headers',dict(archive_sha256=artifact['sha256'],headers_sha256=hashes,raw_tree=self.store.retain_tree(include,label='host-unicorn-headers'),engine_linked=False,engine_executed=False))
         for (label,argv),driver in zip(host_tests.commands(HERE,owner,self.work,self.evidence,sys.executable,include),host_tests.DRIVERS):
-            self.run('host-'+label,[*SANDBOX,*argv],timeout=1800)
+            self.run('host-'+label,host_tests.execution_command(driver,argv),timeout=1800)
             result=host_tests.verify_result(driver,self.work/'host-tests'/label)
             summary=parse(ordinary(self.evidence,'host-tests/'+label+'/retention-summary.json').read_bytes())
             # Nested observers have independent immutable blob namespaces, but share

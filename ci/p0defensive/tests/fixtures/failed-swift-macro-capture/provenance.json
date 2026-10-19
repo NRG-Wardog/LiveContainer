@@ -1,0 +1,24 @@
+{
+  "artifact_bytes": 858439882,
+  "artifact_id": 12211213161,
+  "artifact_sha256": "f8037e0d945c14b39c912a2cfbd9661205a278a4ef72aff8c426122db6912260",
+  "command_context": {
+    "include": "/Users/runner/work/_temp/p0defensive-phase-a-work/host-unicorn-headers",
+    "output": "/Users/runner/work/_temp/p0defensive-phase-a-work/host-tests/run-diagnostic-checks",
+    "owner": "/Users/runner/work/_temp/p0defensive-phase-a-work/sources/AnisetteKit"
+  },
+  "conclusion": "failure",
+  "host_commit": "1f1230372551c4aa0a4f39d93f58be76a8ee163d",
+  "host_tree": "32ef2a048de23323fae43d8765e119e80379d3cd",
+  "native_generated_sha256": "019d305541ad25667c6f006b60d73600e4618785753beed7560847c8448a8d46",
+  "original_generator_sha256": "fc103bd49555aa4136c9aea0cd2064febab27e371b3d8d915d0f87f09c5f806c",
+  "raw_files": {
+    "host-run-diagnostic-checks.command.json": "6e681bd396af60d7d865e509be70d57db5f37133d007fad6e722e82457b63273",
+    "nested-0013.command.json": "2f4aaf7ca4d91bd277617340b2048633cc8e4e523e6331c99d64386796085b77",
+    "nested-0013.result.json": "98f80306aece72a0bc9055dededfca020878d2201c796472fd2af640380f3ba2",
+    "nested-0013.stderr": "de4a97639ac8dd3957dc1641ffd59d452b64adfcc988e08fa8a13d10766930a4"
+  },
+  "run_attempt": 1,
+  "run_id": 39300623354,
+  "swift_generated_sha256": "b5130f65712c0ab5dd65c2421556a0931f42a16fca02e22f66b9b019a2563cd3"
+}

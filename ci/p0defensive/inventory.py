@@ -2,15 +2,17 @@
 import hashlib, json, os, re
 from pathlib import Path
 from source_primitives import git, entries, require, unique_pairs
-BASIS='defensive-diagnostic-phase-a-v1'
+BASIS='defensive-diagnostic-phase-a-swift-split-v1'
 OWNERS=('AnisetteKit','SideSign')
 SEAL_SHA='b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408'
 WORKFLOW_PATH='.github/workflows/p0-defensive-diagnostic-phase-a.yml'
-BRANCH='validation/p0-defensive-diagnostic-phase-a'
-HOST_BASE='545438e1f0a89fdef375f73273c5c9fc2735cbce'
-HOST_TREE='e8014dd771c25c4a05dc76ab0aa304a233642a83'
+BRANCH='validation/p0-defensive-diagnostic-phase-a-swift-split'
+HOST_BASE='1f1230372551c4aa0a4f39d93f58be76a8ee163d'
+HOST_PRODUCT_BASE='545438e1f0a89fdef375f73273c5c9fc2735cbce'
+HOST_PRODUCT_TREE='e8014dd771c25c4a05dc76ab0aa304a233642a83'
+HOST_TREE='32ef2a048de23323fae43d8765e119e80379d3cd'
 BUILD_WORKFLOW_PATH='.github/workflows/build.yml'
-BUILD_GUARD="    if: github.ref != 'refs/heads/validation/p0-defensive-diagnostic-phase-a'\n"
+BUILD_GUARD="    if: github.ref != 'refs/heads/validation/p0-defensive-diagnostic-phase-a-swift-split'\n"
 TOOLCHAIN={'developer_dir':'/Applications/Xcode_26.4.1.app/Contents/Developer','architecture':'arm64','xcode':'Xcode 26.4.1\nBuild version 17E202','swift_stdout':'Apple Swift version 6.3.1 (swiftlang-6.3.1.1.2 clang-2100.0.123.102)\nTarget: arm64-apple-macosx26.0\n','swift_stderr':'swift-driver version: 1.148.6 ','clang':'Apple clang version 21.0.0 (clang-2100.0.123.102)'}
 
 def sha(raw):return hashlib.sha256(raw).hexdigest()

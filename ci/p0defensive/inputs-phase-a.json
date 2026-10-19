@@ -1,17 +1,18 @@
 {
   "adapter_files": {
-    "ci/p0defensive/README.md": "ee36aa1cd654270fafc809fbdacaa6104a46515489eececb106a7b2daa799f8d",
+    "ci/p0defensive/README.md": "81af8fa15201caa6ba43ba77d7b838f37693aa178582beeadf9ab00cc302cf6c",
     "ci/p0defensive/TEST_DISCOVERY_AUDIT.md": "cc64d08035123f84b321c6bdaa99d9a23a8fc9606ec102c743ba83663073b216",
     "ci/p0defensive/capture_contract.py": "fef52bc283b5ab38f4e77a6ec90e02a393c4daa0fdf23a6995f910068188d8ae",
-    "ci/p0defensive/diagnostic_checks.py": "fc103bd49555aa4136c9aea0cd2064febab27e371b3d8d915d0f87f09c5f806c",
+    "ci/p0defensive/diagnostic_checks.py": "6eb52cc4899326d4246ffc5d7bac18693d18a3ee036dfadbefa8ea2be59e0d85",
+    "ci/p0defensive/failure_summary.py": "cdfdbbca62818213f487cdca9af11ffb7ab6165772c4735e1edcc63acb5232bf",
     "ci/p0defensive/fixtures/diagnostic-boundary.swift": "33a7217e1617637a31b1afddd0371a3730dec790f0e7e48585f437fe4baf0ca6",
-    "ci/p0defensive/host_tests.py": "2c019a467a9050a10a1513da887b687700f427f43e349ac93b13257c423914bc",
-    "ci/p0defensive/inventory.py": "f27fecbc656a2a91d4ed00b23bb6e3a674ddf16360ebc59f33e73773bdfd07ad",
+    "ci/p0defensive/host_tests.py": "e49346a86246ecfc63f94c0b12e36461b8a62891b1449f34878f1573768372f2",
+    "ci/p0defensive/inventory.py": "c8847d580e137a3ef69e1dee7dedb6c1ad866df8ad08ae60c1a606e0c324d6d7",
     "ci/p0defensive/lifecycle.py": "b4bd301d9d1b96f8792668b05efe9d89f2e421a0c71baef2592ba6c4aa38e9e4",
-    "ci/p0defensive/native_gate.py": "f840ed5a2038cbad1be8c50f3bc6abafe0bb5b4e2155aee4d7e6e6b585696580",
+    "ci/p0defensive/native_gate.py": "4562d9ff3b035877d306038f971c8ee4e15df1c278c2ac0e1c38c81c2d586003",
     "ci/p0defensive/observe_host_subprocess.py": "8f7b3ca0f188816902407d5da81189f9c8e3c4b0e1c470070dc19ecb6389757c",
     "ci/p0defensive/prepare_inputs.py": "5cd423c788cfa4aff0971b58e85cbdd3f974813ed15c2693122e62b1be825950",
-    "ci/p0defensive/publication.json": "88e661a8e54a55428e235ae6b4f3eb042a2d6611a785585599644e4b1fc46af0",
+    "ci/p0defensive/publication.json": "055dcd21c9b56654ea926f5b600a70b48677aec727c777c219764af480682c22",
     "ci/p0defensive/retention.py": "dbaad35789c7d3048d70ef070585f1bc5aced4698b0980bff384b57a0b767b8e",
     "ci/p0defensive/reviewed/AnisetteKit.connector-publication-receipt.json": "78d06a6c03c98c16f94d3658f49c57440a98251aeb0d64d7c8d58937ac354cfa",
     "ci/p0defensive/reviewed/AnisetteKit.diagnostic-publication-original.json": "1667e3e2799eaaeac095ab6f5052d8150413ba0c05ae7e2961799174723da11d",
@@ -43,13 +44,20 @@
     "ci/p0defensive/tests/fixtures/diagnostic-source/.ci/native-tests/fixtures/bounded_fault_host.cpp": "a078337ae433c6505f7c72a7fb47c8978585e9a99a0520d39e9c0a1b2aaec2cf",
     "ci/p0defensive/tests/fixtures/diagnostic-source/.ci/native-tests/test_bounded_fault_host.py": "ab8d4018979673d3cc7c6231b514f404a8506af0173ad8a7edb94dce1e926ebf",
     "ci/p0defensive/tests/fixtures/diagnostic-source/Sources/AnisetteDataProvider.swift": "2b3913be77f019de3f0520e8ea8fcdad1a1b4a638c2493e84d063f07f813e855",
+    "ci/p0defensive/tests/fixtures/diagnostic-source/Sources/LoginDiagnosticTrace.swift": "bd86c77eb520cf0721cfbbdb1e9100261bd53324ef0f912713873357fc76ae2e",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/host-run-diagnostic-checks.command.json": "6e681bd396af60d7d865e509be70d57db5f37133d007fad6e722e82457b63273",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.command.json": "2f4aaf7ca4d91bd277617340b2048633cc8e4e523e6331c99d64386796085b77",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.result.json": "98f80306aece72a0bc9055dededfca020878d2201c796472fd2af640380f3ba2",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/nested-0013.stderr": "de4a97639ac8dd3957dc1641ffd59d452b64adfcc988e08fa8a13d10766930a4",
+    "ci/p0defensive/tests/fixtures/failed-swift-macro-capture/provenance.json": "4256663fb2e9323bedc3f62197779c09f438c3cce83184b1ce450456599cf56c",
     "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.provenance.json": "fbd957ccd33057b4868c56cccd1126317c515abb40b8197af57f9c7ee452c9a0",
     "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stdout.txt": "7a26d61f19c730e3a4560475bda866fc41a7c26eff06934db6f476fd2698938e",
-    "ci/p0defensive/tests/test_adapter.py": "534bab3979bf99f27273855759b22e8739051956b2f70fc3786d6beed0b5b215",
+    "ci/p0defensive/tests/test_adapter.py": "b46d784f8d5c8666a6e69f2492dc29037673a84bde4776704ec9a1aa51432dab",
     "ci/p0defensive/tests/test_capture_contract.py": "fbae054e377ecf2a3fa4cbdd1c1086d2e88290a6352daf53508a9752bb42c624",
-    "ci/p0defensive/tests/test_diagnostic_checks.py": "a918f2ea5a822564c19d2b47ccd59d7c9beb09d3f7a7245912030f901e5102df",
-    "ci/p0defensive/tests/test_host_tests.py": "fd25625208500768f03706824f6d2594c4a77d00d25c403e97781eb596bd4202",
+    "ci/p0defensive/tests/test_diagnostic_checks.py": "99db3abaf22ba4b39c05ac48ca202b1c15e56512f1d8178b9086a3bc7a49c2f6",
+    "ci/p0defensive/tests/test_failure_summary.py": "32a7d52488ab0efa881cdaf397688eb8b7af1268b6cb17e0fa847a7c7d7fce91",
+    "ci/p0defensive/tests/test_host_tests.py": "a58bebb3f5c6ed15343cc71e31b27c578cb72e0c0faa97ff6822e0792dc6c22c",
     "ci/p0defensive/tests/test_lifecycle.py": "886236cdc0e7158b1be29f52db414091245016d13cac16d5a4fc96cc1f16f1d6",
     "ci/p0defensive/tests/test_retention.py": "ef915c8bafa14a3d4f849b86938608beec6ad3c919ab28029f28f0e0c7bf6e28"
   },
@@ -76,7 +84,7 @@
       "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#GSACryptoKit"
     }
   ],
-  "basis": "defensive-diagnostic-phase-a-v1",
+  "basis": "defensive-diagnostic-phase-a-swift-split-v1",
   "command_counts": {
     "filtered_test_execution": 2,
     "owner_acquisition": 8,
@@ -87,11 +95,11 @@
     "test_discovery": 2
   },
   "host": {
-    "base": "545438e1f0a89fdef375f73273c5c9fc2735cbce",
-    "ordinary_build_after_sha256": "0bf690fc324ffbc52b830900a8c1d26ee75f93dcfe2272531144d79362f4cd2c",
+    "base": "1f1230372551c4aa0a4f39d93f58be76a8ee163d",
+    "ordinary_build_after_sha256": "bae7606e2d16297992e58674be209f9e31cac18cac71fb221636f739c08c3194",
     "ordinary_build_before_sha256": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4",
     "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
-    "tree": "e8014dd771c25c4a05dc76ab0aa304a233642a83"
+    "tree": "32ef2a048de23323fae43d8765e119e80379d3cd"
   },
   "owners": {
     "AnisetteKit": {
@@ -182,5 +190,5 @@
     "swift_stdout": "Apple Swift version 6.3.1 (swiftlang-6.3.1.1.2 clang-2100.0.123.102)\nTarget: arm64-apple-macosx26.0\n",
     "xcode": "Xcode 26.4.1\nBuild version 17E202"
   },
-  "workflow_template_sha256": "45036a39d919d7689076115752c0e2b38406cdbe960bc0d67de3d9820c2532d2"
+  "workflow_template_sha256": "7c19a352622367a74e5c8b33528dc9b7bef0e0588c1f9078eda48bf4897a1cb5"
 }
