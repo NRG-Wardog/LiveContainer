@@ -12,6 +12,7 @@ on:
 
 jobs:
   build:
+    if: github.ref != 'refs/heads/validation/p0-defensive-ab-phase-a'
     name: Build using xcodebuild command
     runs-on: macos-latest
     env:

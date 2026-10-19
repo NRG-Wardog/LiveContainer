@@ -1,0 +1,38 @@
+{
+  "host": {
+    "base": "545438e1f0a89fdef375f73273c5c9fc2735cbce",
+    "ordinary_build_after_sha256": "f9d05410ce2a6c81c2382a866737ad424003b3ac43ee516aab75125c0107cc22",
+    "ordinary_build_before_sha256": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4",
+    "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
+    "tree": "e8014dd771c25c4a05dc76ab0aa304a233642a83"
+  },
+  "owners": {
+    "AnisetteKit": {
+      "base": "e6e9d4aac698de2a5219aaef02c9a417da45f4e9",
+      "commit": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
+      "manifest_delta": null,
+      "parents": [
+        "e6e9d4aac698de2a5219aaef02c9a417da45f4e9"
+      ],
+      "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
+      "reviewed_tree": "a03f5a4284b67560629cdb52b8e6b246b835a56a",
+      "tree": "a03f5a4284b67560629cdb52b8e6b246b835a56a"
+    },
+    "SideSign": {
+      "base": "c733332b0d64022cd603ab9ac5de054413729aab",
+      "commit": "a375e72d1ff39319c14d22ab98ddecd46c758783",
+      "manifest_delta": {
+        "after_sha256": "42ff907b9d8600a9b2775bff06d53e5354361840bff975869c81c4360abf4fa3",
+        "before_sha256": "258f5ae3aac78c32662211c8f6f594f0740d378c522802b4a7ca33cccee168f5",
+        "new_ak": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
+        "old_ak": "e6e9d4aac698de2a5219aaef02c9a417da45f4e9"
+      },
+      "parents": [
+        "c733332b0d64022cd603ab9ac5de054413729aab"
+      ],
+      "repository": "https://github.com/NRG-Wardog/SideSign.git",
+      "reviewed_tree": "6559fa8c226ea7496e1fb1aa813c058bfee3e342",
+      "tree": "7cf5311daf9e25cb356f9d63736422111afe740d"
+    }
+  }
+}

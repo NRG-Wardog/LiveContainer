@@ -1,0 +1,8 @@
+{
+  "after_manifest_sha256": "42ff907b9d8600a9b2775bff06d53e5354361840bff975869c81c4360abf4fa3",
+  "before_manifest_sha256": "258f5ae3aac78c32662211c8f6f594f0740d378c522802b4a7ca33cccee168f5",
+  "published_reconstruction_required_sole_parent": "c733332b0d64022cd603ab9ac5de054413729aab",
+  "published_reconstruction_required_tree": "7cf5311daf9e25cb356f9d63736422111afe740d",
+  "status": "EXACT_PUBLISHED_TUPLE_READBACK_ATTACHED",
+  "unchanged_lock_sha256": "cdfe27d752edde2e836cd0c25166139223e233ba1c18aa6df69ba893d0a07c35"
+}
