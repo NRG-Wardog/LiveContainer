@@ -20,6 +20,9 @@ def bounded_preparation(method):
     def wrapped(self,context,timeout):
         original=self.scope.deadline
         self.scope.deadline=min(original,time.monotonic()+timeout)
+        if method.__name__=='start_capture_gui' and 'budget' in context:
+            budget=context['budget'];end=budget['startSample']['hostBeforeNs']+budget['effectiveCommandBudgetNs']-80_000_000_000
+            self.scope.deadline=min(self.scope.deadline,end/1e9)
         try:
             self.scope.persist()
             return method(self,context,timeout)
@@ -34,7 +37,14 @@ def bounded_cleanup(method):
         require(type(timeout) in (int,float) and timeout>0,'cleanup stage allowance')
         original=self.scope.cleanup_deadline
         require(type(original) in (int,float),'explicit original cleanup reserve required')
-        self.scope.cleanup_deadline=min(original,time.monotonic()+timeout)
+        cutoff=min(original,time.monotonic()+timeout)
+        if method.__name__ in ('stop_fixture','cleanup_device'):
+            prior=getattr(self,'device_cleanup_deadline',None)
+            if prior is None:self.device_cleanup_deadline=min(original,time.monotonic()+120)
+            cutoff=min(cutoff,self.device_cleanup_deadline)
+            if 'deviceCleanupDeadlineNs' in context:cutoff=min(cutoff,context['deviceCleanupDeadlineNs']/1e9)
+            require(cutoff>time.monotonic(),'shared device cleanup reserve exhausted')
+        self.scope.cleanup_deadline=cutoff
         try:return method(self,context,timeout)
         finally:self.scope.cleanup_deadline=original
     return wrapped
@@ -132,13 +142,15 @@ class Runtime:
         self.native=RetainedCommand(self.scope,self.ps.Commands,self.output/'xctest-command',context['argv'],timeout=duration,
                                     retain=lambda raw:self.retain('native-command',raw));self.native.start()
         self.channels=Channels(self.command,self.native,device=self.device,session=self.session,app_id=self.video.APP_ID,
-                               runner_id=self.capture.RUNNER_ID,retain=self.retain,remaining=self.remaining)
+                               runner_id=self.capture.RUNNER_ID,retain=self.retain,remaining=lambda cap:self.observation_remaining(context,cap))
         return self.evidence('launch_native',{'argv':list(context['argv']),'timeoutSeconds':duration,'session':self.session})
+    def await_started(self,context,timeout):return self.evidence('await_started',self.channels.started(timeout))
     @bounded_preparation
-    def await_started(self,context,timeout):
-        hint=self.channels.started(timeout)
+    def start_capture_gui(self,context,timeout):
+        hint=self.channels.hint
+        require(hint is not None,'method hint before capture GUI')
         self.native.live()
-        # Fresh isolation is deliberately after runner installation/method start.
+        # Fresh isolation is deliberately after startup discovery and geometry.
         # The one retained XCTest writer is the only permitted live predecessor.
         self.window.startup_isolation(self.command,self.work/'capture-prerequisites',self.output)
         self.native.live();process=self.native.process
@@ -152,11 +164,10 @@ class Runtime:
         self.gui=self.window.OwnedGUI(self.scope,self.device,self.output/'gui',
                                      active_writer=process,active_argv=self.native.argv)
         self.gui.start();self.native.live()
-        self.retain('deferred-gui-start',canonical({'schema':'p1-post-method-gui-start-v1',
+        self.retain('deferred-gui-start',canonical({'schema':'p1-pre-capture-gui-start-v1',
             'session':self.session,'device':self.device,'nativePID':process.pid,
             'nativeArgv':list(self.native.argv),'nativeLaunch':process.launch.row,
             'hint':hint,'guiPID':self.gui.process.pid,'admissionEligible':False}))
-        return self.evidence('await_started',hint)
     def discover_app(self,context,timeout):return self.evidence('discover_app',self.channels.discover('app',timeout))
     def discover_runner(self,context,timeout):return self.evidence('discover_runner',self.channels.discover('runner',timeout))
     def observation_remaining(self,context,maximum):
@@ -174,6 +185,7 @@ class Runtime:
             remaining=lambda cap:self.observation_remaining(context,cap),retain=self.retain_journal)
         return self.evidence('await_geometry',request)
     def start_helper(self,context,timeout):
+        self.start_capture_gui(context,self.observation_remaining(context,timeout))
         frame_path=(self.output/'direct-frames').resolve()
         self.capture_target=self.capture_module.prepare_capture_target(frame_path)
         self.host_capture_sources=self.capture_module.source_hashes();self.bridge_sources=self.bridge.source_hashes()
@@ -261,7 +273,7 @@ class Runtime:
         if proof is not None:
             self.device=proof['device']
             if self.gui is not None and self.gui.stopped:self.window.observe_after_gui_stop(self.command,self.gui,self.device,self.output)
-            if not self.scope.fixture.get('stopped'):self.fresh.stop_owned(self.command,self.device,self.output)
+            if not self.scope.fixture.get('stopped'):self.fresh.stop_owned(self.command,self.device,self.output,direct_deadline=True)
         return self.evidence('stop_fixture',dict(self.scope.fixture or {}))
     @bounded_cleanup
     def cleanup_device(self,context,timeout):

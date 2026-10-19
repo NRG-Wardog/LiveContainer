@@ -69,12 +69,31 @@ def validate(proof,session,device=None):
         if canonical(device)!=device or device in prior or device==anchor or proof.get('device')!=device or proof.get('create_complete') is not True:raise ValueError('created UUID ownership unproved')
     return proof
 
+def shutdown_attempt(fixture,proof,intent,session):
+    """Absent is legacy policy; an exact durable attempt forbids resubmission."""
+    if not isinstance(fixture,dict):raise ValueError('invalid shutdown attempt fixture')
+    if 'direct_shutdown_attempt' not in fixture:return False
+    validate(proof,session,proof.get('device'));validate(intent,session)
+    if any(proof.get(k)!=v for k,v in intent.items()):raise ValueError('shutdown attempt intent differs')
+    expected={'schema':'p1-direct-shutdown-attempt-v1','session':session,'device':proof['device'],'creation_intent':intent}
+    if fixture['direct_shutdown_attempt']!=expected:raise ValueError('invalid shutdown attempt binding')
+    return True
+
+def begin_shutdown_attempt(scope,device):
+    fixture=scope.fixture;proof=fixture.get('owned_created');intent=scope.creation_intent
+    validate(proof,scope.session,device);validate(intent,scope.session)
+    if shutdown_attempt(fixture,proof,intent,scope.session):raise ValueError('shutdown already attempted')
+    if any(proof.get(k)!=v for k,v in intent.items()):raise ValueError('shutdown attempt intent differs')
+    fixture['direct_shutdown_attempt']={'schema':'p1-direct-shutdown-attempt-v1','session':scope.session,'device':device,'creation_intent':dict(intent)}
+    scope.persist()
+
 def state_parser(device,allow_absent=False,kind=TYPE):
     def parse(raw):
         rows=inventory(raw);matches=[r for r in rows if r['udid']==device]
         if not matches and allow_absent:return {'devices':{boot.RUNTIME:[]}}
         if len(matches)!=1:raise ValueError('created device missing')
         row=matches[0]
+        process_scope.emit_diagnostic('created-state-observation',device=device,state=row['state'] if row['state'] in ('Shutdown','Booted','Booting','Shutting Down','Creating') else 'unknown',runtime_matches=row['runtime']==boot.RUNTIME,type_matches=row['deviceTypeIdentifier']==kind,available=row['isAvailable'] is True)
         if row['runtime']!=boot.RUNTIME or row['deviceTypeIdentifier']!=kind or row['isAvailable'] is not True or row['state'] not in ('Shutdown','Booted'):raise ValueError('created device identity drift')
         return {'devices':{boot.RUNTIME:[{'udid':device,'state':row['state'],'isAvailable':True}]}}
     return parse
@@ -85,8 +104,13 @@ class Commands(boot.Commands):
         super().__init__(scope,root,error_sink)
     def __call__(self,*argv,timeout=15,cleanup=False,receipt=False):
         argv=list(argv)
+        fixture=getattr(self.scope,'fixture',{})
+        shutdown_attempt(fixture,self.proof,getattr(self.scope,'creation_intent',None),self.proof['session'])
         if argv==['xcrun','simctl','list','devices','--json']:parser=state_parser(self.device,True,self.proof['device_type']);label='created-state'
-        elif argv==['xcrun','simctl','shutdown',self.device]:parser=boot.categorized_output;label='created-shutdown'
+        elif argv==['xcrun','simctl','shutdown',self.device]:
+            fixture=getattr(self.scope,'fixture',{})
+            if shutdown_attempt(fixture,self.proof,getattr(self.scope,'creation_intent',None),self.proof['session']):raise ValueError('shutdown already attempted')
+            parser=boot.categorized_output;label='created-shutdown'
         elif argv==['xcrun','simctl','delete',self.device]:parser=boot.categorized_output;label='created-delete'
         else:raise ValueError('unallowlisted created cleanup command')
         row=self.run(label,argv,parser,timeout,cleanup)
@@ -115,7 +139,7 @@ def cleanup(command,proof,settled):
         result['deleted']=data=={'devices':{boot.RUNTIME:[]}} and settled() is True
     return result
 
-def backstop(evidence,errors,unsettled,wrap_error,proof):
+def backstop(evidence,errors,unsettled,wrap_error,proof,fixture=None,intent=None):
     validate(proof,proof.get('session'),proof.get('device'))
     deadline=time.monotonic()+120
     class Scope(boot.BackstopScope):
@@ -128,7 +152,9 @@ def backstop(evidence,errors,unsettled,wrap_error,proof):
         if primary is not None:errors.append(wrap_error(primary))
         elif wrapped:errors.append(wrapped[0])
     root=evidence/'bounded-created-backstop';root.mkdir(exist_ok=False)
-    return Commands(Scope(),root,proof,sink)
+    scope=Scope();scope.fixture={} if fixture is None else fixture;scope.creation_intent=intent
+    shutdown_attempt(scope.fixture,proof,intent,proof['session'])
+    return Commands(scope,root,proof,sink)
 
 def create_for_ui(scope,root,device_class="phone"):
     """Create an exact-owned device from the requested class inventory anchor."""
@@ -171,7 +197,7 @@ def begin_install(scope,device):
         return {'device':device,'uninstalls_skipped':True,'reason':'exact-owned-created-no-prior-install','admissionEligible':False}
 
 
-def stop_owned(command,device,folder):
+def stop_owned(command,device,folder,*,direct_deadline=False):
     """Shutdown first only with persisted exclusive created-device ownership."""
     scope=command.scope;fixture=scope.fixture;proof=fixture.get('owned_created')
     validate(proof,scope.session,device);validate(scope.creation_intent,scope.session)
@@ -183,7 +209,13 @@ def stop_owned(command,device,folder):
         if fixture.get('stopped') is True:
             report.update(stopped=True,reused_prior_stop=True)
             return True
-        row=command('xcrun','simctl','shutdown',device,timeout=30,cleanup=True,receipt=True,owned_shutdown=True)
+        allowance=30
+        if direct_deadline:
+            # Four retained 15-second state/delete proofs follow this command.
+            allowance=scope.cleanup_deadline-time.monotonic()-60
+            if allowance<=0:raise TimeoutError('shutdown proof reserve exhausted')
+            begin_shutdown_attempt(scope,device)
+        row=command('xcrun','simctl','shutdown',device,timeout=allowance,cleanup=True,receipt=True,owned_shutdown=True)
         report['receipts'].append({'phase':'shutdown','command':row})
         if not simulator_cleanup.clean_command(row):scope.fixture_cleanup_failure()
         if not all(r.get('settled') is True for r in scope.rows):raise ValueError('shutdown writer unsettled')

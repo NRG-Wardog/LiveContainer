@@ -66,7 +66,7 @@ class CaseTests(unittest.TestCase):
         self.assertEqual(case.budget['nativeMethodAllowanceSeconds'],240)
         self.assertLess(case._remaining(360),160)
 
-    def test_discovery_checks_share_budget_without_extending_command_cap(self):
+    def test_discovery_checks_share_absolute_budget_without_retry(self):
         b=Backend()
         for name in ('discover_app','discover_runner'):
             original=getattr(b,name)
@@ -77,7 +77,8 @@ class CaseTests(unittest.TestCase):
         case=n.Case(SESSION,b,now_ns=b.now);self.assertTrue(case.run()['sequenceCompleted'])
         self.assertLess(case._remaining(360),218)
         source=(Path(__file__).parent/'native_channels.py').read_text()
-        self.assertIn('timeout=min(30,self.remaining(timeout)),receipt=True',source)
+        self.assertIn('allowance=self.remaining(timeout)',source)
+        self.assertIn('timeout=allowance,receipt=True',source)
         self.assertIn('role not in self.attempted',source)
 
     def test_discovery_cannot_exceed_absolute_observation_deadline(self):
@@ -152,3 +153,13 @@ class CaseTests(unittest.TestCase):
         self.assertFalse(case.completed)
 
 if __name__=='__main__':unittest.main()
+
+class CleanupSharedDeadline(unittest.TestCase):
+    def test_stop_and_delete_cannot_receive_independent_totals(self):
+        b=Backend();original=b.stop_fixture
+        def stop(context,timeout):
+            result=original(context,timeout);b.tick+=100_000_000_000;return result
+        b.stop_fixture=stop
+        case=n.Case(SESSION,b,now_ns=b.now);self.assertTrue(case.run()['sequenceCompleted'])
+        allowance=dict(b.calls)['cleanup_device'];self.assertLess(allowance,20)
+        self.assertGreater(allowance,19)

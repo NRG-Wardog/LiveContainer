@@ -73,7 +73,7 @@ def verify_quiescence(evidence,session,force=False,command_factory=None):
                 primary_error=row['primary_error'],cleanup_errors=row['cleanup_errors'])
             return row
         if creation is not None:
-            command=fresh_device.backstop(evidence,errors,unsettled,SanitizedCommandError,proof)
+            command=fresh_device.backstop(evidence,errors,unsettled,SanitizedCommandError,proof,fixture,registry.get('creation_intent'))
             shutdown=fresh_device.cleanup(command,proof,lambda:not unsettled)
             if not shutdown['deleted']:raise ValueError('created simulator deletion unproved')
             registry['fixture']['deleted']=True

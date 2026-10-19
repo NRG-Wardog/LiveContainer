@@ -171,3 +171,67 @@ class CreatedShutdownFirst(unittest.TestCase):
                 command=mock.Mock(side_effect=TimeoutError('cleanup reserve exhausted') if kind=='timeout' else [{'exit_code':0,'failure_type':None},state]);command.scope=scope
                 with self.assertRaises((ValueError,TimeoutError)):capture.stop_fixture(command,DEVICE,root)
                 self.assertFalse(scope.fixture['stopped']);self.assertTrue(scope.fixture['cleanup_command_failed'])
+
+class DirectCleanupAttempt(unittest.TestCase):
+    def scope(self,root):
+        scope=process_scope.Scope(root,phone_ui=True);p=proof()
+        scope.begin_creation({k:v for k,v in p.items() if k not in ('device','create_complete')});scope.fixture_created(p)
+        return scope,p
+    def test_persist_failure_prevents_submission_and_retry(self):
+        with tempfile.TemporaryDirectory() as tmp,mock.patch.dict('os.environ',{'P1_PROCESS_SCOPE_SESSION':SESSION}):
+            root=Path(tmp);scope,p=self.scope(root);scope.cleanup_deadline=fresh.time.monotonic()+120
+            command=mock.Mock();command.scope=scope
+            with mock.patch.object(scope,'persist',side_effect=OSError('test')):
+                with self.assertRaises(OSError):fresh.stop_owned(command,DEVICE,root,direct_deadline=True)
+            command.assert_not_called()
+            with self.assertRaisesRegex(ValueError,'already attempted'):fresh.begin_shutdown_attempt(scope,DEVICE)
+    def test_durable_marker_blocks_collector_and_backstop_shutdown(self):
+        with tempfile.TemporaryDirectory() as tmp,mock.patch.dict('os.environ',{'P1_PROCESS_SCOPE_SESSION':SESSION}):
+            root=Path(tmp);scope,p=self.scope(root);fresh.begin_shutdown_attempt(scope,DEVICE)
+            saved=json.loads(scope.path.read_text())
+            local=fresh.Commands(scope,root/'local',p)
+            outer=fresh.backstop(root,[],[],lambda e:e,p,saved['fixture'],saved['creation_intent'])
+            for command in (local,outer):
+                with mock.patch.object(command,'run') as run:
+                    with self.assertRaisesRegex(ValueError,'already attempted'):command('xcrun','simctl','shutdown',DEVICE)
+                    run.assert_not_called()
+            for value in (True,None,{},dict(saved['fixture']['direct_shutdown_attempt'],device=fresh.boot.DEVICE)):
+                scope.fixture['direct_shutdown_attempt']=value
+                with self.assertRaises(ValueError):local('xcrun','simctl','list','devices','--json')
+    def test_expired_reserve_prevents_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp,mock.patch.dict('os.environ',{'P1_PROCESS_SCOPE_SESSION':SESSION}):
+            root=Path(tmp);scope,p=self.scope(root);scope.cleanup_deadline=fresh.time.monotonic()+59
+            command=mock.Mock();command.scope=scope
+            with self.assertRaises(TimeoutError):fresh.stop_owned(command,DEVICE,root,direct_deadline=True)
+            command.assert_not_called();self.assertNotIn('direct_shutdown_attempt',scope.fixture)
+    def test_attempt_allows_only_fresh_shutdown_deletion_and_retains_failure(self):
+        for state in ('Booted','Shutdown','Booting'):
+            with self.subTest(state=state),tempfile.TemporaryDirectory() as tmp,mock.patch.dict('os.environ',{'P1_PROCESS_SCOPE_SESSION':SESSION}):
+                root=Path(tmp);scope,p=self.scope(root);fresh.begin_shutdown_attempt(scope,DEVICE);scope.fixture_cleanup_failure()
+                command=fresh.Commands(scope,root/'cleanup',p);seen=[]
+                def run(label,argv,parser,timeout,cleanup):
+                    seen.append(label)
+                    data={'devices':{fresh.boot.RUNTIME:[] if 'created-delete' in seen else [{'udid':DEVICE,'state':state,'isAvailable':True,'deviceTypeIdentifier':p['device_type']}]}}
+                    try:parsed=parser(json.dumps(data).encode())
+                    except ValueError:return {'data':None,'exit_code':0,'failure_type':'ValueError','primary_error':None,'cleanup_errors':[]}
+                    return {'data':parsed,'exit_code':0,'failure_type':None,'primary_error':None,'cleanup_errors':[]}
+                with mock.patch.object(command,'run',side_effect=run):result=fresh.cleanup(command,p,lambda:True)
+                self.assertNotIn('created-shutdown',seen)
+                self.assertEqual(result['deleted'],state=='Shutdown')
+                self.assertTrue(scope.fixture['cleanup_command_failed'])
+    def test_single_shutdown_reserves_four_proofs_and_retains_timeout(self):
+        with tempfile.TemporaryDirectory() as tmp,mock.patch.dict('os.environ',{'P1_PROCESS_SCOPE_SESSION':SESSION}):
+            root=Path(tmp);scope,p=self.scope(root);scope.cleanup_deadline=220
+            calls=[]
+            def command(*argv,**kwargs):
+                calls.append((argv,kwargs))
+                if 'shutdown' in argv:
+                    persisted=json.loads(scope.path.read_text())
+                    self.assertTrue(fresh.shutdown_attempt(persisted['fixture'],p,persisted['creation_intent'],SESSION))
+                    self.assertEqual(kwargs['timeout'],60)
+                    return {'exit_code':-15,'failure_type':'TimeoutExpired','cleanup_errors':[]}
+                return {'exit_code':0,'failure_type':None,'stdout':json.dumps({'devices':{fresh.boot.RUNTIME:[{'udid':DEVICE,'state':'Shutdown','isAvailable':True,'deviceTypeIdentifier':p['device_type']}]}})}
+            command.scope=scope
+            with mock.patch.object(fresh.time,'monotonic',return_value=100):
+                self.assertTrue(fresh.stop_owned(command,DEVICE,root,direct_deadline=True))
+            self.assertEqual(len(calls),2);self.assertTrue(scope.fixture['cleanup_command_failed'])

@@ -90,7 +90,7 @@ class DeferredGUIStartup(unittest.TestCase):
         process=Mock();process.pid=7;process.poll.return_value=None;process.lock=threading.RLock();process.launch.row={'eof':True}
         r.native=SimpleNamespace(scope=r.scope,process=process,argv=('xcodebuild','test-without-building'),live=lambda:r.calls.append('live'))
         def hint(timeout):r.calls.append('hint');return {'session':r.session}
-        r.channels=SimpleNamespace(started=hint)
+        r.channels=SimpleNamespace(started=hint,hint={'session':r.session})
         def isolation(*args):r.calls.append('isolation')
         def gui(scope,device,folder,**kwargs):
             self.assertIs(kwargs['active_writer'],process);self.assertEqual(kwargs['active_argv'],r.native.argv)
@@ -101,23 +101,23 @@ class DeferredGUIStartup(unittest.TestCase):
     def test_hint_then_fresh_isolation_then_exact_gui_inside_same_deadline(self):
         from unittest.mock import patch
         r,context=self.make()
-        with patch('native_runtime.time.monotonic',return_value=100):r.await_started(context,50)
-        self.assertEqual(r.calls,['hint','live','isolation','live','live','construct','start','live'])
+        with patch('native_runtime.time.monotonic',return_value=100):r.start_capture_gui(context,50)
+        self.assertEqual(r.calls,['live','isolation','live','live','construct','start','live'])
         self.assertEqual(r.scope.deadline,1000);self.assertIn('deferred-gui-start',r.saved)
         r.native.process.launch.finish.assert_called_once();r.native.process.launch.require.assert_called_once()
     def test_missing_hint_or_failed_isolation_never_constructs_gui(self):
         from unittest.mock import patch
-        for stage in ('hint','isolation'):
+        for stage in ('isolation',):
             r,context=self.make()
             def fail(*args):raise TimeoutError('expected')
             if stage=='hint':r.channels.started=fail
             else:r.window.startup_isolation=fail
-            with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(TimeoutError):r.await_started(context,50)
+            with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(TimeoutError):r.start_capture_gui(context,50)
             self.assertIsNone(r.gui);self.assertEqual(r.scope.deadline,1000)
     def test_wrong_native_binding_rejected_before_constructor(self):
         from unittest.mock import patch
         r,context=self.make();context['argv']=['foreign']
-        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(ValueError):r.await_started(context,50)
+        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(ValueError):r.start_capture_gui(context,50)
         self.assertIsNone(r.gui)
     def test_partial_gui_start_keeps_owner_for_cleanup(self):
         from unittest.mock import patch
@@ -127,11 +127,50 @@ class DeferredGUIStartup(unittest.TestCase):
             gui.start=lambda:(_ for _ in ()).throw(RuntimeError('start failed'))
             return gui
         r.window.OwnedGUI=broken
-        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(RuntimeError):r.await_started(context,50)
+        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(RuntimeError):r.start_capture_gui(context,50)
         self.assertIsNotNone(r.gui);self.assertEqual(r.scope.deadline,1000)
 
     def test_exit_between_precheck_and_lock_never_finishes_receipt(self):
         from unittest.mock import patch
         r,context=self.make();r.native.process.poll.return_value=0
-        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(ValueError):r.await_started(context,50)
+        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(ValueError):r.start_capture_gui(context,50)
         r.native.process.launch.finish.assert_not_called();self.assertIsNone(r.gui)
+
+    def test_method_hint_alone_never_starts_gui(self):
+        r,context=self.make();r.await_started(context,50)
+        self.assertEqual(r.calls,['hint']);self.assertIsNone(r.gui)
+    def test_capture_gui_requires_retained_hint(self):
+        from unittest.mock import patch
+        r,context=self.make();r.channels.hint=None
+        with patch('native_runtime.time.monotonic',return_value=100),self.assertRaises(ValueError):r.start_capture_gui(context,50)
+        self.assertEqual(r.calls,[]);self.assertIsNone(r.gui)
+
+class SharedDeviceCleanupBudget(unittest.TestCase):
+    def test_two_stages_share_original_total_and_restore_outer(self):
+        from native_runtime import bounded_cleanup
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        calls=[]
+        class Adapter:
+            scope=SimpleNamespace(cleanup_deadline=1000)
+            @bounded_cleanup
+            def stop_fixture(self,context,timeout):calls.append(self.scope.cleanup_deadline)
+            @bounded_cleanup
+            def cleanup_device(self,context,timeout):calls.append(self.scope.cleanup_deadline)
+        r=Adapter()
+        with patch('native_runtime.time.monotonic',return_value=100):r.stop_fixture({},120)
+        with patch('native_runtime.time.monotonic',return_value=180):r.cleanup_device({},75)
+        self.assertEqual(calls,[220,220]);self.assertEqual(r.scope.cleanup_deadline,1000)
+        with patch('native_runtime.time.monotonic',return_value=221),self.assertRaises(ValueError):r.cleanup_device({},75)
+        self.assertEqual(calls,[220,220])
+
+class DiscoveryAbsoluteCallback(unittest.TestCase):
+    def test_channel_callback_is_bound_to_original_observation_end(self):
+        import inspect
+        self.assertIn('remaining=lambda cap:self.observation_remaining(context,cap)',inspect.getsource(Runtime.launch_native))
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        r=Runtime.__new__(Runtime);r.scope=SimpleNamespace(remaining=lambda maximum:maximum)
+        context={'budget':{'startSample':{'hostBeforeNs':100_000_000_000},'effectiveCommandBudgetNs':360_000_000_000}}
+        with patch('native_runtime.time.monotonic_ns',return_value=350_000_000_000):self.assertEqual(r.observation_remaining(context,90),30)
+        with patch('native_runtime.time.monotonic_ns',return_value=381_000_000_000),self.assertRaises(ValueError):r.observation_remaining(context,90)

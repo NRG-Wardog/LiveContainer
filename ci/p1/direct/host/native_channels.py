@@ -31,8 +31,16 @@ class Channels:
         require(role in self.identifiers and self.hint is not None and role not in self.attempted,'one post-hint lookup per role')
         self.attempted.add(role);self.native.live()
         argv=['xcrun','simctl','get_app_container',self.device,self.identifiers[role],'data']
-        row=self.command(*argv,timeout=min(30,self.remaining(timeout)),receipt=True)
-        self.receipts[role]=row;self.retain(role+'-container-receipt',canonical(row));clean(row,argv)
+        allowance=self.remaining(timeout)
+        row=self.command(*argv,timeout=allowance,receipt=True)
+        self.receipts[role]=row;self.retain(role+'-container-receipt',canonical(row))
+        timing=row.get('wait_timing',{});before=timing.get('command_started');after=timing.get('wait_finished')
+        elapsed=after-before if type(before) in (int,float) and type(after) in (int,float) and after>=before else None
+        self.retain(role+'-container-timing',canonical({'schema':'p1-shared-discovery-budget-v1',
+            'session':self.session,'allowanceSeconds':allowance,'historicalAllowanceSeconds':30,
+            'elapsedSeconds':elapsed,'historical30Exceeded':elapsed>30 if elapsed is not None else None,
+            'admissionEligible':False}))
+        clean(row,argv)
         text=row.get('stdout');require(type(text) is str and '\n' not in text.strip() and text.strip(),'single container path')
         root=Path(text.strip());require(root.is_absolute() and root.resolve()==root and root.is_dir() and not root.is_symlink(),'canonical discovered container')
         self.native.live();self.roots[role]=root

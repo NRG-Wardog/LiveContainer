@@ -24,8 +24,8 @@ LOCAL=Path(__file__).resolve().parents[1]
 PREFLIGHT=LOCAL.parent/'window-capture-candidate/ci/p1/preflight'
 PINNED={
     'window_capture.py':'2a6ad92cd4cdf1fc48a7ab488ac31c0df8fa7bccf608e49cc71a0a3af71308d7',
-    'process_scope.py':'170f4f6231df84da80c3d0b5047c17a293685bccc1f445b96c4cb7bf3e45d637',
-    'fresh_device.py':'238bbc1d51792053cb1f3686cf03f52462412ead5b9e3b285f3e515183fd18d7',
+    'process_scope.py':'7e68ba1928935e7322e0fc61c2cfd03729c20e78ec324c42f6c01c2aca2cf82d',
+    'fresh_device.py':'7bf5c9efe1c0f53307fedc112677a40cfd0462155dc2959fbfb47c55f54dca75',
     'launch_gate.py':'b3aa49fae2fd162437bc46e16550877e79642c04a929a715f5c2ebe1651469db',
     'minimal_gate.py':'4220957d328181502e574bf24002d25044b22f71166a64cde606a946522a61d8'}
 SOURCES=(Path(__file__),Path(native_process.__file__),LOCAL/'host/fixture_channel.py',LOCAL/'host/journal.py',

@@ -91,3 +91,16 @@ The receipt is closed under that OwnedProcess's lock before use. Constructor and
 start both revalidate ownership. Failure before GUI construction retains native
 and device cleanup; partial GUI start retains the GUI owner. Original fixture
 actions, timing criteria, cleanup reserve and failed historical result remain.
+
+## Pre-capture GUI and shared cleanup successor
+The GUI now starts after container discovery and geometry, immediately before the
+helper. The same retained native writer, hint, exact launch receipt and fresh
+isolation checks still bind this handoff. Contention is an unproved hypothesis.
+Each role has one discovery command under the existing absolute observation
+deadline; the historical 30-second threshold is retained diagnostically.
+Device cleanup shares its original combined 120-second allowance across stop and
+delete, clamped to the outer cleanup deadline. A durable session/UUID/creation
+intent-bound attempt marker precedes the sole shutdown. Four retained 15-second
+proof operations are reserved after it. Neither collector nor outer backstop may
+repeat that shutdown; fresh Shutdown may permit deletion, without clearing any
+original failure. Product measurement, native method and total deadlines remain.

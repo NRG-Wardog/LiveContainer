@@ -57,4 +57,18 @@ class Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             c=self.make(d,lambda *a,**kw:None);c.hint=None
             with self.assertRaises(ValueError):c.discover('app',30)
+    def test_lookup_uses_shared_remaining_and_retains_old30_exceedance(self):
+        with tempfile.TemporaryDirectory() as d:
+            calls=[];saved=[];root=Path(d).resolve()
+            def command(*argv,**kw):
+                calls.append(kw['timeout']);return dict(row(argv),stdout=str(root),wait_timing={'command_started':100,'wait_finished':145})
+            c=self.make(d,command);c.remaining=lambda cap:min(cap,90);c.retain=lambda name,raw:saved.append((name,json.loads(raw)))
+            c.discover('app',180);self.assertEqual(calls,[90])
+            self.assertTrue(saved[1][1]['historical30Exceeded'])
+            with self.assertRaises(ValueError):c.discover('app',180)
+    def test_expired_shared_deadline_never_launches_lookup(self):
+        c=self.make(None,lambda *a,**k:self.fail('unexpected command'))
+        c.remaining=lambda cap:(_ for _ in ()).throw(TimeoutError('expired'))
+        with self.assertRaises(TimeoutError):c.discover('app',180)
+        with self.assertRaises(ValueError):c.discover('app',180)
 if __name__=='__main__':unittest.main()

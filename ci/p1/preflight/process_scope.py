@@ -338,7 +338,8 @@ class Scope:
         if self.cleanup_deadline is None:raise ValueError('owned shutdown reserve required')
         left=self.cleanup_deadline-time.monotonic()
         if left<=0:raise TimeoutError('diagnostic cleanup reserve exhausted')
-        return min(float(requested),30,left)
+        limit=120 if fresh_device.shutdown_attempt(fixture,proof,self.creation_intent,self.session) else 30
+        return min(float(requested),limit,left)
     def remaining(self,requested,cleanup=False):
         if cleanup:
             left=15 if self.cleanup_deadline is None else self.cleanup_deadline-time.monotonic()

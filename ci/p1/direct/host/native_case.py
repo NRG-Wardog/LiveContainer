@@ -28,7 +28,7 @@ TEST_TARGET = 'P0SignInUITests/P0SignInUITests/testProbeTimeoutPixels'
 # fresh_device.stop_owned/cleanup require every host writer settled first.
 CLEANUP = ('settle_native', 'stop_helper', 'stop_gui', 'stop_fixture', 'cleanup_device', 'verify_cleanup')
 CLEANUP_LIMITS = dict(settle_native=15, stop_helper=15, stop_gui=25,
-                      stop_fixture=45, cleanup_device=75, verify_cleanup=10)
+                      stop_fixture=120, cleanup_device=75, verify_cleanup=10)
 OPERATIONS = ('prepare', 'launch_native', 'await_started', 'discover_app', 'discover_runner',
               'await_geometry', 'start_helper', 'register_baseline', 'publish_roi', 'await_first',
               'promote_first', 'publish_ack', 'await_native_result', 'await_strip_complete',
@@ -117,6 +117,7 @@ class Case:
         self.errors = []
         self.receipts = []
         self.budget = None
+        self.device_cleanup_end = None
 
     def snapshot(self):
         return {'schema': 'p1-direct-case-sequence-v1', 'session': self.context['session'],
@@ -151,6 +152,12 @@ class Case:
         if not cleanup:
             self.backend.checkpoint(self.context)
         allowance = self._remaining(maximum, cleanup=cleanup, case_bound=case_bound)
+        if cleanup and name in ('stop_fixture','cleanup_device'):
+            now=self.now()
+            if self.device_cleanup_end is None:self.device_cleanup_end=now+120_000_000_000
+            self.context['deviceCleanupDeadlineNs']=self.device_cleanup_end
+            allowance=min(allowance,(self.device_cleanup_end-now)/1e9)
+            require(allowance>0,'shared device cleanup budget exhausted')
         before = self.now()
         result = getattr(self.backend, name)(self.context, timeout=allowance)
         after = self.now()
@@ -192,12 +199,12 @@ class Case:
             # Startup shares the original absolute observation deadline; no separate
             # 90-second cutoff cancels an otherwise live runner installation.
             self._stage('await_started', 360)
-            # Each one-shot simctl lookup retains its own 30-second command cap.
-            # Receipt/path/owner checks share the absolute observation deadline.
+            # Each lookup is one-shot; discovery, geometry and GUI startup share
+            # the same absolute observation deadline without resetting it.
             self._stage('discover_app', 360)
             self._stage('discover_runner', 360)
-            self._stage('await_geometry', 30)
-            self._stage('start_helper', 30)
+            self._stage('await_geometry', 360)
+            self._stage('start_helper', 360)
             self._stage('register_baseline', 30)
             self._stage('publish_roi', 5)
             self._stage('await_first', 15)
