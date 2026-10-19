@@ -1,0 +1,160 @@
+Test Suite 'Selected tests' started at 2026-10-19 06:30:39.710.
+Test Suite 'AnisetteKitPackageTests.xctest' started at 2026-10-19 06:30:39.719.
+Test Suite 'LoginDiagnosticTraceTests' started at 2026-10-19 06:30:39.719.
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testBoundsRetainFinalFailureAndMarkLoss]' started.
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=1 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=2 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=3 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=4 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=5 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=6 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=7 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=8 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=9 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=10 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=11 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=12 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=13 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=14 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=15 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=16 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=17 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=18 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=19 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=20 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=21 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=22 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=23 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=24 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=25 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=26 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=27 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=28 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=29 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=30 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=31 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=32 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=33 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=34 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=35 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=36 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=37 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=38 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=39 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=40 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=41 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=42 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=43 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=44 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=45 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=46 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=47 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=48 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=49 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=50 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=51 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=52 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=53 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=54 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=55 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=56 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=57 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=58 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=59 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=60 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=61 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=62 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=63 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=64 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=65 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=66 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=67 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=68 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=69 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=70 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=71 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=72 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=73 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=74 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=75 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=76 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=77 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=78 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=79 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=80 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=81 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=82 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=83 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=84 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=85 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=86 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=87 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=88 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=89 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=90 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=91 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=92 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=93 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=94 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=95 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=96 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=97 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=98 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=99 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=100 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=101 stage=twoFactorRequest outcome=stTest Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testBoundsRetainFinalFailureAndMarkLoss]' passed (0.006 seconds).
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testErrorMetadataNeverIncludesProviderStrings]' started.
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testErrorMetadataNeverIncludesProviderStrings]' passed (0.000 seconds).
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testIndependentTaskLocalScopesDoNotBleed]' started.
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testIndependentTaskLocalScopesDoNotBleed]' passed (0.001 seconds).
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testNativeTimingIsStrictAndAtomic]' started.
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testNativeTimingIsStrictAndAtomic]' passed (0.001 seconds).
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testTerminalEventIsExactlyOnceAndDurationIsMonotonicBounded]' started.
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testTerminalEventIsExactlyOnceAndDurationIsMonotonicBounded]' passed (0.000 seconds).
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testWrappersPreserveSuccessAndError]' started.
+Test Case '-[AnisetteKitTests.LoginDiagnosticTraceTests testWrappersPreserveSuccessAndError]' passed (0.001 seconds).
+Test Suite 'LoginDiagnosticTraceTests' passed at 2026-10-19 06:30:39.730.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+Test Suite 'AnisetteKitPackageTests.xctest' passed at 2026-10-19 06:30:39.730.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+Test Suite 'Selected tests' passed at 2026-10-19 06:30:39.730.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.009 (0.020) seconds
+arted reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=102 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=103 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=104 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=105 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=106 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=107 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=108 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=109 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=110 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=111 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=112 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=113 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=114 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=115 stage=twoFactorRequest outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=116 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=117 stage=twoFactorRequest outcome=started reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=118 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=119 stage=twoFactorRequest outcome=started reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=120 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=121 stage=twoFactorRequest outcome=started reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=122 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=123 stage=twoFactorRequest outcome=started reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=124 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=125 stage=twoFactorRequest outcome=started reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=126 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=127 stage=twoFactorRequest outcome=started reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 seq=128 stage=twoFactorRequest outcome=succeeded reason=none elapsed_ms=1 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=901f8e3a54c6 trace.truncated
+[LOGIN_TRACE] build=login_trace_v1 id=4abf4a432c78 seq=1 stage=appleAuthentication outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=4abf4a432c78 seq=2 stage=appleAuthentication outcome=failed reason=none elapsed_ms=0 duration_ms=0 error_kind=8 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=5fb3270fbaf7 seq=1 stage=twoFactorVerify outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=5fb3270fbaf7 seq=2 stage=twoFactorVerify outcome=failed reason=cancelled elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=b88338a3a3df seq=1 stage=nativeStart outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=b88338a3a3df seq=2 stage=nativeStart outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=25cab1584231 seq=1 stage=nativeLibraryInitialization outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=25cab1584231 seq=2 stage=nativeLibraryInitialization outcome=failed reason=rejected elapsed_ms=0 duration_ms=12 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=a82d5d32e176 seq=1 stage=nativeStart outcome=started reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0
+[LOGIN_TRACE] build=login_trace_v1 id=a82d5d32e176 seq=2 stage=nativeStart outcome=succeeded reason=none elapsed_ms=0 duration_ms=0 error_kind=0 error_code=0

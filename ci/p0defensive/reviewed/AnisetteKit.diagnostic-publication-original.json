@@ -1,0 +1,58 @@
+{
+  "schema": "exact-reviewed-diagnostic-publication-v1",
+  "repository": "NRG-Wardog/AnisetteKit",
+  "branch": "validation/p0-defensive-diagnostic-20261019",
+  "commit": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+  "tree": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd",
+  "parent": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
+  "reviewed_local_commit": "e0267064280008cee34846a00eba1d7eb7aeba5c",
+  "manifest_sha256": "21f012e6587cac96f840875715c50a1c98ca801a30473876a5605315088a0336",
+  "review_seal_sha256": "101025545b417c304ec192f5cf71599548270838b9c1ca804893a2aae439756c",
+  "commit_api": {
+    "sha": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+    "node_id": "C_kwDOU_u52doAKDIyN2RmZDhjODQ1NmNkNjJlNGNlZmY0OTcxYjE3YWZiMjAwM2Q3ZTg",
+    "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+    "html_url": "https://github.com/NRG-Wardog/AnisetteKit/commit/227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+    "author": {
+      "name": "Dorian Salomon",
+      "email": "72792463+NRG-Wardog@users.noreply.github.com",
+      "date": "2026-10-19T17:57:11Z"
+    },
+    "committer": {
+      "name": "Dorian Salomon",
+      "email": "72792463+NRG-Wardog@users.noreply.github.com",
+      "date": "2026-10-19T17:57:11Z"
+    },
+    "tree": {
+      "sha": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd",
+      "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd"
+    },
+    "message": "Add reviewed bounded constructor fault diagnostics without changing engine failure behavior [skip ci]",
+    "parents": [
+      {
+        "sha": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
+        "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/e72d04b84123823c93e9162daffa73b7afcfd2c9",
+        "html_url": "https://github.com/NRG-Wardog/AnisetteKit/commit/e72d04b84123823c93e9162daffa73b7afcfd2c9"
+      }
+    ],
+    "verification": {
+      "verified": false,
+      "reason": "unsigned",
+      "signature": null,
+      "payload": null,
+      "verified_at": null
+    }
+  },
+  "ref_api": {
+    "ref": "refs/heads/validation/p0-defensive-diagnostic-20261019",
+    "node_id": "REF_kwDOU_u52doANnJlZnMvaGVhZHMvdmFsaWRhdGlvbi9wMC1kZWZlbnNpdmUtZGlhZ25vc3RpYy0yMDI2MTAxOQ",
+    "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/refs/heads/validation/p0-defensive-diagnostic-20261019",
+    "object": {
+      "sha": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+      "type": "commit",
+      "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8"
+    }
+  },
+  "source_bytes_equal_reviewed": true,
+  "build_dispatched": false
+}

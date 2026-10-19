@@ -1,0 +1,78 @@
+name: P0 defensive A+B plus bounded diagnostic Phase A capture
+on:
+  push:
+    branches:
+      - validation/p0-defensive-diagnostic-phase-a
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: p0-defensive-diagnostic-phase-a-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  capture:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-defensive-diagnostic-phase-a'
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      # Replace only after independent adapter/input/workflow review; this is not approval.
+      APPROVED_P0DEFENSIVE_INPUTS_SHA256: f05bf4ad0a425fc459326ce796c79ba4ae55ad377be39a9d51f363d852e0f869
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: validation
+          fetch-depth: 0
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Validate separately reviewed exact inputs
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0defensive/native_gate.py --inputs validation/ci/p0defensive/inputs-phase-a.json --approved-inputs-sha256 "$APPROVED_P0DEFENSIVE_INPUTS_SHA256" --host-root "$GITHUB_WORKSPACE/validation"
+          python3 -B -m unittest discover -s validation/ci/p0defensive/tests -v
+      - name: Capture real resolution and finite safe host tests
+        run: |
+          set -euo pipefail
+          python3 -B validation/ci/p0defensive/native_gate.py --inputs validation/ci/p0defensive/inputs-phase-a.json --approved-inputs-sha256 "$APPROVED_P0DEFENSIVE_INPUTS_SHA256" --host-root "$GITHUB_WORKSPACE/validation" --work "$RUNNER_TEMP/p0defensive-phase-a-work" --evidence "$GITHUB_WORKSPACE/p0defensive-evidence" --execute
+      - name: Verify settled immutable evidence
+        id: transport
+        if: always()
+        run: |
+          if python3 -B validation/ci/p0defensive/native_gate.py --inputs validation/ci/p0defensive/inputs-phase-a.json --approved-inputs-sha256 "$APPROVED_P0DEFENSIVE_INPUTS_SHA256" --host-root "$GITHUB_WORKSPACE/validation" --evidence "$GITHUB_WORKSPACE/p0defensive-evidence" --check-transport; then
+            echo 'settled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'settled=false' >> "$GITHUB_OUTPUT"
+            echo 'Capture upload blocked: settled writers and immutable index were not established.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve capture for independent review
+        id: upload
+        if: always() && steps.transport.outputs.settled == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p0-defensive-diagnostic-phase-a-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: p0defensive-evidence/**
+          if-no-files-found: error
+          retention-days: 14
+      - name: Record actual artifact transport identity
+        if: always() && steps.upload.outputs.artifact-id != ''
+        env:
+          CAPTURE_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          CAPTURE_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          CAPTURE_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          python3 - <<'PY'
+          import json,os
+          value={k:os.environ[k] for k in ('GITHUB_REPOSITORY','GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','CAPTURE_ARTIFACT_ID','CAPTURE_ARTIFACT_DIGEST','CAPTURE_ARTIFACT_URL')}
+          text=json.dumps(value,sort_keys=True)
+          print(text)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(text+'\n')
+          PY

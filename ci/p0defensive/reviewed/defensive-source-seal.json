@@ -1,0 +1,349 @@
+{
+  "build_eligibility": false,
+  "live_provider_or_apple_requests": false,
+  "native_tests_executed": false,
+  "owners": {
+    "AnisetteKit": {
+      "base_commit": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
+      "base_tree": "a03f5a4284b67560629cdb52b8e6b246b835a56a",
+      "changes": [
+        {
+          "after": {
+            "bytes": 6528,
+            "git_object": "6ae78c08998b30460c33a9cae3251b60d7f712db",
+            "mode": "100644",
+            "sha256": "d7d4696170ca8cbf649f8a4297398c2e439bb40ea6212dc2d3ce6f71808a9212"
+          },
+          "before": null,
+          "path": ".ci/native-tests/BOUNDED_FAULT_DIAGNOSTICS.md"
+        },
+        {
+          "after": {
+            "bytes": 5412,
+            "git_object": "7e97b1e44f375df8245061fa36f99e449eca69fe",
+            "mode": "100644",
+            "sha256": "9396c536e0996ec1d6e40e2d07c15c305bfd667b80bc3453423b8b01aae1ce27"
+          },
+          "before": {
+            "bytes": 4997,
+            "git_object": "2682bbd0caf64c818a28379bc78d99be86498ebb",
+            "mode": "100644",
+            "sha256": "7380f730896817cd6913a59b8f411b815ea4bf06560237fd1bdeedc2cdba72aa"
+          },
+          "path": ".ci/native-tests/README.md"
+        },
+        {
+          "after": {
+            "bytes": 15415,
+            "git_object": "1bfae32c02cbe5b3478a97f8f8d9d958eb14c0f3",
+            "mode": "100644",
+            "sha256": "a078337ae433c6505f7c72a7fb47c8978585e9a99a0520d39e9c0a1b2aaec2cf"
+          },
+          "before": null,
+          "path": ".ci/native-tests/fixtures/bounded_fault_host.cpp"
+        },
+        {
+          "after": {
+            "bytes": 445,
+            "git_object": "4a89773735e0977366dfe4c77cad2e2e25a1c3d4",
+            "mode": "100644",
+            "sha256": "b8160296d97c8201551240392f47cfad2b8a260b218cd3e160da352ea436147a"
+          },
+          "before": null,
+          "path": ".ci/native-tests/fixtures/commoncrypto-host-double/CommonCrypto/CommonDigest.h"
+        },
+        {
+          "after": {
+            "bytes": 3833,
+            "git_object": "6338961c9fd721ba79b51566b775b776fd57e7e9",
+            "mode": "100644",
+            "sha256": "ef9dc5d7758131ca4dae5dd47cec9b1ef2d67d4eaa8362994a96ae2469e1d7a5"
+          },
+          "before": {
+            "bytes": 3662,
+            "git_object": "de9fd090f53a8316d1e5b706d168cb4465d6646d",
+            "mode": "100644",
+            "sha256": "0614c634f0d8ca648bde35fde4d55ec07f657becb8b2a5cd1d78a92d7a0f1c62"
+          },
+          "path": ".ci/native-tests/fixtures/cxx_allocation_hook_unit.cpp"
+        },
+        {
+          "after": {
+            "bytes": 41562,
+            "git_object": "19a159e82e2afa15365953da08f8c81d949ebbd2",
+            "mode": "100644",
+            "sha256": "d8ee3eecf7146b506b0c20cd250d2b3d141ae55de212f2804a2f2207a0e84900"
+          },
+          "before": {
+            "bytes": 39849,
+            "git_object": "524b593ea254861f711d82f087d5b8e5c1692e7d",
+            "mode": "100644",
+            "sha256": "ae1036676aee82cbe470984002361e699ce44d1df5f6da63a1839cfeb3f3b490"
+          },
+          "path": ".ci/native-tests/fixtures/isolated_anisette_core_harness.cpp"
+        },
+        {
+          "after": {
+            "bytes": 9284,
+            "git_object": "c8e0fa343644f8f84f5e37369e1dc0e47c97908c",
+            "mode": "100644",
+            "sha256": "2c4f19337eec89e06a03dd7dcf079f6978bbcee8163bde452198bffe5f9a4720"
+          },
+          "before": {
+            "bytes": 9124,
+            "git_object": "cc4660f5499d32a3890d38d39d30b636c562dcf4",
+            "mode": "100644",
+            "sha256": "cc6a1f96f5e3e06c530fac68b4ce82e354d47c0094a542d14e7334f38d359af6"
+          },
+          "path": ".ci/native-tests/fixtures/isolated_anisette_loader_harness.cpp"
+        },
+        {
+          "after": {
+            "bytes": 10427,
+            "git_object": "7db229ee2c6ee86c0342faf48c2f49aeb7d034a5",
+            "mode": "100644",
+            "sha256": "c273b7943d1057ce74e3037bba1df8536521cdfae775254308f3f4711083f1a2"
+          },
+          "before": {
+            "bytes": 10256,
+            "git_object": "9a0763eea2c7b62730e97fabe1a6e8efa6e72164",
+            "mode": "100644",
+            "sha256": "dbb30ad4afaac5d2a4f90885c7c7994c641845e38b5edf27209d6f7247d0ea50"
+          },
+          "path": ".ci/native-tests/fixtures/memory_boundaries_host.cpp"
+        },
+        {
+          "after": {
+            "bytes": 6454,
+            "git_object": "e80bc2626305e473fd40da66b64bbeb3e18aec9f",
+            "mode": "100644",
+            "sha256": "a34e8fdebf4467b109d96b1b48a4edeffa1baccb675e99bb74290440016c54f1"
+          },
+          "before": {
+            "bytes": 6283,
+            "git_object": "fd8a1f0533e57babef83ab64864eeba75adda1cf",
+            "mode": "100644",
+            "sha256": "a8af5f1f209656b2820c6073d588ef72a5d405d2196c9f6035041abbd8e49c0d"
+          },
+          "path": ".ci/native-tests/fixtures/vm_setup_host.cpp"
+        },
+        {
+          "after": {
+            "bytes": 25796,
+            "git_object": "edf386268dcf0448c1839539442be20b1fc1551c",
+            "mode": "100644",
+            "sha256": "bef358632139cf3296715b8f3c98cdf385bdaa6f711ffb847d92504293cd8980"
+          },
+          "before": {
+            "bytes": 25130,
+            "git_object": "0066134f2787f9e042d74e0abfd964ce8d7486c2",
+            "mode": "100644",
+            "sha256": "3961ffd7cf8c8afa6b21a4eae95cc9acaf817a0da0f39201570e6c601f3dbe9f"
+          },
+          "path": ".ci/native-tests/run_tests.py"
+        },
+        {
+          "after": {
+            "bytes": 3421,
+            "git_object": "e079607940e639b64965fe1d8b86287364465bbe",
+            "mode": "100644",
+            "sha256": "958dc3bc9190acb0d09364a54f7edb9ea9cf4a84bea57732fdefffd531cf2bb3"
+          },
+          "before": {
+            "bytes": 3230,
+            "git_object": "45a73c23abbfcbf7cb17db83829ede5d15812408",
+            "mode": "100644",
+            "sha256": "8703b29d5dfd0d2f8af0a4ae7ec48454dcf973b1d257a16b6bafe65b0e905c5f"
+          },
+          "path": ".ci/native-tests/test_android_tls_runtime.py"
+        },
+        {
+          "after": {
+            "bytes": 5612,
+            "git_object": "572edefc5bb2d452dbcd62fffd69ab6e30b46a28",
+            "mode": "100644",
+            "sha256": "ab8d4018979673d3cc7c6231b514f404a8506af0173ad8a7edb94dce1e926ebf"
+          },
+          "before": null,
+          "path": ".ci/native-tests/test_bounded_fault_host.py"
+        },
+        {
+          "after": {
+            "bytes": 6621,
+            "git_object": "352e758101a1523ab447381b2adee8b59b9e8ac6",
+            "mode": "100644",
+            "sha256": "e68ca838169038d82270e4cf7f5fe67d19f47490f9c596c160445b28b9f77ad7"
+          },
+          "before": {
+            "bytes": 6537,
+            "git_object": "ca01a070414623a27e7cb40c0c8bde3672176acf",
+            "mode": "100644",
+            "sha256": "2d33180d03e77e45befb8cca18c08adf7f37698ced54164fc3a0583acd16100e"
+          },
+          "path": ".ci/native-tests/test_constructor_diagnostics.py"
+        },
+        {
+          "after": {
+            "bytes": 4167,
+            "git_object": "1a468f4c14f28300a1db2c5196657ee3429ac0cd",
+            "mode": "100644",
+            "sha256": "0734ee21334e0d3c515d1b51f3d8b9804e545def03a5c412f80d5881cf8511f6"
+          },
+          "before": {
+            "bytes": 4028,
+            "git_object": "856e1f3d7ce0155f94b7ae5e0d6d9e93baf185ff",
+            "mode": "100644",
+            "sha256": "c0f2c97e40be67ac381792a9ebae60dbdb1363e0517741b1cbfa90f0d342d3d7"
+          },
+          "path": ".ci/native-tests/test_cxx_allocation.py"
+        },
+        {
+          "after": {
+            "bytes": 2588,
+            "git_object": "b24a500cff42421df90edd7080427f799a59884e",
+            "mode": "100644",
+            "sha256": "ed012b6a39481b8019509995dc19eac307852d173f6a31b1de118a50409c470d"
+          },
+          "before": {
+            "bytes": 2418,
+            "git_object": "07c5ce78c3a01e51827f01f034250b531e4c7d7a",
+            "mode": "100644",
+            "sha256": "d5d839059ee410af733dbfa9e93e318c61e024772c136e71e85ac2394f86b463"
+          },
+          "path": ".ci/native-tests/test_memory_boundaries_host.py"
+        },
+        {
+          "after": {
+            "bytes": 3985,
+            "git_object": "aaad80dafc4d51bbc50d026eb422edf17f5e2a2b",
+            "mode": "100644",
+            "sha256": "dfe5779e9a185ecb7fcc9e5c3987161e7525dd029863b59835f5ae3b7d4cf58f"
+          },
+          "before": {
+            "bytes": 3812,
+            "git_object": "3436bc5658a16b072be3449f0bd8086ad3f9a544",
+            "mode": "100644",
+            "sha256": "aa950bb661e3cf5e33038587457a3666b5342170ece13654fd6387f512d21dc3"
+          },
+          "path": ".ci/native-tests/test_vm_setup_host.py"
+        },
+        {
+          "after": {
+            "bytes": 1586,
+            "git_object": "5e37a71e26db8ce550749ecb22a9df7dde751ecb",
+            "mode": "100644",
+            "sha256": "33814180e66e6447652d40e0df307a0ea4ad555f91d3a8b388b0b7a06e0f672e"
+          },
+          "before": null,
+          "path": "Native/Loader/bounded_asset_digest.h"
+        },
+        {
+          "after": {
+            "bytes": 3654,
+            "git_object": "613f7b8ee2b5b88a9893608ff7fb0b5998839e64",
+            "mode": "100644",
+            "sha256": "416729f9cc73ba05ec5164af2f5d7928f86db2d72e6ddb83863e5433c36d3eaa"
+          },
+          "before": null,
+          "path": "Native/Loader/bounded_fault_diagnostics.h"
+        },
+        {
+          "after": {
+            "bytes": 4859,
+            "git_object": "b2840c8cbebabc8acdd5ed77f6fdbbd1e32998a6",
+            "mode": "100644",
+            "sha256": "f603533ab9a4ccd4ff134b8528d0570398bf4a056790b3d59ab0d6c4122abfec"
+          },
+          "before": null,
+          "path": "Native/Loader/bounded_fault_runtime.h"
+        },
+        {
+          "after": {
+            "bytes": 64918,
+            "git_object": "acd57ed01253e0b3f1c6bab807560424c78c8e56",
+            "mode": "100644",
+            "sha256": "283a959fa40d9293e0ef28615a430d962e4db11fc5cf489d938e9c4e2e2add3f"
+          },
+          "before": {
+            "bytes": 63577,
+            "git_object": "f2647b5c8da73890bf821d771b3286c2ac6ab8c0",
+            "mode": "100644",
+            "sha256": "7d6877197184487db61f4acde602e14622213c97cc01424f3637a015f465464f"
+          },
+          "path": "Native/Loader/elf_loader_emulator.cpp"
+        },
+        {
+          "after": {
+            "bytes": 4748,
+            "git_object": "7328acfe9ed38f1dccedb7f589489e83bd9ec093",
+            "mode": "100644",
+            "sha256": "df41a95cc428e561995f43621b83a1f4ae4b3fbac27c180a62b38af48d80a4de"
+          },
+          "before": {
+            "bytes": 4602,
+            "git_object": "08919d96b600d5629e78339786dd8cf34efa5205",
+            "mode": "100644",
+            "sha256": "49cdcd0e7250837426f680ff33e721f3422044c7cf06b3a60b69d3d5b5e44bf7"
+          },
+          "path": "Native/Loader/elf_loader_emulator.h"
+        },
+        {
+          "after": {
+            "bytes": 3629,
+            "git_object": "57b251f72f4700bc041703cefc34110f0c5feba2",
+            "mode": "100644",
+            "sha256": "0fbe1ac033f2d2dbe7f3c5fbd0cade277f8e7eb51529264dfec3ca75279ba862"
+          },
+          "before": {
+            "bytes": 3348,
+            "git_object": "b622515c9c141c9e0b056ce9e4492633263d7ce7",
+            "mode": "100644",
+            "sha256": "023b34540c9fb31fcb6059fea3236eb411fc52d0438025dbe9d72e88c9337e5c"
+          },
+          "path": "Native/Loader/vm_initialization_diagnostics.h"
+        },
+        {
+          "after": {
+            "bytes": 54105,
+            "git_object": "fe49c6d2343f3d2644685157b4df440dd831e76d",
+            "mode": "100644",
+            "sha256": "d705ffc9d6e91f98570f98919c718aedd35d2bdf4072a6c80e853d8f435d47fa"
+          },
+          "before": {
+            "bytes": 53260,
+            "git_object": "46648aa39c65ff0a05000dd52b6fea2c1f7e7dc6",
+            "mode": "100644",
+            "sha256": "9c3150812a9fc4559c32e4bbafa39cd91c82d9bfdc3954a8d2af2bfc08c14c12"
+          },
+          "path": "Native/anisette_core_uc.cpp"
+        },
+        {
+          "after": {
+            "bytes": 16577,
+            "git_object": "1cfdfb9d161878ef5d025812ff35f7a9a330a2c6",
+            "mode": "100644",
+            "sha256": "2b3913be77f019de3f0520e8ea8fcdad1a1b4a638c2493e84d063f07f813e855"
+          },
+          "before": {
+            "bytes": 14544,
+            "git_object": "ccdece372e0ea79c678ef9af7505c461e5be5cff",
+            "mode": "100644",
+            "sha256": "9c55c035d640cae8c2b6ac173db9f118a4e49cce789c0dba24f4cffca58476de"
+          },
+          "path": "Sources/AnisetteDataProvider.swift"
+        }
+      ],
+      "reviewed_local_commit": "e0267064280008cee34846a00eba1d7eb7aeba5c",
+      "tree": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd"
+    },
+    "SideSign": {
+      "base_commit": "a375e72d1ff39319c14d22ab98ddecd46c758783",
+      "base_tree": "7cf5311daf9e25cb356f9d63736422111afe740d",
+      "changes": [],
+      "reviewed_local_commit": "a375e72d1ff39319c14d22ab98ddecd46c758783",
+      "tree": "7cf5311daf9e25cb356f9d63736422111afe740d"
+    }
+  },
+  "schema": "p0-defensive-diagnostic-source-seal-v1",
+  "scope": "Exact separately reviewed bounded constructor fault diagnostics atop reviewed defensive A+B; source-only composition, pending fresh Apple capture"
+}
