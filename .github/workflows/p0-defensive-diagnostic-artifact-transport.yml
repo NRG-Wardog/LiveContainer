@@ -1,0 +1,65 @@
+name: Retrieve existing P0 evidence bytes
+on:
+  push:
+    branches: [validation/p0-defensive-diagnostic-artifact-transport]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: p0-defensive-diagnostic-artifact-transport
+  cancel-in-progress: false
+jobs:
+  retrieve:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-defensive-diagnostic-artifact-transport'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Test byte transport safety
+        run: python3 -B -m unittest discover -s ci/p0transport/tests -v
+      - name: Retrieve and split the fixed original artifact without opening it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B ci/p0transport/retrieve.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: original-12211213161-part-00
+          path: parts/part-00.bin
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+          overwrite: false
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: original-12211213161-part-01
+          path: parts/part-01.bin
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+          overwrite: false
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: original-12211213161-part-02
+          path: parts/part-02.bin
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+          overwrite: false
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: original-12211213161-part-03
+          path: parts/part-03.bin
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+          overwrite: false
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: original-12211213161-transport-manifest
+          path: parts/*.json
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: false
