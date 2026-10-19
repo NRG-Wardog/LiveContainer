@@ -189,7 +189,19 @@
             try require(finalWindow.frame == window.frame && owner.valid(), "final-context-owner-changed")
             result["finalContextRetained"] = true
             deadline.cancel()
-        } catch { result["error"] = (error as? Failure)?.code ?? "native-capture-error" }
+        } catch {
+            let originalCode = (error as? Failure)?.code ?? "native-capture-error"
+            result["error"] = originalCode
+            let code = directDiagnosticCode(originalCode)
+            let sinkFailure = sink?.failureSnapshot()
+            let primary: [String: Any] = ["schema": "p1-direct-primary-failure-v1", "session": session,
+                "observedMach": mach_absolute_time(), "errorCode": code,
+                "sinkFailure": sinkFailure as Any? ?? NSNull(), "admissionEligible": false]
+            // Preserve primary evidence before any recovery API can hang. Never drain
+            // either sink queue here, and never replace the original failure.
+            do { try directWritePrimaryFailure(primary, directory: directory) }
+            catch { result["primaryFailureRetentionError"] = "primary-failure-retention-failed" }
+        }
         deadline.beginCleanup()
         if startAttempted && !stopConfirmed, let capture = stream {
             do { deadline.arm(10, "recovery-stream-stop"); try await capture.stopCapture(); started = false; stopConfirmed = true; deadline.cancel() }

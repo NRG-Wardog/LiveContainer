@@ -54,4 +54,33 @@ class ImmutableCensusSourceTests(unittest.TestCase):
         self.assertLess(source.index('let window = try await directResizeOwnedWindow'),source.index('"window-census-resized.json"'))
         self.assertLess(source.index('"window-census-resized.json"'),source.index('SCContentFilter(desktopIndependentWindow: window)'))
 
+
+
+class PrimaryFailureLifecycleTests(unittest.TestCase):
+    def test_primary_receipt_precedes_hanging_recovery_and_survives_separate_timeout(self):
+        source=(HERE/'direct_main.swift').read_text()
+        start=source.index('let originalCode = (error as? Failure)?.code')
+        recovery=source.index('deadline.arm(10, "recovery-stream-stop")')
+        block=source[start:recovery]
+        self.assertLess(block.index('result["error"] = originalCode'),block.index('directWritePrimaryFailure'))
+        self.assertLess(block.index('let sinkFailure = sink?.failureSnapshot()'),block.index('"observedMach": mach_absolute_time()'))
+        self.assertIn('"sinkFailure": sinkFailure as Any? ?? NSNull()',block)
+        self.assertIn('catch { result["primaryFailureRetentionError"] = "primary-failure-retention-failed" }',block)
+        self.assertEqual(block.count('result["error"] ='),1)
+        self.assertNotIn('sink?.result()',block)
+        self.assertNotIn('.sync',block)
+        self.assertNotIn('deadline.cancel()',block)
+        self.assertNotIn('exit(',block)
+        self.assertLess(source.index('directWritePrimaryFailure'),source.index('try await capture.stopCapture()',start))
+        # The secondary timeout retains its own path, never overwriting primary.
+        original=build_main.SOURCE.read_text()
+        self.assertIn('"stage-timeout.json"',original)
+        self.assertNotIn('"primary-failure.json"',original)
+
+    def test_failure_evidence_never_implies_capture_completion(self):
+        source=(HERE/'direct_main.swift').read_text()
+        self.assertIn('"admissionEligible": false]',source[source.index('let primary:'):])
+        self.assertIn('stopConfirmed && result["error"] == nil',source)
+        self.assertEqual(source.count('directWritePrimaryFailure('),1)
+
 if __name__=='__main__':unittest.main()

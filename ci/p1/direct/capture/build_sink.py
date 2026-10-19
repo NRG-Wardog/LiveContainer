@@ -75,6 +75,10 @@ def build(source, expected_sha):
             }
         }''')
     source=replace_once(source,'        queue.sync { ["frames": records,', '        queue.sync {}\n        return persistence.sync { ["frames": records,')
+    source=replace_once(source, '    private var failure: String?', '    private var failure: String?\n    private var failureObservedMach: UInt64?')
+    source=replace_once(source,
+        '    func failed(_ code: String) { lock.lock(); if failure == nil { failure = code }; lock.unlock() }',
+        '    func failed(_ code: String) {\n        lock.lock()\n        if failure == nil { failure = code; failureObservedMach = mach_absolute_time() }\n        lock.unlock()\n    }\n    func failureSnapshot() -> [String: Any]? {\n        lock.lock(); defer { lock.unlock() }\n        guard let code = failure, let observed = failureObservedMach else { return nil }\n        return ["code": directDiagnosticCode(code), "observedMach": observed]\n    }')
     return '// Generated from the exact reviewed owned-window Sink. Local draft.\n'+source
 
 

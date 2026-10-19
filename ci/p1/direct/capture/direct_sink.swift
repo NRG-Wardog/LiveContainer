@@ -12,6 +12,7 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
     let queue = DispatchQueue(label: "p1.owned.window.frames")
     private let lock = NSLock()
     private var failure: String?
+    private var failureObservedMach: UInt64?
     private var records: [[String: Any]] = []
     private var copiedBytes = 0
     private let persistence = DispatchQueue(label: "p1.owned.window.persistence")
@@ -35,7 +36,16 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
               app.executableURL?.resolvingSymlinksInPath().path == executable else { return false }
         return true
     }
-    func failed(_ code: String) { lock.lock(); if failure == nil { failure = code }; lock.unlock() }
+    func failed(_ code: String) {
+        lock.lock()
+        if failure == nil { failure = code; failureObservedMach = mach_absolute_time() }
+        lock.unlock()
+    }
+    func failureSnapshot() -> [String: Any]? {
+        lock.lock(); defer { lock.unlock() }
+        guard let code = failure, let observed = failureObservedMach else { return nil }
+        return ["code": directDiagnosticCode(code), "observedMach": observed]
+    }
     func errorCode() -> String? { lock.lock(); defer { lock.unlock() }; return failure }
     func stream(_ stream: SCStream, didStopWithError error: Error) { failed("stream-stopped-with-error") }
     func stream(_ stream: SCStream, didOutputSampleBuffer sample: CMSampleBuffer, of type: SCStreamOutputType) {

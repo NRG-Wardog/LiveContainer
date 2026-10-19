@@ -110,6 +110,31 @@ class CaseTests(unittest.TestCase):
         b.persist=fail;case=n.Case(SESSION,b,now_ns=b.now)
         with self.assertRaises(OSError):case.run()
         self.assertEqual([name for name,_ in b.calls][-6:],list(n.CLEANUP))
+    def test_failed_stage_retains_timing_and_bounded_operation(self):
+        b=Backend();case=n.Case(SESSION,b,now_ns=b.now)
+        original=RuntimeError('private exception payload must not be retained')
+        original.p1_operation='await_first/final-checkpoint'
+        def fail(context,timeout):raise original
+        b.await_first=fail
+        with self.assertRaises(RuntimeError) as caught:case._stage('await_first',10)
+        self.assertIs(caught.exception,original)
+        row=case.receipts[-1]
+        self.assertEqual(row['outcome'],'failed');self.assertEqual(row['errorType'],'RuntimeError')
+        self.assertEqual(row['operation'],'await_first/final-checkpoint')
+        self.assertLessEqual(row['entryNs'],row['beforeNs']);self.assertLessEqual(row['beforeNs'],row['afterNs'])
+        self.assertEqual(row['deadlineNs'],row['beforeNs']+int(row['allowanceSeconds']*1e9))
+        self.assertNotIn(b'private exception',b.saved[-1])
+
+    def test_failed_stage_diagnostic_write_never_masks_original(self):
+        b=Backend();case=n.Case(SESSION,b,now_ns=b.now)
+        original=RuntimeError('original')
+        def fail(context,timeout):raise original
+        def storage(raw):raise OSError('diagnostic retention failed')
+        b.await_first=fail;b.persist=storage
+        with self.assertRaises(RuntimeError) as caught:case._stage('await_first',10)
+        self.assertIs(caught.exception,original)
+        self.assertEqual(case.receipts[-1]['operation'],'await_first/backend')
+
     def test_timeout_cannot_reset_on_next_stage_but_cleanup_uses_scope(self):
         b=Backend();original=b.await_started
         def late(context,timeout):

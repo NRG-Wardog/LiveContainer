@@ -53,4 +53,25 @@ class SinkTests(unittest.TestCase):
         self.assertLess(cap,byte_cap);self.assertLess(byte_cap,copy);self.assertLess(copy,write)
         self.assertIn('overflow += 1; failed("frame-record-limit"); return',source)
 
+
+
+class FirstFailureSnapshotTests(unittest.TestCase):
+    def test_first_failure_wins_with_timestamp_in_same_short_lock(self):
+        source=(HERE/'direct_sink.swift').read_text()
+        block=source[source.index('    func failed('):source.index('    func errorCode(')]
+        self.assertIn('if failure == nil { failure = code; failureObservedMach = mach_absolute_time() }',block)
+        self.assertEqual(source.count('failureObservedMach ='),1)
+        self.assertEqual(source.count('failure = code'),1)
+        self.assertLess(block.index('lock.lock()'),block.index('failureObservedMach ='))
+        self.assertLess(block.index('failureObservedMach ='),block.index('lock.unlock()'))
+        snapshot=block[block.index('func failureSnapshot'):]
+        self.assertIn('lock.lock(); defer { lock.unlock() }',snapshot)
+        self.assertIn('return ["code": directDiagnosticCode(code), "observedMach": observed]',snapshot)
+        for token in ('.sync', '.async', 'write(', 'records', 'pendingRecords', 'ownerValid'):
+            self.assertNotIn(token,snapshot)
+        # Every original failure source still shares the same first-error latch.
+        self.assertIn('failed("persistence-backpressure")',source)
+        self.assertIn('failed("stream-stopped-with-error")',source)
+        self.assertIn('retained["error"] = code; failed(code)',source)
+
 if __name__=='__main__':unittest.main()

@@ -414,6 +414,55 @@ final class DirectDeadline {
     }
 }
 
+// Bounded diagnostic codes only: never serialize framework descriptions or memory.
+func directDiagnosticCode(_ value: String) -> String {
+    let bytes = value.utf8
+    guard !bytes.isEmpty && bytes.count <= 96 && bytes.allSatisfy({ (97...122).contains($0) || $0 == 45 }) else {
+        return "native-capture-error"
+    }
+    return value
+}
+
+// Publish once, without replacing any existing evidence, and fsync both payload
+// and parent directory. Existing stage and terminal watchdogs remain armed.
+func directWritePrimaryFailure(_ value: [String: Any], directory: URL) throws {
+    try require(Set(value.keys) == ["schema", "session", "observedMach", "errorCode", "sinkFailure", "admissionEligible"], "primary-failure-fields")
+    guard value["schema"] as? String == "p1-direct-primary-failure-v1",
+          value["admissionEligible"] as? Bool == false,
+          let session = value["session"] as? String, session.utf8.count == 32,
+          session.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+          let code = value["errorCode"] as? String, directDiagnosticCode(code) == code,
+          let observed = value["observedMach"] as? UInt64, observed > 0 else { throw Failure("primary-failure-binding") }
+    if let sink = value["sinkFailure"] as? [String: Any] {
+        guard Set(sink.keys) == ["code", "observedMach"], let code = sink["code"] as? String,
+              directDiagnosticCode(code) == code, let ticks = sink["observedMach"] as? UInt64,
+              ticks > 0 && ticks <= observed else { throw Failure("primary-failure-sink") }
+    } else { try require(value["sinkFailure"] is NSNull, "primary-failure-sink") }
+    let bytes = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+    try require(!bytes.isEmpty && bytes.count <= 4096, "primary-failure-size")
+    let parent = open(directory.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_NONBLOCK)
+    try require(parent >= 0, "primary-failure-directory")
+    defer { close(parent) }
+    let temporary = "primary-failure.pending"
+    let descriptor = openat(parent, temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK, 0o600)
+    try require(descriptor >= 0, "primary-failure-open")
+    defer { close(descriptor); unlinkat(parent, temporary, 0) }
+    try bytes.withUnsafeBytes { raw in
+        guard let base = raw.baseAddress else { throw Failure("primary-failure-empty") }
+        var offset = 0
+        while offset < raw.count {
+            let count = Darwin.write(descriptor, base.advanced(by: offset), raw.count - offset)
+            if count < 0 && errno == EINTR { continue }
+            try require(count > 0, "primary-failure-write")
+            offset += count
+        }
+    }
+    try require(fsync(descriptor) == 0, "primary-failure-sync")
+    // Exclusive atomic rename preserves the host single-link file invariant.
+    try require(renameatx_np(parent, temporary, parent, "primary-failure.json", UInt32(RENAME_EXCL)) == 0, "primary-failure-publish")
+    try require(fsync(parent) == 0, "primary-failure-directory-sync")
+}
+
 
 // Resize only the already-owned Simulator window before immutable registration.
 // Existing accessibility trust is required; this helper never requests it.
@@ -661,6 +710,7 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
     let queue = DispatchQueue(label: "p1.owned.window.frames")
     private let lock = NSLock()
     private var failure: String?
+    private var failureObservedMach: UInt64?
     private var records: [[String: Any]] = []
     private var copiedBytes = 0
     private let persistence = DispatchQueue(label: "p1.owned.window.persistence")
@@ -684,7 +734,16 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
               app.executableURL?.resolvingSymlinksInPath().path == executable else { return false }
         return true
     }
-    func failed(_ code: String) { lock.lock(); if failure == nil { failure = code }; lock.unlock() }
+    func failed(_ code: String) {
+        lock.lock()
+        if failure == nil { failure = code; failureObservedMach = mach_absolute_time() }
+        lock.unlock()
+    }
+    func failureSnapshot() -> [String: Any]? {
+        lock.lock(); defer { lock.unlock() }
+        guard let code = failure, let observed = failureObservedMach else { return nil }
+        return ["code": directDiagnosticCode(code), "observedMach": observed]
+    }
     func errorCode() -> String? { lock.lock(); defer { lock.unlock() }; return failure }
     func stream(_ stream: SCStream, didStopWithError error: Error) { failed("stream-stopped-with-error") }
     func stream(_ stream: SCStream, didOutputSampleBuffer sample: CMSampleBuffer, of type: SCStreamOutputType) {
@@ -977,7 +1036,19 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
             try require(finalWindow.frame == window.frame && owner.valid(), "final-context-owner-changed")
             result["finalContextRetained"] = true
             deadline.cancel()
-        } catch { result["error"] = (error as? Failure)?.code ?? "native-capture-error" }
+        } catch {
+            let originalCode = (error as? Failure)?.code ?? "native-capture-error"
+            result["error"] = originalCode
+            let code = directDiagnosticCode(originalCode)
+            let sinkFailure = sink?.failureSnapshot()
+            let primary: [String: Any] = ["schema": "p1-direct-primary-failure-v1", "session": session,
+                "observedMach": mach_absolute_time(), "errorCode": code,
+                "sinkFailure": sinkFailure as Any? ?? NSNull(), "admissionEligible": false]
+            // Preserve primary evidence before any recovery API can hang. Never drain
+            // either sink queue here, and never replace the original failure.
+            do { try directWritePrimaryFailure(primary, directory: directory) }
+            catch { result["primaryFailureRetentionError"] = "primary-failure-retention-failed" }
+        }
         deadline.beginCleanup()
         if startAttempted && !stopConfirmed, let capture = stream {
             do { deadline.arm(10, "recovery-stream-stop"); try await capture.stopCapture(); started = false; stopConfirmed = true; deadline.cancel() }

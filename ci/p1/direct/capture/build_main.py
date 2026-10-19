@@ -184,6 +184,9 @@ def build(source,expected_sha):
                        "startCaptureReturnedMach": result["captureStartedMach"]!,
                        "startCaptureReturned": true, "presentationLowerBoundEstablished": false,
                        "admissionEligible": false], directory.appendingPathComponent("stream-ready.json"))''')
+    source=replace_once(source,
+        '        } catch { result["error"] = (error as? Failure)?.code ?? "native-capture-error" }',
+        '        } catch {\n            let originalCode = (error as? Failure)?.code ?? "native-capture-error"\n            result["error"] = originalCode\n            let code = directDiagnosticCode(originalCode)\n            let sinkFailure = sink?.failureSnapshot()\n            let primary: [String: Any] = ["schema": "p1-direct-primary-failure-v1", "session": session,\n                "observedMach": mach_absolute_time(), "errorCode": code,\n                "sinkFailure": sinkFailure as Any? ?? NSNull(), "admissionEligible": false]\n            // Preserve primary evidence before any recovery API can hang. Never drain\n            // either sink queue here, and never replace the original failure.\n            do { try directWritePrimaryFailure(primary, directory: directory) }\n            catch { result["primaryFailureRetentionError"] = "primary-failure-retention-failed" }\n        }')
     return '// Local uncompiled direct lifecycle adapter. Source-bound, no admission.\n'+source
 
 if __name__=='__main__':

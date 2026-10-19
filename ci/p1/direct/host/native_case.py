@@ -146,35 +146,71 @@ class Case:
         self.backend.checkpoint(self.context)
 
     def _stage(self, name, maximum, *, cleanup=False, case_bound=True):
-        # Cleanup does not call live-stream checkpoints, which legitimately fail
-        # after native completion. It still gets the parent Scope deadline.
-        self.context['stage'] = name
-        if not cleanup:
-            self.backend.checkpoint(self.context)
-        allowance = self._remaining(maximum, cleanup=cleanup, case_bound=case_bound)
-        if cleanup and name in ('stop_fixture','cleanup_device'):
-            now=self.now()
-            if self.device_cleanup_end is None:self.device_cleanup_end=now+120_000_000_000
-            self.context['deviceCleanupDeadlineNs']=self.device_cleanup_end
-            allowance=min(allowance,(self.device_cleanup_end-now)/1e9)
-            require(allowance>0,'shared device cleanup budget exhausted')
-        before = self.now()
-        result = getattr(self.backend, name)(self.context, timeout=allowance)
-        after = self.now()
-        require(type(result) is Evidence and type(result.raw) is bytes and 0 < len(result.raw) <= 32 * 1024 * 1024,
-                'retained stage evidence required: ' + name)
-        # Retain the returned bytes before semantic validation, including failures.
-        self.context['evidence'][name] = result
-        self.receipts.append({'stage': name, 'beforeNs': before, 'afterNs': after,
-                              'allowanceSeconds': allowance, 'receiptSHA256': sha256(result.raw).hexdigest(),
-                              'receiptBytes': len(result.raw), 'cleanup': cleanup})
-        self.backend.retain(name, result.raw)
-        self._persist()
-        require(type(before) is int and type(after) is int and before <= after and
-                after - before <= int(allowance * 1_000_000_000), 'stage exceeded retained allowance: ' + name)
-        self._remaining(360, cleanup=cleanup, case_bound=case_bound)
-        self.backend.validate_stage(name, result, self.context)
-        return result.value
+        diagnostic={'stage':name,'entryNs':self.now(),'beforeNs':None,'afterNs':None,
+                    'deadlineNs':None,'allowanceSeconds':None,'cleanup':cleanup}
+        operation='checkpoint'
+        try:
+            # Cleanup does not call live-stream checkpoints, which legitimately fail
+            # after native completion. It still gets the parent Scope deadline.
+            self.context['stage'] = name
+            if not cleanup:
+                self.backend.checkpoint(self.context)
+            operation='remaining'
+            allowance = self._remaining(maximum, cleanup=cleanup, case_bound=case_bound)
+            if cleanup and name in ('stop_fixture','cleanup_device'):
+                now=self.now()
+                if self.device_cleanup_end is None:self.device_cleanup_end=now+120_000_000_000
+                self.context['deviceCleanupDeadlineNs']=self.device_cleanup_end
+                allowance=min(allowance,(self.device_cleanup_end-now)/1e9)
+                require(allowance>0,'shared device cleanup budget exhausted')
+            before = self.now()
+            diagnostic.update(beforeNs=before,allowanceSeconds=allowance,deadlineNs=before+int(allowance*1_000_000_000))
+            operation='backend'
+            result = getattr(self.backend, name)(self.context, timeout=allowance)
+            after = self.now()
+            require(type(result) is Evidence and type(result.raw) is bytes and 0 < len(result.raw) <= 32 * 1024 * 1024,
+                    'retained stage evidence required: ' + name)
+            # Retain the returned bytes before semantic validation, including failures.
+            self.context['evidence'][name] = result
+            diagnostic.update({'stage': name, 'beforeNs': before, 'afterNs': after,
+                                  'allowanceSeconds': allowance, 'receiptSHA256': sha256(result.raw).hexdigest(),
+                                  'receiptBytes': len(result.raw), 'cleanup': cleanup})
+            self.receipts.append(diagnostic)
+            operation='retain'
+            self.backend.retain(name, result.raw)
+            operation='persist'
+            self._persist()
+            operation='validate-timing'
+            require(type(before) is int and type(after) is int and before <= after and
+                    after - before <= int(allowance * 1_000_000_000), 'stage exceeded retained allowance: ' + name)
+            self._remaining(360, cleanup=cleanup, case_bound=case_bound)
+            operation='validate-stage'
+            self.backend.validate_stage(name, result, self.context)
+            diagnostic['outcome']='returned'
+            return result.value
+        except BaseException as error:
+            # Best-effort diagnostics may never replace the original failure.
+            try:
+                label=getattr(error,'p1_operation',None)
+                if type(label) is not str or re.fullmatch('[a-zA-Z0-9_./-]{1,160}',label) is None:
+                    label=name+'/'+operation
+                kind=type(error).__name__
+                if re.fullmatch('[a-zA-Z0-9_]{1,96}',kind) is None:kind='Exception'
+                diagnostic.update(afterNs=self.now(),outcome='failed',operation=label,errorType=kind)
+                try:error.p1_operation=label
+                except BaseException:pass
+                if not any(row is diagnostic for row in self.receipts):self.receipts.append(diagnostic)
+                self._persist()
+            except BaseException:pass
+            raise
+
+    @staticmethod
+    def _error_summary(stage,error):
+        kind=type(error).__name__
+        if re.fullmatch('[a-zA-Z0-9_]{1,96}',kind) is None:kind='Exception'
+        label=getattr(error,'p1_operation',None)
+        if type(label) is not str or re.fullmatch('[a-zA-Z0-9_./-]{1,160}',label) is None:label=stage
+        return {'stage':stage,'type':kind,'operation':label}
 
     def run(self):
         require(not self.started, 'case is single-use')
@@ -231,7 +267,7 @@ class Case:
         except BaseException as error:
             primary = error
             self.failed = True
-            self.errors.append({'stage': 'case', 'type': type(error).__name__, 'message': str(error)})
+            self.errors.append(self._error_summary('case',error))
         finally:
             # No failure skips a later cleanup action, including receipt-write,
             # setup, termination, and earlier-cleanup failures. Cleanup uses the
@@ -243,7 +279,7 @@ class Case:
                     self._stage(name, CLEANUP_LIMITS[name], cleanup=True, case_bound=False)
                 except BaseException as error:
                     self.failed = True
-                    self.errors.append({'stage': name, 'type': type(error).__name__, 'message': str(error)})
+                    self.errors.append(self._error_summary(name,error))
                     if primary is None:
                         primary = error
             self.completed = primary is None and not self.failed

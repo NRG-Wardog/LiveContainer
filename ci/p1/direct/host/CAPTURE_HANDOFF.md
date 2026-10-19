@@ -104,3 +104,28 @@ intent-bound attempt marker precedes the sole shutdown. Four retained 15-second
 proof operations are reserved after it. Neither collector nor outer backstop may
 repeat that shutdown; fresh Shutdown may permit deletion, without clearing any
 original failure. Product measurement, native method and total deadlines remain.
+
+### Primary failure diagnostics
+
+Each live handoff checkpoint reads `primary-failure.json` separately from the
+successful collection file `window-capture.json`. The exact bytes are retained
+through the immutable evidence path before validation. The error-only schema is
+`p1-direct-primary-failure-v1`: exact session (32 lowercase hexadecimal digits),
+positive UInt64 `observedMach`, bounded lowercase ASCII letter/hyphen
+`errorCode` (1–96 characters), `sinkFailure` null or an exact `code`/positive
+UInt64 `observedMach` object (no later than the primary timestamp), and `admissionEligible: false`. Missing, extra,
+or invalid fields fail closed. Presence of even a valid failure receipt rejects
+handoff and cannot authorize an acknowledgement or imply successful capture.
+The file read is bounded to 4096 bytes. Its later mutation/removal fails the
+existing immutable-evidence checks.
+
+Handoff exceptions retain their original type and carry a bounded
+`p1_operation` label. In particular, `await_first` distinguishes evidence reads,
+`inspect-first`, `verify-immutable`, and `final-checkpoint`. This identifies a
+budget expiry after packed pixels were inspected without changing the deadline.
+The case sequence retains failed-stage entry/exit, configured allowance and
+derived stage deadline (null when failure precedes their establishment), bounded
+exception type, and operation. Diagnostic persistence is best effort after an
+exception and never replaces the original exception. No exception messages are
+copied into these sequence diagnostics. All existing budget, ownership,
+admission, and queue predicates remain prerequisites.

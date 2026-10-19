@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 import math
 import os
+import re
 import stat
 import time
 import uuid
@@ -46,6 +47,23 @@ def exact(value,keys):
 def integer(value,lo=0,hi=2**64-1):
     require(type(value) is int and lo<=value<=hi,'bounded exact native integer')
     return value
+
+
+def primary_failure(raw,session):
+    """Strict error-only diagnostic; its presence never establishes success."""
+    require(type(raw) is bytes and 0<len(raw)<=4096,'bounded exact primary failure bytes')
+    row=exact(parse(raw),('schema','session','observedMach','errorCode','sinkFailure','admissionEligible'))
+    require(row['schema']=='p1-direct-primary-failure-v1' and type(row['session']) is str and
+            re.fullmatch('[0-9a-f]{32}',row['session']) is not None and row['session']==session and
+            row['admissionEligible'] is False,'primary failure identity')
+    integer(row['observedMach'],1)
+    def code(value):
+        require(type(value) is str and re.fullmatch('[a-z-]{1,96}',value) is not None,'bounded primary failure code')
+    code(row['errorCode'])
+    if row['sinkFailure'] is not None:
+        sink=exact(row['sinkFailure'],('code','observedMach'))
+        code(sink['code']);integer(sink['observedMach'],1,row['observedMach'])
+    return row
 
 
 def rectangle(value):
@@ -201,6 +219,7 @@ class CaptureHandoff:
         self.baseline=None;self.binding=None;self.plan=None;self.timebase=None;self.expected_geometry=None
         self.stream_ready_bytes=None;self.first_complete_bytes=None;self.first_packed_bytes=None
         self.receipts={};self.immutable={};self.state='new';self.failed=False;self.capture_instance=uuid.uuid4().hex
+        self.operation='construct';self.operation_stage='construct'
         self.started_ns=time.monotonic_ns()
         self.deadline_ns=min(self.started_ns+120_000_000_000,self.budget['startSample']['hostBeforeNs']+
                              self.budget['effectiveCommandBudgetNs']-80_000_000_000)
@@ -215,12 +234,22 @@ class CaptureHandoff:
         self._retain('capture-geometry-request',geometry_request_bytes)
         self._retain('capture-host-source-map',canonical(self.host_sources));self._retain('capture-bridge-source-map',canonical(self.bridge_sources))
 
+    def _operation(self,label):
+        # All labels are local constants or bounded fixed evidence filenames.
+        self.operation=(self.operation_stage+'/'+label)[:160]
+
+    def _failure(self,error):
+        self.failed=True
+        try:error.p1_operation=self.operation
+        except BaseException:pass
+
     def _retain(self,name,raw):
         require(type(raw) is bytes and len(raw)>0,'immutable retained bytes required')
         if name in self.receipts:require(self.receipts[name]==raw,'retained handoff evidence changed');return
         self.retain_callback(name,raw);self.receipts[name]=raw
 
     def _verify_artifacts(self):
+        self._operation('verify-artifacts')
         require(source_hashes()==self.host_sources and self.bridge.source_hashes()==self.bridge_sources,'handoff source drift')
         require(sha256(read_path(self.compiled.source_path,1024*1024)).hexdigest()==self.compiled.source_sha256 and
                 sha256(read_path(self.compiled.binary_path,128*1024*1024)).hexdigest()==self.compiled.binary_sha256,
@@ -314,13 +343,20 @@ class CaptureHandoff:
         require(self.helper.process.poll() is None and self.gui.process.poll() is None,'owner exited during prerequisite')
         return dict(gui=gui_launch,helper=helper_launch,native=native_launch,device=parse(canonical(fixture['owned_created'])))
 
-    def _checkpoint(self,deadline):
+    def _checkpoint(self,deadline,operation='checkpoint'):
+        self._operation(operation)
         require(not self.failed and time.monotonic_ns()<min(deadline,self.deadline_ns),'capture handoff deadline or prior failure')
         allowance=self.remaining(120);require(type(allowance) in (int,float) and math.isfinite(allowance) and 0<allowance<=120,'bounded remaining case allowance')
         owners=self._owners()
         require(self.stop_channel.read('request.json',8192) is None,'helper stop requested before acknowledgement')
         if self.frames is not None:
             self.frames.check()
+            raw=self._read(self.frames,'primary-failure.json',4096)
+            self._operation(operation+'-primary-failure')
+            if raw is not None:
+                primary_failure(raw,self.session)
+                require(False,'helper primary failure before acknowledgement')
+            self._operation(operation)
             for name in ('stage-timeout.json','window-capture.json'):
                 require(self.frames.read(name,32*1024*1024) is None,'helper ended or reported failure before acknowledgement')
         return owners
@@ -332,12 +368,14 @@ class CaptureHandoff:
         return min(self.deadline_ns,time.monotonic_ns()+int(remaining*1e9))
 
     def _enter(self,expected,state,timeout):
+        self.operation_stage={'registering':'register_baseline','publishing':'publish_roi','awaiting':'await_first','promoting':'promote_first','acknowledging':'publish_ack'}[state];self._operation('enter')
         try:
             require(self.state==expected and not self.failed,'single ordered capture handoff stage: '+expected)
             deadline=self._deadline(timeout);self.state=state;return deadline
-        except BaseException:self.failed=True;raise
+        except BaseException as error:self._failure(error);raise
 
     def _read(self,directory,name,limit=65536):
+        self._operation('read-'+name)
         raw=directory.read(name,limit)
         if raw is None:return None
         key=(str(directory.path),name)
@@ -347,11 +385,13 @@ class CaptureHandoff:
         return raw
 
     def _verify_immutable(self):
+        self._operation('verify-immutable')
         for (_,name),(directory,limit,raw) in self.immutable.items():
             require(directory.read(name,limit)==raw,'retained capture evidence removed or mutated')
         require(self.runner.read('geometry.json',8192)==self.geometry_request_bytes,'runner geometry bytes changed')
 
     def _census(self,raw,phase,expected=None):
+        self._operation('validate-census')
         row=exact(parse(raw),('schema','ownerPID','phase','count','windows','admissionEligible'))
         require(row['schema']=='p1-owned-window-census-v1' and row['ownerPID']==self.gui.process.pid and
                 row['phase']==phase and row['admissionEligible'] is False,'owned window census identity')
@@ -366,6 +406,7 @@ class CaptureHandoff:
         require(found==[expected],'registered window/frame changed');return found[0]
 
     def _resized_window(self,initial,raw,census):
+        self._operation('validate-resize')
         row=parse(raw)
         require(type(row) is dict,'resize object')
         optional=('activationRequestAccepted',) if 'activationRequestAccepted' in row else ()
@@ -426,6 +467,7 @@ class CaptureHandoff:
             require(raw is not None and len(raw)==row['bytes'] and sha256(raw).hexdigest()==row['sha256'],'baseline bytes/hash')
             identity=self.bridge.g.RasterIdentity(self.session,self.gui.process.pid,row['windowID'],width,height,
                                                   self.bridge.exact_rect(self.request['geometry']['windowFrame']))
+            self._operation('freeze-registration')
             self.baseline=self.bridge.freeze_registration(self.geometry_request_bytes,raw,width,height,stride,identity=identity,
                 expected_frame_sha256=row['sha256'],event_files=tuple((f'event-{i:03d}.json',value) for i,value in enumerate(self.journal.raw,1)),
                 expected_source_hashes=self.bridge_sources)
@@ -433,7 +475,7 @@ class CaptureHandoff:
             self._retain('capture-baseline-proof',self.baseline.proof_bytes);self._retain('capture-roi-plan',self.baseline.plan_bytes)
             self._verify_artifacts();self._verify_immutable();require(self._checkpoint(deadline),'helper launch unresolved')
             self.state='registered';return self.baseline.proof_bytes
-        except BaseException:self.failed=True;raise
+        except BaseException as error:self._failure(error);raise
 
     def publish_roi(self,timeout):
         deadline=self._enter('registered','publishing',timeout)
@@ -444,11 +486,12 @@ class CaptureHandoff:
                 except FileNotFoundError:time.sleep(.02)
             require(self.roi_channel.read('request.json') is None,'ROI request already exists')
             self._verify_immutable();require(self._checkpoint(deadline),'helper owner unresolved')
+            self._operation('publish-roi')
             self.roi_channel.publish('request.json',self.baseline.plan_bytes)
             self._read(self.roi_channel,'request.json',8192)
             require(self._checkpoint(deadline),'helper owner unresolved')
             self.state='published';return self.baseline.plan_bytes
-        except BaseException:self.failed=True;raise
+        except BaseException as error:self._failure(error);raise
 
     def await_first(self,timeout):
         deadline=self._enter('published','awaiting',timeout)
@@ -459,8 +502,10 @@ class CaptureHandoff:
                 registered=self._read(self.frames,'window-census-registered.json');accepted=self._read(self.frames,'accepted-roi-plan.json',8192)
                 if all(raw is not None for raw in (ready,first,registered,accepted)):break
                 time.sleep(.02)
+            self._operation('validate-stream-ready')
             require(accepted==self.baseline.plan_bytes,'native accepted plan differs')
             self._census(registered,'registered',self.window_identity)
+            self._operation('validate-stream-ready')
             row=exact(parse(ready),('schema','session','ownerPID','windowID','executable','windowFrame','geometrySHA256',
                       'timebaseNumerator','timebaseDenominator','startCaptureReturnedMach','startCaptureReturned',
                       'presentationLowerBoundEstablished','admissionEligible'))
@@ -474,27 +519,30 @@ class CaptureHandoff:
             require(self.timebase==(self.budget['startSample']['timebaseNumer'],self.budget['startSample']['timebaseDenom']),
                     'native Mach timebase differs from owned budget sample')
             integer(row['startCaptureReturnedMach'],self.budget['startSample']['machTicks'],self.budget['observationDeadlineMach']-1)
+            self._operation('validate-first-manifest')
             manifest=parse(first);index=integer(manifest.get('index'),0,5999)
             packed=self._read(self.frames,f'frame-{index:05d}.rois.bgra',1024*1024)
             require(packed is not None,'first complete packed pixels absent')
+            self._operation('inspect-first')
             self.bridge.packed_frames.inspect_first(manifest,self.plan,timebase=self.timebase,
                 load=lambda name:packed if name==f'frame-{index:05d}.rois.bgra' else None)
             self.stream_ready_bytes=ready;self.first_complete_bytes=first;self.first_packed_bytes=packed
-            self._verify_immutable();require(self._checkpoint(deadline),'helper owner unresolved')
+            self._verify_immutable();require(self._checkpoint(deadline,'final-checkpoint'),'helper owner unresolved')
             self.state='first';return first
-        except BaseException:self.failed=True;raise
+        except BaseException as error:self._failure(error);raise
 
     def promote_first(self,timeout):
         deadline=self._enter('first','promoting',timeout)
         try:
             require(self._checkpoint(deadline),'helper owner unresolved');self._verify_artifacts();self._verify_immutable()
+            self._operation('promote-first')
             self.binding=self.bridge.RegistrationJoin(self.baseline,expected_baseline_proof_sha256=self.baseline.proof_sha256).promote(
                 self.first_complete_bytes,self.first_packed_bytes,expected_manifest_sha256=sha256(self.first_complete_bytes).hexdigest(),timebase=self.timebase)
             metadata=parse(self.binding.proof_bytes)['nativeStreamMetadata']
             self.expected_geometry=(metadata['contentRect'],metadata['contentScale'],metadata['scaleFactor'])
             self._retain('capture-first-binding',self.binding.proof_bytes)
             require(self._checkpoint(deadline),'helper owner unresolved');self.state='promoted';return self.binding.proof_bytes
-        except BaseException:self.failed=True;raise
+        except BaseException as error:self._failure(error);raise
 
     def publish_ack(self,timeout):
         deadline=self._enter('promoted','acknowledging',timeout)
@@ -534,14 +582,16 @@ class CaptureHandoff:
                 captureErrors=[],ownershipErrors=[],admissionEligible=False)
             ack=canonical(dict(schema='p1-direct-baseline-ack-v1',session=self.session,geometryRequestSHA256=proof['geometryRequestSHA256'],
                 captureReadyProof=proof,captureReadyProofSHA256=sha256(canonical(proof)).hexdigest(),admissionEligible=False))
+            self._operation('validate-ack')
             self.bridge.handoff.validate_ack(ack,self.geometry_request_bytes)
             self._retain('capture-ready-proof',canonical(proof));self._retain('capture-ack',ack)
             require(self.runner.read('request.json') is None,'runner acknowledgement already published')
-            self._verify_immutable();require(self._checkpoint(deadline),'live owners lost before ack')
+            self._verify_immutable();require(self._checkpoint(deadline,'final-checkpoint'),'live owners lost before ack')
+            self._operation('publish-ack')
             self.runner.publish('request.json',ack)
             require(self._checkpoint(deadline),'live owners lost at ack publication')
             self.state='acknowledged';return ack
-        except BaseException:self.failed=True;raise
+        except BaseException as error:self._failure(error);raise
 
     def close(self):
         for directory in (self.frames,self.roi_channel,self.stop_channel,self.gui_directory,self.target.parent):

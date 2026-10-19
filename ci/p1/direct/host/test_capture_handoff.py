@@ -683,6 +683,57 @@ class CaptureHandoffTests(unittest.TestCase):
                 with self.assertRaises(ValueError): case.handoff.await_first(.03)
                 self.assert_failed(case)
 
+    def test_primary_failure_while_live_retains_exact_bytes_and_blocks_ack(self):
+        with LocalCase() as case:
+            case.promote()
+            raw=canonical(dict(schema='p1-direct-primary-failure-v1',session=SESSION,
+                observedMach=123,errorCode='stream-failed',sinkFailure=dict(code='sink-failed',observedMach=122),
+                admissionEligible=False))+b'\n'
+            case.write('primary-failure.json',raw)
+            self.assertIsNone(case.helper.process.poll())
+            with self.assertRaisesRegex(ValueError,'primary failure') as caught:case.handoff.publish_ack(1)
+            self.assertEqual(case.retained['capture-primary-failure.json'],raw)
+            self.assertEqual(caught.exception.p1_operation,'publish_ack/checkpoint-primary-failure')
+            self.assert_failed(case)
+            case.write('primary-failure.json',raw+b' ')
+            with self.assertRaisesRegex(ValueError,'removed or mutated'):case.handoff._verify_immutable()
+
+    def test_primary_failure_schema_rejects_invalid_bounded_fields(self):
+        good=dict(schema='p1-direct-primary-failure-v1',session=SESSION,observedMach=1,
+                  errorCode='stream-failed',sinkFailure=None,admissionEligible=False)
+        invalid=[dict(good,**{key:value}) for key,value in (
+            ('schema','wrong'),('session','f'*32),('session',SESSION.upper()),('observedMach',True),
+            ('observedMach',0),('observedMach',2**64),('errorCode','A'),('errorCode','é'),
+            ('errorCode','x'*97),('errorCode',''),('admissionEligible',0),('extra',1),
+            ('sinkFailure',{}),('sinkFailure',dict(code='x',observedMach=False)),
+            ('sinkFailure',dict(code='X',observedMach=1)),('sinkFailure',dict(code='x',observedMach=2))) ]
+        self.assertEqual(handoff.primary_failure(canonical(good),SESSION),good)
+        for raw in (canonical(good).decode(),b'',canonical(good)+b' '*4096):
+            with self.assertRaises(ValueError):handoff.primary_failure(raw,SESSION)
+        # Avoid assuming the fixture session contains alphabetic digits.
+        invalid=[row for row in invalid if row!=good]
+        for row in invalid:
+            with self.subTest(row=row),self.assertRaises(ValueError):handoff.primary_failure(canonical(row),SESSION)
+        with LocalCase() as case:
+            case.baseline_files();raw=case.write('primary-failure.json',dict(good,errorCode='UNBOUNDED'))
+            with self.assertRaises(ValueError):case.handoff.register_baseline(1)
+            self.assertEqual(case.retained['capture-primary-failure.json'],raw)
+            self.assert_failed(case)
+
+    def test_expiry_after_first_pixels_names_final_checkpoint(self):
+        with LocalCase() as case:
+            case.publish();case.first_files()
+            original=case.handoff.bridge.packed_frames.inspect_first
+            def inspect(*args,**kwargs):
+                result=original(*args,**kwargs)
+                case.handoff.deadline_ns=time.monotonic_ns()-1
+                return result
+            with patch.object(case.handoff.bridge.packed_frames,'inspect_first',side_effect=inspect):
+                with self.assertRaisesRegex(ValueError,'deadline') as caught:case.handoff.await_first(2)
+            self.assertEqual(caught.exception.p1_operation,'await_first/final-checkpoint')
+            self.assertIn('capture-frame-00002.rois.bgra',case.retained)
+            self.assert_failed(case)
+
     def test_native_failure_and_budget_exhaustion_latch_failure(self):
         for name in ('stage-timeout.json', 'window-capture.json'):
             with self.subTest(name=name), LocalCase() as case:
