@@ -27,9 +27,9 @@ class AdapterTests(unittest.TestCase):
     def test_final_exact_package_tuples_and_capture_only_baseline_host(self):
         data,blockers=validate_inputs(self.raw,self.host)
         self.assertEqual(blockers,[name+' publication tuple pending' for name in OWNERS if data['owners'][name]['commit'] is None])
-        self.assertEqual(data['owners']['AnisetteKit']['reviewed_tree'],'4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd')
-        self.assertEqual(data['owners']['SideSign']['base'],'a375e72d1ff39319c14d22ab98ddecd46c758783')
-        self.assertEqual(data['owners']['SideSign']['reviewed_tree'],'7cf5311daf9e25cb356f9d63736422111afe740d')
+        self.assertEqual(data['owners']['AnisetteKit']['reviewed_tree'],'9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65')
+        self.assertEqual(data['owners']['SideSign']['base'],'a3617d2eab547665480324034571cf22aa684257')
+        self.assertEqual(data['owners']['SideSign']['reviewed_tree'],parse((HERE/'reviewed/aggregate-source-seal.json').read_bytes())['owners']['SideSign']['tree'])
         self.assertEqual(data['host']['base'],HOST_BASE)
         self.assertEqual(data['host']['tree'],HOST_TREE)
         runner=gate.Gate(data,self.host,Path('/local-only-unused-work'),Path('/local-only-unused-evidence'),None,self.raw)
@@ -180,8 +180,8 @@ class AdapterTests(unittest.TestCase):
         self.assertNotIn('secrets.',text);self.assertNotIn('pull_request',text)
     def test_corrective_parent_and_cumulative_product_overlay_are_distinct(self):
         import inspect
-        self.assertEqual(HOST_BASE,'1f1230372551c4aa0a4f39d93f58be76a8ee163d')
-        self.assertEqual(HOST_TREE,'32ef2a048de23323fae43d8765e119e80379d3cd')
+        self.assertEqual(HOST_BASE,'4df0baa4f92274983a0d750cc5c3a3553600296b')
+        self.assertEqual(HOST_TREE,'3b3ff76bec2d99729a34f4c484e90d624ff9de46')
         self.assertEqual(HOST_PRODUCT_BASE,'545438e1f0a89fdef375f73273c5c9fc2735cbce')
         source=inspect.getsource(gate.Gate.host_proof)
         self.assertIn("==[commit,base]",source)

@@ -1,0 +1,67 @@
+{
+  "build_eligibility": false,
+  "live_provider_or_apple_requests": false,
+  "native_tests_executed": false,
+  "owners": {
+    "AnisetteKit": {
+      "base_commit": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+      "base_tree": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd",
+      "changes": [
+        {
+          "after": {
+            "bytes": 3460,
+            "git_object": "37c8b33c1038c0ea0b86f0375b65b924c155a1b6",
+            "mode": "100644",
+            "sha256": "a7a1d643fc3e8ae46720d29e0752e518088420379c443c3fd19b8cb1eb0da5c8",
+            "type": "blob"
+          },
+          "before": null,
+          "path": ".ci/native-tests/fixtures/fault_aggregate_compatibility.cpp"
+        },
+        {
+          "after": {
+            "bytes": 1725,
+            "git_object": "9fe0346347f88475309b7a938d63366a972b7e19",
+            "mode": "100644",
+            "sha256": "029cfa5d4847cfa691fe19ebbdc7237d09670eaaa48ae2f9b799b89e966c4232",
+            "type": "blob"
+          },
+          "before": null,
+          "path": ".ci/native-tests/test_fault_aggregate_compatibility.py"
+        },
+        {
+          "after": {
+            "bytes": 3639,
+            "git_object": "b49fde26a2c7ed822449487da3632da73da87fc5",
+            "mode": "100644",
+            "sha256": "95e683f69fea4a2723ee748dd71f05bc6ec50bfdce4277e7181948e600e2b39f",
+            "type": "blob"
+          },
+          "before": {
+            "bytes": 3629,
+            "git_object": "57b251f72f4700bc041703cefc34110f0c5feba2",
+            "mode": "100644",
+            "sha256": "0fbe1ac033f2d2dbe7f3c5fbd0cade277f8e7eb51529264dfec3ca75279ba862",
+            "type": "blob"
+          },
+          "path": "Native/Loader/vm_initialization_diagnostics.h"
+        }
+      ],
+      "reviewed_local_commit": "7ebbb4ce0ce5756fe9d7bfe1899aaaa358c8b1e2",
+      "tree": "9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65"
+    },
+    "SideSign": {
+      "base_commit": "a3617d2eab547665480324034571cf22aa684257",
+      "base_tree": "a9d414cd1c28000af90f141ed049424ff27f408c",
+      "changes": [],
+      "reviewed_local_commit": "a3617d2eab547665480324034571cf22aa684257",
+      "tree": "a9d414cd1c28000af90f141ed049424ff27f408c"
+    }
+  },
+  "predecessor_seal_sha256": "b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408",
+  "schema": "p0-fault-aggregate-source-seal-v1",
+  "scope": "Exact reviewed aggregate default-initializer compatibility successor; source-only composition pending fresh Apple capture",
+  "sidesign_pin_review_sha256": "26015e9ebf65521963229e3359751b078007a2c4b97394e40ed27c799e0f49a8",
+  "source_inventory_sha256": "749b33f09976121c6f8ca540f0f135f8fa0f4af52b25c52bfb642ab0b385ef43",
+  "source_review_sha256": "f3a23a7f596aa668b884851c958e56324e1ef5871dc77790461761eab79b99f5"
+}

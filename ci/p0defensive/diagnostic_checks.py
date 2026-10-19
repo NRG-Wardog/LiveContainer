@@ -39,7 +39,7 @@ def native_fixture(owner):
     return adapt_native_fixture(ordinary(owner,'.ci/native-tests/fixtures/bounded_fault_host.cpp').read_text(),owner)
 
 def source_closure(owner):
-    closure=parse(ordinary(HERE,'reviewed/diagnostic-source-inventory.json').read_bytes())
+    closure=parse(ordinary(HERE,'reviewed/aggregate-source-inventory.json').read_bytes())
     actual={}
     for path,row in closure['files'].items():
         p=ordinary(owner,path);raw=p.read_bytes()
@@ -107,7 +107,7 @@ def dispatch_argv(context,label,logical_argv):
 def verify_result(row,expected_context):
     require(set(row)=={'schema','guest_execution','real_engine_linked','proprietary_input','leak_sanitizer_enabled','apple_commoncrypto_validated','swift_boundaries_validated','source_sha256','native_fixture','swift_fixture','command_context','results'},'diagnostic result schema differs')
     require(row['schema']==1 and type(row['schema']) is int,'diagnostic schema differs')
-    inventory=parse(ordinary(HERE,'reviewed/diagnostic-source-inventory.json').read_bytes())
+    inventory=parse(ordinary(HERE,'reviewed/aggregate-source-inventory.json').read_bytes())
     require(row['source_sha256']=={p:r['sha256'] for p,r in inventory['files'].items()},'exact diagnostic runtime source closure differs')
     fixture_root=HERE/'tests/fixtures/diagnostic-source'
     native_path=Path(row['native_fixture']['source_path'])

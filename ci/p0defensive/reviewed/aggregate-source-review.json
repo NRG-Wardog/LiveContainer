@@ -1,0 +1,72 @@
+{
+  "commit": "7ebbb4ce0ce5756fe9d7bfe1899aaaa358c8b1e2",
+  "tree": "9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65",
+  "sole_parent": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+  "changed_files": [
+    {
+      "blob": "37c8b33c1038c0ea0b86f0375b65b924c155a1b6",
+      "bytes": 3460,
+      "mode": "100644",
+      "path": ".ci/native-tests/fixtures/fault_aggregate_compatibility.cpp",
+      "sha256": "a7a1d643fc3e8ae46720d29e0752e518088420379c443c3fd19b8cb1eb0da5c8"
+    },
+    {
+      "blob": "9fe0346347f88475309b7a938d63366a972b7e19",
+      "bytes": 1725,
+      "mode": "100644",
+      "path": ".ci/native-tests/test_fault_aggregate_compatibility.py",
+      "sha256": "029cfa5d4847cfa691fe19ebbdc7237d09670eaaa48ae2f9b799b89e966c4232"
+    },
+    {
+      "blob": "b49fde26a2c7ed822449487da3632da73da87fc5",
+      "bytes": 3639,
+      "mode": "100644",
+      "path": "Native/Loader/vm_initialization_diagnostics.h",
+      "sha256": "95e683f69fea4a2723ee748dd71f05bc6ec50bfdce4277e7181948e600e2b39f"
+    }
+  ],
+  "patch_sha256": "625fa6e9736551c2d53c72addb7f5bd91c0e6bd9c9a185b7fc877147f8e01ad7",
+  "all_tracked_files_verified": 67,
+  "working_tree_clean": true,
+  "all_safe_host_checks_pass": true,
+  "old_owner_fixture": "/workspace/scratch/84418b38653d/p0-defensive-diagnostic-resolved-cascade/SideStore/tests/init_diagnostics/native_fixture.cpp",
+  "old_owner_fixture_sha256": "b1dfcd27822ee7e4ec9c203b956b25d8fdd8ed6afe961ad12547ffe4244187a0",
+  "old_owner_output_lines": 21,
+  "old_owner_output_identical_to_parent": true,
+  "main_driver_test_methods": 9,
+  "standalone_test_discovered_by_main_driver": false,
+  "apple_compile_run": false,
+  "loader_engine_guest_network_used": false,
+  "schema": "fault-aggregate-independent-review-v1",
+  "verdict": "PASS_SOURCE_CORRECTION_WITH_REQUIRED_CAPTURE_INTEGRATION",
+  "scope": "LOCAL_HEADER_ONLY_GCC_SOURCE_REVIEW_NOT_APPLE_FAILURE_CONFIRMATION",
+  "production_files_modified_by_reviewer": false,
+  "published_by_reviewer": false,
+  "blocking_source_findings": [],
+  "integration_requirements": {
+    "observed_adapter_root": "/workspace/scratch/84418b38653d/p0-defensive-diagnostic-phase-a-swift-split/ci/p0defensive",
+    "observed_reference_sha256": {
+      "reviewed/diagnostic-source-inventory.json": "7f8ae5ca1cdf06e5b5ee6ebb7e808fadafd6f23294d0768b9fa0b3d34f5cac23",
+      "reviewed/defensive-source-seal.json": "b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408",
+      "diagnostic_checks.py": "6eb52cc4899326d4246ffc5d7bac18693d18a3ee036dfadbefa8ea2be59e0d85",
+      "run_host_test.py": "8b4812ec412d68605be7d05155a64de9124de63d5445f545c4764da0b08190ab",
+      "host_tests.py": "e49346a86246ecfc63f94c0b12e36461b8a62891b1449f34878f1573768372f2",
+      "prepare_inputs.py": "5cd423c788cfa4aff0971b58e85cbdd3f974813ed15c2693122e62b1be825950",
+      "inputs-phase-a.json": "1f129661ec646e3a7781bbca795603fe908d2ab72ecfd0d06affead097f8c62c"
+    },
+    "old_inventory_files": 65,
+    "candidate_inventory_files": 67,
+    "added_paths": [
+      ".ci/native-tests/fixtures/fault_aggregate_compatibility.cpp",
+      ".ci/native-tests/test_fault_aggregate_compatibility.py"
+    ],
+    "removed_paths": [],
+    "changed_paths": [
+      "Native/Loader/vm_initialization_diagnostics.h"
+    ],
+    "unchanged_main_driver_tests": 9,
+    "current_finite_host_suites": 5,
+    "required_integration": "Explicitly invoke the standalone exact compatibility unittest, retain both nested C++17 compile/run variants and bind their receipts to the new source seal before admission. If integrated as an additional member of the same finite host-suite list, update 5 to 6 and the corresponding allowlists, parsers, counts and tests. Do not increment the unchanged main driver from 9 to 10 or rewrite historical receipts."
+  },
+  "review_sha256": "eee2f144168ada3ddd2be733eb946e22227e0a5aeeb71fa4465e3300c0e1725f"
+}

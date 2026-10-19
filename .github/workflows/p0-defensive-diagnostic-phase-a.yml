@@ -1,8 +1,8 @@
-name: P0 defensive A+B plus bounded diagnostic Phase A capture
+name: P0 aggregate compatibility Phase A capture
 on:
   push:
     branches:
-      - validation/p0-defensive-diagnostic-phase-a-swift-split
+      - validation/p0-fault-aggregate-phase-a
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,13 +12,13 @@ concurrency:
   cancel-in-progress: false
 jobs:
   capture:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-defensive-diagnostic-phase-a-swift-split'
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p0-fault-aggregate-phase-a'
     runs-on: macos-26
     timeout-minutes: 150
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       # Replace only after independent adapter/input/workflow review; this is not approval.
-      APPROVED_P0DEFENSIVE_INPUTS_SHA256: 1f129661ec646e3a7781bbca795603fe908d2ab72ecfd0d06affead097f8c62c
+      APPROVED_P0DEFENSIVE_INPUTS_SHA256: e42503cf9f6021ed424e63315d39940513d66b9878337d488d905509fadd1117
       PYTHONDONTWRITEBYTECODE: '1'
       GIT_TERMINAL_PROMPT: '0'
       GIT_CONFIG_NOSYSTEM: '1'

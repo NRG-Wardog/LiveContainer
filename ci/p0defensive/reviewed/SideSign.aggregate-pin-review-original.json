@@ -1,0 +1,23 @@
+{
+  "schema": "independent-source-pin-review-v1",
+  "cleared": true,
+  "commit": "cfef451fd806ca2e8202fc1564cdd270ca6fc161",
+  "tree": "aedb16da10e4a334136c033618a09a5b746f4eb7",
+  "parent": "a3617d2eab547665480324034571cf22aa684257",
+  "paths": [
+    "Package.swift"
+  ],
+  "package_sha256": "242b8d03bb14d66457e8715bfbda75b8b5b3a630be6dc5040e10701bb659afb7",
+  "blob": "60f2bdc901563546f75f98db3e9bef72fdb6181d",
+  "lock_sha256": "834a2bdd30ceaa2fcbcd5c4826d6fd291ab5651692c99e39348e47da29e3deb9",
+  "payload_sha256": "a34901478b5bbf5903dd9493dc5def448f57fdb9a85b1d7eb725f42bf18c50d0",
+  "scope": "one-line source pin only",
+  "published_dependency": {
+    "commit": "56f9aab3b2726821ed460e770c531e72a8233b8b",
+    "tree": "9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65",
+    "parent": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8"
+  },
+  "lock_unchanged": true,
+  "resolver_capture_complete": false,
+  "native_execution": false
+}

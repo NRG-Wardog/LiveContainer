@@ -2,17 +2,17 @@
 import hashlib, json, os, re
 from pathlib import Path
 from source_primitives import git, entries, require, unique_pairs
-BASIS='defensive-diagnostic-phase-a-swift-split-v1'
+BASIS='fault-aggregate-phase-a-v1'
 OWNERS=('AnisetteKit','SideSign')
-SEAL_SHA='b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408'
+SEAL_SHA='9b6e9975a1fa9d7914f49d738064421049eb4b97f01416693a11b31b54b1bafc'
 WORKFLOW_PATH='.github/workflows/p0-defensive-diagnostic-phase-a.yml'
-BRANCH='validation/p0-defensive-diagnostic-phase-a-swift-split'
-HOST_BASE='1f1230372551c4aa0a4f39d93f58be76a8ee163d'
+BRANCH='validation/p0-fault-aggregate-phase-a'
+HOST_BASE='4df0baa4f92274983a0d750cc5c3a3553600296b'
 HOST_PRODUCT_BASE='545438e1f0a89fdef375f73273c5c9fc2735cbce'
 HOST_PRODUCT_TREE='e8014dd771c25c4a05dc76ab0aa304a233642a83'
-HOST_TREE='32ef2a048de23323fae43d8765e119e80379d3cd'
+HOST_TREE='3b3ff76bec2d99729a34f4c484e90d624ff9de46'
 BUILD_WORKFLOW_PATH='.github/workflows/build.yml'
-BUILD_GUARD="    if: github.ref != 'refs/heads/validation/p0-defensive-diagnostic-phase-a-swift-split'\n"
+BUILD_GUARD="    if: github.ref != 'refs/heads/validation/p0-fault-aggregate-phase-a'\n"
 TOOLCHAIN={'developer_dir':'/Applications/Xcode_26.4.1.app/Contents/Developer','architecture':'arm64','xcode':'Xcode 26.4.1\nBuild version 17E202','swift_stdout':'Apple Swift version 6.3.1 (swiftlang-6.3.1.1.2 clang-2100.0.123.102)\nTarget: arm64-apple-macosx26.0\n','swift_stderr':'swift-driver version: 1.148.6 ','clang':'Apple clang version 21.0.0 (clang-2100.0.123.102)'}
 
 def sha(raw):return hashlib.sha256(raw).hexdigest()
@@ -51,8 +51,13 @@ def validate_inputs(raw,host,approved=None,execute=False):
     data=parse(raw);here=host/'ci/p0defensive'
     require(set(data)=={'schema','basis','phase','source_seal_sha256','owners','host','adapter_files','workflow_template_sha256','toolchain','test_source_audit','artifacts','command_counts','retention_bounds'},'unexpected input schema')
     require(type(data['schema']) is int and data['schema']==1 and data['basis']==BASIS and data['phase']=='phase-a','wrong capture scope')
-    seal_raw=ordinary(here,'reviewed/defensive-source-seal.json').read_bytes()
+    seal_raw=ordinary(here,'reviewed/aggregate-source-seal.json').read_bytes()
     require(sha(seal_raw)==data['source_seal_sha256']==SEAL_SHA,'source seal changed')
+    successor=parse(seal_raw)
+    require(successor['predecessor_seal_sha256']==sha(ordinary(here,'reviewed/defensive-source-seal.json').read_bytes()),'historical source seal changed')
+    require(successor['source_inventory_sha256']==sha(ordinary(here,'reviewed/aggregate-source-inventory.json').read_bytes()),'aggregate source inventory changed')
+    require(successor['source_review_sha256']==sha(ordinary(here,'reviewed/aggregate-source-review.json').read_bytes()),'aggregate source review changed')
+    require(successor['sidesign_pin_review_sha256']==sha(ordinary(here,'reviewed/SideSign.aggregate-pin-review-original.json').read_bytes()),'SideSign source pin review changed')
     require(data['toolchain']==TOOLCHAIN,'toolchain changed')
     actual={str(p.relative_to(host)):sha(p.read_bytes()) for p in (host/'ci/p0defensive').rglob('*') if p.is_file() and not p.is_symlink() and p.name!='inputs-phase-a.json' and '__pycache__' not in p.parts}
     require(actual==data['adapter_files'],'exact adapter inventory changed')
@@ -60,7 +65,7 @@ def validate_inputs(raw,host,approved=None,execute=False):
     require(sha(template)==data['workflow_template_sha256'],'workflow template changed')
     proposal=parse(ordinary(here,'reviewed/inventory.proposed.json').read_bytes())
     require(data['test_source_audit']==proposal['swift_files'],'test-source audit changed')
-    require(data['command_counts']=={'owner_acquisition':8,'package_resolve':4,'package_build':2,'test_discovery':2,'filtered_test_execution':2,'selected_tests':11,'synthetic_host_suites':5},'finite command counts changed')
+    require(data['command_counts']=={'owner_acquisition':8,'package_resolve':4,'package_build':2,'test_discovery':2,'filtered_test_execution':2,'selected_tests':11,'synthetic_host_suites':6},'finite command counts changed')
     from retention import BOUNDS
     require(data['retention_bounds']==BOUNDS,'raw retention bounds changed')
     seal=parse(seal_raw)['owners'];require(set(data['owners'])==set(OWNERS),'two actual packages required')
@@ -71,20 +76,32 @@ def validate_inputs(raw,host,approved=None,execute=False):
         require(set(row)=={'repository','commit','tree','parents','base','reviewed_tree','manifest_delta'},'owner schema changed')
         require(row['repository']=='https://github.com/NRG-Wardog/'+name+'.git','wrong repository')
         require(row['base']==seal[name]['base_commit'] and row['reviewed_tree']==seal[name]['tree'],'reviewed source anchor changed')
-        if row['commit'] is None:blockers.append(name+' publication tuple pending');continue
+        if row['commit'] is None:
+            require(row['parents'] is None,'pending publication cannot claim reviewed parents')
+            blockers.append(name+' publication tuple pending');continue
         for key in ('commit','tree','base'):full_sha(row[key])
         require(row['parents']==[row['base']],'published source must be sole-parent reviewed-base child')
-        receipt=parse(ordinary(here,'reviewed/'+name+'.connector-publication-receipt.json').read_bytes())
+        receipt=parse(ordinary(here,'reviewed/'+name+'.aggregate-publication-receipt.json').read_bytes())
         observed=receipt['readback']['commit'];ref=receipt['readback']['ref'];tree=receipt['readback']['tree']
         require(observed['sha']==row['commit'] and observed['tree']['sha']==row['tree'] and [p['sha'] for p in observed['parents']]==row['parents'],'published owner readback tuple differs')
         require(ref['object']['sha']==row['commit'] and tree['sha']==row['tree'] and tree['truncated'] is False,'published owner ref/tree readback differs')
-        if name=='AnisetteKit':require(row['tree']==row['reviewed_tree'] and row['manifest_delta'] is None,'AK publication not tree-equivalent')
+        require(ref['ref']=='refs/heads/validation/p0-fault-aggregate-20261019','published owner branch changed')
+        if name=='AnisetteKit':
+            require(row['tree']==row['reviewed_tree'] and row['manifest_delta'] is None,'AK publication not tree-equivalent')
+            closure=parse(ordinary(here,'reviewed/aggregate-source-inventory.json').read_bytes())
+            listed={r['path']:(r['mode'],r['type'],r['sha']) for r in tree['tree'] if r['type']!='tree'}
+            require(len(closure['files'])==67 and listed=={p:(r['mode'],r['type'],r['git_object']) for p,r in closure['files'].items()},'AK full published source inventory differs')
         else:
-            manifest_review=parse(ordinary(here,'reviewed/SideSign.manifest-pin-review.json').read_bytes())
+            manifest_review=parse(ordinary(here,'reviewed/SideSign.aggregate-manifest-pin-review.json').read_bytes())
             require(row['tree']==manifest_review['published_reconstruction_required_tree'] and row['base']==manifest_review['published_reconstruction_required_sole_parent'],'SideSign manifest-review tree/parent mismatch')
             delta=row['manifest_delta'];require(set(delta)=={'before_sha256','after_sha256','old_ak','new_ak'},'manifest delta schema')
             require(delta['before_sha256']==manifest_review['before_manifest_sha256'] and delta['after_sha256']==manifest_review['after_manifest_sha256'],'SideSign reviewed manifest bytes mismatch')
             require(delta['old_ak']==seal['AnisetteKit']['base_commit'] and delta['new_ak']==data['owners']['AnisetteKit']['commit'],'manifest revision relation changed')
+            parent_tree=receipt['readback']['parent_tree']
+            require(parent_tree['sha']==seal[name]['base_tree'] and parent_tree['truncated'] is False,'SideSign parent tree readback differs')
+            old={r['path']:(r['mode'],r['type'],r['sha']) for r in parent_tree['tree'] if r['type']!='tree'}
+            new={r['path']:(r['mode'],r['type'],r['sha']) for r in tree['tree'] if r['type']!='tree'}
+            require(old.keys()==new.keys() and [p for p in old if old[p]!=new[p]]==['Package.swift'],'SideSign publication is not manifest-only')
     require(data['artifacts']==parse(ordinary(here,'reviewed/artifacts.json').read_bytes()),'binary artifact allowlist changed')
     if data['host'] is None:blockers.append('capture host parent and ordinary build guard pending')
     else:

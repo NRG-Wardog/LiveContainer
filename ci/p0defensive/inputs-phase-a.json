@@ -1,30 +1,46 @@
 {
   "adapter_files": {
-    "ci/p0defensive/README.md": "81af8fa15201caa6ba43ba77d7b838f37693aa178582beeadf9ab00cc302cf6c",
-    "ci/p0defensive/TEST_DISCOVERY_AUDIT.md": "cc64d08035123f84b321c6bdaa99d9a23a8fc9606ec102c743ba83663073b216",
+    "ci/p0defensive/README.md": "b96fd8a423848796024182aa99bb8d058d2478823976708de760ff0e7c63650e",
+    "ci/p0defensive/TEST_DISCOVERY_AUDIT.md": "80b33fc0324694c3b8d0e60d57c2b334642457a78eb5c7f8b018ca6f1ec25564",
+    "ci/p0defensive/aggregate_checks.py": "3c1953f32b05a5852a65d8ed4a61c472fc64366211e2af923691e02a2688ad1e",
     "ci/p0defensive/capture_contract.py": "fef52bc283b5ab38f4e77a6ec90e02a393c4daa0fdf23a6995f910068188d8ae",
-    "ci/p0defensive/diagnostic_checks.py": "6eb52cc4899326d4246ffc5d7bac18693d18a3ee036dfadbefa8ea2be59e0d85",
+    "ci/p0defensive/diagnostic_checks.py": "0775db8ea33e293228133b528b7912b137498683438189537cce32aef07ff3b3",
     "ci/p0defensive/failure_summary.py": "cdfdbbca62818213f487cdca9af11ffb7ab6165772c4735e1edcc63acb5232bf",
     "ci/p0defensive/fixtures/diagnostic-boundary.swift": "33a7217e1617637a31b1afddd0371a3730dec790f0e7e48585f437fe4baf0ca6",
-    "ci/p0defensive/host_tests.py": "e49346a86246ecfc63f94c0b12e36461b8a62891b1449f34878f1573768372f2",
-    "ci/p0defensive/inventory.py": "c8847d580e137a3ef69e1dee7dedb6c1ad866df8ad08ae60c1a606e0c324d6d7",
+    "ci/p0defensive/host_tests.py": "b7f85d75698046d0b77398f19e2ad37405366d5f72cbc41cb904c5cfaf3d904d",
+    "ci/p0defensive/inventory.py": "c855e768e8707b7902a3a136babcb9c4186bf440620bb3b62b574ccd09b389c5",
     "ci/p0defensive/lifecycle.py": "b4bd301d9d1b96f8792668b05efe9d89f2e421a0c71baef2592ba6c4aa38e9e4",
-    "ci/p0defensive/native_gate.py": "4562d9ff3b035877d306038f971c8ee4e15df1c278c2ac0e1c38c81c2d586003",
+    "ci/p0defensive/native_gate.py": "a34dc0dbb3a45dedab1735a3e5d2b337e5f5e6ab4f3ffa7a97c33b33041d2940",
     "ci/p0defensive/observe_host_subprocess.py": "8f7b3ca0f188816902407d5da81189f9c8e3c4b0e1c470070dc19ecb6389757c",
-    "ci/p0defensive/prepare_inputs.py": "5cd423c788cfa4aff0971b58e85cbdd3f974813ed15c2693122e62b1be825950",
-    "ci/p0defensive/publication.json": "055dcd21c9b56654ea926f5b600a70b48677aec727c777c219764af480682c22",
+    "ci/p0defensive/prepare_inputs.py": "febc07f689e9d463cf332cb6f758080935ab50a9ea6e2d4ec8cfdbb80d672bc7",
+    "ci/p0defensive/publication.json": "d235bf040c0eaeb52eb750180222abd4aebbfc5e28c6967c2329b45feb599af0",
     "ci/p0defensive/retention.py": "dbaad35789c7d3048d70ef070585f1bc5aced4698b0980bff384b57a0b767b8e",
+    "ci/p0defensive/reviewed/AnisetteKit.aggregate-publication-original.json": "5ebad8e5d6679812f8b55463b8d806119611f7196d8dc9543e8b9a869161f5bc",
+    "ci/p0defensive/reviewed/AnisetteKit.aggregate-publication-receipt.json": "b461576ef9bc90e10d25907a2c5a94e57c66f7dff1ac72d2f14dccbd75ea3a58",
     "ci/p0defensive/reviewed/AnisetteKit.connector-publication-receipt.json": "78d06a6c03c98c16f94d3658f49c57440a98251aeb0d64d7c8d58937ac354cfa",
     "ci/p0defensive/reviewed/AnisetteKit.diagnostic-publication-original.json": "1667e3e2799eaaeac095ab6f5052d8150413ba0c05ae7e2961799174723da11d",
     "ci/p0defensive/reviewed/AnisetteKit.final-manifest.json": "00bf6599019e720b06f936b6530f1b710e0c397e5111ca362189a31b686bf026",
     "ci/p0defensive/reviewed/AnisetteKit.independent-a-review.json": "7a8d23784a2ceb553a31b0a508a8c980e79bbc694d6b6e5a68f95c00bce25777",
     "ci/p0defensive/reviewed/AnisetteKit.independent-ab-review.json": "39cc91554f5599d2fa72bdca5dc820bebb1a6e0ac4feacf7f75ff1314581f486",
     "ci/p0defensive/reviewed/AnisetteKit.tree-api.exact-body.json": "eb272e0fd1f677e5eb450be500b08dcbc1c00b30487e1710192c3a5de5e0a786",
+    "ci/p0defensive/reviewed/SideSign.aggregate-manifest-pin-review.json": "98fa4aaf190d9bbbbf43b1e1dc73b2b340e2532f4b09266eed9e285482d6ccd2",
+    "ci/p0defensive/reviewed/SideSign.aggregate-pin-review-original.json": "26015e9ebf65521963229e3359751b078007a2c4b97394e40ed27c799e0f49a8",
+    "ci/p0defensive/reviewed/SideSign.aggregate-publication-receipt.json": "83cd29387da85694c0f3c87ed02efa226d9a1e9cd2b78a6c74f1e8b27cd1ad22",
     "ci/p0defensive/reviewed/SideSign.connector-publication-receipt.json": "9b6cea80ee569b25d3397ac2dc9dfbdd2e05fa79e2d68f5988bd0a8c95096fdf",
     "ci/p0defensive/reviewed/SideSign.diagnostic-pin-review-original.json": "a7b19c11beae5059303576c336861b18b367a4e73624db7993398964cd1bef42",
     "ci/p0defensive/reviewed/SideSign.diagnostic-publication-original.json": "d42063028b56bbc9c03496ad09d131068560c1dc5c1df5efdc0f3cf083cb84b5",
     "ci/p0defensive/reviewed/SideSign.manifest-pin-review.json": "eee5021393e4262237748bd0e8076b6956f07c2bc2fadfbd0074a95d693f4f5b",
     "ci/p0defensive/reviewed/SideSign.tree-api.exact-body.json": "9efa3c76b8c50baf59ee84e4abb65001c9a5535c9a1b9aece2a9a723dedb9da5",
+    "ci/p0defensive/reviewed/aggregate-anisettekit-tree-api.json": "bfc02bae192c0aeaedba0dee82ae74cec302307024d13b6fa12fbe7b02a86f28",
+    "ci/p0defensive/reviewed/aggregate-sidesign-commit-api.json": "6a1b858f91cd4d9d453d12248cef33907731eeeaf88e582d7836b929890bdf75",
+    "ci/p0defensive/reviewed/aggregate-sidesign-connector-publication-receipt.json": "bd92f11621240da5576edea23520dc53ed4f1c3f00762e7056f923d84fc70489",
+    "ci/p0defensive/reviewed/aggregate-sidesign-parent-api.json": "b17e34d238e7e4850e6b73934d01a227a67928d923bb34085f3c65aa605bed79",
+    "ci/p0defensive/reviewed/aggregate-sidesign-parent-tree-api.json": "a00ffc21fd2f262720ad1b75d3074f32342f57cb0e06ecbb6f3c310df7b3a325",
+    "ci/p0defensive/reviewed/aggregate-sidesign-ref-api.json": "8a338c320c04cfc0eacd5dcf86bad37578190e5a299893950739fb16ff3b67fb",
+    "ci/p0defensive/reviewed/aggregate-sidesign-tree-api.json": "ea63fdb8455dde1ed8a1e09df109afa58e0e0bdb254116d816ed69703fd70923",
+    "ci/p0defensive/reviewed/aggregate-source-inventory.json": "749b33f09976121c6f8ca540f0f135f8fa0f4af52b25c52bfb642ab0b385ef43",
+    "ci/p0defensive/reviewed/aggregate-source-review.json": "f3a23a7f596aa668b884851c958e56324e1ef5871dc77790461761eab79b99f5",
+    "ci/p0defensive/reviewed/aggregate-source-seal.json": "9b6e9975a1fa9d7914f49d738064421049eb4b97f01416693a11b31b54b1bafc",
     "ci/p0defensive/reviewed/artifacts.json": "9a67f9876d14f10673725e31ca1f62f3b6c2179182a6d8bdc2662db21668c1e6",
     "ci/p0defensive/reviewed/capture-host-build.before.yml": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4",
     "ci/p0defensive/reviewed/defensive-source-seal.json": "b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408",
@@ -36,7 +52,7 @@
     "ci/p0defensive/reviewed/prior-lifecycle.py": "f40dee619ffad65bb102071774a1d677dda7a8343f284713701d1adc9d258b8f",
     "ci/p0defensive/reviewed/prior-source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
     "ci/p0defensive/run_diagnostic_checks.py": "3abd372d6411e99b69e3eed80f431cf313da06ecada84705e1dfaf985162aefb",
-    "ci/p0defensive/run_host_test.py": "8b4812ec412d68605be7d05155a64de9124de63d5445f545c4764da0b08190ab",
+    "ci/p0defensive/run_host_test.py": "3937a33ea2d4a9699b4c731fc51373092f183b372133094a65e2e1b1516e2fa7",
     "ci/p0defensive/source_primitives.py": "78f20236c15632044c0acc6375e97d5085a668d6fbad08f1bdb300c4dd5d39b2",
     "ci/p0defensive/tests/fixtures/AnisetteKit/Tests/AnisetteKitTests/AnisetteKitTests.swift": "3a3b13ad711b4e4bb8e5b552f4ccc4b06bafd5b29455cd05e4d5e6b09feb0561",
     "ci/p0defensive/tests/fixtures/AnisetteKit/Tests/AnisetteKitTests/LoginDiagnosticTraceTests.swift": "0a04f3657123356af34ad0c51a50291b1d494dd50376478684aa066996790bbf",
@@ -53,11 +69,12 @@
     "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.provenance.json": "fbd957ccd33057b4868c56cccd1126317c515abb40b8197af57f9c7ee452c9a0",
     "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "ci/p0defensive/tests/fixtures/historical-login-only/interleaved-xctest.stdout.txt": "7a26d61f19c730e3a4560475bda866fc41a7c26eff06934db6f476fd2698938e",
-    "ci/p0defensive/tests/test_adapter.py": "b46d784f8d5c8666a6e69f2492dc29037673a84bde4776704ec9a1aa51432dab",
+    "ci/p0defensive/tests/test_adapter.py": "1f0539b32d9d44ab1e1206839067c4dccaf6bddd8de7287311401dfd48fdcabf",
+    "ci/p0defensive/tests/test_aggregate_checks.py": "aef73bc0963e9e4d6658f000c33651fa7b00c754f381a4ebe1b0a1c83354085a",
     "ci/p0defensive/tests/test_capture_contract.py": "fbae054e377ecf2a3fa4cbdd1c1086d2e88290a6352daf53508a9752bb42c624",
-    "ci/p0defensive/tests/test_diagnostic_checks.py": "99db3abaf22ba4b39c05ac48ca202b1c15e56512f1d8178b9086a3bc7a49c2f6",
+    "ci/p0defensive/tests/test_diagnostic_checks.py": "4a2ff323c5b3d4bdbf00463cfb7733dcb16f5dcee09c009ae8f8ba970ab4b472",
     "ci/p0defensive/tests/test_failure_summary.py": "32a7d52488ab0efa881cdaf397688eb8b7af1268b6cb17e0fa847a7c7d7fce91",
-    "ci/p0defensive/tests/test_host_tests.py": "a58bebb3f5c6ed15343cc71e31b27c578cb72e0c0faa97ff6822e0792dc6c22c",
+    "ci/p0defensive/tests/test_host_tests.py": "093f478785a654e5e9d70b2fc2958a04589f54643ffc19a207ce630a43811aea",
     "ci/p0defensive/tests/test_lifecycle.py": "886236cdc0e7158b1be29f52db414091245016d13cac16d5a4fc96cc1f16f1d6",
     "ci/p0defensive/tests/test_retention.py": "ef915c8bafa14a3d4f849b86938608beec6ad3c919ab28029f28f0e0c7bf6e28"
   },
@@ -84,50 +101,50 @@
       "url": "https://github.com/krzyzanowskim/OpenSSL/releases/download/3.6.2000/OpenSSL.xcframework.zip#GSACryptoKit"
     }
   ],
-  "basis": "defensive-diagnostic-phase-a-swift-split-v1",
+  "basis": "fault-aggregate-phase-a-v1",
   "command_counts": {
     "filtered_test_execution": 2,
     "owner_acquisition": 8,
     "package_build": 2,
     "package_resolve": 4,
     "selected_tests": 11,
-    "synthetic_host_suites": 5,
+    "synthetic_host_suites": 6,
     "test_discovery": 2
   },
   "host": {
-    "base": "1f1230372551c4aa0a4f39d93f58be76a8ee163d",
-    "ordinary_build_after_sha256": "bae7606e2d16297992e58674be209f9e31cac18cac71fb221636f739c08c3194",
+    "base": "4df0baa4f92274983a0d750cc5c3a3553600296b",
+    "ordinary_build_after_sha256": "8870622f8e16b5530e761f4331863c356e2b19c9aa69a5ca11f4de5d625bafc9",
     "ordinary_build_before_sha256": "794d75f941bb6e7ca430a7c0ca05d6899f05ec65786cd81142a459974c62acb4",
     "repository": "https://github.com/NRG-Wardog/LiveContainer.git",
-    "tree": "32ef2a048de23323fae43d8765e119e80379d3cd"
+    "tree": "3b3ff76bec2d99729a34f4c484e90d624ff9de46"
   },
   "owners": {
     "AnisetteKit": {
-      "base": "e72d04b84123823c93e9162daffa73b7afcfd2c9",
-      "commit": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+      "base": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+      "commit": "56f9aab3b2726821ed460e770c531e72a8233b8b",
       "manifest_delta": null,
       "parents": [
-        "e72d04b84123823c93e9162daffa73b7afcfd2c9"
+        "227dfd8c8456cd62e4ceff4971b17afb2003d7e8"
       ],
       "repository": "https://github.com/NRG-Wardog/AnisetteKit.git",
-      "reviewed_tree": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd",
-      "tree": "4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd"
+      "reviewed_tree": "9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65",
+      "tree": "9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65"
     },
     "SideSign": {
-      "base": "a375e72d1ff39319c14d22ab98ddecd46c758783",
-      "commit": "b28fb0b72937849d4428e9ae313209b606f859b4",
+      "base": "a3617d2eab547665480324034571cf22aa684257",
+      "commit": "e296f830780226e9ff27b84ad66bba114f71dafc",
       "manifest_delta": {
-        "after_sha256": "fb91426412f07b968131f2511bdd297874c418729466b2952a6e49d2313aa5a1",
-        "before_sha256": "42ff907b9d8600a9b2775bff06d53e5354361840bff975869c81c4360abf4fa3",
-        "new_ak": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
-        "old_ak": "e72d04b84123823c93e9162daffa73b7afcfd2c9"
+        "after_sha256": "242b8d03bb14d66457e8715bfbda75b8b5b3a630be6dc5040e10701bb659afb7",
+        "before_sha256": "fb91426412f07b968131f2511bdd297874c418729466b2952a6e49d2313aa5a1",
+        "new_ak": "56f9aab3b2726821ed460e770c531e72a8233b8b",
+        "old_ak": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8"
       },
       "parents": [
-        "a375e72d1ff39319c14d22ab98ddecd46c758783"
+        "a3617d2eab547665480324034571cf22aa684257"
       ],
       "repository": "https://github.com/NRG-Wardog/SideSign.git",
-      "reviewed_tree": "7cf5311daf9e25cb356f9d63736422111afe740d",
-      "tree": "6ecab37d6f7d73763f50cc1f09ff1f93bd4ab9ee"
+      "reviewed_tree": "a9d414cd1c28000af90f141ed049424ff27f408c",
+      "tree": "aedb16da10e4a334136c033618a09a5b746f4eb7"
     }
   },
   "phase": "phase-a",
@@ -142,7 +159,7 @@
     "total_bytes": 8589934592
   },
   "schema": 1,
-  "source_seal_sha256": "b06b91071de39e6cbd78172f06a4e398ed84d06177f913d2cd09c04282841408",
+  "source_seal_sha256": "9b6e9975a1fa9d7914f49d738064421049eb4b97f01416693a11b31b54b1bafc",
   "test_source_audit": {
     "AnisetteKit": {
       "Tests/AnisetteKitTests/AnisetteKitTests.swift": {
@@ -190,5 +207,5 @@
     "swift_stdout": "Apple Swift version 6.3.1 (swiftlang-6.3.1.1.2 clang-2100.0.123.102)\nTarget: arm64-apple-macosx26.0\n",
     "xcode": "Xcode 26.4.1\nBuild version 17E202"
   },
-  "workflow_template_sha256": "7c19a352622367a74e5c8b33528dc9b7bef0e0588c1f9078eda48bf4897a1cb5"
+  "workflow_template_sha256": "4e9e1bd29cab07416f75cfa3cd2ef9c3ddbefac454d04739eaf77c65e7c6b2b6"
 }

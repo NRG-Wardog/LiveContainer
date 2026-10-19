@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    if: github.ref != 'refs/heads/validation/p0-defensive-diagnostic-phase-a-swift-split'
+    if: github.ref != 'refs/heads/validation/p0-fault-aggregate-phase-a'
     name: Build using xcodebuild command
     runs-on: macos-latest
     env:

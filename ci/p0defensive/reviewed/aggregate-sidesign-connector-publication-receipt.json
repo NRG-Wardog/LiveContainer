@@ -1,0 +1,25 @@
+{
+  "schema": "reviewed-sidesign-aggregate-pin-publication-v1",
+  "repo": "NRG-Wardog/SideSign",
+  "branch": "validation/p0-fault-aggregate-20261019",
+  "commit": "e296f830780226e9ff27b84ad66bba114f71dafc",
+  "tree": "aedb16da10e4a334136c033618a09a5b746f4eb7",
+  "parent": "a3617d2eab547665480324034571cf22aa684257",
+  "parent_tree": "a9d414cd1c28000af90f141ed049424ff27f408c",
+  "old_manifest_sha256": "fb91426412f07b968131f2511bdd297874c418729466b2952a6e49d2313aa5a1",
+  "new_manifest_sha256": "242b8d03bb14d66457e8715bfbda75b8b5b3a630be6dc5040e10701bb659afb7",
+  "lock_unchanged_sha256": "834a2bdd30ceaa2fcbcd5c4826d6fd291ab5651692c99e39348e47da29e3deb9",
+  "local_equivalent": "cfef451fd806ca2e8202fc1564cdd270ca6fc161",
+  "review_sha256": "26015e9ebf65521963229e3359751b078007a2c4b97394e40ed27c799e0f49a8",
+  "api_sha256": {
+    "sidesign-parent-api.json": "b17e34d238e7e4850e6b73934d01a227a67928d923bb34085f3c65aa605bed79",
+    "sidesign-refs-api.json": "5cb6cbc178c19bfd894a3ec39640ca5bf2bdaca8fc267d45ae8c10a14e90b53a",
+    "sidesign-ref-api.json": "8a338c320c04cfc0eacd5dcf86bad37578190e5a299893950739fb16ff3b67fb",
+    "anisettekit-tree-api.json": "bfc02bae192c0aeaedba0dee82ae74cec302307024d13b6fa12fbe7b02a86f28",
+    "sidesign-parent-tree-api.json": "a00ffc21fd2f262720ad1b75d3074f32342f57cb0e06ecbb6f3c310df7b3a325",
+    "sidesign-tree-api.json": "ea63fdb8455dde1ed8a1e09df109afa58e0e0bdb254116d816ed69703fd70923",
+    "sidesign-commit-api.json": "6a1b858f91cd4d9d453d12248cef33907731eeeaf88e582d7836b929890bdf75"
+  },
+  "dispatch": false,
+  "resolver_capture_pending": true
+}

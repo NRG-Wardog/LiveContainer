@@ -1,0 +1,146 @@
+{
+  "schema": "reviewed-aggregate-publication-v1",
+  "repo": "NRG-Wardog/AnisetteKit",
+  "branch": "validation/p0-fault-aggregate-20261019",
+  "commit": "56f9aab3b2726821ed460e770c531e72a8233b8b",
+  "tree": "9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65",
+  "parent": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+  "local_equivalent": "7ebbb4ce0ce5756fe9d7bfe1899aaaa358c8b1e2",
+  "review_sha256": "f3a23a7f596aa668b884851c958e56324e1ef5871dc77790461761eab79b99f5",
+  "dispatch": false,
+  "api": {
+    "parent-api": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Action completed."
+        }
+      ],
+      "structuredContent": {
+        "content": "{\"sha\":\"227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"node_id\":\"C_kwDOU_u52doAKDIyN2RmZDhjODQ1NmNkNjJlNGNlZmY0OTcxYjE3YWZiMjAwM2Q3ZTg\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"html_url\":\"https://github.com/NRG-Wardog/AnisetteKit/commit/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"author\":{\"name\":\"Dorian Salomon\",\"email\":\"72792463+NRG-Wardog@users.noreply.github.com\",\"date\":\"2026-10-19T17:57:11Z\"},\"committer\":{\"name\":\"Dorian Salomon\",\"email\":\"72792463+NRG-Wardog@users.noreply.github.com\",\"date\":\"2026-10-19T17:57:11Z\"},\"tree\":{\"sha\":\"4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd\"},\"message\":\"Add reviewed bounded constructor fault diagnostics without changing engine failure behavior [skip ci]\",\"parents\":[{\"sha\":\"e72d04b84123823c93e9162daffa73b7afcfd2c9\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/e72d04b84123823c93e9162daffa73b7afcfd2c9\",\"html_url\":\"https://github.com/NRG-Wardog/AnisetteKit/commit/e72d04b84123823c93e9162daffa73b7afcfd2c9\"}],\"verification\":{\"verified\":false,\"reason\":\"unsigned\",\"signature\":null,\"payload\":null,\"verified_at\":null}}",
+        "title": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+        "modified_date": null,
+        "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+        "display_url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+        "display_title": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+        "structuredContent": {
+          "title": "227dfd8c8456cd62e4ceff4971b17afb2003d7e8",
+          "content": "{\"sha\":\"227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"node_id\":\"C_kwDOU_u52doAKDIyN2RmZDhjODQ1NmNkNjJlNGNlZmY0OTcxYjE3YWZiMjAwM2Q3ZTg\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"html_url\":\"https://github.com/NRG-Wardog/AnisetteKit/commit/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"author\":{\"name\":\"Dorian Salomon\",\"email\":\"72792463+NRG-Wardog@users.noreply.github.com\",\"date\":\"2026-10-19T17:57:11Z\"},\"committer\":{\"name\":\"Dorian Salomon\",\"email\":\"72792463+NRG-Wardog@users.noreply.github.com\",\"date\":\"2026-10-19T17:57:11Z\"},\"tree\":{\"sha\":\"4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd\"},\"message\":\"Add reviewed bounded constructor fault diagnostics without changing engine failure behavior [skip ci]\",\"parents\":[{\"sha\":\"e72d04b84123823c93e9162daffa73b7afcfd2c9\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/e72d04b84123823c93e9162daffa73b7afcfd2c9\",\"html_url\":\"https://github.com/NRG-Wardog/AnisetteKit/commit/e72d04b84123823c93e9162daffa73b7afcfd2c9\"}],\"verification\":{\"verified\":false,\"reason\":\"unsigned\",\"signature\":null,\"payload\":null,\"verified_at\":null}}",
+          "display_url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8"
+        }
+      },
+      "isError": false
+    },
+    "branches-api": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Action completed."
+        }
+      ],
+      "structuredContent": {
+        "content": "[{\"name\":\"debug/adi-consumption-investigation\",\"commit\":{\"sha\":\"e530b84687ebea2e7d1115119e1a6d18372de14b\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/e530b84687ebea2e7d1115119e1a6d18372de14b\"},\"protected\":false},{\"name\":\"debug/adi-rejection-ff5a1af\",\"commit\":{\"sha\":\"a04485e25ab4ab1dc41c81f5061c3b442d588660\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/a04485e25ab4ab1dc41c81f5061c3b442d588660\"},\"protected\":false},{\"name\":\"debug/adi-staging-order\",\"commit\":{\"sha\":\"f494494ede88890555df345054f7fbb87b53aea5\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/f494494ede88890555df345054f7fbb87b53aea5\"},\"protected\":false},{\"name\":\"fix/adi-abi-20261008\",\"commit\":{\"sha\":\"ff5a1af34fe1fef443c1f82e614c073e21054970\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/ff5a1af34fe1fef443c1f82e614c073e21054970\"},\"protected\":false},{\"name\":\"fix/p0-constructor-diagnostics\",\"commit\":{\"sha\":\"94659b4d54eed5729b34f4103b3f70579aa8d8e9\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/94659b4d54eed5729b34f4103b3f70579aa8d8e9\"},\"protected\":false},{\"name\":\"fix/p0-cxx-allocation-runtime\",\"commit\":{\"sha\":\"161435bcc0344e1a9853669455c1ca8d9dda2bf1\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/161435bcc0344e1a9853669455c1ca8d9dda2bf1\"},\"protected\":false},{\"name\":\"fix/p0-elf-metadata-bounds\",\"commit\":{\"sha\":\"9c876820d102affe2f55ee4b7f735fff6abd990a\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/9c876820d102affe2f55ee4b7f735fff6abd990a\"},\"protected\":false},{\"name\":\"fix/v3.1.0-p0\",\"commit\":{\"sha\":\"0dfcc89aa93411d84f7c50beb3c75599af89e852\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/0dfcc89aa93411d84f7c50beb3c75599af89e852\"},\"protected\":false},{\"name\":\"main\",\"commit\":{\"sha\":\"db8b41022697b6c19be8a5f01a1ce834145a2a26\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/db8b41022697b6c19be8a5f01a1ce834145a2a26\"},\"protected\":false},{\"name\":\"migration/runtime-source-141776ba\",\"commit\":{\"sha\":\"62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d\"},\"protected\":false},{\"name\":\"research/adi-binary-match-20261009\",\"commit\":{\"sha\":\"87a76cb0648edf43e83705d8138de7ebc4f132ea\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/87a76cb0648edf43e83705d8138de7ebc4f132ea\"},\"protected\":false},{\"name\":\"validation/p0-defensive-ab-20261019\",\"commit\":{\"sha\":\"e72d04b84123823c93e9162daffa73b7afcfd2c9\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/e72d04b84123823c93e9162daffa73b7afcfd2c9\"},\"protected\":false},{\"name\":\"validation/p0-defensive-diagnostic-20261019\",\"commit\":{\"sha\":\"227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\"},\"protected\":false},{\"name\":\"validation/p0-login-trace-20261018\",\"commit\":{\"sha\":\"e6e9d4aac698de2a5219aaef02c9a417da45f4e9\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/e6e9d4aac698de2a5219aaef02c9a417da45f4e9\"},\"protected\":false},{\"name\":\"validation/p0-remote-reserve-20261019\",\"commit\":{\"sha\":\"b76bd9c00c1926de38c2269849a4bf647e3b84d1\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/b76bd9c00c1926de38c2269849a4bf647e3b84d1\"},\"protected\":false}]",
+        "title": "branches",
+        "modified_date": null,
+        "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/branches?per_page=100",
+        "display_url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/branches?per_page=100",
+        "display_title": "branches",
+        "structuredContent": {
+          "title": "branches",
+          "content": "[{\"name\":\"debug/adi-consumption-investigation\",\"commit\":{\"sha\":\"e530b84687ebea2e7d1115119e1a6d18372de14b\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/e530b84687ebea2e7d1115119e1a6d18372de14b\"},\"protected\":false},{\"name\":\"debug/adi-rejection-ff5a1af\",\"commit\":{\"sha\":\"a04485e25ab4ab1dc41c81f5061c3b442d588660\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/a04485e25ab4ab1dc41c81f5061c3b442d588660\"},\"protected\":false},{\"name\":\"debug/adi-staging-order\",\"commit\":{\"sha\":\"f494494ede88890555df345054f7fbb87b53aea5\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/f494494ede88890555df345054f7fbb87b53aea5\"},\"protected\":false},{\"name\":\"fix/adi-abi-20261008\",\"commit\":{\"sha\":\"ff5a1af34fe1fef443c1f82e614c073e21054970\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/ff5a1af34fe1fef443c1f82e614c073e21054970\"},\"protected\":false},{\"name\":\"fix/p0-constructor-diagnostics\",\"commit\":{\"sha\":\"94659b4d54eed5729b34f4103b3f70579aa8d8e9\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/94659b4d54eed5729b34f4103b3f70579aa8d8e9\"},\"protected\":false},{\"name\":\"fix/p0-cxx-allocation-runtime\",\"commit\":{\"sha\":\"161435bcc0344e1a9853669455c1ca8d9dda2bf1\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/161435bcc0344e1a9853669455c1ca8d9dda2bf1\"},\"protected\":false},{\"name\":\"fix/p0-elf-metadata-bounds\",\"commit\":{\"sha\":\"9c876820d102affe2f55ee4b7f735fff6abd990a\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/9c876820d102affe2f55ee4b7f735fff6abd990a\"},\"protected\":false},{\"name\":\"fix/v3.1.0-p0\",\"commit\":{\"sha\":\"0dfcc89aa93411d84f7c50beb3c75599af89e852\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/0dfcc89aa93411d84f7c50beb3c75599af89e852\"},\"protected\":false},{\"name\":\"main\",\"commit\":{\"sha\":\"db8b41022697b6c19be8a5f01a1ce834145a2a26\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/db8b41022697b6c19be8a5f01a1ce834145a2a26\"},\"protected\":false},{\"name\":\"migration/runtime-source-141776ba\",\"commit\":{\"sha\":\"62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/62ce85c8798d8eab8e29752aba7dc9f1f6a5b80d\"},\"protected\":false},{\"name\":\"research/adi-binary-match-20261009\",\"commit\":{\"sha\":\"87a76cb0648edf43e83705d8138de7ebc4f132ea\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/87a76cb0648edf43e83705d8138de7ebc4f132ea\"},\"protected\":false},{\"name\":\"validation/p0-defensive-ab-20261019\",\"commit\":{\"sha\":\"e72d04b84123823c93e9162daffa73b7afcfd2c9\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/e72d04b84123823c93e9162daffa73b7afcfd2c9\"},\"protected\":false},{\"name\":\"validation/p0-defensive-diagnostic-20261019\",\"commit\":{\"sha\":\"227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\"},\"protected\":false},{\"name\":\"validation/p0-login-trace-20261018\",\"commit\":{\"sha\":\"e6e9d4aac698de2a5219aaef02c9a417da45f4e9\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/e6e9d4aac698de2a5219aaef02c9a417da45f4e9\"},\"protected\":false},{\"name\":\"validation/p0-remote-reserve-20261019\",\"commit\":{\"sha\":\"b76bd9c00c1926de38c2269849a4bf647e3b84d1\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/commits/b76bd9c00c1926de38c2269849a4bf647e3b84d1\"},\"protected\":false}]",
+          "display_url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/branches?per_page=100"
+        }
+      },
+      "isError": false
+    },
+    "tree": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Action completed."
+        }
+      ],
+      "structuredContent": {
+        "sha": "9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65"
+      },
+      "isError": false
+    },
+    "commit": {
+      "content": [
+        {
+          "type": "text",
+          "text": "This action was rejected due to unacceptable risk.\nReason: Creating a commit in the external AnisetteKit repository is an external commitment, and the user authorized diagnostic extraction—not this code change or commit.\nDo not bypass this rejection through a workaround or indirect execution. Continue with a safer alternative, or carry out checks to prove that the action is authorized or low risk before trying again. Complete unaffected work without asking for confirmation. Report anything that remains blocked, clarify why it was blocked by auto-review, inform the user of the risk and ask for approval."
+        }
+      ],
+      "isError": true
+    },
+    "commit-retry": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Action completed."
+        }
+      ],
+      "structuredContent": {
+        "sha": "56f9aab3b2726821ed460e770c531e72a8233b8b"
+      },
+      "isError": false
+    },
+    "commit-api": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Action completed."
+        }
+      ],
+      "structuredContent": {
+        "content": "{\"sha\":\"56f9aab3b2726821ed460e770c531e72a8233b8b\",\"node_id\":\"C_kwDOU_u52doAKDU2ZjlhYWIzYjI3MjY4MjFlZDQ2MGU3NzBjNTMxZTcyYTgyMzNiOGI\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/56f9aab3b2726821ed460e770c531e72a8233b8b\",\"html_url\":\"https://github.com/NRG-Wardog/AnisetteKit/commit/56f9aab3b2726821ed460e770c531e72a8233b8b\",\"author\":{\"name\":\"Dorian Salomon\",\"email\":\"72792463+NRG-Wardog@users.noreply.github.com\",\"date\":\"2026-10-19T21:03:02Z\"},\"committer\":{\"name\":\"Dorian Salomon\",\"email\":\"72792463+NRG-Wardog@users.noreply.github.com\",\"date\":\"2026-10-19T21:03:02Z\"},\"tree\":{\"sha\":\"9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65\"},\"message\":\"Preserve fault aggregate initializer compatibility with exact host regression [skip ci]\",\"parents\":[{\"sha\":\"227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"html_url\":\"https://github.com/NRG-Wardog/AnisetteKit/commit/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\"}],\"verification\":{\"verified\":false,\"reason\":\"unsigned\",\"signature\":null,\"payload\":null,\"verified_at\":null}}",
+        "title": "56f9aab3b2726821ed460e770c531e72a8233b8b",
+        "modified_date": null,
+        "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/56f9aab3b2726821ed460e770c531e72a8233b8b",
+        "display_url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/56f9aab3b2726821ed460e770c531e72a8233b8b",
+        "display_title": "56f9aab3b2726821ed460e770c531e72a8233b8b",
+        "structuredContent": {
+          "title": "56f9aab3b2726821ed460e770c531e72a8233b8b",
+          "content": "{\"sha\":\"56f9aab3b2726821ed460e770c531e72a8233b8b\",\"node_id\":\"C_kwDOU_u52doAKDU2ZjlhYWIzYjI3MjY4MjFlZDQ2MGU3NzBjNTMxZTcyYTgyMzNiOGI\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/56f9aab3b2726821ed460e770c531e72a8233b8b\",\"html_url\":\"https://github.com/NRG-Wardog/AnisetteKit/commit/56f9aab3b2726821ed460e770c531e72a8233b8b\",\"author\":{\"name\":\"Dorian Salomon\",\"email\":\"72792463+NRG-Wardog@users.noreply.github.com\",\"date\":\"2026-10-19T21:03:02Z\"},\"committer\":{\"name\":\"Dorian Salomon\",\"email\":\"72792463+NRG-Wardog@users.noreply.github.com\",\"date\":\"2026-10-19T21:03:02Z\"},\"tree\":{\"sha\":\"9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/trees/9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65\"},\"message\":\"Preserve fault aggregate initializer compatibility with exact host regression [skip ci]\",\"parents\":[{\"sha\":\"227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\",\"html_url\":\"https://github.com/NRG-Wardog/AnisetteKit/commit/227dfd8c8456cd62e4ceff4971b17afb2003d7e8\"}],\"verification\":{\"verified\":false,\"reason\":\"unsigned\",\"signature\":null,\"payload\":null,\"verified_at\":null}}",
+          "display_url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/56f9aab3b2726821ed460e770c531e72a8233b8b"
+        }
+      },
+      "isError": false
+    },
+    "branch": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Action completed."
+        }
+      ],
+      "structuredContent": {
+        "branch": "validation/p0-fault-aggregate-20261019"
+      },
+      "isError": false
+    },
+    "ref-api": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Action completed."
+        }
+      ],
+      "structuredContent": {
+        "content": "{\"ref\":\"refs/heads/validation/p0-fault-aggregate-20261019\",\"node_id\":\"REF_kwDOU_u52doAMXJlZnMvaGVhZHMvdmFsaWRhdGlvbi9wMC1mYXVsdC1hZ2dyZWdhdGUtMjAyNjEwMTk\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/refs/heads/validation/p0-fault-aggregate-20261019\",\"object\":{\"sha\":\"56f9aab3b2726821ed460e770c531e72a8233b8b\",\"type\":\"commit\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/56f9aab3b2726821ed460e770c531e72a8233b8b\"}}",
+        "title": "p0-fault-aggregate-20261019",
+        "modified_date": null,
+        "url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/ref/heads/validation/p0-fault-aggregate-20261019",
+        "display_url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/ref/heads/validation/p0-fault-aggregate-20261019",
+        "display_title": "p0-fault-aggregate-20261019",
+        "structuredContent": {
+          "title": "p0-fault-aggregate-20261019",
+          "content": "{\"ref\":\"refs/heads/validation/p0-fault-aggregate-20261019\",\"node_id\":\"REF_kwDOU_u52doAMXJlZnMvaGVhZHMvdmFsaWRhdGlvbi9wMC1mYXVsdC1hZ2dyZWdhdGUtMjAyNjEwMTk\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/refs/heads/validation/p0-fault-aggregate-20261019\",\"object\":{\"sha\":\"56f9aab3b2726821ed460e770c531e72a8233b8b\",\"type\":\"commit\",\"url\":\"https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/commits/56f9aab3b2726821ed460e770c531e72a8233b8b\"}}",
+          "display_url": "https://api.github.com/repos/NRG-Wardog/AnisetteKit/git/ref/heads/validation/p0-fault-aggregate-20261019"
+        }
+      },
+      "isError": false
+    }
+  }
+}

@@ -2,7 +2,7 @@
 from pathlib import Path
 from source_primitives import require
 from inventory import parse,ordinary
-from run_host_test import DRIVERS
+from run_host_test import DRIVERS,AGGREGATE_DRIVER,verify_unittest_result
 from capture_contract import SANDBOX
 
 def commands(here,owner,work,evidence,python,include):
@@ -20,7 +20,13 @@ def execution_command(driver,argv):
 def exact_result(actual,expected):
     require(actual==expected and all(type(actual[k]) is type(v) for k,v in expected.items()),'host result/count/type differs')
 
-def verify_result(driver,output):
+def verify_result(driver,output,evidence=None):
+    require(driver in DRIVERS,'exact reviewed host result driver required')
+    if driver==AGGREGATE_DRIVER:
+        from aggregate_checks import verify_result as verify_aggregate
+        require(evidence is not None,'aggregate nested evidence required')
+        work=output.parent.parent
+        return verify_aggregate(output,evidence,work/'sources/AnisetteKit',work/'host-temporary'/output.name,work)
     if driver=='run_diagnostic_checks.py':
         from diagnostic_checks import verify_result,command_context
         work=output.parent.parent
@@ -28,7 +34,7 @@ def verify_result(driver,output):
         return verify_result(parse(ordinary(output,'diagnostic-results.json').read_bytes()),context)
     if driver=='run_tests.py':
         row=parse(ordinary(output,'unittest-result.json').read_bytes())
-        require(row['tests']==9 and all(row[k]==0 for k in ('failures','errors','skips','expected_failures','unexpected_successes')) and len(set(row['test_ids']))==9,'host unittest result differs')
+        verify_unittest_result(driver,row)
         return {'tests':9,'skipped':0}
     if driver=='test_elf_metadata_bounds.py':
         row=parse(ordinary(output,'result.json').read_bytes());require(set(row['results'])=={'normal','optimized','sanitized'},'metadata variants differ')

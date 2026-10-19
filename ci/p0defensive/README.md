@@ -1,55 +1,48 @@
-# Defensive A+B plus bounded diagnostic: fresh Apple Phase A
+# Aggregate compatibility successor: fresh Apple Phase A
 
-LOCAL SOURCE ONLY. REVIEW_REQUIRED remains the activation anchor. Independent review of the exact frozen overlay, inputs and workflow is mandatory before activation or publication. A pending source tuple cannot be activated even with a matching input hash.
+LOCAL SOURCE ONLY. The workflow remains REVIEW_REQUIRED. This candidate is neither an activated capture nor native evidence. Independent review must approve the exact frozen adapter, source inputs and workflow before any publication or run.
 
-## Source identity and product boundary
+## Exact sources and ancestry
 
-The diagnostic component is the reviewed AnisetteKit tree 4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd (local reviewed commit e0267064280008cee34846a00eba1d7eb7aeba5c), atop defensive A+B e72d04b84123823c93e9162daffa73b7afcfd2c9. Source inventory binds all 65 tracked files. Independent diagnostic source review and seal are retained under reviewed/. Public C ABI remains unchanged; changed internal C++ layouts require rebuilding every consumer, which this fresh capture does.
+- AnisetteKit 56f9aab3b2726821ed460e770c531e72a8233b8b, tree 9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65, sole parent 227dfd8c8456cd62e4ceff4971b17afb2003d7e8. Exact local reviewed equivalent: 7ebbb4ce0ce5756fe9d7bfe1899aaaa358c8b1e2. Changes are two default member initializers in one production header and two new header-only compatibility test files.
+- SideSign e296f830780226e9ff27b84ad66bba114f71dafc, tree aedb16da10e4a334136c033618a09a5b746f4eb7, sole parent a3617d2eab547665480324034571cf22aa684257. Only Package.swift changes, pinning the exact new AK revision. The inherited genuine Package.resolved is unchanged; only this new capture's resolver-produced lock may feed a later lock-only child. No future lock is invented or prefilled.
+- Capture host is a direct sole-parent successor to successful host 4df0baa4f92274983a0d750cc5c3a3553600296b/tree 3b3ff76bec2d99729a34f4c484e90d624ff9de46. That prior run 39309171320 is historical evidence only. The cumulative overlay remains exhaustively restricted against product base 545438e1f0a89fdef375f73273c5c9fc2735cbce/tree e8014dd771c25c4a05dc76ab0aa304a233642a83. Product source stays unchanged.
+- The dedicated new branch is validation/p0-fault-aggregate-phase-a. The old successful capture and its receipts remain immutable.
 
-Exact published owner tuples and authenticated readbacks belong in publication.json and reviewed/ receipts. SideSign is a sole-parent manifest-only successor to a375e72d1ff39319c14d22ab98ddecd46c758783, replacing only its AnisetteKit revision. The inherited Package.resolved is untouched until genuine SwiftPM resolution. Only the resolver-produced lock may feed a subsequent lock-only child. No lock is invented here.
+reviewed/aggregate-source-seal.json binds an additive, exact three-path delta against the prior diagnostic tree, its independent review, and the current full 67-file source inventory. The 65-file diagnostic inventory and all prior reviewed receipts remain byte-for-byte historical files. New commit/ref/full-tree readbacks and source-pin review use separate aggregate-prefixed paths. They are never replacements for native evidence.
 
-LiveContainer immediate parent is the failed capture host 1f1230372551c4aa0a4f39d93f58be76a8ee163d, tree 32ef2a048de23323fae43d8765e119e80379d3cd. The corrective overlay must be its direct sole-parent child. Cumulative overlay closure remains exhaustively checked against product base 545438e1f0a89fdef375f73273c5c9fc2735cbce, tree e8014dd771c25c4a05dc76ab0aa304a233642a83, changing only this adapter, its dedicated workflow and the one exact ordinary-build branch exclusion. Product/P2/UI source, consent, localization, application typechecking, IPA generation and device use are excluded. The separate corrective branch is validation/p0-defensive-diagnostic-phase-a-swift-split; the failed branch and evidence remain untouched.
+## Finite command and test plan
 
-The successful A+B-only host d057b2bd1cedc2ac234f8b7397052ed9554b6c0d/run39293060769 is historical support only. Its evidence cannot validate the new diagnostic tree. Reviewed legacy A+B source receipts retained in this overlay are historical context; the new inputs/source seal alone determine actual acquired owners.
+The existing plan remains: 8 owner acquisition commands; 4 genuine/frozen resolution commands; 2 complete package rebuilds; 2 full framework-specific discoveries and 2 exact filtered executions (6 AK XCTest + 5 SideSign Swift Testing cases). The original owner run_tests.py is unchanged and still selects exactly 9 maintained unittest IDs.
 
-## Retained original finite plan
+Six explicit synthetic host suites are required:
 
-- 8 exact owner acquisition commands
-- 4 genuine and then frozen package resolution commands
-- 2 full rebuilt native/Swift package builds with exact retained binary artifacts
-- 2 complete framework-specific discovery commands and 2 exact filtered runs: 6 AK LoginDiagnosticTrace XCTest cases and 5 SideSign Swift Testing core cases
-- 4 unchanged owner host drivers: memory boundaries (3×403 assertions); VM setup (updated diagnostic expectations: 3×239 assertions, 17 fault points each); metadata (3×713); exactly 9 maintained aggregate unittests with no skips
+1. Memory boundaries: 3 variants × 403 checks.
+2. VM setup: 3 × 239 checks, 17 fault points each.
+3. Metadata bounds: 3 × 713 checks.
+4. Exactly the original 9 maintained aggregate unittest IDs, without skips.
+5. Existing bounded diagnostics: 16 nested commands, 3 × 662 native checks plus two exact Swift decoder runs and 2 × 77 response-boundary assertions. Native nm/otool proof and real Apple CommonCrypto remain required.
+6. The exact owner .ci/native-tests/test_fault_aggregate_compatibility.py: exactly FaultAggregateCompatibilityTests.test_warning_clean_legacy_and_explicit_aggregates. Two C++17 variants (normal; -O2 -DNDEBUG), each with -Wall -Wextra -Werror -pedantic, compile genuine production headers and run 18 inert value checks. No loader, engine, guest, private assets or network are used.
 
-The original 11 package-test filters, parsers, source verification, lifecycle settlement, raw retention bounds and transport checks remain intact. No swift-autolink-extract probe is added. The separate Linux-only allocator suite is not run or ported by this Apple adapter.
+The sixth suite retains the one-ID unittest receipt, all four nested compile/run command/result/stdout/stderr receipts, and transient inputs/binaries through the existing observer. The verifier binds compiler /usr/bin/c++, exact argv/order/flags, owner/include/source paths, distinct temporary outputs, original zero-warning streams, exactly two 18-check outputs, and current hashes for all 67 source files. Missing/skipped/extra IDs, dropped warning flags, altered paths, changed source hashes, extra commands and nonzero/Boolean success fields fail closed. This is a separate suite, not a fabricated tenth run_tests.py case.
 
-## Minimal new diagnostic runtime plan
+## Preserved Swift compiler/execution split
 
-One additional adapter-owned host suite retains the same owned process group and nested raw observer. Its trusted Python supervisor uses the finite per-command policy below. It adds exactly 16 nested commands:
+The existing exact 16-row diagnostic command plan is unchanged. Only swift-normal-compile and swift-optimized-compile run outside the outer synthetic wrapper, retaining Apple's compiler/plugin sandbox. Every generated Swift executable and all native diagnostic commands remain network-denied. The new aggregate suite, like the four pre-existing owner drivers, runs wholly under the original network-denial wrapper.
 
-1. Full reviewed production loader with synthetic API outcomes, in normal/O2/fail-fast ASan+UBSan variants: compile, run, nm undefined-symbol inspection and otool linkage inspection for each variant. Each executes exactly 662 checks, with 5 synthetic API outcome invocations and zero real-engine starts. The actual Apple CommonCrypto header and implementation are used. Link evidence must reference all three CC_SHA256 streaming symbols through libSystem, without a Unicorn/OpenSSL dependency.
-2. Exact production Swift decoder, provider protocol and all three response-boundary methods, plus the production response/error/constants/login-trace sources. Compile and run normally and optimized. Each executes the reviewed positive/negative decoder harness plus 77 boundary assertions: accepted, rejected, absent and non-string private metadata; successful headers/start/end responses; unchanged original error code/message; no unsafe raw suffix; nil responses. Fixture provider methods trap if invoked. No native provider is called.
+The four literal-only C++ fixture adaptations and exact Swift byte-span extraction remain unchanged. Production sources are never transformed. Full package rebuilds separately validate original Swift/native files. The prior failed Swift macro receipt is historical regression material only.
 
-Only the synthetic C++ fixture is transformed. Four exact, unique literal replacements remove its Linux-only __APPLE__ toggle, use the real loader's absolute include path, map its test-only OpenSSL reference helper to CommonCrypto, and select the existing Apple expected-digest assertion. Production source is never transformed. Original bytes, every replacement and generated bytes are hashed and retained. Mutation tests reject missing/duplicate anchors and altered generation receipts. Swift extraction records exact source byte ranges and hashes; production methods are copied without edits, with the original decoder test harness extracted as a literal from the reviewed owner test script. Complete package builds separately validate the full original Swift file and native module.
+## Retention, scope and review
 
-## Corrective compile/run separation
+Owner/dependency Git trees and modes, commits, manifests, genuine before/after/terminal locks, SwiftPM state, pinned binary archives/frameworks, SDK, tool identities, compiler scratch inputs/products, raw nested streams and owned-process settlement remain retained. Retention bounds and full immutable evidence indexing are unchanged. The separately bounded failure-log view cannot replace the full capture.
 
-The exact previous capture run 39300623354 stopped at diagnostic nested command 0013: `@TaskLocal` compilation attempted the Swift plugin server sandbox inside our outer `sandbox-exec` profile, and Apple returned `sandbox_apply: Operation not permitted`. Original artifact 12211213161 has SHA-256 f8037e0d945c14b39c912a2cfbd9661205a278a4ef72aff8c426122db6912260. It remains failed evidence, never a passing diagnostic result. The Swift project tracks the same nested macro-sandbox failure class at https://github.com/swiftlang/swift-package-manager/issues/7098.
+No product/P2/UI source, application typecheck, IPA, device, Apple login, external provider, proprietary engine or guest execution is included. Leak sanitizer stays disabled and unclaimed; the pre-existing sanitizer variants stay fail-fast. Native success would mean only CAPTURED_FOR_INDEPENDENT_REVIEW, never release/build admission.
 
-The correction does not disable any Apple/compiler security setting or macro. An exact 16-row command plan permits only `swift-normal-compile` and `swift-optimized-compile` to use their original compiler argv outside the synthetic execution wrapper. The generated C++ compile/run/link inspection commands and both generated Swift executables each use the original network-denial profile. Logical and executed argv plus policy are recorded in diagnostic results; each executed argv must agree with its independent nested raw command/result receipts. Owner, include and output roots must agree with the enclosing retained command and fixed work layout. Unknown labels, flags, source/output substitutions and policy reclassification fail closed. Inputs are only the exact reviewed source and synthetic literals, with zero external user data. The generated fixture source bytes are unchanged from the failed capture for the same owner path.
-
-## Raw closure and scope
-
-Actual owner/dependency Git trees, modes, commits, manifests, real before/after/terminal locks, SwiftPM state, pinned archives/frameworks, SDK, tool launchers/resolved tools and compiler scratch inputs/products remain retained. The new nm/otool tools are retained too. Trusted Unicorn headers come only from the checksum-verified archive, and every header slice must agree. Compiler dependency files, generated fixtures, binaries, argv, environment, exit status and exact stdout/stderr are retained before cleanup. No content is pruned, fabricated or relabeled.
-
-All fixture execution is network-denied. Only the two exact trusted Swift compiler invocations run outside our synthetic execution wrapper, with Apple's compiler/plugin sandbox preserved; all other diagnostic children and all four pre-existing host drivers retain the network-denial wrapper. There are no proprietary assets, real Unicorn starts, protected guest execution, Apple authentication, external anisette-provider traffic or device inputs. ASan/UBSan are fail-fast; leak sanitizer is explicitly disabled and unclaimed. A successful result is CAPTURED_FOR_INDEPENDENT_REVIEW, never app/release acceptance. Native Apple and Swift runtime results remain unproven until this new exact capture actually runs.
-
-## Transport and local review
-
-Full capture upload and immutable evidence indexing are unchanged. A separate, optional settled-failure log view copies only complete hash-verified provenance and command/result/stdout/stderr logs: at most 128 files, 256 KiB each, 16 MiB total. Oversized entries are explicitly omitted, never truncated. Its manifest says full immutable evidence remains required; it cannot substitute for final replay. After a completed new upload, an independently reviewed retrieval-only byte-part mechanism may operate on that exact run/artifact/digest without recompiling or changing evidence. That companion is outside this candidate.
+Portable review commands:
 
     python3 -B ci/p0defensive/prepare_inputs.py --host-root .
     python3 -B ci/p0defensive/native_gate.py --host-root . --inputs ci/p0defensive/inputs-phase-a.json
     python3 -B -m unittest discover -s ci/p0defensive/tests -v
     python3 -O -B -m unittest discover -s ci/p0defensive/tests -v
 
-Portable tests do not execute Swift, Apple code, guest code or package tests. Every change after freezing requires another exact inventory and independent review. The workflow remains dormant unless its literal anchor equals the independently reviewed input hash and all source tuples are final.
+These adapter tests use inert Python/JSON fixtures and never run the owner C++/Swift/native suites. Exact activation remains a separate reviewed step. Any change after freezing requires a new inventory hash and review.

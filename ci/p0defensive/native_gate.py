@@ -218,7 +218,7 @@ class Gate(CommandRunner):
         raw_files={path:self.store.retain_file(ordinary(self.host,path),label='capture-host/'+path) for path in expected}
         self.save('host-overlay',dict(commit=commit,base=base,overlay_basis=HOST_PRODUCT_BASE,tree=actual['tree'],origin=primitives.verify_origin(self.host,row['repository'],commit),changes=actual['changes'],raw_files=raw_files,worktree=host_worktree))
     def acquire(self):
-        seal=parse(ordinary(HERE,'reviewed/defensive-source-seal.json').read_bytes())
+        seal=parse(ordinary(HERE,'reviewed/aggregate-source-seal.json').read_bytes())
         for name in OWNERS:
             row=self.data['owners'][name];root=self.work/'sources'/name
             for label,args in [('clone',['git','clone','--no-checkout',row['repository'],root]),('fetch',['git','-C',root,'fetch','--no-tags','--no-recurse-submodules','origin',row['commit']]),('checkout',['git','-C',root,'checkout','--detach',row['commit']]),('readonly',['git','-C',root,'config','remote.origin.pushurl','disabled://p0defensive-readonly'])]:
@@ -310,7 +310,7 @@ class Gate(CommandRunner):
         self.save('host-unicorn-headers',dict(archive_sha256=artifact['sha256'],headers_sha256=hashes,raw_tree=self.store.retain_tree(include,label='host-unicorn-headers'),engine_linked=False,engine_executed=False))
         for (label,argv),driver in zip(host_tests.commands(HERE,owner,self.work,self.evidence,sys.executable,include),host_tests.DRIVERS):
             self.run('host-'+label,host_tests.execution_command(driver,argv),timeout=1800)
-            result=host_tests.verify_result(driver,self.work/'host-tests'/label)
+            result=host_tests.verify_result(driver,self.work/'host-tests'/label,self.evidence/'host-tests'/label)
             summary=parse(ordinary(self.evidence,'host-tests/'+label+'/retention-summary.json').read_bytes())
             # Nested observers have independent immutable blob namespaces, but share
             # the capture's aggregate byte/file/directory ceilings.

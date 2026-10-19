@@ -9,8 +9,8 @@ OWNER=HERE/'tests/fixtures/diagnostic-source'
 
 class DiagnosticTests(unittest.TestCase):
     def test_original_fixture_bytes_match_exact_reviewed_source(self):
-        inventory=parse((HERE/'reviewed/diagnostic-source-inventory.json').read_bytes())
-        self.assertEqual(inventory['tree'],'4d31646c46a7af3d911bb9d52eeffe9cbc26a3dd')
+        inventory=parse((HERE/'reviewed/aggregate-source-inventory.json').read_bytes())
+        self.assertEqual(inventory['tree'],'9fa391fa6486a08e2d3db96b0fc9b1c0b372fb65')
         for path in OWNER.rglob('*'):
             if path.is_file():self.assertEqual(sha(path.read_bytes()),inventory['files'][str(path.relative_to(OWNER))]['sha256'])
     def test_native_adaptation_is_four_literal_only_fixture_replacements(self):
@@ -68,7 +68,7 @@ class DiagnosticTests(unittest.TestCase):
         return d.command_context(work/'sources/AnisetteKit',work/'host-unicorn-headers',work/'host-tests/run-diagnostic-checks')
     def fixture(self):
         _,native=d.adapt_native_fixture((OWNER/'.ci/native-tests/fixtures/bounded_fault_host.cpp').read_text(),Path(self.context()['owner']));_,swift=d.swift_fixture(OWNER)
-        inventory=parse((HERE/'reviewed/diagnostic-source-inventory.json').read_bytes())
+        inventory=parse((HERE/'reviewed/aggregate-source-inventory.json').read_bytes())
         row=dict(schema=1,guest_execution=False,real_engine_linked=False,proprietary_input=False,leak_sanitizer_enabled=False,apple_commoncrypto_validated=True,swift_boundaries_validated=True,source_sha256={p:r['sha256'] for p,r in inventory['files'].items()},native_fixture=native,swift_fixture=swift,command_context=self.context(),results=[])
         for variant,_ in d.VARIANTS:
             for stage in ('compile','run','nm','otool'):

@@ -1,0 +1,9 @@
+{
+  "after_manifest_sha256": "242b8d03bb14d66457e8715bfbda75b8b5b3a630be6dc5040e10701bb659afb7",
+  "before_manifest_sha256": "fb91426412f07b968131f2511bdd297874c418729466b2952a6e49d2313aa5a1",
+  "independent_review_sha256": "26015e9ebf65521963229e3359751b078007a2c4b97394e40ed27c799e0f49a8",
+  "published_reconstruction_required_sole_parent": "a3617d2eab547665480324034571cf22aa684257",
+  "published_reconstruction_required_tree": "aedb16da10e4a334136c033618a09a5b746f4eb7",
+  "schema": "reviewed-aggregate-manifest-pin-v1",
+  "unchanged_lock_sha256": "834a2bdd30ceaa2fcbcd5c4826d6fd291ab5651692c99e39348e47da29e3deb9"
+}

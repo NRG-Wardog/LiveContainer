@@ -9,14 +9,14 @@ from lifecycle import CommandRunner
 
 class HostTests(unittest.TestCase):
     def test_exact_safe_driver_and_unittest_inventory(self):
-        self.assertEqual(DRIVERS,('test_memory_boundaries_host.py','test_vm_setup_host.py','test_elf_metadata_bounds.py','run_tests.py','run_diagnostic_checks.py'))
+        self.assertEqual(DRIVERS,('test_memory_boundaries_host.py','test_vm_setup_host.py','test_elf_metadata_bounds.py','run_tests.py','run_diagnostic_checks.py','test_fault_aggregate_compatibility.py'))
         self.assertEqual(len(UNIT_METHODS),9);self.assertEqual(len(set(UNIT_METHODS)),9)
         self.assertNotIn('test_cxx_allocation.py',DRIVERS)
     def test_exact_command_arrays_do_not_select_wildcards(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp).resolve();include=root/'headers';include.mkdir()
             rows=list(host_tests.commands(HERE,root/'owner',root/'work',root/'evidence',sys.executable,include))
-            self.assertEqual(len(rows),5)
+            self.assertEqual(len(rows),6)
             for (label,args),driver in zip(rows,DRIVERS):
                 self.assertEqual(args[args.index('--driver')+1],driver);self.assertEqual(args[args.index('--unicorn-include')+1],str(include));self.assertNotIn('*',' '.join(args))
                 self.assertEqual(args[:3],[sys.executable,'-B',str(HERE/'run_host_test.py')])
