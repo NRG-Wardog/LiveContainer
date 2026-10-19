@@ -84,6 +84,19 @@ class Runtime:
     def start_sample(self,context):
         before=time.monotonic_ns();ticks,numer,denom=self.clock_reader();after=time.monotonic_ns()
         return dict(hostBeforeNs=before,hostAfterNs=after,machTicks=ticks,timebaseNumer=numer,timebaseDenom=denom)
+    def prepare_service(self,name,*args):
+        historical={'boot':30,'bootstatus':120,'install':120}
+        require(name in historical and args[:3]==('xcrun','simctl',name),'exact preparation service')
+        allowance=self.remaining(360)
+        row=self.command(*args,timeout=allowance,receipt=True)
+        timing=row.get('wait_timing',{});start=timing.get('command_started');end=timing.get('wait_finished')
+        elapsed=end-start if type(start) in (int,float) and type(end) in (int,float) and end>=start else None
+        self.retain('preparation-'+name,canonical({'schema':'p1-shared-preparation-service-v1',
+            'session':self.session,'absoluteDeadline':self.scope.deadline,'allowanceSeconds':allowance,
+            'historicalAllowanceSeconds':historical[name],'waitElapsedSeconds':elapsed,
+            'historicalAllowanceExceeded':elapsed>historical[name] if elapsed is not None else None,
+            'receipt':row,'infrastructureOnly':True,'admissionEligible':False}))
+        return clean(row,args)
     @bounded_preparation
     def prepare(self,context,timeout):
         started=time.monotonic()
@@ -106,10 +119,10 @@ class Runtime:
         # before boot; cleanup consults Scope even if this helper raises.
         proof=self.fresh.create_for_ui(self.scope,self.output/'created-device',device_class='phone')
         self.device=proof['device']
-        self.command('xcrun','simctl','boot',self.device,timeout=left(30))
-        self.command('xcrun','simctl','bootstatus',self.device,'-b',timeout=left(120))
+        self.prepare_service('boot','xcrun','simctl','boot',self.device)
+        self.prepare_service('bootstatus','xcrun','simctl','bootstatus',self.device,'-b')
         self.retain('install-preparation',canonical(self.capture.prepare_install(self.command,self.device)))
-        self.command('xcrun','simctl','install',self.device,apps[0],timeout=left(120))
+        self.prepare_service('install','xcrun','simctl','install',self.device,apps[0])
         self.retain('inclusive-storage-plan',canonical(artifact_budget.preflight(self.output)))
         self.window.startup_isolation(self.command,self.work/'capture-prerequisites',self.output)
         self.gui=self.window.OwnedGUI(self.scope,self.device,self.output/'gui');self.gui.start()

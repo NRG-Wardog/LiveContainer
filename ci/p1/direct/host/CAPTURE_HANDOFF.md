@@ -57,3 +57,21 @@ that post-resize frame; stream readiness and both final censuses must match it.
 The original pre-resize frame remains evidence of the transition and cannot be
 mistaken for the captured window geometry. Failed actions, ambiguous windows,
 stale resized evidence or a later frame change still fail closed.
+
+## Shared preparation service deadline
+
+Boot, boot readiness and installation now consume the existing single 360-second
+preparation deadline, clamped by the earlier parent Scope deadline. They do not
+receive separate resetting 30/120/120-second service-completion caps. Each exact
+command receipt retains its historical allowance and measured wait exceedance;
+a timeout or unsettled/unknown launch remains a failure even if settlement later
+reports exit zero. This does not change the later 240-second native method,
+280-second observation window, 120ms confidence/coverage or cleanup reserves.
+
+Adjacent bounds were audited together: build already uses this shared deadline;
+fresh-device inventory/create, post-install isolation and GUI registration retain
+their existing independently bounded ownership checks. Every nested command is
+also clamped by bounded_preparation's absolute Scope deadline. GUI registration
+observes the owned process launch protocol, rather than waiting for UI completion.
+Historical run39313067116 remains failed: install exceeded120 seconds and settled
+with exit zero afterward; that result does not retrospectively pass.

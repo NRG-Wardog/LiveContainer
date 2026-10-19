@@ -46,7 +46,11 @@ class PreparationTests(unittest.TestCase):
                 (runner/'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':r.capture.RUNNER_ID}))
                 recipe={'UITests':{'TestBundlePath':'P0SignInUITests.xctest','IsUITestBundle':True}}
                 (products/'Original.xctestrun').write_bytes(plistlib.dumps(recipe))
-            self.now+=1
+            before=self.now;self.now+=1
+            if kwargs.get('receipt'):
+                return {'argv':list(map(str,args)),'exit_code':0,'writer_settled':True,'cleanup_errors':[],
+                    'launch_receipt':{'state':'pre-exec-observed','closed':True,'eof':True,'exec_failure':None},
+                    'wait_timing':{'command_started':before,'wait_finished':self.now}}
             return ''
         r.command=command
         def create(scope,root,device_class='phone'):
