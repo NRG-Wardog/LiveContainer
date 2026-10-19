@@ -150,3 +150,38 @@ class Readiness(unittest.TestCase):
                 with self.assertRaises(ValueError):w.await_fixture_ready(command,'device',session,root)
 
 if __name__=='__main__':unittest.main()
+
+class StartupIsolation(unittest.TestCase):
+    def row(self,elapsed=12):
+        from test_capture_prerequisites import Prerequisites
+        return {'exit_code':0,'failure_type':None,'cleanup_errors':[],'writer_settled':True,
+            'launch_receipt':{'state':'pre-exec-observed','closed':True,'eof':True,'exec_failure':None},
+            'wait_timing':{'command_started':1,'wait_finished':1+elapsed},'stdout':json.dumps(Prerequisites().result())}
+    def invoke(self,row):
+        with tempfile.TemporaryDirectory() as tmp:
+            command=mock.Mock(return_value=row);folder=Path(tmp)
+            try:return w.startup_isolation(command,Path('/exact/helper'),folder)
+            finally:
+                command.assert_called_once_with(Path('/exact/helper'),timeout=30,receipt=True)
+                self.timing=json.loads((folder/'startup-isolation-timing.json').read_text())
+    def test_clean_below_and_above_historical_bound(self):
+        for seconds in (8,12,29):
+            self.invoke(self.row(seconds));self.assertEqual(self.timing['historical_10s_exceeded'],seconds>10)
+            self.assertFalse(self.timing['admissionEligible'])
+    def test_timeout_unknown_and_unsettled_fail_with_metric(self):
+        for key,value in [('failure_type','TimeoutExpired'),('exit_code',-15),('writer_settled',False),('cleanup_errors',[{'type':'Error'}]),('launch_receipt',{})]:
+            row=self.row(30);row[key]=value
+            with self.subTest(key=key),self.assertRaises(ValueError):self.invoke(row)
+            self.assertTrue(self.timing['historical_10s_exceeded'])
+    def test_permission_enumeration_or_existing_gui_fail(self):
+        for key,value in [('screenCapturePreflight',False),('windowEnumerationAvailable',False),('simulatorProcessCount',1),('simulatorOnScreenWindowCount',1)]:
+            row=self.row();check=json.loads(row['stdout']);check[key]=value;row['stdout']=json.dumps(check)
+            with self.subTest(key=key),self.assertRaises(ValueError):self.invoke(row)
+    def test_only_startup_allowance_changed_and_stage_receipts_fixed(self):
+        source=(w.HERE/'window_capture.py').read_text()
+        self.assertIn("check=json.loads(command(preflight,timeout=10))",source)
+        self.assertIn("command(helper,str(gui.process.pid),SIMULATOR,frames,timeout=90)",source)
+        text=(w.HERE/'capture_prerequisites.swift').read_text()
+        stages=['helper-entered','preflight-returned','process-enumeration-returned','window-enumeration-returned']
+        self.assertEqual([text.count('phase("'+x+'")') for x in stages],[1]*4)
+        self.assertIn('FileHandle.standardError.write(data)',text)

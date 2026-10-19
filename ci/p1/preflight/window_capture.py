@@ -68,6 +68,23 @@ class OwnedGUI:
             self.record()
         if primary is not None:raise primary
 
+def startup_isolation(command,preflight,output):
+    # One prospective startup observation; no retry and no timing admission.
+    row=command(preflight,timeout=30,receipt=True)
+    timing=row.get('wait_timing',{});start=timing.get('command_started');end=timing.get('wait_finished')
+    elapsed=end-start if type(start) in (int,float) and type(end) in (int,float) and math.isfinite(start) and math.isfinite(end) and end>=start else None
+    capture.write(output/'startup-isolation-timing.json',{'allowance_seconds':30,'historical_allowance_seconds':10,
+        'wait_elapsed_seconds':elapsed,'historical_10s_exceeded':elapsed>10 if elapsed is not None else None,
+        'exit_code':row.get('exit_code'),'failure_type':row.get('failure_type'),'cleanup_errors':row.get('cleanup_errors'),
+        'wait_timing':timing,'launch_receipt':row.get('launch_receipt'),'infrastructure_only':True,'admissionEligible':False})
+    launch=row.get('launch_receipt',{})
+    require(row.get('writer_settled') is True and not row.get('cleanup_errors'),'isolation writer unsettled')
+    require(launch.get('state')=='pre-exec-observed' and launch.get('closed') is True and launch.get('eof') is True and launch.get('exec_failure') is None,'isolation execution unknown')
+    require(row.get('exit_code')==0 and row.get('failure_type') is None,'startup isolation command failed')
+    check=json.loads(row.get('stdout',''))
+    require(capture_prerequisites.validate_result(check) and check['screenCapturePreflight'] and check['simulatorProcessCount']==0 and check['simulatorOnScreenWindowCount']==0,'GUI isolation changed')
+    return check
+
 def await_fixture_ready(command,device,session,output):
     # One exact APP_ID discovery after launch, then ordinary bounded file polling.
     root=capture.container(command,device,capture.APP_ID,timeout=30,startup_timing=output/'fixture-startup-discovery.json')
@@ -191,7 +208,7 @@ def execute(host,work,output,inputs,approved):
         capture.write(output/'install-preparation.json',capture.prepare_install(command,device))
         command('xcrun','simctl','install',device,apps[0],timeout=120)
         # Recheck immediately before creating GUI ownership; no unrelated GUI is accepted.
-        check=json.loads(command(preflight,timeout=10));require(capture_prerequisites.validate_result(check) and check['simulatorProcessCount']==0 and check['simulatorOnScreenWindowCount']==0,'GUI isolation changed')
+        result['startupPrerequisites']=startup_isolation(command,preflight,output)
         gui=OwnedGUI(scope,device,output/'gui');gui.start()
         session=uuid.uuid4().hex;result['visualSession']=session
         command('xcrun','simctl','launch',device,capture.APP_ID,'--window-capture-fixture','--session',session,timeout=30)
