@@ -38,6 +38,24 @@ class FullRecovery(unittest.TestCase):
                 methods=capture.video.layout_exports.METHODS if full else capture.video.layout_exports.CAPABILITY_METHODS['phone']
                 self.assertEqual([a for a in args if str(a).startswith('-only-testing:')],['-only-testing:P0SignInUITests/P1RecoveryLayoutUITests/'+m for m in methods])
                 self.assertEqual(verify.call_count,int(full));self.assertEqual(short.call_count,int(not full))
+    def test_tablet_full_uses_original_methods_and_latched_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp)/'recovery';calls=[]
+            def command(*args,**kwargs):
+                calls.append((args,kwargs))
+                if args[:4]==('xcrun','simctl','list','devices'):return json.dumps({'devices':{'runtime':[{'udid':'device','state':'Booted'}]}})
+                if args[:2]==('xcodebuild','test-without-building'):(folder/'tests.xcresult').mkdir()
+                return '{}'
+            command.scope=mock.Mock()
+            with mock.patch.object(capture,'stop_fixture',return_value=True),mock.patch.object(capture.base,'inventory'),mock.patch.object(capture.video.layout_exports,'verify',return_value={}) as verify,mock.patch.object(capture.video.layout_exports,'verify_capabilities') as short:
+                result=capture.run_layout(command,Path('recipe'),'device','tablet',folder,lambda _:True,full_recovery=True)
+            self.assertTrue(result['collection_complete']);self.assertEqual(result['scope'],'tablet-full-recovery');verify.assert_called_once();short.assert_not_called()
+            args,kw=next(c for c in calls if c[0][0]=='xcodebuild');self.assertEqual(kw['timeout'],2400)
+            self.assertEqual([a.split('/')[-1] for a in args if str(a).startswith('-only-testing:')],capture.video.layout_exports.METHODS)
+            self.assertEqual(args[args.index('-maximum-test-execution-time-allowance')+1],'600')
+            row={'errors':[],'collection_complete':True,'capabilities_passed':True,'tablet_recovery_matrix_passed':True}
+            scope=mock.Mock();scope.fixture=None;scope.close.side_effect=RuntimeError('unsettled')
+            capture.finalize(Path(tmp),row,None,scope,None,False);self.assertFalse(row['tablet_recovery_matrix_passed'])
     def test_reviewed_full_recovery_sources_match_sealed_digests(self):
         root=Path(__file__).resolve().parents[3]
         # Reviewed immutable source digests, not an acceptance substitute.

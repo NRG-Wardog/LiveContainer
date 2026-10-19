@@ -55,7 +55,7 @@ class Tablet(unittest.TestCase):
             self.assertEqual([a.split('/')[-1] for a in args if str(a).startswith('-only-testing:')],['testCapabilityNestedTabSelection','testCapabilityNoBannerRotation'])
             self.assertEqual(verify.call_args.args[4],'tablet')
     def test_tablet_profile_cannot_select_other_routes(self):
-        for key in ['full_recovery','default_tabs','calibration_only','install_diagnostic']:
+        for key in ['default_tabs','calibration_only','install_diagnostic']:
             with tempfile.TemporaryDirectory() as tmp:
                 p=Path(tmp)
                 with self.assertRaises(ValueError):capture.execute(p,p/'work',p/'out',p/'inputs','bad','tablet',**{key:True})

@@ -883,11 +883,11 @@ class PhoneOnlyRoutingTests(unittest.TestCase):
     def test_old_combined_input_scope_rejected(self):
         helper=SealsAndExports();helper.root=self.root;host,path,data=helper.sealed();data['scope']='calibration-and-recovery-capabilities-only-no-admission';put(path,data)
         with self.assertRaisesRegex(ValueError,'wrong capability scope'):capture.validate(host,path,capture.sha(path))
-    def test_workflow_only_tablet_and_preserved_budgets(self):
+    def test_workflow_only_tablet_full_and_preserved_budgets(self):
         import yaml
         row=yaml.safe_load((HERE.parents[2]/'.github/workflows/p1-native-candidate.yml').read_text());jobs=row['jobs'];self.assertEqual(len(jobs),1)
-        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['tablet']);self.assertEqual(job['timeout-minutes'],35)
-        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],22);self.assertNotIn('--calibration-only',step['run']);self.assertNotIn('--full-recovery',step['run']);self.assertIn('preflight/budget.py',step['run'])
+        job=next(iter(jobs.values()));self.assertEqual(job['strategy']['matrix']['device'],['tablet']);self.assertEqual(job['timeout-minutes'],65)
+        step=next(s for s in job['steps'] if s.get('id')=='collect');self.assertEqual(step['timeout-minutes'],55);self.assertNotIn('--calibration-only',step['run']);self.assertEqual(step['run'].count('--full-recovery'),2);self.assertIn('preflight/budget.py',step['run'])
         self.assertIn("--device-class '${{ matrix.device }}'",step['run']);self.assertNotIn('native_gate.py',step['run'])
     def test_cli_rejects_unknown_class(self):
         import subprocess

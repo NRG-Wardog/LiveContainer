@@ -40,7 +40,7 @@ def validate(host,inputs,approved):
     require(re.fullmatch('[0-9a-f]{64}',approved or '') and sha(inputs)==approved,'unreviewed inputs')
     data=parse(inputs)
     require(set(data)=={'schema','scope','livecontainer','builder','source_sha256','adapter_files'},'unexpected input fields')
-    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope'] in {'phone-recovery-capability-only-no-admission','phone-full-recovery-only-no-admission','phone-default-tabs-only-no-admission','phone-calibration-only-no-admission','tablet-recovery-capability-only-no-admission'},'wrong capability scope')
+    require(data['schema']=='p1-short-capability-inputs-v1' and data['scope'] in {'phone-recovery-capability-only-no-admission','phone-full-recovery-only-no-admission','phone-default-tabs-only-no-admission','phone-calibration-only-no-admission','tablet-recovery-capability-only-no-admission','tablet-full-recovery-only-no-admission'},'wrong capability scope')
     require(data['livecontainer']==SOURCE and data['builder']==BUILDER and data['source_sha256']==SOURCE_SHA,'wrong source pin')
     require(set(data['adapter_files'])==ADAPTERS,'wrong adapter inventory')
     for path,digest in data['adapter_files'].items():require(sha(ordinary(host,path))==digest,'adapter drift: '+path)
@@ -391,7 +391,7 @@ def run_calibration(command,candidate,device,session,folder,valid_png):
 def run_layout(command,candidate,device,kind,folder,valid_png,full_recovery=False,default_tabs=False):
     require(not(full_recovery and default_tabs),'one recovery route required')
     capability_kind='phone-default' if default_tabs else kind
-    folder.mkdir();report={'scope':'phone-full-recovery' if full_recovery else 'phone-default-tabs' if default_tabs else 'recovery-capability-only','collection_complete':False,'full_matrix_complete':False,'admissionEligible':False,'errors':[]};bundle=folder/'tests.xcresult'
+    folder.mkdir();report={'scope':kind+'-full-recovery' if full_recovery else 'phone-default-tabs' if default_tabs else 'recovery-capability-only','collection_complete':False,'full_matrix_complete':False,'admissionEligible':False,'errors':[]};bundle=folder/'tests.xcresult'
     try:
         state=json.loads(command('xcrun','simctl','list','devices','--json'))
         if not any(d['udid']==device and d['state']=='Booted' for group in state['devices'].values() for d in group):command('xcrun','simctl','boot',device)
@@ -441,7 +441,8 @@ def finalize(output,result,command,scope,device,booted_here):
     if scope is not None:
         try:scope.close()
         except Exception as error:result['errors'].append('quiescence: '+str(error));result['capabilities_passed']=False;result['collection_complete']=False
-    if 'phone_recovery_matrix_passed' in result:result['phone_recovery_matrix_passed']=result.get('phone_recovery_matrix_passed') is True and result['collection_complete'] and not result['errors']
+    for key in ('phone_recovery_matrix_passed','tablet_recovery_matrix_passed'):
+        if key in result:result[key]=result[key] is True and result['collection_complete'] and not result['errors']
     if 'calibration_feasible' in result:result['calibration_feasible']=result['calibration_feasible'] is True and result['collection_complete'] and not result['errors']
     write(output/'capability-result.json',result)
     # Outer budget owner verifies group quiescence again before indexing.
@@ -480,8 +481,8 @@ def observe_install(command,device,app,output):
 def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_recovery=False,default_tabs=False,calibration_only=False):
     require(sum(bool(v) for v in (install_diagnostic,full_recovery,default_tabs,calibration_only))<=1,'incompatible collection profiles')
     require(kind in ('phone','tablet') and not work.exists() and not output.exists(),'fresh paths and supported device class required')
-    require(kind=='phone' or not any((install_diagnostic,full_recovery,default_tabs,calibration_only)),'tablet capability profile only')
-    require(parse(inputs)['scope']==('phone-calibration-only-no-admission' if calibration_only else 'phone-full-recovery-only-no-admission' if full_recovery else 'phone-default-tabs-only-no-admission' if default_tabs else kind+'-recovery-capability-only-no-admission'),'sealed execution scope differs')
+    require(kind=='phone' or not any((install_diagnostic,default_tabs,calibration_only)),'tablet recovery profiles only')
+    require(parse(inputs)['scope']==('phone-calibration-only-no-admission' if calibration_only else kind+'-full-recovery-only-no-admission' if full_recovery else 'phone-default-tabs-only-no-admission' if default_tabs else kind+'-recovery-capability-only-no-admission'),'sealed execution scope differs')
     work.mkdir(parents=True);output.mkdir(parents=True)
     result={'schema':'p1-phone-recovery-collection-v1','scope':'phone-recovery-capability-only','admission_eligible':False,'production_ready':False,'full_native_lane_executed':False,'full_matrix_complete':False,
         'source':SOURCE,'source_sha256':SOURCE_SHA,'approved_inputs_sha256':approved,'device_class':kind,'collection_complete':False,'capabilities_passed':False,'errors':[],
@@ -494,7 +495,7 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
     if kind=='tablet':result.update(schema='p1-tablet-recovery-collection-v1',scope='tablet-recovery-capability-only',tablet_executed=False)
     if calibration_only:result.update(scope='phone-calibration-only',calibration_feasible=False)
     if default_tabs:result.update(scope='phone-default-tabs-only')
-    if full_recovery:result.update(scope='phone-full-recovery-only',phone_recovery_matrix_passed=False)
+    if full_recovery:result.update(scope=kind+'-full-recovery-only',**{kind+'_recovery_matrix_passed':False})
     if install_diagnostic:result.update(scope='install-completion-diagnostic-only',diagnostic_complete=False,ui_executed=False)
     command=None;scope=None;booted_here=False;device=None
     try:
@@ -512,7 +513,7 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
         if kind=='tablet':
             identity=parse(output/'source-identity.json');identity['scope']='tablet recovery capability only; calibration and phone not executed';write(output/'source-identity.json',identity)
         if full_recovery:
-            identity=parse(output/'source-identity.json');identity['scope']='full phone recovery only; calibration and tablet not executed';write(output/'source-identity.json',identity)
+            identity=parse(output/'source-identity.json');identity['scope']='full '+kind+' recovery only; calibration and other device class not executed';write(output/'source-identity.json',identity)
         command('env','MAINTAINED_LIVE_CONTAINER_TEST_SOURCE='+str(live),'P1_FROZEN_BUILDER_TEST_SOURCE='+str(builder),'python3','-B','-m','unittest','discover','-s',HERE,'-p','test_capability.py','-k','test_exact_generated_source','-v',timeout=60)
         command('xcodebuild','build-for-testing','-project',project,'-scheme','P0SignIn','-sdk','iphonesimulator','-destination','generic/platform=iOS Simulator','-derivedDataPath',work/'build/DerivedData','-jobs','2','CODE_SIGNING_ALLOWED=NO','CODE_SIGNING_REQUIRED=NO',timeout=360)
         products=work/'build/DerivedData/Build/Products';candidates=list(products.glob('*.xctestrun'));require(len(candidates)==1,'ambiguous test recipe')
@@ -553,7 +554,7 @@ def execute(host,work,output,inputs,approved,kind,install_diagnostic=False,full_
         elif not install_diagnostic:
             result['collection_complete']=result['recovery']['collection_complete']
             result['capabilities_passed']=result['collection_complete']
-            if full_recovery:result['phone_recovery_matrix_passed']=result['collection_complete']
+            if full_recovery:result[kind+'_recovery_matrix_passed']=result['collection_complete']
     except Exception as error:result['errors'].append(str(error));process_scope.emit_diagnostic('collector-failure',error=process_scope.error_info(error))
     finally:finalize(output,result,command,scope,device,booted_here)
     return (result.get('diagnostic_complete') is True and not result['errors']) if install_diagnostic else result['capabilities_passed']
