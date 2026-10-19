@@ -27,7 +27,7 @@ class Integration(unittest.TestCase):
     def test_exact_seal(self):
         path=HERE/'inputs.json'
         data=capture.validate(HOST,path,hashlib.sha256(path.read_bytes()).hexdigest())
-        self.assertEqual(data['scope'],'phone-simctl-capture-probe-only-no-admission')
+        self.assertEqual(data['scope'],'capture-prerequisites-only-no-admission')
         for name in ['minimal_gate.py','process_scope.py','probe_pair.py','stall_diagnostic.py','budget.py']:
             self.assertIn('ci/p1/preflight/'+name,data['adapter_files'])
     def test_shared_observation_and_cleanup_deadlines(self):
@@ -49,9 +49,9 @@ class Integration(unittest.TestCase):
         text=(HOST/'.github/workflows/p1-native-candidate.yml').read_text()
         self.assertEqual(text.count('budget.py --stall-diagnostic'),0)
         self.assertEqual(text.count('preflight/stall_diagnostic.py'),0)
-        self.assertIn('--execute',text)
+        self.assertIn('--capture-prerequisites',text);self.assertNotIn('--execute',text)
         self.assertIn('budget.py --check-package',text)
-        self.assertIn('timeout-minutes: 22',text);self.assertIn('timeout-minutes: 35',text)
+        self.assertIn('timeout-minutes: 3',text);self.assertIn('timeout-minutes: 10',text)
     def test_sampler_and_probes_are_sealed(self):
         text=(HERE/'stall_diagnostic.py').read_text()
         self.assertLess(text.index("sampler.start()"),text.index("probe_pair.pair(trivial,'before-boot')"))

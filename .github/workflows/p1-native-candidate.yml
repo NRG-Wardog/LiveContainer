@@ -1,6 +1,6 @@
-name: P1 bounded public capture comparison
+name: P1 read-only capture prerequisites
 
-# Diagnostic capture backend comparison only. No UI admission.
+# Existing permission and public SDK inspection only. No pixel capture or permission changes.
 on:
   push:
     branches: [validation/p1-native-basis]
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-  APPROVED_P1_CAPABILITY_INPUTS_SHA256: '34594f57d0a64fb4cb8e34765f4c8ba02342ea1161c4b4e7d474e0774fe21e28'
+  APPROVED_P1_CAPABILITY_INPUTS_SHA256: 'be51937d919cd86bd0c91e62a0e3cf72c00982bd1e06eb699aec1ba1fea63154'
   PYTHONDONTWRITEBYTECODE: '1'
   GIT_TERMINAL_PROMPT: '0'
   GIT_CONFIG_NOSYSTEM: '1'
@@ -25,7 +25,7 @@ jobs:
       matrix:
         device: [phone]
     runs-on: macos-26
-    timeout-minutes: 35
+    timeout-minutes: 10
     defaults:
       run:
         shell: bash
@@ -52,18 +52,18 @@ jobs:
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_screen_calibration.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_calibration_discovery.py -v
           python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_simctl_capture.py -v
-      - name: Collect bounded public capture comparison
+          python3 -B -m unittest discover -s validation/ci/p1/preflight -p test_capture_prerequisites.py -v
+      - name: Inspect bounded capture prerequisites
         id: collect
-        timeout-minutes: 22
+        timeout-minutes: 3
         run: |
           set -euo pipefail
-          python3 -B validation/ci/p1/preflight/budget.py --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
-            python3 -B validation/ci/p1/preflight/capture.py \
+          python3 -B validation/ci/p1/preflight/budget.py --capture-prerequisites --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" -- \
+            python3 -B validation/ci/p1/preflight/capture_prerequisites.py \
             --inputs validation/ci/p1/preflight/inputs.json \
             --approved-inputs-sha256 "$APPROVED_P1_CAPABILITY_INPUTS_SHA256" \
             --host-root "$GITHUB_WORKSPACE/validation" \
-            --work "$RUNNER_TEMP/p1-capability-work" --evidence "$GITHUB_WORKSPACE/p1-capability-evidence" \
-            --device-class '${{ matrix.device }}' --execute --calibration-only --simctl-capture-probe
+            --evidence "$GITHUB_WORKSPACE/p1-capability-evidence"
       - name: Package every original evidence byte into bounded parts
         id: package
         if: always()

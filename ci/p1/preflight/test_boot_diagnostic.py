@@ -367,9 +367,9 @@ class CollectorRoutes(unittest.TestCase):
         self.assertIn('shutdown-state', [c[0] for c in calls])
     def test_workflow_probe_route_and_unchanged_outer_budget(self):
         workflow = (Path(__file__).resolve().parents[3] / '.github/workflows/p1-native-candidate.yml').read_text()
-        block = workflow.split('      - name: Collect bounded public capture comparison', 1)[1].split('      - name: Package', 1)[0]
-        self.assertIn('preflight/capture.py', block); self.assertIn('preflight/budget.py --evidence', block)
-        self.assertIn('--execute', block); self.assertIn('--calibration-only',block);self.assertIn('--simctl-capture-probe',block); self.assertNotIn('--install-completion-diagnostic',block); self.assertIn('timeout-minutes: 22', block); self.assertEqual(block.count('--full-recovery'),0)
+        block = workflow.split('      - name: Inspect bounded capture prerequisites', 1)[1].split('      - name: Package', 1)[0]
+        self.assertIn('preflight/capture_prerequisites.py', block); self.assertIn('preflight/budget.py --capture-prerequisites --evidence', block)
+        self.assertNotIn('--execute', block);self.assertNotIn('--calibration-only',block);self.assertNotIn('--simctl-capture-probe',block); self.assertNotIn('--install-completion-diagnostic',block); self.assertIn('timeout-minutes: 3', block); self.assertEqual(block.count('--full-recovery'),0)
         self.assertNotIn('boot_diagnostic.py', block); self.assertNotIn('--boot-diagnostic', workflow)
 
 

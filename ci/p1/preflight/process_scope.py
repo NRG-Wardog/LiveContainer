@@ -286,15 +286,15 @@ def stop_group(group,process=None):
 
 
 class Scope:
-    def __init__(self,root,seconds=1020,gate_mode='full',stall_diagnostic=False,phone_ui=False,full_recovery=False):
-        if sum(bool(v) for v in (stall_diagnostic,phone_ui,full_recovery))>1:raise ValueError('one collector budget profile required')
+    def __init__(self,root,seconds=1020,gate_mode='full',stall_diagnostic=False,phone_ui=False,full_recovery=False,capture_prerequisites=False):
+        if sum(bool(v) for v in (stall_diagnostic,phone_ui,full_recovery,capture_prerequisites))>1:raise ValueError('one collector budget profile required')
         if gate_mode not in ('full','minimal'):raise ValueError('fixed gate mode required')
         self.gate_mode=gate_mode
         if seconds!=1020:raise ValueError('fixed 17-minute internal deadline required')
         self.root=root;self.path=root/'process-registry.json';self.lock=threading.RLock();self.processes={};self.rows=[]
         self.session=os.environ.get('P1_PROCESS_SCOPE_SESSION') or uuid.uuid4().hex
         started=time.monotonic()
-        self.deadline=started+(360 if stall_diagnostic else (3000 if full_recovery else seconds));self.cleanup_deadline=started+480 if stall_diagnostic else (started+3120 if full_recovery else (started+1140 if phone_ui else None))
+        self.deadline=started+(60 if capture_prerequisites else 360 if stall_diagnostic else (3000 if full_recovery else seconds));self.cleanup_deadline=started+90 if capture_prerequisites else started+480 if stall_diagnostic else (started+3120 if full_recovery else (started+1140 if phone_ui else None))
         self.closing=False;self.fixture=None;self.creation_intent=None
         if self.path.exists():raise ValueError('fresh process registry required')
         self.persist()

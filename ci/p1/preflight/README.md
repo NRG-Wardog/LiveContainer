@@ -602,3 +602,16 @@ limit and original calibration analysis are unchanged. Host intervals and decode
 pixel associations require separate conservative offline evaluation.
 Existing observation/cleanup/outer budgets remain in force. No native UI methods
 or app source are changed.
+
+
+Read-only capture prerequisite profile
+-------------------------------------
+The capture-prerequisites-only profile inspects existing screen-capture access
+and the pinned public SDK declaration. It never requests permission, captures
+pixels, launches a GUI, or creates a simulator. False permission preflight
+returns before enumeration. Available window counts do not establish ownership.
+Header reading is an owned5-second command; compile30s/helper10s share a60-second
+observation deadline,90-second cleanup cutoff and120-second outer backstop.
+A successful job means collection with existing permission/enumeration only;
+timestamp units still require review of retained SDK documentation. All admission
+flags remain false.
