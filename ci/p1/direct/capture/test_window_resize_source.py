@@ -93,7 +93,7 @@ class ResizeSourceTests(unittest.TestCase):
         self.assertNotIn('AXUIElement',mode)
         self.assertIn('"permissionRequested": false',mode)
         entry=(HERE.parent/'entry.py').read_text()
-        self.assertLess(entry.index("command(helper,'--check-existing-accessibility',timeout=10)"),entry.index('capture.base.acquire(builder'))
+        self.assertLess(entry.index("startup_observation(command,result,'accessibility-prerequisite',helper,'--check-existing-accessibility',historical=10)"),entry.index('capture.base.acquire(builder'))
         self.assertLess(entry.index("capture.write(output/'accessibility-prerequisite.json'"),entry.index("require(set(accessibility)"))
 
 if __name__=='__main__':unittest.main()

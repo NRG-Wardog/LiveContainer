@@ -25,7 +25,7 @@
     "ci/p1/direct/capture/test_session_io_source.py": "e8816463254c17cf2f60ff9ade00f05081aecd5ae15071a41ec76f41999aa3bb",
     "ci/p1/direct/capture/test_shared_budget.py": "5198b7628451c767ca8f0067f9153fce8a607366224498f66ed86bb1712f6813",
     "ci/p1/direct/capture/test_sink_source.py": "582b38a58cf189644f73490e736c5b291629ae3c1bac8a38d82623a2bc908bef",
-    "ci/p1/direct/capture/test_window_resize_source.py": "146ffe740c394372e7f78283a9adf7448bb2ee2ba634b41af892d0b1f255149a",
+    "ci/p1/direct/capture/test_window_resize_source.py": "bc948917dbddfe5ceb0c7f11669d221c138732b1360b71e4f30c414310805bca",
     "ci/p1/direct/capture/window_resize.swift": "6df2b682c26275b195a1a2c519583ab2cb426100066c93820badfc6d82e65b03",
     "ci/p1/direct/clock/bound_clocks.py": "0d468a9e99f6d92bf15b96862fddc7b30eb1483382fa53961fc2177fc096605e",
     "ci/p1/direct/clock/direct_clock.py": "8e70c7ca6b6dcab180205383be3dbc75f859f958f5d74a4fa3edafd61eabeb15",
