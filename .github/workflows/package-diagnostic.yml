@@ -1,0 +1,251 @@
+# Package-only candidate bound to retention run39475391825, attempt1.
+# Publish only after its success/artifact review. No native rebuild or public release.
+name: Package retained diagnostic apps
+on:
+  push:
+    branches: [validation/diagnostic-ipa-20261020]
+    paths: ['.github/workflows/package-diagnostic.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/diagnostic-ipa-20261020'
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      PYTHONOPTIMIZE: '0'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Fetch pinned existing packaging implementation
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: NRG-Wardog/sidestore-auto-refresh
+          ref: 3edd9fa523a223bcd2898d5c960c5da7ff335be8
+          path: builder
+          persist-credentials: false
+          submodules: false
+      - name: Fetch exact host packaging scripts and entitlements
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: NRG-Wardog/LiveContainer
+          ref: 47abe34894eb332a654d32f8e9322ce5eeac757a
+          path: host
+          persist-credentials: false
+          submodules: false
+      - name: Download only matching successful native artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPILE_RUN: '39475391825'
+          COMPILE_COMMIT: '32fda8a8f2a0c18d66adc86a94bb9b317d4250a1'
+          COMPILE_ATTEMPT: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$COMPILE_RUN" =~ ^[0-9]+$ && "$COMPILE_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$COMPILE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          mkdir package-evidence downloads unpacked diagnostic
+          gh api "repos/NRG-Wardog/LiveContainer/actions/runs/$COMPILE_RUN" > package-evidence/compile-run.json
+          python3 - <<'PY'
+          import json, os
+          r = json.load(open('package-evidence/compile-run.json'))
+          if (r['head_sha'] != os.environ['COMPILE_COMMIT'] or
+              r['run_attempt'] != int(os.environ['COMPILE_ATTEMPT']) or
+              r['conclusion'] != 'success' or r['path'] != '.github/workflows/native-app-compile.yml' or
+              r['head_branch'] != 'validation/native-app-compile-20261020'):
+              raise ValueError('Not the requested successful native compile')
+          PY
+          cat > package-evidence/zip_preflight.py <<'PY'
+          import pathlib, posixpath, stat, zipfile
+          
+          def preflight(archive, owner):
+              root = 'native-transfer-' + owner
+              links = {}
+              paths = set()
+              with zipfile.ZipFile(archive) as z:
+                  entries = z.infolist()
+                  if len(entries) > 100000 or sum(i.file_size for i in entries) > 4 * 1024**3:
+                      raise ValueError('Archive exceeds bounded transfer inventory')
+                  for i in entries:
+                      name = i.filename.rstrip('/')
+                      parts = pathlib.PurePosixPath(name).parts
+                      if (not name or name.startswith('/') or '\\' in name or
+                          '\x00' in name or any(p in ('..', '.', '') for p in name.split('/')) or name in paths):
+                          raise ValueError('Unsafe or duplicate ZIP path')
+                      if parts[0] not in (root, '__MACOSX'):
+                          raise ValueError('Unexpected ZIP root')
+                      paths.add(name)
+                      mode = i.external_attr >> 16
+                      kind = stat.S_IFMT(mode)
+                      if kind not in (0, stat.S_IFREG, stat.S_IFDIR, stat.S_IFLNK):
+                          raise ValueError('Unsupported ZIP entry type')
+                      if kind == stat.S_IFLNK:
+                          if parts[0] == '__MACOSX' or name == root or i.file_size > 4096:
+                              raise ValueError('Unexpected ZIP symlink')
+                          target = z.read(i).decode('utf-8')
+                          if not target or target.startswith('/') or '\\' in target or '\x00' in target:
+                              raise ValueError('Unsafe ZIP symlink target')
+                          links[name] = target
+                  if root not in paths:
+                      raise ValueError('Missing transfer root')
+                  def resolved(name):
+                      pending = name.split('/')
+                      stack = []
+                      expansions = 0
+                      while pending:
+                          part = pending.pop(0)
+                          if part in ('', '.'):
+                              continue
+                          if part == '..':
+                              if len(stack) <= 1: raise ValueError('Escaping ZIP symlink')
+                              stack.pop()
+                              continue
+                          stack.append(part)
+                          prefix = '/'.join(stack)
+                          if prefix in links:
+                              expansions += 1
+                              if expansions > 64: raise ValueError('Cyclic or excessive ZIP symlink chain')
+                              stack.pop()
+                              pending = links[prefix].split('/') + pending
+                      return '/'.join(stack)
+                  for name in paths:
+                      if name == root or name.startswith(root + '/'):
+                          target = resolved(name)
+                          if target != root and not target.startswith(root + '/'):
+                              raise ValueError('Escaping ZIP entry')
+                  # Metadata is read only from real regular files, never archive symlinks.
+                  for required in ('evidence/receipt.json', 'evidence/product-hashes.json', 'retained-files.json'):
+                      name = root + '/' + required
+                      if name not in paths or resolved(name) != name:
+                          raise ValueError('Missing or linked transfer metadata')
+                      item = z.getinfo(name)
+                      if stat.S_IFMT(item.external_attr >> 16) not in (0, stat.S_IFREG):
+                          raise ValueError('Transfer metadata is not regular')
+          PY
+          for owner in LiveContainer SideStore; do
+            gh run download "$COMPILE_RUN" --repo NRG-Wardog/LiveContainer \
+              --name "unsigned-$owner-$COMPILE_COMMIT-$COMPILE_RUN-$COMPILE_ATTEMPT" --dir "downloads/$owner"
+            (cd "downloads/$owner" && shasum -a 256 -c SHA256SUMS)
+            python3 - "$owner" <<'PY'
+          import sys
+          sys.path.insert(0, 'package-evidence')
+          from zip_preflight import preflight
+          preflight('downloads/' + sys.argv[1] + '/' + sys.argv[1] + '-unsigned.zip', sys.argv[1])
+          PY
+            mkdir "unpacked/$owner"
+            ditto -x -k "downloads/$owner/$owner-unsigned.zip" "unpacked/$owner"
+          done
+      - name: Verify retained native input identities and bytes
+        env:
+          COMPILE_RUN: '39475391825'
+          COMPILE_COMMIT: '32fda8a8f2a0c18d66adc86a94bb9b317d4250a1'
+          COMPILE_ATTEMPT: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C builder rev-parse HEAD)" = 3edd9fa523a223bcd2898d5c960c5da7ff335be8
+          test "$(git -C host rev-parse HEAD)" = 47abe34894eb332a654d32f8e9322ce5eeac757a
+          test -z "$(git -C builder status --porcelain)"
+          test -z "$(git -C host status --porcelain)"
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, stat
+          def inventory(root):
+              result = {}
+              canonical = root.resolve(strict=True)
+              for p in [root, *sorted(root.rglob('*'))]:
+                  mode = p.lstat().st_mode
+                  row = {'mode': stat.S_IMODE(mode)}
+                  if stat.S_ISLNK(mode):
+                      target = os.readlink(p)
+                      if os.path.isabs(target) or not p.resolve(strict=True).is_relative_to(canonical):
+                          raise ValueError('Unbounded retained symlink')
+                      row.update(kind='symlink', target=target)
+                  elif stat.S_ISDIR(mode): row['kind'] = 'directory'
+                  elif stat.S_ISREG(mode): row.update(kind='file', sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+                  else: raise ValueError('Unsupported retained entry')
+                  result[p.relative_to(root).as_posix()] = row
+              return result
+          receipts = []
+          for owner in ('LiveContainer', 'SideStore'):
+              root = pathlib.Path('unpacked') / owner / ('native-transfer-' + owner)
+              if root.is_symlink() or not root.is_dir(): raise ValueError('Invalid transfer root')
+              inventory(root)
+              receipt = json.loads((root / 'evidence/receipt.json').read_text())
+              if (receipt['status'] != 'COMPILE_ONLY_PASS_REQUIRES_REVIEW' or
+                  str(receipt['run_id']) != os.environ['COMPILE_RUN'] or
+                  str(receipt['run_attempt']) != os.environ['COMPILE_ATTEMPT'] or
+                  receipt['workflow_commit'] != os.environ['COMPILE_COMMIT']):
+                  raise ValueError('Retained receipt mismatch')
+              for name, expected_hash in receipt['evidence_sha256'].items():
+                  if pathlib.PurePosixPath(name).name != name: raise ValueError('Invalid evidence name')
+                  evidence_file = root / 'evidence' / name
+                  if evidence_file.is_symlink() or not evidence_file.is_file(): raise ValueError('Invalid evidence file')
+                  if hashlib.sha256(evidence_file.read_bytes()).hexdigest() != expected_hash:
+                      raise ValueError('Compile evidence checksum mismatch: ' + name)
+              receipts.append(receipt)
+              app = root / 'Products' / (owner + '.app')
+              manifest = json.loads((root / 'retained-files.json').read_text())
+              if inventory(app) != manifest['app']: raise ValueError('Retained app inventory differs')
+              expected = json.loads((root / 'evidence/product-hashes.json').read_text())[owner]
+              actual = {p.relative_to(app).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in sorted(app.rglob('*')) if p.is_file()}
+              if actual != expected: raise ValueError('Retained app differs from native compilation')
+          if receipts[0] != receipts[1]: raise ValueError('Apps come from different compile receipts')
+          pathlib.Path('package-evidence/native-receipt.json').write_text(json.dumps(receipts[0], indent=2))
+          PY
+      - name: Package using existing verified combined wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install --formula homebrew/core/ldid
+          brew info --json=v2 --formula homebrew/core/ldid > package-evidence/ldid-formula.json
+          LDID_PREFIX="$(brew --prefix homebrew/core/ldid)"
+          export LDID_PREFIX
+          cp "$LDID_PREFIX/INSTALL_RECEIPT.json" package-evidence/ldid-install-receipt.json
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          info = json.load(open('package-evidence/ldid-formula.json'))['formulae']
+          if len(info) != 1: raise ValueError('Unexpected formula count')
+          formula = info[0]
+          if formula['name'] != 'ldid' or formula['tap'] != 'homebrew/core':
+              raise ValueError('Not official Homebrew ldid')
+          stable = formula['urls']['stable']
+          if not stable['url'].startswith('https://') or not re.fullmatch('[0-9a-f]{64}', stable['checksum']):
+              raise ValueError('Missing official source checksum')
+          receipt = json.load(open('package-evidence/ldid-install-receipt.json'))
+          if receipt['source']['tap'] != 'homebrew/core': raise ValueError('Unexpected installed formula origin')
+          prefix = pathlib.Path(os.environ['LDID_PREFIX']).resolve(strict=True)
+          binary = prefix / 'bin/ldid'
+          if not binary.is_file() or not binary.resolve(strict=True).is_relative_to(prefix):
+              raise ValueError('ldid binary is outside official installed keg')
+          if not any(v['version'] == prefix.name for v in formula['installed']):
+              raise ValueError('Installed ldid version differs from formula inventory')
+          PY
+          export PATH="$LDID_PREFIX/bin:$PATH"
+          { xcodebuild -version; brew list --versions ldid; shasum -a 256 "$LDID_PREFIX/bin/ldid"; } > package-evidence/toolchain.txt
+          python3 builder/scripts/package_livecontainer_combined.py \
+            --root host \
+            --host unpacked/LiveContainer/native-transfer-LiveContainer/Products/LiveContainer.app \
+            --side unpacked/SideStore/native-transfer-SideStore/Products/SideStore.app \
+            --output diagnostic/LiveContainer-SideStore-diagnostic.ipa 2>&1 | tee package-evidence/packaging.log
+          shasum -a 256 diagnostic/LiveContainer-SideStore-diagnostic.ipa > diagnostic/SHA256SUMS
+          stat -f%z diagnostic/LiveContainer-SideStore-diagnostic.ipa > diagnostic/size-bytes.txt
+          test "$(cat diagnostic/size-bytes.txt)" -lt 524288000
+          # Wrapper itself checks conversion, entitlements, identities and resources.
+          # This is a diagnostic candidate, not proof that sign-in works on device.
+      - name: Preserve packaging evidence on success or failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diagnostic-package-evidence-${{ github.run_id }}
+          path: package-evidence/
+          if-no-files-found: error
+      - name: Retain successfully verified diagnostic IPA
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diagnostic-ipa-${{ github.run_id }}
+          path: diagnostic/
+          compression-level: 0
+          if-no-files-found: error

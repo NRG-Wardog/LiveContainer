@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    if: github.ref != 'refs/heads/validation/p0-fault-aggregate-phase-a' && github.ref != 'refs/heads/validation/evidence-transfer-20261020' && github.ref != 'refs/heads/validation/consumer-contract-20261020' && github.ref != 'refs/heads/validation/native-app-compile-20261020'
+    if: github.ref != 'refs/heads/validation/p0-fault-aggregate-phase-a' && github.ref != 'refs/heads/validation/evidence-transfer-20261020' && github.ref != 'refs/heads/validation/consumer-contract-20261020' && github.ref != 'refs/heads/validation/native-app-compile-20261020' && github.ref != 'refs/heads/validation/diagnostic-ipa-20261020'
     name: Build using xcodebuild command
     runs-on: macos-latest
     env:
