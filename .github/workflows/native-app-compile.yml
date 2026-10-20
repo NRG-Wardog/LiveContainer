@@ -29,18 +29,25 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Initialize failure evidence before checkout
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf 'workflow_commit=%s\nrun_id=%s\nrun_attempt=%s\nstatus=STARTED_NOT_COMPILED\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > evidence/attempt.txt
       - name: Checkout workflow and evidence recorder only
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           path: harness
           persist-credentials: false
+          set-safe-directory: false
           submodules: false
           lfs: false
       - name: Acquire exact immutable source graph
         run: |
           set -euo pipefail
           mkdir -p evidence sources
-          python3 harness/.ci/native-app-compile/record.py acquire
+          python3 harness/.ci/native-app-compile/record.py acquire 2>&1 | tee evidence/acquisition.log
           python3 harness/.ci/native-app-compile/record.py snapshot acquired
           { xcodebuild -version; xcrun --sdk iphoneos --show-sdk-version; swift --version; uname -a; } > evidence/toolchain.txt
           xcodebuild -version | grep -Fx 'Xcode 26.4.1'

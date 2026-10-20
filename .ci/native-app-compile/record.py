@@ -20,6 +20,7 @@ OWNERS = {
     'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', '6e24a6f1389d102a64216b8c3d7344257baa28df'),
     'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', 'efbcab05d7d636aa37c6bf6c7f364d122c5610f6'),
     'LiveContainer/OpenSSL': ('krzyzanowskim/OpenSSL', '623c84da314e85363236507ca38a4bde65df21c3'),
+    'idevice/cpp/plist_ffi': ('jkcoxson/plist_ffi', '66e6e6362b58bc361725c3e1b0a34af498aa2b3a'),
     'LiveContainer/litehook': ('LiveContainerMirror/litehook', '8025e0c8ebdf5cdd1d2a4f45025813234bf9dc55'),
 }
 LOCKS = {
@@ -98,6 +99,8 @@ def snapshot(label):
 
 
 def acquire():
+    # Retain requested identity even when cloning or closure validation fails.
+    write('requested-graph.json', OWNERS)
     for name, (repo, commit) in OWNERS.items():
         root = S / name
         require(not root.exists() or (root.is_dir() and not list(root.iterdir())), 'Nonfresh checkout: ' + name)
