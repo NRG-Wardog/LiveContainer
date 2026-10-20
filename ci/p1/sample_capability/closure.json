@@ -1,0 +1,10 @@
+{
+  "ci/p1/direct/host/fixture_channel.py": "ea7df3ef8d746e09c872ef05e6e83661ba68772dd2dd9cbfcdc5254fee903f23",
+  "ci/p1/direct/host/helper_sample.py": "54b5e60affde835cb5d80a877c1f59ced6eba32f3fe5406af4c6495b85a84262",
+  "ci/p1/preflight/launch_gate.py": "b3aa49fae2fd162437bc46e16550877e79642c04a929a715f5c2ebe1651469db",
+  "ci/p1/preflight/minimal_gate.py": "4220957d328181502e574bf24002d25044b22f71166a64cde606a946522a61d8",
+  "ci/p1/preflight/process_scope.py": "7e68ba1928935e7322e0fc61c2cfd03729c20e78ec324c42f6c01c2aca2cf82d",
+  "ci/p1/sample_capability/diagnostic.py": "3b2f487de62cfa9122450602466e6bfb5015d0407f413520217280aa23fdad4e",
+  "ci/p1/sample_capability/run.py": "e74ddb74fb77f29eb3a01c8a976d6edc487df26a355f52f283335b0b14327ebb",
+  "ci/p1/sample_capability/test_diagnostic.py": "7b400d590efc89c579aab60f238175ec04b5d713d8ddd67d903957da06d414ca"
+}

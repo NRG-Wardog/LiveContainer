@@ -1,0 +1,49 @@
+name: P1 owned sample capability only
+
+# Exact branch; no native build, simulator, XCTest, UI capture or helper sample.
+on:
+  push:
+    branches: [validation/p1-sample-capability]
+permissions:
+  contents: read
+concurrency:
+  group: p1-sample-capability-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  capability:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/p1-sample-capability'
+    runs-on: macos-26
+    timeout-minutes: 3
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      APPROVED_CLOSURE_SHA256: '1323f2a414a52a22d1d0e4d583e9bcdc09839249f31b564242d3a26357b6f8aa'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Verify exact diagnostic closure
+        run: |
+          set -euo pipefail
+          python3 -B ci/p1/sample_capability/run.py --seal "$APPROVED_CLOSURE_SHA256" --verify-only
+      - name: One bounded benign owned-child capability attempt
+        id: diagnostic
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          python3 -B ci/p1/sample_capability/run.py --seal "$APPROVED_CLOSURE_SHA256" --output "$GITHUB_WORKSPACE/p1-sample-evidence"
+      - name: Preserve bounded metadata only
+        if: always() && steps.diagnostic.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-sample-capability-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            p1-sample-evidence/helper-sample.json
+            p1-sample-evidence/process-registry.json
+            p1-sample-evidence/quiescence.json
+          if-no-files-found: error
+          retention-days: 14
