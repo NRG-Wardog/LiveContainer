@@ -6,6 +6,7 @@ import re
 import sys
 import time
 import helper_sample as h
+import native_probe
 
 BRANCH='refs/heads/validation/p1-sample-capability'
 
@@ -83,10 +84,7 @@ class Diagnostic(h.Experiment):
             self.row.update(status='unavailable',stage='tool',code='installed-sample-absent');return
         child=None;fd=None;result=None
         try:
-            self.stage='expected-image'
-            image=h.image_identity(Path(sys.executable).resolve())
-            self.row['expectedImage']=image
-            argv=[sys.executable,'-B','-c','import time; time.sleep(30)']
+            argv,image=native_probe.prepare(self)
             deadline=min(time.monotonic()+8,self.scope.deadline)
             self.stage='child-launch';fd=os.open(os.devnull,os.O_WRONLY)
             child=self._launch(argv,fd,deadline)
@@ -103,6 +101,8 @@ class Diagnostic(h.Experiment):
             self.row.update(samplerPID=result['samplerPID'],samplerExitCode=result['code'])
             self.stage='post-sample-liveness';self._live(child,argv)
             self.row['postSampleChecks']=dict(self.checks);self.checks.clear()
+            self.stage='native-image-after-sample'
+            check(h.image_identity(Path(argv[0]))==image,self.stage,'native-image-unchanged',self.checks)
             if result['status'] is not None:
                 self.row.update(status=result['status'],stage='sampler-command',code='bounded-command-incomplete');return
             if result['code']!=0 or h.outcome(result['code'],result['raw'])=='denied':
@@ -110,6 +110,8 @@ class Diagnostic(h.Experiment):
             self.stage='report-validation'
             validate(result['raw'],pid=child.pid,parent=os.getpid(),image=image,checks=self.checks)
             self.row.update(status='available',stage='complete',code='owned-child-report-validated')
+        except native_probe.ProbeFailure as error:
+            self.row.update(status=error.status,stage=error.stage,code=error.code)
         except Rejection as error:
             self.row.update(status='unsupported',stage=error.stage,code=error.code)
         except (ValueError,OSError,self.ps.LaunchReceiptError) as error:

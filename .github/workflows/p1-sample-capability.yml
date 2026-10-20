@@ -15,8 +15,9 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 3
     env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONDONTWRITEBYTECODE: '1'
-      APPROVED_CLOSURE_SHA256: '1323f2a414a52a22d1d0e4d583e9bcdc09839249f31b564242d3a26357b6f8aa'
+      APPROVED_CLOSURE_SHA256: '390eada96a28272c64bc20ac0b9865b5467099be2be83ef02bc47a63c112d0e5'
     defaults:
       run:
         shell: bash
@@ -30,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -B ci/p1/sample_capability/run.py --seal "$APPROVED_CLOSURE_SHA256" --verify-only
-      - name: One bounded benign owned-child capability attempt
+      - name: Compile and sample one bounded native benign probe
         id: diagnostic
         timeout-minutes: 1
         run: |

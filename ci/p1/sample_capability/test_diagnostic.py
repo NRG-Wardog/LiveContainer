@@ -107,6 +107,7 @@ class Lifecycle(unittest.TestCase):
                     for target,name,value in [(d.sys,'platform','darwin'),(d.os,'getuid',501),(d.os,'geteuid',501),(h,'image_identity',IMAGE),(d.Path,'is_file',True),(d.os,'access',True)]:
                         stack.enter_context(patch.object(target,name,return_value=value) if callable(getattr(target,name)) else patch.object(target,name,value))
                     stack.enter_context(patch.dict(os.environ,valid,clear=True))
+                    stack.enter_context(patch.object(d.native_probe,'prepare',return_value=([IMAGE['path']],IMAGE)))
                     launch=stack.enter_context(patch.object(e,'_launch',return_value=child))
                     run=stack.enter_context(patch.object(e,'_run',return_value=result))
                     stack.enter_context(patch.object(e,'_live'))
@@ -115,8 +116,15 @@ class Lifecycle(unittest.TestCase):
                     self.assertEqual(e.row['status'],want);self.assertEqual(run.call_count,1);self.assertEqual(launch.call_count,1);self.assertEqual(settle.call_count,1)
                 self.assertEqual(result['raw'],b'');self.assertIsNone(e.raw)
                 encoded=json.dumps(e.row);self.assertNotIn('STACK_SENTINEL',encoded);self.assertNotIn('permission denied',encoded)
-                self.assertEqual(e.row['expectedImage'],IMAGE)
+                # Native prepare owns expected image metadata; mocked here.
                 with self.assertRaises(ValueError):e.preflight()
+
+    def test_native_compile_failure_stops_before_probe_or_sample(self):
+        valid={'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY':'NRG-Wardog/LiveContainer','RUNNER_OS':'macOS','RUNNER_ENVIRONMENT':'github-hosted','GITHUB_RUN_ID':'123','GITHUB_REF':d.BRANCH,'GITHUB_EVENT_NAME':'push'}
+        with patch.object(d.sys,'platform','darwin'),patch.dict(os.environ,valid,clear=True),patch.object(d.os,'getuid',return_value=501),patch.object(d.os,'geteuid',return_value=501),patch.object(d.Path,'is_file',return_value=True),patch.object(d.os,'access',return_value=True),patch.object(d.native_probe,'prepare',side_effect=d.native_probe.ProbeFailure('denied','native-compile','compiler-permission-denied')),patch.object(self.e,'_launch',side_effect=AssertionError),patch.object(self.e,'_run',side_effect=AssertionError):
+            self.e.preflight()
+        self.assertEqual((self.e.row['status'],self.e.row['stage'],self.e.row['code']),('denied','native-compile','compiler-permission-denied'))
+        self.assertEqual(self.scope.rows,[])
 
     def test_helper_path_disabled(self):
         with self.assertRaises(RuntimeError):self.e.start(None)
