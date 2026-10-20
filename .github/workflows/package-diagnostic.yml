@@ -1,4 +1,4 @@
-# Package-only candidate bound to retention run39475391825, attempt1.
+# Package-only candidate bound to retention run39514661594, attempt1.
 # Publish only after its success/artifact review. No native rebuild or public release.
 name: Package retained diagnostic apps
 on:
@@ -38,8 +38,8 @@ jobs:
       - name: Download only matching successful native artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          COMPILE_RUN: '39475391825'
-          COMPILE_COMMIT: '32fda8a8f2a0c18d66adc86a94bb9b317d4250a1'
+          COMPILE_RUN: '39514661594'
+          COMPILE_COMMIT: 'df00632472357803de156491d7d4e032b2b4b01c'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
@@ -139,8 +139,8 @@ jobs:
           done
       - name: Verify retained native input identities and bytes
         env:
-          COMPILE_RUN: '39475391825'
-          COMPILE_COMMIT: '32fda8a8f2a0c18d66adc86a94bb9b317d4250a1'
+          COMPILE_RUN: '39514661594'
+          COMPILE_COMMIT: 'df00632472357803de156491d7d4e032b2b4b01c'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
@@ -253,13 +253,42 @@ jobs:
           python3 package-evidence/validate_ldid_bottle.py "$LDID_PREFIX"
           export PATH="$LDID_PREFIX/bin:$PATH"
           { xcodebuild -version; brew list --versions ldid; shasum -a 256 "$LDID_PREFIX/bin/ldid"; } > package-evidence/toolchain.txt
+          # Intentional packaging metadata only, after retained input verification.
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, plistlib, re
+          commit = 'df00632472357803de156491d7d4e032b2b4b01c'
+          if not re.fullmatch('[0-9a-f]{40}', commit):
+              raise ValueError('Invalid native builder commit')
+          records = []
+          for owner in ('LiveContainer', 'SideStore'):
+              app = pathlib.Path('unpacked') / owner / ('native-transfer-' + owner) / 'Products' / (owner + '.app')
+              paths = [app / 'Info.plist'] + sorted(app.glob('PlugIns/*.appex/Info.plist'))
+              for path in paths:
+                  if path.is_symlink() or not path.is_file():
+                      raise ValueError('Invalid application metadata path')
+                  before = path.read_bytes()
+                  value = plistlib.loads(before)
+                  previous = value.get('LCBuilderCommit')
+                  value['LCBuilderCommit'] = commit
+                  fmt = plistlib.FMT_BINARY if before.startswith(b'bplist00') else plistlib.FMT_XML
+                  after = plistlib.dumps(value, fmt=fmt, sort_keys=False)
+                  path.write_bytes(after)
+                  if plistlib.loads(path.read_bytes()) != value:
+                      raise ValueError('Builder metadata write verification failed')
+                  records.append({'path': str(path), 'previous': previous, 'LCBuilderCommit': commit,
+                      'before_sha256': hashlib.sha256(before).hexdigest(),
+                      'after_sha256': hashlib.sha256(after).hexdigest()})
+          pathlib.Path('package-evidence/builder-stamping.json').write_text(json.dumps({
+              'meaning': 'Native compile workflow commit; dependency owners remain identified by compile receipt',
+              'intentional_post_retention_metadata_change': True, 'files': records}, indent=2) + '\n')
+          PY
           python3 builder/scripts/package_livecontainer_combined.py \
             --root host \
             --host unpacked/LiveContainer/native-transfer-LiveContainer/Products/LiveContainer.app \
             --side unpacked/SideStore/native-transfer-SideStore/Products/SideStore.app \
-            --output diagnostic/LiveContainer-SideStore-diagnostic.ipa 2>&1 | tee package-evidence/packaging.log
-          shasum -a 256 diagnostic/LiveContainer-SideStore-diagnostic.ipa > diagnostic/SHA256SUMS
-          stat -f%z diagnostic/LiveContainer-SideStore-diagnostic.ipa > diagnostic/size-bytes.txt
+            --output diagnostic/LiveContainer-SideStore-workqueue-experimental.ipa 2>&1 | tee package-evidence/packaging.log
+          shasum -a 256 diagnostic/LiveContainer-SideStore-workqueue-experimental.ipa > diagnostic/SHA256SUMS
+          stat -f%z diagnostic/LiveContainer-SideStore-workqueue-experimental.ipa > diagnostic/size-bytes.txt
           test "$(cat diagnostic/size-bytes.txt)" -lt 524288000
           # Wrapper itself checks conversion, entitlements, identities and resources.
           # This is a diagnostic candidate, not proof that sign-in works on device.
