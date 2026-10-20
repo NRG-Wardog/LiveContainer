@@ -1,0 +1,236 @@
+name: Transfer exact Phase A evidence
+
+on:
+  push:
+    branches:
+      - validation/evidence-transfer-20261020
+    paths:
+      - .github/workflows/evidence-transfer.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+concurrency:
+  group: evidence-transfer-12223646472
+  cancel-in-progress: false
+
+jobs:
+  transfer:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/evidence-transfer-20261020'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Verify original ZIP and split without extracting
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          REPOSITORY = "NRG-Wardog/LiveContainer"
+          RUN_ID = 39327552277
+          HEAD_SHA = "8f8002412248d2168c6e52858ff928800a2a01bb"
+          ARTIFACT_ID = 12223646472
+          EXPECTED_SIZE = 859564984
+          EXPECTED_SHA256 = "13e9ec56d86a8f2442778ba573d6ce30a43c640962420c458e69e268ffc2c131"
+          PART_BYTES = 256 * 1024 * 1024
+          API = "https://api.github.com/repos/" + REPOSITORY
+          OUTPUT = Path(os.environ["RUNNER_TEMP"]) / "evidence-transfer"
+          OUTPUT.mkdir(mode=0o700)
+          TOKEN = os.environ["GH_TOKEN"]
+          last_request = 0.0
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirect())
+
+          def api_request(path, accept="application/vnd.github+json"):
+              global last_request
+              time.sleep(max(0, 3.1 - (time.monotonic() - last_request)))
+              last_request = time.monotonic()
+              req = urllib.request.Request(API + path, headers={
+                  "Authorization": "Bearer " + TOKEN,
+                  "Accept": accept,
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "scoped-evidence-transfer",
+              })
+              return opener.open(req, timeout=90)
+
+          with api_request("/actions/runs/" + str(RUN_ID)) as response:
+              run = json.load(response)
+          if (run.get("id") != RUN_ID or run.get("head_sha") != HEAD_SHA
+                  or run.get("repository", {}).get("full_name") != REPOSITORY
+                  or run.get("status") != "completed"):
+              raise RuntimeError("Source workflow run identity or status mismatch")
+          with api_request("/actions/artifacts/" + str(ARTIFACT_ID)) as response:
+              artifact = json.load(response)
+          if (artifact.get("id") != ARTIFACT_ID
+                  or artifact.get("size_in_bytes") != EXPECTED_SIZE
+                  or artifact.get("expired") is not False
+                  or artifact.get("digest") != "sha256:" + EXPECTED_SHA256
+                  or artifact.get("workflow_run", {}).get("id") != RUN_ID
+                  or artifact.get("workflow_run", {}).get("head_sha") != HEAD_SHA):
+              raise RuntimeError("Source artifact identity, size, digest, or expiry mismatch")
+
+          try:
+              response = api_request("/actions/artifacts/" + str(ARTIFACT_ID) + "/zip")
+          except urllib.error.HTTPError as error:
+              if error.code != 302:
+                  raise RuntimeError("Artifact archive API did not return a download redirect") from None
+              location = error.headers.get("Location", "")
+              error.close()
+          else:
+              response.close()
+              raise RuntimeError("Expected an explicit archive redirect")
+
+          # The token is never forwarded to object storage or printed with a signed URL.
+          def safe_storage_url(url):
+              parsed = urllib.parse.urlsplit(url)
+              hostname = (parsed.hostname or "").lower()
+              return (parsed.scheme == "https" and parsed.port in (None, 443)
+                      and parsed.username is None and parsed.password is None
+                      and (hostname.endswith(".blob.core.windows.net")
+                           or hostname.endswith(".githubusercontent.com")))
+
+          for redirect_count in range(6):
+              if not safe_storage_url(location):
+                  raise RuntimeError("Unexpected artifact download host; stop for review")
+              try:
+                  response = opener.open(urllib.request.Request(location, headers={
+                      "User-Agent": "scoped-evidence-transfer"
+                  }), timeout=120)
+                  break
+              except urllib.error.HTTPError as error:
+                  if error.code not in (301, 302, 303, 307, 308):
+                      raise RuntimeError("Artifact storage download failed") from None
+                  next_location = urllib.parse.urljoin(location, error.headers.get("Location", ""))
+                  error.close()
+                  location = next_location
+              except Exception:
+                  raise RuntimeError("Artifact storage connection failed") from None
+          else:
+              raise RuntimeError("Too many artifact storage redirects")
+
+          archive = OUTPUT / "original.zip"
+          sha256 = hashlib.sha256()
+          size = 0
+          with response, archive.open("xb") as destination:
+              while True:
+                  block = response.read(1024 * 1024)
+                  if not block:
+                      break
+                  size += len(block)
+                  if size > EXPECTED_SIZE:
+                      raise RuntimeError("Downloaded archive exceeds expected size")
+                  sha256.update(block)
+                  destination.write(block)
+          if size != EXPECTED_SIZE or sha256.hexdigest() != EXPECTED_SHA256:
+              raise RuntimeError("Downloaded archive byte size or SHA-256 mismatch")
+
+          # Read raw bytes only. Never unzip, import, or execute source evidence.
+          def split_archive(source, output, part_bytes):
+              records = []
+              with source.open("rb") as stream:
+                  index = 0
+                  offset = 0
+                  while True:
+                      block = stream.read(min(1024 * 1024, part_bytes))
+                      if not block:
+                          break
+                      index += 1
+                      filename = "evidence.zip.part%03d" % index
+                      digest = hashlib.sha256()
+                      written = 0
+                      with (output / filename).open("xb") as part:
+                          while block:
+                              part.write(block)
+                              digest.update(block)
+                              written += len(block)
+                              if written == part_bytes:
+                                  break
+                              block = stream.read(min(1024 * 1024, part_bytes - written))
+                      records.append({"file": filename, "offset": offset,
+                                      "size_bytes": written, "sha256": digest.hexdigest()})
+                      offset += written
+              return records
+
+          parts = split_archive(archive, OUTPUT, PART_BYTES)
+          if len(parts) != 4 or sum(part["size_bytes"] for part in parts) != EXPECTED_SIZE:
+              raise RuntimeError("Unexpected split layout")
+          manifest = {
+              "format": "raw-zip-byte-split-v1",
+              "repository": REPOSITORY, "source_run_id": RUN_ID,
+              "source_head_sha": HEAD_SHA, "source_artifact_id": ARTIFACT_ID,
+              "source_artifact_name": artifact.get("name"),
+              "original_filename": "evidence.zip", "original_size_bytes": size,
+              "original_sha256": EXPECTED_SHA256, "part_bytes": PART_BYTES,
+              "parts": parts,
+              "transfer_run_id": os.environ["GITHUB_RUN_ID"],
+              "transfer_head_sha": os.environ["GITHUB_SHA"],
+              "recombine": "Download each part artifact and remove only its transfer ZIP wrapper. Verify each payload against its listed size and SHA-256. Concatenate the four raw payloads in manifest order into evidence.zip, then verify original_size_bytes and original_sha256 before inspecting. Never concatenate the transfer ZIP wrappers themselves.",
+          }
+          (OUTPUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          (OUTPUT / "SHA256SUMS").write_text("".join(
+              part["sha256"] + "  " + part["file"] + "\n" for part in parts))
+          (OUTPUT / "ORIGINAL_SHA256SUM").write_text(EXPECTED_SHA256 + "  evidence.zip\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("Exact original ZIP verified and split into four raw byte parts.\n\n")
+              summary.write("Original SHA-256: " + EXPECTED_SHA256 + "\n\n")
+              summary.write("Download all four part artifacts and the manifest. Unwrap each transfer ZIP, concatenate the part payloads in manifest order, then verify the original hash. No evidence was extracted or executed.\n")
+          print("Verified original archive and produced four parts plus manifest.")
+          PYTHON
+      - name: Upload byte part 1 of 4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: evidence-12223646472-part001
+          path: ${{ runner.temp }}/evidence-transfer/evidence.zip.part001
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload byte part 2 of 4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: evidence-12223646472-part002
+          path: ${{ runner.temp }}/evidence-transfer/evidence.zip.part002
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload byte part 3 of 4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: evidence-12223646472-part003
+          path: ${{ runner.temp }}/evidence-transfer/evidence.zip.part003
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload byte part 4 of 4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: evidence-12223646472-part004
+          path: ${{ runner.temp }}/evidence-transfer/evidence.zip.part004
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload verification and recombination manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: evidence-12223646472-manifest
+          path: |
+            ${{ runner.temp }}/evidence-transfer/manifest.json
+            ${{ runner.temp }}/evidence-transfer/SHA256SUMS
+            ${{ runner.temp }}/evidence-transfer/ORIGINAL_SHA256SUM
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
