@@ -85,7 +85,9 @@ jobs:
           set -euo pipefail
           # Fresh Xcode resolution is allowed to update the app lock, then the recorder
           # admits only AK e6e9 -> 56f9 plus actual resolver originHash. No other pin may move.
-          xcodebuild -resolvePackageDependencies -disablePackageRepositoryCache \
+          test ! -e "$RUNNER_TEMP/native-SideStore"
+          test ! -L "$RUNNER_TEMP/native-SideStore"
+          GIT_ALLOW_PROTOCOL=https:file xcodebuild -resolvePackageDependencies -disablePackageRepositoryCache \
             -project sources/SideStore/AltStore.xcodeproj -scheme SideStore \
             -derivedDataPath "$RUNNER_TEMP/native-SideStore" 2>&1 | tee evidence/SideStore-resolution.log
           python3 harness/.ci/native-app-compile/record.py seal-resolution
