@@ -199,30 +199,58 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOMEBREW_NO_AUTO_UPDATE=1 brew install --formula homebrew/core/ldid
-          brew info --json=v2 --formula homebrew/core/ldid > package-evidence/ldid-formula.json
-          LDID_PREFIX="$(brew --prefix homebrew/core/ldid)"
-          export LDID_PREFIX
-          cp "$LDID_PREFIX/INSTALL_RECEIPT.json" package-evidence/ldid-install-receipt.json
-          python3 - <<'PY'
-          import json, os, pathlib, re
-          info = json.load(open('package-evidence/ldid-formula.json'))['formulae']
-          if len(info) != 1: raise ValueError('Unexpected formula count')
-          formula = info[0]
-          if formula['name'] != 'ldid' or formula['tap'] != 'homebrew/core':
-              raise ValueError('Not official Homebrew ldid')
-          stable = formula['urls']['stable']
-          if not stable['url'].startswith('https://') or not re.fullmatch('[0-9a-f]{64}', stable['checksum']):
-              raise ValueError('Missing official source checksum')
-          receipt = json.load(open('package-evidence/ldid-install-receipt.json'))
-          if receipt['source']['tap'] != 'homebrew/core': raise ValueError('Unexpected installed formula origin')
-          prefix = pathlib.Path(os.environ['LDID_PREFIX']).resolve(strict=True)
-          binary = prefix / 'bin/ldid'
-          if not binary.is_file() or not binary.resolve(strict=True).is_relative_to(prefix):
-              raise ValueError('ldid binary is outside official installed keg')
-          if not any(v['version'] == prefix.name for v in formula['installed']):
-              raise ValueError('Installed ldid version differs from formula inventory')
+          # Formula metadata is checked before bottle-only acquisition; never fetch the git source.
+          HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 --formula homebrew/core/ldid > package-evidence/ldid-formula.json
+          cat > package-evidence/validate_ldid_bottle.py <<'PY'
+          import json, pathlib, sys
+          
+          BOTTLE_SHA256 = 'b1deffb6e575a4996e31cef6cbc56aa009f5eea67b73b437f6aea597198866a6'
+          SOURCE_REVISION = 'a23f0faadd29ec00a6b7fb2498c3d15af15a7100'
+          
+          def validate(formula_json, receipt=None, keg_version=None):
+              formulas = formula_json['formulae']
+              if len(formulas) != 1: raise ValueError('Unexpected formula count')
+              formula = formulas[0]
+              if formula['name'] != 'ldid' or formula['tap'] != 'homebrew/core':
+                  raise ValueError('Not official Homebrew ldid')
+              source = formula['urls']['stable']
+              if (source['url'] != 'git://git.saurik.com/ldid.git' or source['tag'] != 'v2.1.5' or
+                  source['revision'] != SOURCE_REVISION):
+                  raise ValueError('Reviewed source identity differs; no source fetch is allowed')
+              bottle = formula['bottle']['stable']['files']['arm64_tahoe']
+              if (bottle['sha256'] != BOTTLE_SHA256 or
+                  bottle['url'] != 'https://ghcr.io/v2/homebrew/core/ldid/blobs/sha256:' + BOTTLE_SHA256):
+                  raise ValueError('Reviewed official HTTPS bottle differs')
+              if formula['versions']['stable'] != '2.1.5' or formula['revision'] != 2:
+                  raise ValueError('Reviewed ldid formula version differs')
+              if receipt is not None:
+                  if (receipt['poured_from_bottle'] is not True or receipt['built_as_bottle'] is not True or
+                      receipt['arch'] != 'arm64' or receipt['source']['tap'] != 'homebrew/core' or
+                      receipt['source']['spec'] != 'stable' or receipt['source']['scm_revision'] != SOURCE_REVISION or
+                      receipt['source']['versions']['stable'] != '2.1.5'):
+                      raise ValueError('Installed bottle receipt differs')
+                  installed = [v for v in formula['installed'] if v['version'] == keg_version]
+                  if (keg_version != '2.1.5_2' or len(installed) != 1 or
+                      installed[0]['poured_from_bottle'] is not True):
+                      raise ValueError('Installed ldid keg differs')
+          
+          if __name__ == '__main__':
+              formula = json.load(open('package-evidence/ldid-formula.json'))
+              if len(sys.argv) == 1:
+                  validate(formula)
+              else:
+                  prefix = pathlib.Path(sys.argv[1]).resolve(strict=True)
+                  binary = prefix / 'bin/ldid'
+                  if not binary.is_file() or not binary.resolve(strict=True).is_relative_to(prefix):
+                      raise ValueError('ldid binary is outside official installed keg')
+                  validate(formula, json.load(open('package-evidence/ldid-install-receipt.json')), prefix.name)
           PY
+          python3 package-evidence/validate_ldid_bottle.py
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install --force-bottle --formula homebrew/core/ldid
+          HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 --formula homebrew/core/ldid > package-evidence/ldid-formula.json
+          LDID_PREFIX="$(brew --prefix homebrew/core/ldid)"
+          cp "$LDID_PREFIX/INSTALL_RECEIPT.json" package-evidence/ldid-install-receipt.json
+          python3 package-evidence/validate_ldid_bottle.py "$LDID_PREFIX"
           export PATH="$LDID_PREFIX/bin:$PATH"
           { xcodebuild -version; brew list --versions ldid; shasum -a 256 "$LDID_PREFIX/bin/ldid"; } > package-evidence/toolchain.txt
           python3 builder/scripts/package_livecontainer_combined.py \
