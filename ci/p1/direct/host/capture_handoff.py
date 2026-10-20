@@ -29,7 +29,7 @@ PINNED={
     'fresh_device.py':'7bf5c9efe1c0f53307fedc112677a40cfd0462155dc2959fbfb47c55f54dca75',
     'launch_gate.py':'b3aa49fae2fd162437bc46e16550877e79642c04a929a715f5c2ebe1651469db',
     'minimal_gate.py':'4220957d328181502e574bf24002d25044b22f71166a64cde606a946522a61d8'}
-SOURCES=(Path(__file__),Path(native_process.__file__),LOCAL/'host/fixture_channel.py',LOCAL/'host/journal.py',
+SOURCES=(LOCAL/'host/helper_sample.py',Path(__file__),Path(native_process.__file__),LOCAL/'host/fixture_channel.py',LOCAL/'host/journal.py',
          Path(case_budget.__file__),Path(native_channels.__file__),Path(native_case.__file__),*(PREFLIGHT/name for name in PINNED),
          *(LOCAL/'capture'/name for name in ('direct_capture.swift','assembly-binding.json','assemble.py',
              'build_main.py','build_sink.py','direct_main.swift','direct_sink.swift','roi_capture.swift','session_io.swift','window_resize.swift')))

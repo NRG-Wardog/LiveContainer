@@ -14,6 +14,7 @@ from native_channels import Channels
 from protocol_driver import Driver
 from journal import Journal
 import runner_recipe,artifact_budget
+from helper_sample import Experiment
 
 def bounded_preparation(method):
     @wraps(method)
@@ -59,7 +60,14 @@ class Runtime:
         logs=self.output/'commands';logs.mkdir();self.command=self.ps.Commands(scope,logs)
         self.device=None;self.gui=None;self.native=None;self.helper=None;self.channels=None;self.journal=None
         self.capture_binding=None;self._evidence={};self.native_receipt=None
-        self.clock_reader=clock.darwin_reader();self.transport=[]
+        self.clock_reader=clock.darwin_reader();self.transport=[];self.sampler=None
+    def prepare_sample(self):
+        self.sampler=Experiment(self.scope,self.ps,self.output,self.session,self.compiled.binary_sha256,self.compiled.binary_path)
+        self.sampler.preflight()
+        self.retain('helper-sample-preflight',canonical(self.sampler.row))
+    def finish_sample(self,timeout):
+        sampler=getattr(self,'sampler',None)
+        if sampler is not None:return sampler.finish(timeout)
     def remaining(self,maximum,cleanup=False):
         if not cleanup:return self.scope.remaining(maximum)
         # A stage can contain several independently bounded Commands. Do not
@@ -206,6 +214,8 @@ class Runtime:
     def register_baseline(self,context,timeout):
         raw=self.capture_binding.register_baseline(timeout);return self.evidence('register_baseline',parse(raw),raw)
     def publish_roi(self,context,timeout):
+        if self.sampler is not None:
+            self.sampler.start(self.helper,deadline=time.monotonic()+self.observation_remaining(context,8))
         raw=self.capture_binding.publish_roi(timeout);return self.evidence('publish_roi',parse(raw),raw)
     def await_first(self,context,timeout):
         raw=self.capture_binding.await_first(timeout);return self.evidence('await_first',parse(raw),raw)
@@ -262,7 +272,13 @@ class Runtime:
         return self.evidence('settle_native',self.native.stop(timeout) if self.native else {'started':False,'settled':True})
     @bounded_cleanup
     def stop_helper(self,context,timeout):
-        return self.evidence('stop_helper',self.helper.stop(timeout) if self.helper else {'started':False,'settled':True})
+        deadline=min(time.monotonic()+timeout,self.scope.cleanup_deadline);diagnostic_error=None
+        try:self.finish_sample(min(3,max(0,deadline-time.monotonic())))
+        except Exception as error:diagnostic_error=error
+        # An optional diagnostic failure must never skip original helper cleanup.
+        result=self.helper.stop(max(0,deadline-time.monotonic())) if self.helper else {'started':False,'settled':True}
+        if diagnostic_error is not None:raise diagnostic_error
+        return self.evidence('stop_helper',result)
     @bounded_cleanup
     def stop_gui(self,context,timeout):
         if self.gui is not None:self.gui.stop()
@@ -290,6 +306,8 @@ class Runtime:
         return self.evidence('cleanup_device',dict(self.scope.fixture or {}))
     @bounded_cleanup
     def verify_cleanup(self,context,timeout):
+        sampler=getattr(self,'sampler',None)
+        require(sampler is None or sampler.thread is None or not sampler.thread.is_alive(),'diagnostic writer remains')
         require(all(r.get('settled') is True for r in self.scope.rows),'owned host writers remain')
         fixture=self.scope.fixture or {}
         if fixture.get('owned_created') is not None:require(fixture.get('deleted') is True,'created device deletion unproved')
