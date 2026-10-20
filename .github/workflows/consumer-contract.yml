@@ -1,0 +1,182 @@
+name: Synthetic consumer diagnostic contracts
+
+on:
+  push:
+    branches: [validation/consumer-contract-20261020]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetic-consumer-contract-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  consumer-contract:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/consumer-contract-20261020'
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out exact LiveContainer source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: NRG-Wardog/LiveContainer
+          ref: 47abe34894eb332a654d32f8e9322ce5eeac757a
+          path: sources/LiveContainer
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          lfs: false
+
+      - name: Check out exact SideStore peer
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: NRG-Wardog/SideStore
+          ref: 24a07daf072b8b4cc8101a1275d368fd0968f10b
+          path: sources/SideStore
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          lfs: false
+
+      - name: Check out exact formatter and Swift producer source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: NRG-Wardog/AnisetteKit
+          ref: 56f9aab3b2726821ed460e770c531e72a8233b8b
+          path: sources/AnisetteKit
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          lfs: false
+
+      - name: Verify source pins and run exactly seven synthetic contracts
+        id: contracts
+        env:
+          INIT_DIAGNOSTICS_PEER_ROOT: ${{ github.workspace }}/sources/SideStore
+          INIT_DIAGNOSTICS_PRODUCER_ROOT: ${{ github.workspace }}/sources/AnisetteKit
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p contract-results
+          # No setup scripts, package resolution, app build, or guest execution.
+          python3 -B -u - <<'PY' 2>&1 | tee contract-results/output.txt
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import subprocess
+          import sys
+          import unittest
+
+          workspace = Path(os.environ['GITHUB_WORKSPACE'])
+          pins = {
+              'LiveContainer': '47abe34894eb332a654d32f8e9322ce5eeac757a',
+              'SideStore': '24a07daf072b8b4cc8101a1275d368fd0968f10b',
+              'AnisetteKit': '56f9aab3b2726821ed460e770c531e72a8233b8b',
+          }
+          for repo, expected in pins.items():
+              actual = subprocess.check_output(
+                  ['git', '-C', str(workspace / 'sources' / repo), 'rev-parse', 'HEAD'],
+                  text=True, timeout=15).strip()
+              print(f'{repo}: {actual}', flush=True)
+              if actual != expected:
+                  raise SystemExit(f'Pinned HEAD mismatch: {repo}')
+          for compiler in ('c++', 'swiftc'):
+              executable = shutil.which(compiler)
+              if executable is None:
+                  raise SystemExit(f'Required compiler unavailable: {compiler}')
+              print(f'{compiler}: {executable}', flush=True)
+              subprocess.run([executable, '--version'], check=True, timeout=30)
+          for variable in ('SIDE_STORE_TEST_SOURCE', 'MAINTAINED_LIVE_CONTAINER_TEST_SOURCE',
+                           'LIVE_CONTAINER_TEST_SOURCE', 'ANISETTE_KIT_TEST_SOURCE'):
+              os.environ.pop(variable, None)
+
+          source = workspace / 'sources/LiveContainer/tests/init_diagnostics/test_contract.py'
+          spec = importlib.util.spec_from_file_location('consumer_contract', source)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          suite = unittest.defaultTestLoader.loadTestsFromTestCase(module.InitializerDiagnosticContract)
+          expected_names = {
+              'test_shared_capture_validation_and_copy_contracts_match',
+              'test_bounded_primary_only_contract_and_no_recovery_mutation',
+              'test_real_native_producer_fixture',
+              'test_fault_parser_matches_current_producer_and_all_renderers',
+              'test_real_bounded_fault_native_producer_fixture',
+              'test_actual_swift_parser_service_wire_and_host_copy',
+              'test_trace_disabled_preserves_constructor_evidence',
+          }
+          names = [test.id().rsplit('.', 1)[-1] for test in suite]
+          if len(names) != 7 or set(names) != expected_names:
+              raise SystemExit(f'Unexpected test inventory: {names}')
+          result = unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite)
+          counts = {
+              'tests_run': result.testsRun,
+              'failures': len(result.failures),
+              'errors': len(result.errors),
+              'skips': len(result.skipped),
+              'expected_failures': len(result.expectedFailures),
+              'unexpected_successes': len(result.unexpectedSuccesses),
+          }
+          passed = result.wasSuccessful() and counts['tests_run'] == 7 and all(
+              count == 0 for key, count in counts.items() if key != 'tests_run')
+          report = {'passed': passed, 'counts': counts, 'test_names': sorted(names), 'source_pins': pins,
+                    'scope': 'Synthetic formatter and extracted Swift parser/plist/renderer contracts only; no device or app validation.'}
+          (workspace / 'contract-results/result.json').write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps(report, indent=2), flush=True)
+          raise SystemExit(0 if passed else 1)
+          PY
+
+      - name: Record bounded result summary
+        if: always()
+        env:
+          CONTRACT_OUTCOME: ${{ steps.contracts.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p contract-results
+          python3 -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          directory = Path('contract-results')
+          result_file = directory / 'result.json'
+          outcome = os.environ['CONTRACT_OUTCOME']
+          lines = ['Synthetic consumer diagnostic contracts', f'Execution step outcome: {outcome}']
+          if result_file.exists():
+              result = json.loads(result_file.read_text())
+              lines.append(f"Strict seven-test gate passed: {result['passed']}")
+              lines.extend(f'{key}: {value}' for key, value in result['counts'].items())
+          else:
+              lines.append('No complete test result. Checkout, prerequisites, inventory, or execution failed or did not run.')
+          lines.append('Scope: synthetic formatter and extracted Swift parser/plist/renderer contracts only. Not device or app validation.')
+          text = '\n'.join(lines) + '\n'
+          (directory / 'summary.txt').write_text(text)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(text)
+          # Only bounded text/JSON artifacts; no source, binary, credentials or application payloads.
+          output = directory / 'output.txt'
+          if output.exists() and output.stat().st_size > 262144:
+              data = output.read_bytes()
+              output.write_bytes(b'[Output truncated: first and last 128 KiB]\n' + data[:131072] + b'\n...\n' + data[-131072:])
+          PY
+
+      - name: Preserve contract output and summary
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetic-consumer-contract-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            contract-results/output.txt
+            contract-results/result.json
+            contract-results/summary.txt
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
+          include-hidden-files: false
