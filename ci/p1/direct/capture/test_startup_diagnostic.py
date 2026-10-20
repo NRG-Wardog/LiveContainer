@@ -121,13 +121,22 @@ class StartupSourceTests(unittest.TestCase):
         rows = [dict(index=5999, admitted=False, pendingAtArrival=2,
                      milestonesMach=[maximum]*len(STAGES), traceMarkCount=maximum,
                      traceMarkCostMach=maximum) for _ in range(8)]
-        value = dict(schema='p1-direct-startup-persistence-v1', session='f'*32,
+        for index, row in enumerate(rows):
+            stages = list(range(3)) if index < 3 else []
+            if index < 2: stages += list(range(3, 6))
+            row['cpuIntervals'] = [dict(stage=stage, begin=[maximum]*4+[4],
+                                       end=[maximum]*4+[4], sameThreadPair=False,
+                                       cpuDeltaNanoseconds=maximum) for stage in stages]
+        value = dict(schema='p1-direct-startup-persistence-v2', session='f'*32,
                      observedMach=maximum, recordLimit=8, stageNames=STAGES,
+                     cpuStageNames=['bufferLock','destinationAllocation','rowCopy','regionHash','atomicWrite','packedHash'],
+                     cpuSampleFields=['wallBeforeMach','wallAfterMach','threadID','cpuNanoseconds','status'],
+                     cpuLimits=dict(callbackRecords=3,writerRecords=2,maximumEndpointReads=30),
                      missingMilestone=0, records=rows,
                      firstOverflow=dict(index=5999, observedMach=maximum, pending=2,
                                         admitted=6000, released=6000, inFlight=[5998,5999], records=rows),
                      admitted=6000, released=6000, pending=2, inFlight=[5998,5999], admissionEligible=False)
-        self.assertLess(len(json.dumps(value, separators=(',', ':')).encode()), 16384)
+        self.assertLess(len(json.dumps(value, separators=(',', ':')).encode()), 32768)
         self.assertIn('bytes.count <= 32768', IO)
 
     def test_overflow_snapshot_inside_original_admission_lock(self):
@@ -187,6 +196,123 @@ class StartupSourceTests(unittest.TestCase):
         self.assertLess(copy.index('CVPixelBufferLockBaseAddress'), copy.index('.bufferLockEnd'))
         self.assertLess(copy.index('.rowCopyEnd'), copy.index('"roi-unlock-failed"'))
         self.assertLess(copy.index('"roi-unlock-failed"'), copy.index('.bufferUnlockEnd'))
+
+
+
+def cpu_pair(first, last):
+    """Deterministic mirror of the Swift optional-pair predicate, not native execution."""
+    if first is None or last is None:
+        return None
+    before, after, thread, cpu, status = first
+    before2, after2, thread2, cpu2, status2 = last
+    if status or status2 or thread <= 0 or thread != thread2:
+        return None
+    if not before <= after <= before2 <= after2 or cpu > cpu2:
+        return None
+    return cpu2 - cpu
+
+
+def cpu_conversion(thread_ok, thread, clock_ok, seconds, nanoseconds):
+    if not thread_ok or thread == 0: return (1, 0)
+    if not clock_ok: return (2, 0)
+    if seconds < 0 or not 0 <= nanoseconds < 1_000_000_000: return (3, 0)
+    total = seconds * 1_000_000_000 + nanoseconds
+    if total > 2**64 - 1: return (4, 0)
+    return (0, total)
+
+
+class ThreadCPUModelTests(unittest.TestCase):
+    def test_same_thread_valid_zero_is_distinct_from_unavailable(self):
+        a = [10, 11, 9, 100, 0]
+        self.assertEqual(cpu_pair(a, [20, 21, 9, 100, 0]), 0)
+        self.assertEqual(cpu_pair(a, [20, 21, 9, 105, 0]), 5)
+        for b in (None, [20,21,10,105,0], [20,21,9,99,0], [20,21,9,105,2],
+                  [9,21,9,105,0], [20,19,9,105,0]):
+            self.assertIsNone(cpu_pair(a, b))
+        self.assertIsNone(cpu_pair(None, a))
+        self.assertIsNone(cpu_pair([10,11,0,100,0], [20,21,0,105,0]))
+        self.assertIsNone(cpu_pair([10,9,9,100,0], [20,21,9,105,0]))
+
+    def test_checked_timespec_and_optional_status(self):
+        self.assertEqual(cpu_conversion(True,9,True,0,0), (0,0))
+        self.assertEqual(cpu_conversion(False,0,True,1,1), (1,0))
+        self.assertEqual(cpu_conversion(True,9,False,1,1), (2,0))
+        for seconds, nanos in [(-1,0),(0,-1),(0,1_000_000_000)]:
+            self.assertEqual(cpu_conversion(True,9,True,seconds,nanos), (3,0))
+        self.assertEqual(cpu_conversion(True,9,True,2**63-1,0), (4,0))
+        limit=2**64-1
+        self.assertEqual(cpu_conversion(True,9,True,limit//10**9,limit%10**9),(0,limit))
+        self.assertEqual(cpu_conversion(True,9,True,limit//10**9,limit%10**9+1),(4,0))
+
+    def test_fixed_eligibility_endpoint_bound(self):
+        reads=0
+        for index in range(6000):
+            for stage in range(6):
+                if index < (3 if stage <= 2 else 2): reads += 2
+        self.assertEqual(reads,30)
+
+
+class ThreadCPUSourceTests(unittest.TestCase):
+    def test_optional_sampler_preserves_errno_and_never_fails_capture(self):
+        block=ROI[ROI.index('struct DirectCPUSample {'):ROI.index('struct DirectCPUInterval {')]
+        self.assertIn('let savedErrno = errno',block)
+        self.assertIn('defer { errno = savedErrno }',block)
+        self.assertIn('pthread_threadid_np(nil, &thread)',block)
+        self.assertIn('clock_gettime(CLOCK_THREAD_CPUTIME_ID, &value)',block)
+        self.assertIn('clockResult != 0',block)
+        self.assertIn('value.tv_nsec >= 1_000_000_000',block)
+        self.assertIn('multipliedReportingOverflow',block)
+        self.assertIn('addingReportingOverflow',block)
+        for token in ('throw ', 'try ', 'failed(', 'require(', 'lock.lock', '.write(', 'while ', 'for '):
+            self.assertNotIn(token,block)
+
+    def test_same_thread_pairs_only_after_complete_acquisition(self):
+        block=ROI[ROI.index('struct DirectCPUInterval {'):ROI.index('struct DirectStartupRecord {')]
+        for token in ('first.status == 0 && last.status == 0',
+                      'first.threadID > 0 && first.threadID == last.threadID',
+                      'first.wallAfterMach <= last.wallBeforeMach',
+                      'first.cpuNanoseconds <= last.cpuNanoseconds',
+                      'delta as Any? ?? NSNull()'):
+            self.assertIn(token,block)
+        begin=SINK[SINK.index('    private func startupCPUBegin'):SINK.index('    private func startupCPUPublish')]
+        end=SINK[SINK.index('    private func startupCPUEnd'):SINK.index('    func startupSnapshot')]
+        publish=SINK[SINK.index('    private func startupCPUPublish'):SINK.index('    private func startupCPUEnd')]
+        self.assertLess(begin.index('guard index'),begin.index('DirectCPUSample.capture()'))
+        self.assertLess(end.index('DirectCPUSample.capture()'),end.index('startupCPUPublish('))
+        self.assertNotIn('lock.lock()',begin+end)
+        self.assertNotIn('DirectCPUSample.capture()',publish)
+        self.assertEqual(publish.count('lock.lock()'),1)
+        self.assertIn(' ? 3 : 2',begin)
+        self.assertIn('cpuDiagnostic: startupIndex < 3 ?',SINK)
+
+    def test_split_allocation_and_row_loop_no_copy_refactor(self):
+        block=ROI[ROI.index('func directCopyROIs'):ROI.index('func directROIManifest')]
+        self.assertEqual(block.count('var data = Data(capacity: plan.byteCount)'),1)
+        self.assertEqual(block.count('data.append(source.assumingMemoryBound'),1)
+        self.assertIn('for region in plan.regions',block)
+        self.assertIn('for row in region.y ..< region.y + region.height',block)
+        self.assertIn('count: region.width * 4',block)
+        self.assertLess(block.index('let allocationCPU'),block.index('var data = Data('))
+        self.assertLess(block.index('var data = Data('),block.index('cpuDiagnostic?(.destinationAllocation'))
+        self.assertLess(block.index('guard let base'),block.index('let copyCPU'))
+        self.assertLess(block.index('let copyCPU'),block.index('for region'))
+        self.assertLess(block.index('data.append('),block.index('cpuDiagnostic?(.rowCopy'))
+        self.assertNotIn('memcpy(',block)
+        self.assertNotIn('withUnsafeMutableBytes',block)
+
+    def test_cpu_endpoints_surround_original_writer_work_without_lock(self):
+        for stage,work in [('regionHash','let regions = try directROIManifest'),
+                           ('atomicWrite','try data.write('),
+                           ('packedHash','retained["packedPixelSHA256"] = digest(data)')]:
+            start=SINK.index(f'let {stage}CPU = startupCPUBegin')
+            end=SINK.index(f'startupCPUEnd(startupIndex, .{stage}')
+            self.assertLess(start,SINK.index(work))
+            self.assertLess(SINK.index(work),end)
+            between=SINK[start:end]
+            self.assertNotIn('lock.lock()',between)
+            self.assertNotIn('startupMark(',between)
+        self.assertIn('bytes.count <= 32768',IO)
+        self.assertNotIn('CLOCK_PROCESS_CPUTIME_ID',SINK+ROI)
 
 if __name__ == '__main__':
     unittest.main()

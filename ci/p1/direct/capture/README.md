@@ -148,7 +148,7 @@ changed. Watchdogs stay armed. A watchdog exit before these paths, failure of
 primary I/O, or a blocked diagnostic write can still prevent retained telemetry;
 there is no guarantee of power-loss durability. No hot-path file I/O is added.
 
-The fixed worst-magnitude current+frozen JSON shape is under 16 KiB in the
+The expanded fixed worst-magnitude current+frozen JSON shape is under 32 KiB in the
 portable shape test; the sidecar hard limit is 32 KiB. At most 64 KiB is reserved
 within the unchanged 512 MiB ancillary allowance for sidecar plus embedded final
 snapshot, with at most 32 KiB additional temporary diagnostic storage. Existing
@@ -169,3 +169,63 @@ snapshot. Descheduling or marker-lock wait can separate work completion from
 its marker. Error-path pixel-buffer unlock emits no bufferUnlockEnd marker, so
 missing unlock completion can also mean exceptional cleanup. Interpret markers
 with retained frame errors, not as proof of the executing CPU instruction.
+
+
+## Narrow wall-versus-thread-CPU experiment (startup schema v2)
+
+No allocation/copy defect was established: directCopyROIs still reserves Data
+capacity once and appends each ROI row once. No compiler optimization, QoS,
+warmup, buffer pool, memcpy rewrite or behavior change is bundled here.
+
+Only first3 callback records sample CPU around buffer lock, Data(capacity:)
+argument evaluation/allocation, and the actual row loop after successful base
+address retrieval. Only first2 writer records sample CPU around region-manifest
+hashing, atomic write and packed hashing. Maximum30 CPU reads,30 current-thread
+ID reads and60 Mach acquisition-window reads. There are no per-row probes.
+Records/counters remain fixed, initialized before stream output starts. Later
+records execute eligibility branches only, not CPU clock reads.
+
+Each endpoint uses checked clock_gettime(CLOCK_THREAD_CPUTIME_ID) and
+pthread_threadid_np(nil,...), preserving incoming errno. Numeric status codes
+are0 valid,1 identity failure/zero ID,2 clock failure,3 malformed timespec,
+4 nanosecond conversion overflow. A clock failure may leave stale errno;
+return status, not errno, determines availability. No optional telemetry error
+throws, changes capture eligibility or replaces the primary error.
+
+cpuStageNames maps six stage indices; cpuSampleFields maps numeric endpoint
+arrays to wallBeforeMach,wallAfterMach,threadID,cpuNanoseconds,status. A missing
+endpoint/pair differs from a valid zero CPU delta. sameThreadPair requires both
+valid samples, identical nonzero IDs, ordered acquisition windows and
+nonregressing CPU. CPU differences never cross callbacks or queues: dispatch
+seriality is not fixed thread affinity. Invalid pairs retain raw bounded values
+but no computed CPU delta.
+
+Endpoints stay local until the operation returns and the end sample is taken.
+Only then is the pair published under the admission lock, outside the measured
+CPU interval. Original wall milestones still identify outstanding stages. A
+throw/hang can leave no completed pair; even a completed operation's pair may
+be absent from the frozen overflow snapshot while publication waits for the
+lock. Existing completion milestones now also include publication latency.
+
+Mach brackets surround endpoint acquisition (thread identity plus CPU clock),
+not total observer work. Status conversion, closure/call bookkeeping, errno
+restoration and pair publication add cost outside those windows. Existing
+traceMarkCostMach does not measure the new publication lock. Never subtract
+these diagnostic costs or substitute CPU clocks into presentation/admission
+checks. Long wall with little CPU supports off-CPU/blocking contribution, not a
+scheduler/GPU/filesystem diagnosis. High CPU supports charged execution in the
+stage, not a specific allocator/copy defect. Native overhead and compilation
+remain to be verified; non-reproduction is not a capture fix.
+
+Public Apple headers declare the thread CPU clock from macOS10.12 and
+pthread_threadid_np from10.6. Independent read-only review checked headers and
+implementation, not the pinned SDK's Swift imports or runner implementation:
+- https://raw.githubusercontent.com/apple-oss-distributions/Libc/main/include/_time.h
+- https://raw.githubusercontent.com/apple-oss-distributions/Libc/main/gen/clock_gettime.c
+- https://raw.githubusercontent.com/apple-oss-distributions/libpthread/main/include/pthread/pthread.h
+- https://raw.githubusercontent.com/apple-oss-distributions/libpthread/main/src/pthread.c
+
+The expanded worst-case current-plus-frozen shape is tested below the UNCHANGED
+32768-byte sidecar cap. Capture samples, frames, authoritative primary-failure
+schema, cap2,30Hz,SCK depth3, all byte/deadline limits and admission gates remain
+unchanged. The additional fields version only this diagnostic schema to v2.

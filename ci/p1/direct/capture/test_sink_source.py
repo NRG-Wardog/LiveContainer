@@ -48,7 +48,7 @@ class SinkTests(unittest.TestCase):
         source=(HERE/'direct_sink.swift').read_text()
         cap=source.index('delivered <= 6000')
         byte_cap=source.index('copiedBytes <= 3 * 1024 * 1024 * 1024 - size')
-        copy=source.index('directCopyROIs(buffer, plan: plan, diagnostic:')
+        copy=source.index('directCopyROIs(buffer, plan: plan,')
         write=source.index('try data.write(')
         self.assertLess(cap,byte_cap);self.assertLess(byte_cap,copy);self.assertLess(copy,write)
         self.assertIn('overflow += 1; failed("frame-record-limit"); return',source)

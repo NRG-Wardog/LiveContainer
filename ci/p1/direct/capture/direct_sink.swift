@@ -34,6 +34,24 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
         startupRecords[index].traceMarkCount += 1
         startupRecords[index].traceMarkCostMach += mach_absolute_time() - markStart
     }
+    private func startupCPUBegin(_ index: Int, _ stage: DirectCPUStage) -> DirectCPUSample? {
+        let limit = stage.rawValue <= DirectCPUStage.rowCopy.rawValue ? 3 : 2
+        guard index >= 0 && index < limit else { return nil }
+        return DirectCPUSample.capture()
+    }
+    private func startupCPUPublish(_ index: Int, _ stage: DirectCPUStage, begin: DirectCPUSample, end: DirectCPUSample) {
+        let limit = stage.rawValue <= DirectCPUStage.rowCopy.rawValue ? 3 : 2
+        guard index >= 0 && index < limit else { return }
+        // Endpoint reads precede this lock; no telemetry lock wait inside CPU pairs.
+        lock.lock(); defer { lock.unlock() }
+        startupRecords[index].cpuIntervals[stage.rawValue].begin = begin
+        startupRecords[index].cpuIntervals[stage.rawValue].end = end
+    }
+    private func startupCPUEnd(_ index: Int, _ stage: DirectCPUStage, begin: DirectCPUSample?) {
+        guard let begin = begin else { return }
+        let end = DirectCPUSample.capture()
+        startupCPUPublish(index, stage, begin: begin, end: end)
+    }
     func startupSnapshot() -> [String: Any] {
         lock.lock()
         let rows = startupRecords, firstOverflow = startupOverflow
@@ -42,9 +60,12 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
         let observed = mach_absolute_time()
         lock.unlock()
         // Serialization/all dictionary construction is outside the admission lock.
-        return ["schema": "p1-direct-startup-persistence-v1", "session": plan.session,
+        return ["schema": "p1-direct-startup-persistence-v2", "session": plan.session,
                 "observedMach": observed, "recordLimit": Self.startupLimit,
                 "stageNames": DirectStartupStage.allCases.map { String(describing: $0) },
+                "cpuStageNames": DirectCPUStage.allCases.map { String(describing: $0) },
+                "cpuSampleFields": ["wallBeforeMach", "wallAfterMach", "threadID", "cpuNanoseconds", "status"],
+                "cpuLimits": ["callbackRecords": 3, "writerRecords": 2, "maximumEndpointReads": 30],
                 "missingMilestone": 0, "records": rows.filter { $0.ticks[DirectStartupStage.callbackEntry.rawValue] > 0 }.map { $0.json() },
                 "firstOverflow": firstOverflow.map { $0.json() } as Any? ?? NSNull(),
                 "admitted": admitted, "released": released, "pending": pending,
@@ -150,7 +171,11 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
                 try require(copiedBytes <= 3 * 1024 * 1024 * 1024 - size, "pixel-byte-limit")
                 startupMark(startupIndex, .metadataEnd)
                 startupMark(startupIndex, .copyBegin)
-                let data = try directCopyROIs(buffer, plan: plan, diagnostic: startupIndex < Self.startupLimit ? { [self] stage in startupMark(startupIndex, stage) } : nil)
+                let data = try directCopyROIs(buffer, plan: plan,
+                    diagnostic: startupIndex < Self.startupLimit ? { [self] stage in startupMark(startupIndex, stage) } : nil,
+                    cpuDiagnostic: startupIndex < 3 ? { [self] stage, begin, end in
+                        startupCPUPublish(startupIndex, stage, begin: begin, end: end)
+                    } : nil)
                 startupMark(startupIndex, .copyEnd)
                 payload = data
                 let rawName = String(format: "frame-%05d.rois.bgra", delivered - 1)
@@ -192,14 +217,20 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
                     try require(ownerValid(), "persistence-owner-changed")
                     startupMark(startupIndex, .writerOwnerEnd)
                     startupMark(startupIndex, .regionHashBegin)
+                    let regionHashCPU = startupCPUBegin(startupIndex, .regionHash)
                     let regions = try directROIManifest(plan, packed: data)
+                    startupCPUEnd(startupIndex, .regionHash, begin: regionHashCPU)
                     startupMark(startupIndex, .regionHashEnd)
                     guard let name = retained["packedPixels"] as? String else { throw Failure("persistence-filename-missing") }
                     startupMark(startupIndex, .writeBegin)
+                    let atomicWriteCPU = startupCPUBegin(startupIndex, .atomicWrite)
                     try data.write(to: directory.appendingPathComponent(name), options: .atomic)
+                    startupCPUEnd(startupIndex, .atomicWrite, begin: atomicWriteCPU)
                     startupMark(startupIndex, .writeEnd)
                     startupMark(startupIndex, .packedHashBegin)
+                    let packedHashCPU = startupCPUBegin(startupIndex, .packedHash)
                     retained["packedPixelSHA256"] = digest(data)
+                    startupCPUEnd(startupIndex, .packedHash, begin: packedHashCPU)
                     startupMark(startupIndex, .packedHashEnd)
                     retained["regions"] = regions
                 }

@@ -15,17 +15,72 @@ enum DirectStartupStage: Int, CaseIterable {
     case regionHashBegin, regionHashEnd, writeBegin, writeEnd, packedHashBegin, packedHashEnd
     case writerEnd, reservationReleased
 }
+// Optional diagnostic CPU endpoints. No timestamp is an admission clock.
+// A pair must remain inside one synchronous callback or writer closure.
+enum DirectCPUStage: Int, CaseIterable {
+    case bufferLock, destinationAllocation, rowCopy, regionHash, atomicWrite, packedHash
+}
+struct DirectCPUSample {
+    let wallBeforeMach: UInt64, wallAfterMach: UInt64
+    let threadID: UInt64, cpuNanoseconds: UInt64
+    // 0 valid, 1 thread-ID failure, 2 clock failure, 3 invalid timespec, 4 overflow.
+    let status: UInt64
+    static func capture() -> DirectCPUSample {
+        let savedErrno = errno
+        defer { errno = savedErrno }
+        let before = mach_absolute_time()
+        var thread: UInt64 = 0
+        let threadResult = pthread_threadid_np(nil, &thread)
+        var value = timespec()
+        let clockResult = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &value)
+        let after = mach_absolute_time()
+        var status: UInt64 = 0, nanoseconds: UInt64 = 0
+        if threadResult != 0 || thread == 0 { status = 1 }
+        else if clockResult != 0 { status = 2 }
+        else if value.tv_sec < 0 || value.tv_nsec < 0 || value.tv_nsec >= 1_000_000_000 { status = 3 }
+        else {
+            let (seconds, multipliedOverflow) = UInt64(value.tv_sec).multipliedReportingOverflow(by: 1_000_000_000)
+            let (total, addedOverflow) = seconds.addingReportingOverflow(UInt64(value.tv_nsec))
+            if multipliedOverflow || addedOverflow { status = 4 }
+            else { nanoseconds = total }
+        }
+        return DirectCPUSample(wallBeforeMach: before, wallAfterMach: after,
+                               threadID: thread, cpuNanoseconds: nanoseconds, status: status)
+    }
+    func json() -> [UInt64] { [wallBeforeMach, wallAfterMach, threadID, cpuNanoseconds, status] }
+}
+struct DirectCPUInterval {
+    var begin: DirectCPUSample?
+    var end: DirectCPUSample?
+    func json(stage: Int) -> [String: Any]? {
+        guard begin != nil || end != nil else { return nil }
+        var sameThreadPair = false
+        var delta: UInt64?
+        if let first = begin, let last = end,
+           first.status == 0 && last.status == 0 && first.threadID > 0 && first.threadID == last.threadID,
+           first.wallBeforeMach <= first.wallAfterMach && first.wallAfterMach <= last.wallBeforeMach &&
+           last.wallBeforeMach <= last.wallAfterMach && first.cpuNanoseconds <= last.cpuNanoseconds {
+            sameThreadPair = true; delta = last.cpuNanoseconds - first.cpuNanoseconds
+        }
+        return ["stage": stage, "begin": begin.map { $0.json() } as Any? ?? NSNull(),
+                "end": end.map { $0.json() } as Any? ?? NSNull(),
+                "sameThreadPair": sameThreadPair, "cpuDeltaNanoseconds": delta as Any? ?? NSNull()]
+    }
+}
+
 struct DirectStartupRecord {
     let index: Int
     var admitted: Bool
     var pendingAtArrival: Int
+    var cpuIntervals = [DirectCPUInterval](repeating: DirectCPUInterval(), count: DirectCPUStage.allCases.count)
     var traceMarkCount = 0
     var traceMarkCostMach: UInt64 = 0
     var ticks = [UInt64](repeating: 0, count: DirectStartupStage.allCases.count)
     func json() -> [String: Any] {
         return ["index": index, "admitted": admitted, "pendingAtArrival": pendingAtArrival,
                 "milestonesMach": ticks, "traceMarkCount": traceMarkCount,
-                "traceMarkCostMach": traceMarkCostMach]
+                "traceMarkCostMach": traceMarkCostMach,
+                "cpuIntervals": cpuIntervals.enumerated().compactMap { $0.element.json(stage: $0.offset) }]
     }
 }
 struct DirectStartupOverflow {
@@ -84,7 +139,7 @@ struct DirectROIPlan {
 
 // One immutable packed byte sequence per sample. No image conversion, PNG
 // encoder, OCR, normalization, resampling or pixel classification runs here.
-func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan, diagnostic: ((DirectStartupStage) -> Void)? = nil) throws -> Data {
+func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan, diagnostic: ((DirectStartupStage) -> Void)? = nil, cpuDiagnostic: ((DirectCPUStage, DirectCPUSample, DirectCPUSample) -> Void)? = nil) throws -> Data {
     try plan.validate()
     try require(CVPixelBufferGetWidth(buffer) == plan.sourceWidth &&
                 CVPixelBufferGetHeight(buffer) == plan.sourceHeight &&
@@ -92,17 +147,23 @@ func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan, diagnostic: ((
                 CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_32BGRA,
                 "roi-source-replacement")
     diagnostic?(.bufferLockBegin)
+    let lockCPU = cpuDiagnostic == nil ? nil : DirectCPUSample.capture()
     try require(CVPixelBufferLockBaseAddress(buffer, .readOnly) == kCVReturnSuccess, "roi-lock-failed")
+    if let begin = lockCPU { cpuDiagnostic?(.bufferLock, begin, DirectCPUSample.capture()) }
     diagnostic?(.bufferLockEnd)
+    let allocationCPU = cpuDiagnostic == nil ? nil : DirectCPUSample.capture()
     var data = Data(capacity: plan.byteCount)
+    if let begin = allocationCPU { cpuDiagnostic?(.destinationAllocation, begin, DirectCPUSample.capture()) }
     do {
         guard let base = CVPixelBufferGetBaseAddress(buffer) else { throw Failure("roi-address-missing") }
+        let copyCPU = cpuDiagnostic == nil ? nil : DirectCPUSample.capture()
         for region in plan.regions {
             for row in region.y ..< region.y + region.height {
                 let source = base.advanced(by: row * plan.sourceStride + region.x * 4)
                 data.append(source.assumingMemoryBound(to: UInt8.self), count: region.width * 4)
             }
         }
+        if let begin = copyCPU { cpuDiagnostic?(.rowCopy, begin, DirectCPUSample.capture()) }
         diagnostic?(.rowCopyEnd)
     } catch {
         CVPixelBufferUnlockBaseAddress(buffer, .readOnly)

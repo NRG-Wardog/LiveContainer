@@ -154,17 +154,72 @@ enum DirectStartupStage: Int, CaseIterable {
     case regionHashBegin, regionHashEnd, writeBegin, writeEnd, packedHashBegin, packedHashEnd
     case writerEnd, reservationReleased
 }
+// Optional diagnostic CPU endpoints. No timestamp is an admission clock.
+// A pair must remain inside one synchronous callback or writer closure.
+enum DirectCPUStage: Int, CaseIterable {
+    case bufferLock, destinationAllocation, rowCopy, regionHash, atomicWrite, packedHash
+}
+struct DirectCPUSample {
+    let wallBeforeMach: UInt64, wallAfterMach: UInt64
+    let threadID: UInt64, cpuNanoseconds: UInt64
+    // 0 valid, 1 thread-ID failure, 2 clock failure, 3 invalid timespec, 4 overflow.
+    let status: UInt64
+    static func capture() -> DirectCPUSample {
+        let savedErrno = errno
+        defer { errno = savedErrno }
+        let before = mach_absolute_time()
+        var thread: UInt64 = 0
+        let threadResult = pthread_threadid_np(nil, &thread)
+        var value = timespec()
+        let clockResult = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &value)
+        let after = mach_absolute_time()
+        var status: UInt64 = 0, nanoseconds: UInt64 = 0
+        if threadResult != 0 || thread == 0 { status = 1 }
+        else if clockResult != 0 { status = 2 }
+        else if value.tv_sec < 0 || value.tv_nsec < 0 || value.tv_nsec >= 1_000_000_000 { status = 3 }
+        else {
+            let (seconds, multipliedOverflow) = UInt64(value.tv_sec).multipliedReportingOverflow(by: 1_000_000_000)
+            let (total, addedOverflow) = seconds.addingReportingOverflow(UInt64(value.tv_nsec))
+            if multipliedOverflow || addedOverflow { status = 4 }
+            else { nanoseconds = total }
+        }
+        return DirectCPUSample(wallBeforeMach: before, wallAfterMach: after,
+                               threadID: thread, cpuNanoseconds: nanoseconds, status: status)
+    }
+    func json() -> [UInt64] { [wallBeforeMach, wallAfterMach, threadID, cpuNanoseconds, status] }
+}
+struct DirectCPUInterval {
+    var begin: DirectCPUSample?
+    var end: DirectCPUSample?
+    func json(stage: Int) -> [String: Any]? {
+        guard begin != nil || end != nil else { return nil }
+        var sameThreadPair = false
+        var delta: UInt64?
+        if let first = begin, let last = end,
+           first.status == 0 && last.status == 0 && first.threadID > 0 && first.threadID == last.threadID,
+           first.wallBeforeMach <= first.wallAfterMach && first.wallAfterMach <= last.wallBeforeMach &&
+           last.wallBeforeMach <= last.wallAfterMach && first.cpuNanoseconds <= last.cpuNanoseconds {
+            sameThreadPair = true; delta = last.cpuNanoseconds - first.cpuNanoseconds
+        }
+        return ["stage": stage, "begin": begin.map { $0.json() } as Any? ?? NSNull(),
+                "end": end.map { $0.json() } as Any? ?? NSNull(),
+                "sameThreadPair": sameThreadPair, "cpuDeltaNanoseconds": delta as Any? ?? NSNull()]
+    }
+}
+
 struct DirectStartupRecord {
     let index: Int
     var admitted: Bool
     var pendingAtArrival: Int
+    var cpuIntervals = [DirectCPUInterval](repeating: DirectCPUInterval(), count: DirectCPUStage.allCases.count)
     var traceMarkCount = 0
     var traceMarkCostMach: UInt64 = 0
     var ticks = [UInt64](repeating: 0, count: DirectStartupStage.allCases.count)
     func json() -> [String: Any] {
         return ["index": index, "admitted": admitted, "pendingAtArrival": pendingAtArrival,
                 "milestonesMach": ticks, "traceMarkCount": traceMarkCount,
-                "traceMarkCostMach": traceMarkCostMach]
+                "traceMarkCostMach": traceMarkCostMach,
+                "cpuIntervals": cpuIntervals.enumerated().compactMap { $0.element.json(stage: $0.offset) }]
     }
 }
 struct DirectStartupOverflow {
@@ -223,7 +278,7 @@ struct DirectROIPlan {
 
 // One immutable packed byte sequence per sample. No image conversion, PNG
 // encoder, OCR, normalization, resampling or pixel classification runs here.
-func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan, diagnostic: ((DirectStartupStage) -> Void)? = nil) throws -> Data {
+func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan, diagnostic: ((DirectStartupStage) -> Void)? = nil, cpuDiagnostic: ((DirectCPUStage, DirectCPUSample, DirectCPUSample) -> Void)? = nil) throws -> Data {
     try plan.validate()
     try require(CVPixelBufferGetWidth(buffer) == plan.sourceWidth &&
                 CVPixelBufferGetHeight(buffer) == plan.sourceHeight &&
@@ -231,17 +286,23 @@ func directCopyROIs(_ buffer: CVPixelBuffer, plan: DirectROIPlan, diagnostic: ((
                 CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_32BGRA,
                 "roi-source-replacement")
     diagnostic?(.bufferLockBegin)
+    let lockCPU = cpuDiagnostic == nil ? nil : DirectCPUSample.capture()
     try require(CVPixelBufferLockBaseAddress(buffer, .readOnly) == kCVReturnSuccess, "roi-lock-failed")
+    if let begin = lockCPU { cpuDiagnostic?(.bufferLock, begin, DirectCPUSample.capture()) }
     diagnostic?(.bufferLockEnd)
+    let allocationCPU = cpuDiagnostic == nil ? nil : DirectCPUSample.capture()
     var data = Data(capacity: plan.byteCount)
+    if let begin = allocationCPU { cpuDiagnostic?(.destinationAllocation, begin, DirectCPUSample.capture()) }
     do {
         guard let base = CVPixelBufferGetBaseAddress(buffer) else { throw Failure("roi-address-missing") }
+        let copyCPU = cpuDiagnostic == nil ? nil : DirectCPUSample.capture()
         for region in plan.regions {
             for row in region.y ..< region.y + region.height {
                 let source = base.advanced(by: row * plan.sourceStride + region.x * 4)
                 data.append(source.assumingMemoryBound(to: UInt8.self), count: region.width * 4)
             }
         }
+        if let begin = copyCPU { cpuDiagnostic?(.rowCopy, begin, DirectCPUSample.capture()) }
         diagnostic?(.rowCopyEnd)
     } catch {
         CVPixelBufferUnlockBaseAddress(buffer, .readOnly)
@@ -798,6 +859,24 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
         startupRecords[index].traceMarkCount += 1
         startupRecords[index].traceMarkCostMach += mach_absolute_time() - markStart
     }
+    private func startupCPUBegin(_ index: Int, _ stage: DirectCPUStage) -> DirectCPUSample? {
+        let limit = stage.rawValue <= DirectCPUStage.rowCopy.rawValue ? 3 : 2
+        guard index >= 0 && index < limit else { return nil }
+        return DirectCPUSample.capture()
+    }
+    private func startupCPUPublish(_ index: Int, _ stage: DirectCPUStage, begin: DirectCPUSample, end: DirectCPUSample) {
+        let limit = stage.rawValue <= DirectCPUStage.rowCopy.rawValue ? 3 : 2
+        guard index >= 0 && index < limit else { return }
+        // Endpoint reads precede this lock; no telemetry lock wait inside CPU pairs.
+        lock.lock(); defer { lock.unlock() }
+        startupRecords[index].cpuIntervals[stage.rawValue].begin = begin
+        startupRecords[index].cpuIntervals[stage.rawValue].end = end
+    }
+    private func startupCPUEnd(_ index: Int, _ stage: DirectCPUStage, begin: DirectCPUSample?) {
+        guard let begin = begin else { return }
+        let end = DirectCPUSample.capture()
+        startupCPUPublish(index, stage, begin: begin, end: end)
+    }
     func startupSnapshot() -> [String: Any] {
         lock.lock()
         let rows = startupRecords, firstOverflow = startupOverflow
@@ -806,9 +885,12 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
         let observed = mach_absolute_time()
         lock.unlock()
         // Serialization/all dictionary construction is outside the admission lock.
-        return ["schema": "p1-direct-startup-persistence-v1", "session": plan.session,
+        return ["schema": "p1-direct-startup-persistence-v2", "session": plan.session,
                 "observedMach": observed, "recordLimit": Self.startupLimit,
                 "stageNames": DirectStartupStage.allCases.map { String(describing: $0) },
+                "cpuStageNames": DirectCPUStage.allCases.map { String(describing: $0) },
+                "cpuSampleFields": ["wallBeforeMach", "wallAfterMach", "threadID", "cpuNanoseconds", "status"],
+                "cpuLimits": ["callbackRecords": 3, "writerRecords": 2, "maximumEndpointReads": 30],
                 "missingMilestone": 0, "records": rows.filter { $0.ticks[DirectStartupStage.callbackEntry.rawValue] > 0 }.map { $0.json() },
                 "firstOverflow": firstOverflow.map { $0.json() } as Any? ?? NSNull(),
                 "admitted": admitted, "released": released, "pending": pending,
@@ -914,7 +996,11 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
                 try require(copiedBytes <= 3 * 1024 * 1024 * 1024 - size, "pixel-byte-limit")
                 startupMark(startupIndex, .metadataEnd)
                 startupMark(startupIndex, .copyBegin)
-                let data = try directCopyROIs(buffer, plan: plan, diagnostic: startupIndex < Self.startupLimit ? { [self] stage in startupMark(startupIndex, stage) } : nil)
+                let data = try directCopyROIs(buffer, plan: plan,
+                    diagnostic: startupIndex < Self.startupLimit ? { [self] stage in startupMark(startupIndex, stage) } : nil,
+                    cpuDiagnostic: startupIndex < 3 ? { [self] stage, begin, end in
+                        startupCPUPublish(startupIndex, stage, begin: begin, end: end)
+                    } : nil)
                 startupMark(startupIndex, .copyEnd)
                 payload = data
                 let rawName = String(format: "frame-%05d.rois.bgra", delivered - 1)
@@ -956,14 +1042,20 @@ final class DirectSink: NSObject, SCStreamOutput, SCStreamDelegate {
                     try require(ownerValid(), "persistence-owner-changed")
                     startupMark(startupIndex, .writerOwnerEnd)
                     startupMark(startupIndex, .regionHashBegin)
+                    let regionHashCPU = startupCPUBegin(startupIndex, .regionHash)
                     let regions = try directROIManifest(plan, packed: data)
+                    startupCPUEnd(startupIndex, .regionHash, begin: regionHashCPU)
                     startupMark(startupIndex, .regionHashEnd)
                     guard let name = retained["packedPixels"] as? String else { throw Failure("persistence-filename-missing") }
                     startupMark(startupIndex, .writeBegin)
+                    let atomicWriteCPU = startupCPUBegin(startupIndex, .atomicWrite)
                     try data.write(to: directory.appendingPathComponent(name), options: .atomic)
+                    startupCPUEnd(startupIndex, .atomicWrite, begin: atomicWriteCPU)
                     startupMark(startupIndex, .writeEnd)
                     startupMark(startupIndex, .packedHashBegin)
+                    let packedHashCPU = startupCPUBegin(startupIndex, .packedHash)
                     retained["packedPixelSHA256"] = digest(data)
+                    startupCPUEnd(startupIndex, .packedHash, begin: packedHashCPU)
                     startupMark(startupIndex, .packedHashEnd)
                     retained["regions"] = regions
                 }
