@@ -17,7 +17,7 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONDONTWRITEBYTECODE: '1'
-      APPROVED_CLOSURE_SHA256: '390eada96a28272c64bc20ac0b9865b5467099be2be83ef02bc47a63c112d0e5'
+      APPROVED_CLOSURE_SHA256: '24d2a585953732625ed345cd6f35453cafdad0e9f407e06aeea9426ba081b77c'
     defaults:
       run:
         shell: bash

@@ -4,10 +4,12 @@
   "ci/p1/preflight/launch_gate.py": "b3aa49fae2fd162437bc46e16550877e79642c04a929a715f5c2ebe1651469db",
   "ci/p1/preflight/minimal_gate.py": "4220957d328181502e574bf24002d25044b22f71166a64cde606a946522a61d8",
   "ci/p1/preflight/process_scope.py": "7e68ba1928935e7322e0fc61c2cfd03729c20e78ec324c42f6c01c2aca2cf82d",
-  "ci/p1/sample_capability/diagnostic.py": "6e22dd7c1a771f50da0704ece10659d3df4b6b81299533a4086b1594d2fdee9a",
+  "ci/p1/sample_capability/diagnostic.py": "4ed565db3e5d51c6e174ad12fac1ddba3d914faaf464ba6f3f4f9e7f32585800",
   "ci/p1/sample_capability/native_probe.py": "849de2c1881c8ebaf7d8070455c0686ad7ab90486568dd64c8dd53922195fe4a",
+  "ci/p1/sample_capability/path_metadata.py": "3673789248a84d39b189f8f9de9a569b2e7f87fc98d096dcb633ac3f542fd0c4",
   "ci/p1/sample_capability/probe.c": "92c1307ed48ace9136a688433b6ffcb154cc201b1c576335df4ee2c7580daa4a",
   "ci/p1/sample_capability/run.py": "e74ddb74fb77f29eb3a01c8a976d6edc487df26a355f52f283335b0b14327ebb",
   "ci/p1/sample_capability/test_diagnostic.py": "c75bb7af99007b33e13140cbe39516c8540c7ecc6f0a6403c0acd5db8a91fdf9",
-  "ci/p1/sample_capability/test_native_probe.py": "a6b1089a514ee4e8a0acdf81e14efd177e0b5af4a99280c565c7e6bc9da6aaa8"
+  "ci/p1/sample_capability/test_native_probe.py": "a6b1089a514ee4e8a0acdf81e14efd177e0b5af4a99280c565c7e6bc9da6aaa8",
+  "ci/p1/sample_capability/test_path_metadata.py": "d8dc94fcb9e0f473a7f26c884dab64cbe44baee440a1ca271781eeceed1799b4"
 }

@@ -1,4 +1,4 @@
-"""Capability-only discriminators. No rejected report bytes or stack analysis."""
+"""Capability-only discriminators, bounded benign Path metadata; no stacks."""
 import errno
 import os
 from pathlib import Path
@@ -7,6 +7,7 @@ import sys
 import time
 import helper_sample as h
 import native_probe
+import path_metadata
 
 BRANCH='refs/heads/validation/p1-sample-capability'
 
@@ -107,6 +108,11 @@ class Diagnostic(h.Experiment):
                 self.row.update(status=result['status'],stage='sampler-command',code='bounded-command-incomplete');return
             if result['code']!=0 or h.outcome(result['code'],result['raw'])=='denied':
                 self.row.update(status=h.outcome(result['code'],result['raw']),stage='sampler-command',code='command-result');return
+            self.row['reportedPathDiagnostic']=path_metadata.extract(
+                result['raw'],pid=child.pid,parent=os.getpid(),expected_path=image['path'],
+                pre_checks=self.row['preSampleChecks'],post_checks=self.row['postSampleChecks'],
+                image_unchanged=self.checks.get('native-image-unchanged'),
+                owned_native_probe=(argv==[image['path']] and self.row.get('nativeProbe',{}).get('compilerExitCode')==0))
             self.stage='report-validation'
             validate(result['raw'],pid=child.pid,parent=os.getpid(),image=image,checks=self.checks)
             self.row.update(status='available',stage='complete',code='owned-child-report-validated')
