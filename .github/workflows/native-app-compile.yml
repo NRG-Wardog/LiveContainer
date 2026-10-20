@@ -120,6 +120,103 @@ jobs:
           python3 harness/.ci/native-app-compile/record.py snapshot after-build
           cmp evidence/compiler-inputs.json evidence/after-build.json
           python3 harness/.ci/native-app-compile/record.py receipt
+      # Insert after the successful native receipt, before always-uploaded evidence.
+      - name: Retain exact unsigned app products for diagnostic packaging
+        if: success()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, stat, subprocess
+          
+          def require(ok, message):
+              if not ok:
+                  raise ValueError(message)
+          
+          def digest(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+          
+          def inventory(root):
+              require(root.is_dir() and not root.is_symlink(), 'Invalid bundle root: ' + str(root))
+              canonical = root.resolve(strict=True)
+              result = {}
+              for path in [root, *sorted(root.rglob('*'))]:
+                  mode = path.lstat().st_mode
+                  row = {'mode': stat.S_IMODE(mode)}
+                  if stat.S_ISLNK(mode):
+                      target = os.readlink(path)
+                      require(not os.path.isabs(target), 'Absolute symlink: ' + str(path))
+                      resolved = path.resolve(strict=True)
+                      require(resolved.is_relative_to(canonical), 'Escaping symlink: ' + str(path))
+                      row.update(kind='symlink', target=target)
+                  elif stat.S_ISDIR(mode):
+                      row['kind'] = 'directory'
+                  elif stat.S_ISREG(mode):
+                      row.update(kind='file', sha256=digest(path))
+                  else:
+                      raise ValueError('Unsupported filesystem entry: ' + str(path))
+                  result[path.relative_to(root).as_posix()] = row
+              return result
+          
+          def copy_checked(source, destination):
+              before = inventory(source)
+              require(not destination.exists() and not destination.is_symlink(), 'Destination already exists')
+              subprocess.run(['ditto', str(source), str(destination)], check=True)
+              require(inventory(destination) == before, 'Copied bytes/modes/links differ: ' + str(source))
+              require(inventory(source) == before, 'Source changed during copy: ' + str(source))
+              return before
+          
+          out = pathlib.Path('native-products')
+          require(not out.exists() and not out.is_symlink(), 'Output directory must be fresh')
+          out.mkdir()
+          receipt = json.loads(pathlib.Path('evidence/receipt.json').read_text())
+          require(receipt['status'] == 'COMPILE_ONLY_PASS_REQUIRES_REVIEW', 'Native compile has not passed')
+          expected = json.loads(pathlib.Path('evidence/product-hashes.json').read_text())
+          require(set(expected) == {'LiveContainer', 'SideStore'}, 'Product identity set differs')
+          for owner in ('LiveContainer', 'SideStore'):
+              products = pathlib.Path(os.environ['RUNNER_TEMP']) / ('native-' + owner) / 'Build/Products/Release-iphoneos'
+              source = products / (owner + '.app')
+              transfer = pathlib.Path(os.environ['RUNNER_TEMP']) / ('native-transfer-' + owner)
+              require(not transfer.exists() and not transfer.is_symlink(), 'Transfer directory must be fresh')
+              (transfer / 'Products').mkdir(parents=True)
+              (transfer / 'Symbols').mkdir()
+              final = transfer / 'Products' / source.name
+              manifest = {'app': copy_checked(source, final), 'symbols': {}}
+              # All symlink targets have already been checked before following file links.
+              files = {p.relative_to(final).as_posix(): digest(p)
+                       for p in sorted(final.rglob('*')) if p.is_file()}
+              require(files == expected[owner], 'Compile receipt product bytes differ: ' + owner)
+              for dsym in sorted(products.glob('*.dSYM')):
+                  manifest['symbols'][dsym.name] = copy_checked(dsym, transfer / 'Symbols' / dsym.name)
+              copy_checked(pathlib.Path('evidence'), transfer / 'evidence')
+              (transfer / 'retained-files.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
+              target = out / owner
+              target.mkdir()
+              archive = target / (owner + '-unsigned.zip')
+              subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(transfer), str(archive)], check=True)
+              (target / 'SHA256SUMS').write_text(digest(archive) + '  ' + archive.name + '\n')
+              size = archive.stat().st_size
+              print(owner + ' archive bytes: ' + str(size), flush=True)
+              # Leave 12 MiB for the GitHub outer artifact ZIP.
+              require(size < 524288000, owner + ' archive requires bounded artifact splitting: ' + str(size))
+          PY
+      - name: Upload unsigned LiveContainer and matching compile evidence
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unsigned-LiveContainer-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-products/LiveContainer/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Upload unsigned SideStore and matching compile evidence
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unsigned-SideStore-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-products/SideStore/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Preserve evidence, including failures (not app products)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
