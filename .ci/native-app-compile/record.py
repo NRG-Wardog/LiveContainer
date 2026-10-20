@@ -158,6 +158,110 @@ def seal_resolution():
           'only_pin_revision_changed': 'anisettekit', 'new_source_commit_published': False})
 
 
+def https_origin(value):
+    from urllib.parse import urlsplit
+    parsed = urlsplit(value)
+    require(parsed.scheme == 'https' and parsed.netloc.lower() == 'github.com' and
+            not parsed.query and not parsed.fragment and
+            re.fullmatch(r'/[^/]+/[^/]+/?', parsed.path), 'Unexpected upstream origin format')
+    return 'https://github.com' + parsed.path.rstrip('/').removesuffix('.git').lower()
+
+
+def contained_directory(path, root):
+    path, root = Path(path), Path(root).resolve(strict=True)
+    require(path.is_absolute() and '..' not in path.parts, 'Noncanonical local repository path')
+    # Reject symlink routing below the trusted canonical root before invoking Git.
+    require(path.is_relative_to(root), 'Local repository path escapes resolver root')
+    current = root
+    for component in path.relative_to(root).parts:
+        current = current / component
+        require(not current.is_symlink(), 'Symlink in local repository path')
+    require(path.is_dir() and path.resolve(strict=True).is_relative_to(root), 'Missing/outside repository')
+    return path.resolve(strict=True)
+
+
+def verify_origin_chain(checkout, cache_root, expected_url, revision, rows=None):
+    from urllib.parse import urlsplit, unquote
+    expected = https_origin(expected_url)
+    checkout = Path(checkout)
+    # Caller has checked checkout ancestry against canonical RUNNER_TEMP. Validate
+    # its sibling cache before resolving it, so a cache symlink cannot redefine trust.
+    require(Path(cache_root) == checkout.parent.parent / 'repositories', 'Unexpected cache root')
+    cache_root = contained_directory(cache_root, checkout.parent.parent)
+    current = contained_directory(checkout, checkout.parent)
+    checkout_tree = git(current, 'rev-parse', revision + '^{tree}')
+    visited = set()
+    rows = [] if rows is None else rows
+    for _ in range(4):
+        require(current not in visited, 'Origin chain cycle')
+        visited.add(current)
+        gitdir = Path(git(current, 'rev-parse', '--absolute-git-dir'))
+        contained_directory(gitdir, current)
+        require(git(current, 'cat-file', '-t', revision) == 'commit' and
+                git(current, 'rev-parse', revision + '^{tree}') == checkout_tree,
+                'Origin cache commit/tree differs')
+        origins = git(current, 'remote', 'get-url', '--all', 'origin').splitlines()
+        require(len(origins) == 1 and 0 < len(origins[0]) < 4096, 'Ambiguous/missing origin')
+        origin = origins[0]
+        parsed = urlsplit(origin)
+        require(not parsed.username and not parsed.password, 'Credential-bearing origin rejected')
+        rows.append({'repository': str(current), 'origin': origin, 'tree': checkout_tree})
+        if parsed.scheme == 'https':
+            require(https_origin(origin) == expected, 'Resolved upstream differs from exact lock')
+            return rows
+        if parsed.scheme == 'file':
+            require(not parsed.netloc and not parsed.query and not parsed.fragment,
+                    'Nonlocal file URL rejected')
+            target = Path(unquote(parsed.path))
+        else:
+            require(not parsed.scheme and not parsed.netloc and not parsed.query and not parsed.fragment,
+                    'Unsupported local origin')
+            target = Path(origin)
+        current = contained_directory(target, cache_root)
+        require(current != cache_root, 'Cache root is not a package repository')
+    raise RuntimeError('Origin chain exceeds four repositories')
+
+
+def verify_workspace_row(document, identity, checkout, pin):
+    require(document.get('version') in (6, 7), 'Unsupported resolver state version')
+    matches = [row for row in document['object']['dependencies']
+               if row.get('packageRef', {}).get('identity') == identity]
+    require(len(matches) == 1, 'Missing/duplicate resolver package row')
+    row = matches[0]
+    ref, state = row['packageRef'], row['state']
+    require(ref.get('kind') == 'remoteSourceControl' and
+            https_origin(ref['location']) == https_origin(pin['location']) and
+            state.get('name') == 'sourceControlCheckout' and
+            state.get('checkoutState', {}).get('revision') == pin['state']['revision'] and
+            row.get('subpath') == checkout.name and row.get('basedOn') is None,
+            'Resolver state does not bind exact lock and checkout')
+
+
+def capture_resolution_inputs(folder):
+    # Retain observations before any origin assertion; failure is not success evidence.
+    from urllib.parse import urlsplit
+    state = folder.parent / 'workspace-state.json'
+    raw = state.read_bytes() if state.is_file() and not state.is_symlink() else None
+    if raw is not None:
+        (E / 'SideStore-workspace-state.json').write_bytes(raw)
+    observations = {}
+    for checkout in sorted(folder.iterdir()):
+        if not checkout.is_dir():
+            continue
+        try:
+            contained_directory(checkout, folder)
+            origin = git(checkout, 'remote', 'get-url', '--all', 'origin')
+            parsed = urlsplit(origin)
+            observations[checkout.name] = {'origin': '[credential-bearing origin rejected]' if
+                parsed.username or parsed.password else origin,
+                'commit': git(checkout, 'rev-parse', 'HEAD')}
+        except (RuntimeError, subprocess.CalledProcessError) as error:
+            observations[checkout.name] = {'observation_error': type(error).__name__}
+    write('resolved-origin-observations.json', observations)
+    require(raw is not None, 'Missing/linked resolver state')
+    return json.loads(raw)
+
+
 def verify_resolved():
     lc_checkouts = TMP / 'native-LiveContainer/SourcePackages/checkouts'
     require(not lc_checkouts.exists() or not any(lc_checkouts.iterdir()),
@@ -170,16 +274,27 @@ def verify_resolved():
     expected = {pin['identity'].lower(): pin for pin in app_lock['pins']}
     observed = {}
     folder = TMP / 'native-SideStore/SourcePackages/checkouts'
+    contained_directory(folder, TMP.resolve(strict=True))
+    state_document = capture_resolution_inputs(folder)
+    origin_chains = {}
     for checkout in sorted(folder.iterdir()):
         if not checkout.is_dir():
             continue
+        contained_directory(checkout, folder)
         identity = checkout.name.lower()
         require(identity in expected, 'Unexpected resolved checkout: ' + identity)
         pin = expected[identity]
         require(git(checkout, 'rev-parse', 'HEAD') == pin['state']['revision'], 'Resolved revision differs: ' + identity)
-        normalize = lambda value: value.removesuffix('.git').rstrip('/').lower()
-        require(normalize(git(checkout, 'remote', 'get-url', 'origin')) == normalize(pin['location']),
-                'Resolved remote differs: ' + identity)
+        verify_workspace_row(state_document, identity, checkout, pin)
+        chain_observations = []
+        try:
+            origin_chains[identity] = verify_origin_chain(checkout, folder.parent / 'repositories',
+                                                        pin['location'], pin['state']['revision'], chain_observations)
+        except Exception as error:
+            write('resolved-origin-chain-failure.json', {'identity': identity, 'error': str(error),
+                                                       'observed_chain': chain_observations, 'completed_chains': origin_chains})
+            raise
+        write('resolved-origin-chains.json', origin_chains)
         require(not git(checkout, 'status', '--porcelain', '--untracked-files=no'), 'Dirty resolved source: ' + identity)
         observed[identity] = pin['state']['revision']
     require(set(observed) == set(expected), 'App lock/checkouts closure differs')
