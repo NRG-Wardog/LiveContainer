@@ -88,6 +88,10 @@ void initDead10ccFix(void) {
     void *pidinfo = malloc(pidinfo_size);
     if (pidinfo == NULL) return nil;
     pidinfo_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, pidinfo, pidinfo_size);
+    if (pidinfo_size <= 0) {
+        free(pidinfo);
+        return nil;
+    }
 
     NSMutableSet *openFilePaths = [NSMutableSet set];
 
@@ -235,7 +239,7 @@ void initDead10ccFix(void) {
 - (void)_terminateWithStatus:(int)status {
     // Fake implementation from UIApplication
     NSLog(@"[LC_GUEST_LIFECYCLE] DEAD10CC_PREPARATION pid=%d", getpid());
-    NSLog(@"[LC] _handleTaskCompletionAndTerminate");
+//    NSLog(@"[LC] _handleTaskCompletionAndTerminate");
     [self handleAppDidEnterBackgroundReal];
     //    NSLog(@"Backtrace: %@", [NSThread performSelector:@selector(ams_symbolicatedCallStackSymbols)]);
     if([[NSClassFromString(@"UIApplication") sharedApplication] applicationState] != 0) {

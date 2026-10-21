@@ -1046,6 +1046,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             } catch {
                 errorDisplay = .preserving(error)
                 errorShow = true
+                return
             }
         }
         

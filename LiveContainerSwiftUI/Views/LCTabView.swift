@@ -59,9 +59,17 @@ struct V3ApplicationRoot<Content: View>: View {
                 .padding(.horizontal)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("lc.common.copy".loc, action: {
-                            copyError()
-                        })
+                        if #available(iOS 16.0, *) {
+                            if let log = UserDefaults.lcShared().url(forKey: "LC32BitTranslationLayerLogFile") {
+                                ShareLink(item: log)
+                            } else {
+                                ShareLink(item: errorInfo)
+                            }
+                        } else {
+                            Button("lc.common.copy".loc) {
+                                copyError()
+                            }
+                        }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("lc.common.ok".loc, action: {
