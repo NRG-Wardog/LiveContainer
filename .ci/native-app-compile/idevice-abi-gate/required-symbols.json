@@ -146,14 +146,14 @@
     }
   ],
   "nm_assertion": [
-    "xcrun",
-    "nm",
-    "-arch",
-    "arm64",
-    "-gUj",
+    "<pinned-rust-sysroot>/lib/rustlib/aarch64-apple-darwin/bin/llvm-nm",
+    "--arch=arm64",
+    "--extern-only",
+    "--defined-only",
+    "--format=just-symbols",
     "<archive>"
   ],
-  "nm_match": "Require exact complete output lines for all six Mach-O-prefixed symbols. -U excludes undefined symbols.",
+  "nm_match": "Require successful inspection of the full archive, then exact complete output lines for all six Mach-O-prefixed symbols. --defined-only excludes undefined symbols; no member filtering or fallback is permitted.",
   "framework_assertion": "Read XCFramework Info.plist, require one non-simulator ios/arm64 slice, compare its static library and generated header bytes to Cargo outputs, and repeat nm/header checks after staging to minimuxer LocalBinary.",
   "header_generator": {
     "source": "ffi/build.rs",
@@ -161,7 +161,7 @@
     "configuration": "cbindgen 0.29.0 C language; excludes only portable sockaddr aliases, not these exports."
   },
   "header_verification": "Compile assert_header.c with the same iOS SDK using clang -fsyntax-only; check function-pointer types and 64-bit repr(C) error/peer layouts. Never link or execute the target.",
-  "ci_invocation": "python3 harness/.ci/native-app-compile/abi/verify_native_abi.py --source sources/idevice --framework sources/idevice/swift/IDevice.xcframework --staged-framework sources/SideStore/Dependencies/minimuxer/DeviceGateway/LocalBinary/IDevice.xcframework --output evidence/native-abi.json",
+  "ci_invocation": "python3 harness/.ci/native-app-compile/idevice-abi-gate/verify_native_abi.py --source sources/idevice --framework sources/idevice/swift/IDevice.xcframework --staged-framework sources/SideStore/Dependencies/minimuxer/DeviceGateway/LocalBinary/IDevice.xcframework --output evidence/native-abi.json",
   "insert_after": "Compile iOS transport and stage local framework, before package resolution/app compilation.",
   "root_requirements": [
     "Copy the three gate source files and required-symbols.json into the authorized compile-only harness before enabling the gate.",
@@ -173,5 +173,17 @@
     "These checks establish binary symbol/header availability only when run against actual outputs; they do not validate runtime pairing, fd behavior or allocator behavior."
   ],
   "native_source_manifest_sha256": "b379a775e4c80026a27e7afd4769fed8354dfc73b1bc7ce001a219d41fb5d2ac",
-  "swift_source_sha256": "af0dd4c10cc613ac718e7374acc4ae2cfa056d3c3edcf459eecca8a3a2d1498a"
+  "swift_source_sha256": "af0dd4c10cc613ac718e7374acc4ae2cfa056d3c3edcf459eecca8a3a2d1498a",
+  "symbol_reader": {
+    "rust_toolchain": "1.98.1",
+    "rust_commit": "48a229ceaefd4985c50990b14116b6d856af0985",
+    "host": "aarch64-apple-darwin",
+    "llvm_version": "22.1.8",
+    "component": "llvm-tools-preview",
+    "distribution_manifest_url": "https://static.rust-lang.org/dist/channel-rust-1.98.1.toml",
+    "reviewed_distribution_manifest_sha256": "a7c8774a5fd8441c997d94c029776cbc5eb111e9d72ab5d256fa69866644347e",
+    "component_url": "https://static.rust-lang.org/dist/2026-09-03/llvm-tools-1.98.1-aarch64-apple-darwin.tar.xz",
+    "component_sha256": "9b68ac31be7c6d25a08ce34dbd2c1d026b8006905e74415b6d9576678379ecbc",
+    "reason": "Apple Xcode nm rejects compiler_builtins bitcode from the pinned Rust LLVM version; inspect with that exact Rust host toolchain component instead."
+  }
 }

@@ -56,6 +56,12 @@ jobs:
           python3 -B harness/.ci/native-app-compile/test_sync_contract.py \
             2>&1 | tee evidence/upstream-sync-harness-tests.log
           printf '0\n' > evidence/upstream-sync-harness-tests.exit-code.txt
+      - name: Check native ABI inspection with source-owned fake tools only
+        run: |
+          set -euo pipefail
+          python3 -B harness/.ci/native-app-compile/idevice-abi-gate/test_native_abi_contract.py \
+            2>&1 | tee evidence/idevice-abi-contract.log
+          printf '0\n' > evidence/idevice-abi-contract.exit-code.txt
       - name: Acquire exact immutable source graph
         run: |
           set -euo pipefail
@@ -113,6 +119,8 @@ jobs:
         run: |
           set -euo pipefail
           rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+          RUSTUP_DIST_SERVER=https://static.rust-lang.org rustup component add --toolchain "$RUSTUP_TOOLCHAIN" llvm-tools-preview \
+            2>&1 | tee evidence/rust-llvm-tools-install.log
           rustup target add --toolchain "$RUSTUP_TOOLCHAIN" aarch64-apple-ios
           cargo +1.98.1 install --locked bindgen-cli --version 0.72.1 --root "$RUNNER_TEMP/native-tools"
           echo "$RUNNER_TEMP/native-tools/bin" >> "$GITHUB_PATH"
