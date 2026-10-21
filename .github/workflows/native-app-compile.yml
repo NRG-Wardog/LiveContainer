@@ -80,6 +80,10 @@ jobs:
           set -euo pipefail
           python3 -B harness/.ci/native-app-compile/verify_upstream_sync.py sidestore-tests \
             --output evidence/SideStore-upstream-sync-tests.json 2>&1 | tee evidence/SideStore-upstream-sync-tests.log
+          # Run the committed AK logging policy/fake-output suite once, never vendor/guest fixtures.
+          python3 -B sources/AnisetteKit/.ci/native-logging/test_native_logging_contract.py \
+            2>&1 | tee evidence/AnisetteKit-native-logging-contract.log
+          printf '0\n' > evidence/AnisetteKit-native-logging-contract.exit-code.txt
       - name: Check minimuxer extracted-production Swift with fake dependencies only
         run: |
           set -euo pipefail
@@ -158,7 +162,7 @@ jobs:
         run: |
           set -euo pipefail
           # Fresh Xcode resolution is allowed to update the app lock, then the recorder
-          # admits only AK e6e9 -> 20c17 plus actual resolver originHash. No other pin may move.
+          # admits only AK e6e9 -> 3e670 plus actual resolver originHash. No other pin may move.
           test ! -e "$RUNNER_TEMP/native-SideStore"
           test ! -L "$RUNNER_TEMP/native-SideStore"
           GIT_ALLOW_PROTOCOL=https:file xcodebuild -resolvePackageDependencies -disablePackageRepositoryCache \

@@ -12,16 +12,16 @@ S = ROOT / 'sources'
 E = ROOT / 'evidence'
 TMP = Path(os.environ.get('RUNNER_TEMP', '/tmp'))
 OWNERS = {
-    'LiveContainer': ('NRG-Wardog/LiveContainer', '0ea58d80f9e0db7e4f56486ba118ae3b85652513'),
-    'SideStore': ('NRG-Wardog/SideStore', '545ba0b359afd9a0c7a7a1750d9d5148d42d4438'),
-    'AnisetteKit': ('NRG-Wardog/AnisetteKit', '20c17ed96763c7ab39053e9f7a82532a88ad7654'),
-    'idevice': ('NRG-Wardog/idevice', 'f9eebbbeb83d92565204b53f2a317b0a29999b79'),
-    'jktcp': ('NRG-Wardog/jktcp', '32c0210f286b4fd16efe05be4f57167a9d94459b'),
-    'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', 'b3b8ffafcfa7f3873eb77890dbb6fbe46e27b558'),
-    'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', '48419a2d24bd74efcee6dc80552ea89e85dafdee'),
+    'LiveContainer': ('NRG-Wardog/LiveContainer', '321c6b62eeeabb58a871872bed01e75363d7de56'),
+    'SideStore': ('NRG-Wardog/SideStore', '5fb9e45a489e7bc75736bacde7cdb9bbb1987550'),
+    'AnisetteKit': ('NRG-Wardog/AnisetteKit', '3e670c2e1b72ff328d3a64353d8de2418df87e73'),
+    'idevice': ('NRG-Wardog/idevice', '774f02a6d29777c85400f4ba7fa69c12b4227fb3'),
+    'jktcp': ('NRG-Wardog/jktcp', 'a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9'),
+    'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', '9757970d656135f0b21dc00700507d099f170320'),
+    'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', '1d033920660c6f50b8f30c4c333f025867cd9e96'),
     'LiveContainer/OpenSSL': ('krzyzanowskim/OpenSSL', '623c84da314e85363236507ca38a4bde65df21c3'),
     'idevice/cpp/plist_ffi': ('jkcoxson/plist_ffi', '66e6e6362b58bc361725c3e1b0a34af498aa2b3a'),
-    'LiveContainer/litehook': ('LiveContainerMirror/litehook', '8025e0c8ebdf5cdd1d2a4f45025813234bf9dc55'),
+    'LiveContainer/litehook': ('LiveContainerMirror/litehook', 'a7e9f599d7f0b3d77008ad62bf10cb10dab6eca9'),
 }
 LOCKS = {
     'SideStore': 'AltStore.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved',

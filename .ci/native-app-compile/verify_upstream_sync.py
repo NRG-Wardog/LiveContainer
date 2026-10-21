@@ -43,10 +43,36 @@ def validate_ancestry(root, expected):
     require(git(root, 'rev-parse', '--is-shallow-repository') == 'false', 'Shallow native source history')
     require(git(root, 'rev-parse', 'HEAD^{tree}') == expected['tree'], 'Native owner tree differs')
     parents = git(root, 'show', '-s', '--format=%P', 'HEAD').split()
-    require(parents == expected['required_commit_parents'], 'Both exact ordered native parents are required')
-    for parent in parents:
-        git(root, 'merge-base', '--is-ancestor', parent, 'HEAD')
-    require(git(root, 'merge-base', *parents) == expected['merge_base'], 'Native merge base differs')
+    if 'merge_anchor' not in expected:
+        require(len(expected['required_commit_parents']) == 2 and
+                parents == expected['required_commit_parents'], 'Both exact ordered native parents are required')
+        for parent in parents:
+            git(root, 'merge-base', '--is-ancestor', parent, 'HEAD')
+        require(git(root, 'merge-base', *parents) == expected['merge_base'], 'Native merge base differs')
+    else:
+        # Admit only the reviewed direct child of an exact, independently proven
+        # two-parent merge. This is not a general single-parent ancestry fallback.
+        anchor = expected['merge_anchor']
+        require(set(anchor) == {'commit', 'tree', 'required_commit_parents', 'merge_base'},
+                'Native merge anchor schema differs')
+        require(all(isinstance(anchor[key], str) and re.fullmatch('[0-9a-f]{40}', anchor[key])
+                    for key in ('commit', 'tree', 'merge_base')), 'Native merge anchor identities differ')
+        require(expected['commit'] != anchor['commit'] and
+                expected['required_commit_parents'] == [anchor['commit']] and
+                parents == [anchor['commit']], 'Exact direct native follow-up parent is required')
+        require(git(root, 'rev-parse', anchor['commit'] + '^{tree}') == anchor['tree'],
+                'Native merge anchor tree differs')
+        anchor_parents = git(root, 'show', '-s', '--format=%P', anchor['commit']).split()
+        require(len(anchor['required_commit_parents']) == 2 and
+                len(set(anchor['required_commit_parents'])) == 2 and
+                anchor_parents == anchor['required_commit_parents'],
+                'Both exact ordered native merge-anchor parents are required')
+        git(root, 'merge-base', '--is-ancestor', anchor['commit'], 'HEAD')
+        for parent in anchor_parents:
+            git(root, 'merge-base', '--is-ancestor', parent, anchor['commit'])
+        require(expected['merge_base'] == anchor['merge_base'] and
+                git(root, 'merge-base', *anchor_parents) == anchor['merge_base'],
+                'Native merge anchor base differs')
     for relative, expected_sha in expected['files_sha256'].items():
         path = root / relative
         require(path.is_file() and not path.is_symlink(), 'Missing or linked native metadata: ' + relative)
@@ -63,12 +89,31 @@ def source_parity(sources, output):
         # Invoke the exact unchanged committed verifier, not an inventory-only replacement.
         raw = subprocess.check_output([sys.executable, '-B', str(root / '.ci/source-parity.py')], text=True)
         observed = json.loads(raw)
-        require(observed['status'] == 'exact_frozen_source_pass', 'Frozen source verifier did not pass')
+        merge = expected.get('merge_anchor', expected)
+        if owner == 'jktcp':
+            # This owner intentionally incorporates reviewed upstream behavior;
+            # do not mislabel it as the older generated-source parity baseline.
+            exact = dict(expected['verifier_report'])
+            require(set(exact) == {'owner', 'status', 'product_files_verified',
+                    'metadata_files_verified', 'behavior_changes', 'native_execution'} and
+                    exact['owner'] == 'jktcp' and exact['status'] == 'exact_reviewed_source_pass' and
+                    exact['native_execution'] is False and exact['product_files_verified'] == 10 and
+                    exact['metadata_files_verified'] == 4, 'Unexpected jktcp verifier contract')
+            exact.update(fork_commit=expected['commit'], upstream_base=merge['required_commit_parents'][1],
+                         merge_parents=parents)
+            require(observed == exact and observed.get('native_execution') is False and
+                    type(observed.get('product_files_verified')) is int and
+                    type(observed.get('metadata_files_verified')) is int,
+                    'Exact reviewed jktcp verifier report differs')
+        else:
+            require(observed['status'] == 'exact_frozen_source_pass', 'Frozen source verifier did not pass')
         require(observed['fork_commit'] == expected['commit'] and
-                observed['upstream_base'] == expected['required_commit_parents'][1],
+                observed['upstream_base'] == merge['required_commit_parents'][1],
                 'Frozen source verifier identity differs')
         report['owners'][owner] = {'parents': parents, 'expected_tree': expected['tree'],
             'metadata_sha256': expected['files_sha256'], 'parity_result': observed}
+        if 'merge_anchor' in expected:
+            report['owners'][owner]['merge_anchor'] = expected['merge_anchor']
         write(output, report)
     report['status'] = 'EXACT_COMMITTED_SOURCE_PARITY_PASS_NOT_RUNTIME_VALIDATION'
     write(output, report)

@@ -52,6 +52,8 @@ class NativeABIContract(unittest.TestCase):
         self.nm_stderr = ''
         self.fail_nm = False
         self.fail_clang = False
+        self.mutate_during_nm = None
+        self.fail_clang_headers = None
         self.commands = []
 
     def make_framework(self, name):
@@ -83,13 +85,16 @@ class NativeABIContract(unittest.TestCase):
             stdout, stderr = self.nm_output, self.nm_stderr
             if self.fail_nm:
                 raise subprocess.CalledProcessError(1, command, output=stdout, stderr='fixture: incompatible bitcode\n')
+            if self.mutate_during_nm is not None:
+                self.mutate_during_nm.write_bytes(b'changed during synthetic symbol scan')
         elif command == ['xcrun', '--sdk', 'iphoneos', '--show-sdk-path']:
             stdout = '/source-owned/fake-sdk\n'
         elif command[:4] == ['xcrun', '--sdk', 'iphoneos', 'clang']:
             self.assertIn('-fsyntax-only', command)
             self.assertIn('-Werror', command)
             self.assertNotIn('-o', command)
-            if self.fail_clang:
+            if self.fail_clang or (self.fail_clang_headers is not None and
+                                   command[command.index('-I') + 1] == str(self.fail_clang_headers)):
                 raise subprocess.CalledProcessError(1, command, stderr='fixture: ABI layout mismatch\n')
             stdout = ''
         else:
@@ -116,7 +121,20 @@ class NativeABIContract(unittest.TestCase):
         self.assertFalse(result['target_executed'])
         self.assertEqual(result['symbol_reader']['sha256'], gate.digest(self.nm))
         self.assertEqual(result['symbol_reader']['component_sha256'], gate.COMPONENT_SHA256)
-        self.assertTrue(all(x['header_signature_and_layout_checks'] and x['nm_stderr'] == self.nm_stderr for x in result['artifacts']))
+        original, *copies = result['artifacts']
+        self.assertEqual(original['symbol_validation'], 'inspected_original')
+        self.assertEqual(original['nm_stderr'], self.nm_stderr)
+        self.assertTrue(all(x['header_signature_and_layout_checks'] for x in result['artifacts']))
+        self.assertTrue(all(x['symbol_validation'] == 'validated_by_byte_identity' and
+                            x['symbol_validation_source'] == 'cargo' and
+                            x['archive_sha256'] == result['archive_sha256'] and
+                            not any(k.startswith('nm_') for k in x) for x in copies))
+        scans = [c for c in self.commands if c[0] == str(self.nm) and c[-1] != '--version']
+        self.assertEqual(scans, [[str(self.nm), *gate.NM_FLAGS, str(self.archive)]])
+        clang = [c for c in self.commands if c[:4] == ['xcrun', '--sdk', 'iphoneos', 'clang']]
+        self.assertEqual([c[c.index('-I') + 1] for c in clang],
+                         [str(self.source / 'ffi'), str(self.framework / 'ios-arm64/Headers'),
+                          str(self.staged / 'ios-arm64/Headers')])
         self.assertFalse(any(command[:2] == ['xcrun', 'nm'] for command in self.commands))
         self.assertEqual(hashlib.sha256((Path(__file__).parent / 'assert_header.c').read_bytes()).hexdigest(), 'ebf680f7cdf8b373e081a8eebc6ff9f6e31f0190aa3c881014df60778dc7df08')
 
@@ -177,6 +195,20 @@ class NativeABIContract(unittest.TestCase):
     def test_changed_framework_archive_rejected(self):
         (self.framework / 'ios-arm64/libidevice_ffi.a').write_bytes(b'changed fake archive')
         self.reject()
+        self.assertFalse(any(c[0] == str(self.nm) and c[-1] != '--version' for c in self.commands))
+
+    def test_changed_staged_archive_cannot_inherit_validation(self):
+        (self.staged / 'ios-arm64/libidevice_ffi.a').write_bytes(b'changed fake staged archive')
+        self.reject()
+        self.assertFalse(any(c[0] == str(self.nm) and c[-1] != '--version' for c in self.commands))
+
+    def test_copy_changed_during_original_inspection_cannot_inherit_validation(self):
+        self.mutate_during_nm = self.staged / 'ios-arm64/libidevice_ffi.a'
+        self.reject()
+
+    def test_original_changed_during_inspection_rejected(self):
+        self.mutate_during_nm = self.archive
+        self.reject()
 
     def test_changed_staged_header_rejected(self):
         (self.staged / 'ios-arm64/Headers/idevice.h').write_bytes(b'changed fake header')
@@ -184,6 +216,10 @@ class NativeABIContract(unittest.TestCase):
 
     def test_clang_layout_failure_rejected(self):
         self.fail_clang = True
+        self.reject(subprocess.CalledProcessError)
+
+    def test_staged_clang_context_failure_rejected_after_original_passes(self):
+        self.fail_clang_headers = self.staged / 'ios-arm64/Headers'
         self.reject(subprocess.CalledProcessError)
 
 

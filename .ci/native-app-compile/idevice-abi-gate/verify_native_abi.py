@@ -113,23 +113,36 @@ def main():
     require(archive.is_file() and header.is_file(), 'Native build outputs are missing')
     nm, tool = resolve_pinned_nm()
     sdk = run_checked(['xcrun', '--sdk', 'iphoneos', '--show-sdk-path']).stdout.strip()
+    archive_sha256, header_sha256 = digest(archive), digest(header)
     artifacts = [('cargo', archive, args.source / 'ffi')]
     for name, root in [('framework', args.framework), ('staged', args.staged_framework)]:
         a, h = selected_slice(root)
-        require(digest(a) == digest(archive), 'Archive bytes changed in ' + name)
-        require(digest(h / 'idevice.h') == digest(header), 'Generated header bytes changed in ' + name)
+        require(digest(a) == archive_sha256, 'Archive bytes changed in ' + name)
+        require(digest(h / 'idevice.h') == header_sha256, 'Generated header bytes changed in ' + name)
         artifacts.append((name, a, h))
+    # Symbol membership depends on archive bytes, not its staging path. Inspect
+    # the original once, after every copy has passed byte-identity admission.
+    nm_cmd, output, diagnostics = inspect_symbols(nm, archive, symbols)
+    require(digest(archive) == archive_sha256, 'Cargo archive changed during symbol inspection')
     result = {'status': 'COMPILE_ONLY_ABI_INSPECTION_PASS_NOT_RUNTIME_VALIDATION', 'target_executed': False,
-              'archive_sha256': digest(archive), 'generated_header_sha256': digest(header),
+              'archive_sha256': archive_sha256, 'generated_header_sha256': header_sha256,
               'required_symbols': [x['name'] for x in symbols], 'symbol_reader': tool, 'artifacts': []}
     for name, a, headers in artifacts:
-        nm_cmd, output, diagnostics = inspect_symbols(nm, a, symbols)
+        # Keep all three compiler contexts: equal idevice.h alone does not prove
+        # equivalent resolution of quoted/transitive includes in each directory.
         clang_cmd = ['xcrun', '--sdk', 'iphoneos', 'clang', '-target', 'arm64-apple-ios15.0', '-isysroot', sdk, '-std=c11', '-Werror', '-fsyntax-only', '-I', str(headers), str(Path(__file__).parent / 'assert_header.c')]
         run_checked(clang_cmd)
-        result['artifacts'].append({'name': name, 'archive': str(a), 'header': str(headers / 'idevice.h'),
-            'nm_command': nm_cmd, 'nm_stdout_sha256': hashlib.sha256(output.encode()).hexdigest(),
-            'nm_stderr': diagnostics, 'clang_command': clang_cmd, 'required_symbols_defined': True,
-            'header_signature_and_layout_checks': True})
+        require(digest(a) == archive_sha256, 'Archive bytes changed before validation in ' + name)
+        require(digest(headers / 'idevice.h') == header_sha256, 'Generated header bytes changed before validation in ' + name)
+        row = {'name': name, 'archive': str(a), 'header': str(headers / 'idevice.h'),
+               'archive_sha256': archive_sha256, 'clang_command': clang_cmd,
+               'required_symbols_defined': True, 'header_signature_and_layout_checks': True}
+        if name == 'cargo':
+            row.update(symbol_validation='inspected_original', nm_command=nm_cmd,
+                       nm_stdout_sha256=hashlib.sha256(output.encode()).hexdigest(), nm_stderr=diagnostics)
+        else:
+            row.update(symbol_validation='validated_by_byte_identity', symbol_validation_source='cargo')
+        result['artifacts'].append(row)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result, indent=2))

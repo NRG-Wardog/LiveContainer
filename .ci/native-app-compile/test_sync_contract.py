@@ -31,6 +31,10 @@ class ExactAncestryTests(unittest.TestCase):
         for name in ('source-parity.py', 'source-parity.json'):
             (self.root / '.ci' / name).write_text('synthetic')
         self.expected = copy.deepcopy(v.SPEC['native_sources']['idevice'])
+        # Keep the original direct two-parent rejection tests even when the
+        # currently pinned idevice is a separately tested exact follow-on.
+        if 'merge_anchor' in self.expected:
+            self.expected.update(self.expected.pop('merge_anchor'))
         self.expected['files_sha256'] = {p: v.sha(self.root / p) for p in self.expected['files_sha256']}
         self.actual = {
             ('rev-parse', 'HEAD'): self.expected['commit'],
@@ -227,6 +231,175 @@ class RecorderTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'missing or invalid exact'):
                 r.acquire()
             run.assert_not_called()
+
+
+class ExactFollowupAncestryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        (self.root / '.ci').mkdir()
+        for name in ('source-parity.py', 'source-parity.json'):
+            (self.root / '.ci' / name).write_text('synthetic')
+        self.expected = copy.deepcopy(v.SPEC['native_sources']['SideStore/Dependencies/minimuxer'])
+        self.expected['commit'] = 'a' * 40
+        self.expected['tree'] = 'b' * 40
+        self.expected['files_sha256'] = {p: v.sha(self.root / p) for p in self.expected['files_sha256']}
+        self.anchor = self.expected['merge_anchor']
+        self.actual = {
+            ('rev-parse', 'HEAD'): self.expected['commit'],
+            ('rev-parse', '--is-shallow-repository'): 'false',
+            ('rev-parse', 'HEAD^{tree}'): self.expected['tree'],
+            ('show', '-s', '--format=%P', 'HEAD'): self.anchor['commit'],
+            ('rev-parse', self.anchor['commit'] + '^{tree}'): self.anchor['tree'],
+            ('show', '-s', '--format=%P', self.anchor['commit']): ' '.join(self.anchor['required_commit_parents']),
+            ('merge-base', '--is-ancestor', self.anchor['commit'], 'HEAD'): '',
+            ('merge-base', *self.anchor['required_commit_parents']): self.anchor['merge_base'],
+        }
+        for parent in self.anchor['required_commit_parents']:
+            self.actual[('merge-base', '--is-ancestor', parent, self.anchor['commit'])] = ''
+        self.mock = patch.object(v, 'git', lambda root, *args: self.actual[args])
+        self.mock.start()
+        self.addCleanup(self.mock.stop)
+
+    def test_exact_child_and_original_two_parent_merge(self):
+        self.assertEqual(v.validate_ancestry(self.root, self.expected), [self.anchor['commit']])
+        # Both independently required ancestry proofs must fail closed.
+        for failed in [
+                ('merge-base', '--is-ancestor', self.anchor['commit'], 'HEAD'),
+                ('merge-base', '--is-ancestor', self.anchor['required_commit_parents'][1], self.anchor['commit'])]:
+            def git(root, *args):
+                if args == failed:
+                    raise subprocess.CalledProcessError(1, ['git', *args])
+                return self.actual[args]
+            with self.subTest(failed=failed), patch.object(v, 'git', git), self.assertRaises(subprocess.CalledProcessError):
+                v.validate_ancestry(self.root, self.expected)
+
+    def test_no_implicit_single_parent_fallback(self):
+        self.expected.pop('merge_anchor')
+        with self.assertRaisesRegex(RuntimeError, 'Both exact ordered'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_wrong_direct_parent(self):
+        self.actual[('show', '-s', '--format=%P', 'HEAD')] = 'c' * 40
+        with self.assertRaisesRegex(RuntimeError, 'Exact direct'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_extra_head_parent(self):
+        self.actual[('show', '-s', '--format=%P', 'HEAD')] += ' ' + 'c' * 40
+        with self.assertRaisesRegex(RuntimeError, 'Exact direct'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_anchor_cannot_replace_current_commit(self):
+        self.expected['commit'] = self.anchor['commit']
+        self.actual[('rev-parse', 'HEAD')] = self.anchor['commit']
+        with self.assertRaisesRegex(RuntimeError, 'Exact direct'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_wrong_anchor_tree(self):
+        self.actual[('rev-parse', self.anchor['commit'] + '^{tree}')] = 'c' * 40
+        with self.assertRaisesRegex(RuntimeError, 'anchor tree'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_missing_anchor_parent(self):
+        self.actual[('show', '-s', '--format=%P', self.anchor['commit'])] = self.anchor['required_commit_parents'][0]
+        with self.assertRaisesRegex(RuntimeError, 'Both exact ordered native merge-anchor'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_reordered_anchor_parents(self):
+        self.actual[('show', '-s', '--format=%P', self.anchor['commit'])] = ' '.join(reversed(self.anchor['required_commit_parents']))
+        with self.assertRaisesRegex(RuntimeError, 'Both exact ordered native merge-anchor'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_wrong_anchor_merge_base(self):
+        self.actual[('merge-base', *self.anchor['required_commit_parents'])] = 'c' * 40
+        with self.assertRaisesRegex(RuntimeError, 'anchor base'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_inconsistent_top_level_merge_base(self):
+        self.expected['merge_base'] = 'c' * 40
+        with self.assertRaisesRegex(RuntimeError, 'anchor base'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_anchor_schema_drift(self):
+        self.anchor['allow_any_parent'] = True
+        with self.assertRaisesRegex(RuntimeError, 'anchor schema'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_non_exact_anchor_identity(self):
+        self.anchor['tree'] = 'main'
+        with self.assertRaisesRegex(RuntimeError, 'anchor identities'):
+            v.validate_ancestry(self.root, self.expected)
+
+
+
+    def test_source_parity_uses_original_upstream_parent(self):
+        observed = {'status': 'exact_frozen_source_pass', 'fork_commit': self.expected['commit'],
+                    'upstream_base': self.anchor['required_commit_parents'][1]}
+        owner = 'SideStore/Dependencies/minimuxer'
+        output = self.root / 'result.json'
+        with patch.object(v, 'SPEC', {'native_sources': {owner: self.expected}}), \
+             patch.object(v, 'validate_ancestry', return_value=[self.anchor['commit']]), \
+             patch.object(v.subprocess, 'check_output', return_value=json.dumps(observed)):
+            v.source_parity(self.root, output)
+        self.assertEqual(json.loads(output.read_text())['owners'][owner]['merge_anchor'], self.anchor)
+
+    def test_source_parity_rejects_anchor_as_upstream(self):
+        observed = {'status': 'exact_frozen_source_pass', 'fork_commit': self.expected['commit'],
+                    'upstream_base': self.anchor['commit']}
+        with patch.object(v, 'SPEC', {'native_sources': {'mux': self.expected}}), \
+             patch.object(v, 'validate_ancestry', return_value=[self.anchor['commit']]), \
+             patch.object(v.subprocess, 'check_output', return_value=json.dumps(observed)):
+            with self.assertRaisesRegex(RuntimeError, 'identity differs'):
+                v.source_parity(self.root, self.root / 'result.json')
+
+
+class ExactReviewedJktcpTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.output = self.root / 'report.json'
+        self.expected = copy.deepcopy(v.SPEC['native_sources']['jktcp'])
+        self.expected['commit'] = 'd' * 40
+        self.expected['tree'] = 'e' * 40
+        self.report = dict(self.expected['verifier_report'], fork_commit=self.expected['commit'],
+                           upstream_base=self.expected['required_commit_parents'][1],
+                           merge_parents=self.expected['required_commit_parents'])
+
+    def invoke(self, report, owner='jktcp', expected=None):
+        expected = self.expected if expected is None else expected
+        with patch.object(v, 'SPEC', {'native_sources': {owner: expected}}), \
+             patch.object(v, 'validate_ancestry', return_value=expected['required_commit_parents']), \
+             patch.object(v.subprocess, 'check_output', return_value=json.dumps(report)):
+            v.source_parity(self.root, self.output)
+
+    def test_exact_jktcp_report_admitted(self):
+        self.invoke(self.report)
+        self.assertEqual(json.loads(self.output.read_text())['owners']['jktcp']['parity_result'], self.report)
+
+    def test_jktcp_report_drift_missing_extra_and_false_pass_types_rejected(self):
+        changes = [('owner', 'idevice'), ('status', 'exact_frozen_source_pass'),
+                   ('native_execution', True), ('native_execution', 0),
+                   ('product_files_verified', 9), ('product_files_verified', 10.0),
+                   ('metadata_files_verified', 3), ('behavior_changes', []),
+                   ('fork_commit', 'f' * 40), ('upstream_base', 'f' * 40),
+                   ('merge_parents', list(reversed(self.report['merge_parents']))),
+                   ('unreviewed_extra_field', True)]
+        for key, value in changes:
+            report = dict(self.report, **{key: value})
+            with self.subTest(key=key, value=value), self.assertRaisesRegex(RuntimeError, 'jktcp verifier report'):
+                self.invoke(report)
+        report = dict(self.report)
+        del report['native_execution']
+        with self.assertRaisesRegex(RuntimeError, 'jktcp verifier report'):
+            self.invoke(report)
+
+    def test_original_owners_do_not_accept_jktcp_status(self):
+        expected = copy.deepcopy(v.SPEC['native_sources']['idevice'])
+        report = {'status': 'exact_reviewed_source_pass', 'fork_commit': expected['commit']}
+        with self.assertRaisesRegex(RuntimeError, 'Frozen source verifier did not pass'):
+            self.invoke(report, owner='idevice', expected=expected)
 
 
 if __name__ == '__main__':

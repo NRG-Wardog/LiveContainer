@@ -154,7 +154,7 @@
     "<archive>"
   ],
   "nm_match": "Require successful inspection of the full archive, then exact complete output lines for all six Mach-O-prefixed symbols. --defined-only excludes undefined symbols; no member filtering or fallback is permitted.",
-  "framework_assertion": "Read XCFramework Info.plist, require one non-simulator ios/arm64 slice, compare its static library and generated header bytes to Cargo outputs, and repeat nm/header checks after staging to minimuxer LocalBinary.",
+  "framework_assertion": "Read XCFramework Info.plist, require one non-simulator ios/arm64 slice, and compare static archive and generated header bytes to Cargo outputs before inspection. Inspect Cargo symbols once; copies inherit symbol validation only through rechecked exact archive byte identity, recorded explicitly. Keep independent header syntax/layout checks in all three include-directory contexts.",
   "header_generator": {
     "source": "ffi/build.rs",
     "sha256": "4ed0afafbed97141a713f0a0ca6d2d2b78d79c7020342de20768856bc2a8310f",
