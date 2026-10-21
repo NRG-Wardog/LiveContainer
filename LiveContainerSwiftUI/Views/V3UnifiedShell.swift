@@ -11994,6 +11994,7 @@ struct V3PromptSection: View {
     var supplementalContent: AnyView? = nil
     var cancellationTitle = "Cancel Sign In"
     var cancellationDisabled = false
+    var showsCancellation = true
     var onCancel: (() -> Void)? = nil
     let onAnswer: ([String: String]) -> Void
     @State private var fields: [String: String] = [:]
@@ -12236,7 +12237,7 @@ struct V3PromptSection: View {
                 }
             }
             }
-            if let onCancel {
+            if showsCancellation, let onCancel {
                 Button(LocalizedStringKey(cancellationTitle), role: .cancel) { onCancel() }
                     .frame(minHeight: 44)
                     .disabled(cancellationDisabled)
@@ -13890,9 +13891,15 @@ struct V3SignInView: View {
     @EnvironmentObject private var sharedModel: SharedModel
     @StateObject private var auth = V3AuthStore()
     @State private var confirmPendingCertificateActivation = false
+    @State private var didPrepareSignIn = false
+    @State private var isPreparingSignIn = true
+    @State private var hasConfirmedAccountSnapshot = false
+    @State private var preparationRetry = 0
     var body: some View {
         List {
-            if shouldShowAccountSection {
+            if isPreparingSignIn {
+                Section { ProgressView("Loading...") }
+            } else if shouldShowAccountSection {
                 Section("Apple ID") {
                     accountContent
                 }
@@ -13906,6 +13913,9 @@ struct V3SignInView: View {
                     cancellationTitle: auth.isCancelling ? "Cancelling..." :
                         (auth.cancellationWasAttempted ? "Retry Cancellation" : "Cancel Sign In"),
                     cancellationDisabled: auth.isCancelling,
+                    showsCancellation: (prompt["kind"] as? String) != "credentials" ||
+                        auth.state != "awaitingPrompt" || auth.promptSubmitting ||
+                        auth.promptResponseBlocked || auth.isCancelling || auth.cancellationWasAttempted,
                     onCancel: { auth.cancel() }) { answer in
                     auth.answer(promptID: prompt["id"] as? String ?? "", answer: answer)
                 }
@@ -13914,7 +13924,15 @@ struct V3SignInView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Sign In")
-        .task { await auth.reconcile() }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if status.signInPresented {
+                    Button("Close") { dismiss() }
+                        .accessibilityIdentifier("signin.close")
+                }
+            }
+        }
+        .task(id: preparationRetry) { await prepareSignIn() }
         .onChange(of: auth.isSignedIn) { isSignedIn in
             guard isSignedIn else { return }
             // The app-owned root observer invalidates certificate-derived
@@ -14071,10 +14089,20 @@ struct V3SignInView: View {
                 .foregroundColor(.orange)
         }
         if auth.state == "idle" {
-            Button { auth.begin() } label: {
-                Label("Begin Sign In", systemImage: "person.badge.key.fill")
+            if hasConfirmedAccountSnapshot {
+                Button { auth.begin() } label: {
+                    Label("Begin Sign In", systemImage: "person.badge.key.fill")
+                }
+                .disabled(!auth.canBegin)
+            } else {
+                Button("Reload Status") {
+                    guard !isPreparingSignIn else { return }
+                    isPreparingSignIn = true
+                    didPrepareSignIn = false
+                    preparationRetry += 1
+                }
+                .disabled(isPreparingSignIn)
             }
-            .disabled(!auth.canBegin)
         } else if auth.state == "failed" || auth.state == "cancelled" ||
             auth.state == "timedOut" || auth.state == "promptExpired" {
             switch auth.terminalFailureAction {
@@ -14225,9 +14253,30 @@ struct V3SignInView: View {
             .font(.caption)
         }
     }
-    // The prompt panel owns input, prior-error guidance and cancellation for
-    // every sign-in prompt, not just provisioning recovery. Existing account
-    // facts, progress and recovery controls render inside that same panel.
+    @MainActor private func prepareSignIn() async {
+        // Enter the form once after explicit navigation or a failed-status
+        // retry, never automatically retry a terminal authentication attempt.
+        let retry = preparationRetry
+        let shouldBegin = !didPrepareSignIn
+        didPrepareSignIn = true
+        isPreparingSignIn = true
+        defer {
+            if preparationRetry == retry { isPreparingSignIn = false }
+        }
+        let snapshotConfirmed = await auth.reconcile()
+        guard !Task.isCancelled, preparationRetry == retry else { return }
+        hasConfirmedAccountSnapshot = snapshotConfirmed
+        guard shouldBegin, snapshotConfirmed,
+              auth.state == "idle", !auth.isSignedIn,
+              !auth.pendingCertificateRecoveryState.requiresAttention,
+              auth.canBegin else { return }
+        auth.begin()
+    }
+
+    // The prompt panel owns input, prior-error guidance and cancellation.
+    // Credential entry uses Back/Close; submission and later prompts retain
+    // cancellation here. Account facts, progress and recovery controls render
+    // inside that same panel.
     private var shouldShowAccountSection: Bool { auth.prompt == nil }
     private var visiblePromptFailure: [String: Any]? {
         V3AuthPromptFailurePolicy.isVisible(auth.previousFailure,
