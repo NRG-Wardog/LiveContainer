@@ -11995,12 +11995,14 @@ struct V3PromptSection: View {
     var cancellationTitle = "Cancel Sign In"
     var cancellationDisabled = false
     var showsCancellation = true
+    var initialCredentialDraftID: String? = nil
     var onCancel: (() -> Void)? = nil
     let onAnswer: ([String: String]) -> Void
     @State private var fields: [String: String] = [:]
     @State private var selected: Set<String> = []
     @State private var copiedDiagnostic: String?
     @State private var repairURL: URL?
+    @State private var loadedPromptID: String?
     private var kind: String { prompt["kind"] as? String ?? "" }
     private var title: String { prompt["title"] as? String ?? "Input Needed" }
     private var message: String { prompt["message"] as? String ?? "" }
@@ -12152,7 +12154,7 @@ struct V3PromptSection: View {
             if fieldDefs.count > 0 && options.isEmpty {
                 Button("Submit") { submit(choice: "") }
                     .buttonStyle(.borderedProminent)
-                    .disabled(isSubmitting)
+                    .disabled(isSubmitting || isSubmissionBlocked)
             }
             // Safe technical diagnostics travel separately from the
             // user-facing message and can be copied without the prompt text.
@@ -12250,7 +12252,8 @@ struct V3PromptSection: View {
         }
         .onChange(of: prompt["id"] as? String ?? "") { _ in
             copiedDiagnostic = nil
-            loadFields()
+            loadFields(preservingCredentialDraft: initialCredentialDraftID != nil &&
+                loadedPromptID == initialCredentialDraftID)
             Task { await loadRepairURL() }
         }
         .task(id: copiedDiagnostic) {
@@ -12265,16 +12268,29 @@ struct V3PromptSection: View {
             fields = [:]
             selected = []
             repairURL = nil
+            loadedPromptID = nil
         }
     }
     private func copyDiagnostic(_ value: String) {
         UIPasteboard.general.string = value
         copiedDiagnostic = value
     }
-    private func loadFields() {
+    private func loadFields(preservingCredentialDraft: Bool = false) {
+        let draft = preservingCredentialDraft ? fields : [:]
         fields = [:]
         selected = []
         for field in fieldDefs { fields[field["key"] ?? ""] = field["value"] ?? "" }
+        // Carry input only from this presentation's local entry form to the
+        // first canonical credentials prompt. Never carry it to another
+        // prompt/session or overwrite a service-specified account owner.
+        if preservingCredentialDraft, kind == "credentials", fieldDefs.count == 2,
+           fieldDefs.contains(where: { $0["key"] == "appleID" && $0["secure"] == "false" }),
+           fieldDefs.contains(where: { $0["key"] == "password" && $0["secure"] == "true" }),
+           (fields["appleID"] ?? "").isEmpty {
+            fields["appleID"] = draft["appleID"] ?? ""
+            fields["password"] = draft["password"] ?? ""
+        }
+        loadedPromptID = prompt["id"] as? String
     }
     private func twoFactorOption(_ option: [String: String]) -> some View {
         Button {
@@ -13895,29 +13911,38 @@ struct V3SignInView: View {
     @State private var isPreparingSignIn = true
     @State private var hasConfirmedAccountSnapshot = false
     @State private var preparationRetry = 0
+    @State private var preparationGeneration = UUID()
+    @State private var isPreparingInitialCredentials = true
+    private let initialCredentialDraftID = "signin.initial-credential-draft"
     var body: some View {
         List {
-            if isPreparingSignIn {
-                Section { ProgressView("Loading...") }
-            } else if shouldShowAccountSection {
+            if shouldShowAccountSection {
                 Section("Apple ID") {
                     accountContent
                 }
             }
-            if let prompt = auth.prompt {
+            if let prompt = displayedPrompt {
                 V3PromptSection(prompt: prompt, isSubmitting: $auth.promptSubmitting,
-                    isSubmissionBlocked: auth.promptResponseBlocked && (prompt["kind"] as? String == "twoFactor"),
+                    isSubmissionBlocked: showsInitialCredentialDraft ||
+                        (auth.promptResponseBlocked && (prompt["kind"] as? String == "twoFactor")),
                     previousFailureMessage: promptFailureMessage,
                     previousFailureDetails: promptFailureDetails,
                     supplementalContent: AnyView(accountContent),
                     cancellationTitle: auth.isCancelling ? "Cancelling..." :
                         (auth.cancellationWasAttempted ? "Retry Cancellation" : "Cancel Sign In"),
                     cancellationDisabled: auth.isCancelling,
-                    showsCancellation: (prompt["kind"] as? String) != "credentials" ||
+                    showsCancellation: !showsInitialCredentialDraft &&
+                        ((prompt["kind"] as? String) != "credentials" ||
                         auth.state != "awaitingPrompt" || auth.promptSubmitting ||
-                        auth.promptResponseBlocked || auth.isCancelling || auth.cancellationWasAttempted,
+                        auth.promptResponseBlocked || auth.isCancelling || auth.cancellationWasAttempted),
+                    initialCredentialDraftID: initialCredentialDraftID,
                     onCancel: { auth.cancel() }) { answer in
-                    auth.answer(promptID: prompt["id"] as? String ?? "", answer: answer)
+                    // A draft is editable, but never an answerable service
+                    // prompt. A stale tap cannot submit it after readiness.
+                    guard !isPreparingSignIn,
+                          let promptID = auth.prompt?["id"] as? String, !promptID.isEmpty,
+                          promptID == prompt["id"] as? String else { return }
+                    auth.answer(promptID: promptID, answer: answer)
                 }
 
             }
@@ -13933,6 +13958,14 @@ struct V3SignInView: View {
             }
         }
         .task(id: preparationRetry) { await prepareSignIn() }
+        .onChange(of: auth.prompt?["id"] as? String) { promptID in
+            if promptID != nil { isPreparingInitialCredentials = false }
+        }
+        .onChange(of: auth.state) { state in
+            if !["idle", "working", "awaitingPrompt"].contains(state) {
+                isPreparingInitialCredentials = false
+            }
+        }
         .onChange(of: auth.isSignedIn) { isSignedIn in
             guard isSignedIn else { return }
             // The app-owned root observer invalidates certificate-derived
@@ -13941,6 +13974,10 @@ struct V3SignInView: View {
             status.reload()
         }
         .onDisappear {
+            // Invalidates an in-flight idle snapshot even when auth.cancel()
+            // has no session to cancel yet. Re-entry cannot reuse its result.
+            preparationGeneration = UUID()
+            isPreparingInitialCredentials = false
             auth.cancel()
             auth.clearPreviousFailure()
             // The root auth-event observer owns certificate-readiness
@@ -13949,7 +13986,7 @@ struct V3SignInView: View {
         }
     }
     @ViewBuilder private var accountContent: some View {
-        if auth.prompt == nil || auth.isCancelling {
+        if (auth.prompt == nil || auth.isCancelling) && !showsInitialCredentialDraft {
             HStack {
                 Text("Status")
                 Spacer()
@@ -14088,7 +14125,7 @@ struct V3SignInView: View {
                 .font(.footnote.weight(.medium))
                 .foregroundColor(.orange)
         }
-        if auth.state == "idle" {
+        if auth.state == "idle" && !isPreparingSignIn {
             if hasConfirmedAccountSnapshot {
                 Button { auth.begin() } label: {
                     Label("Begin Sign In", systemImage: "person.badge.key.fill")
@@ -14159,7 +14196,7 @@ struct V3SignInView: View {
                 EmptyView()
             }
         }
-        if auth.prompt == nil && !V3AuthCancellationRetryPolicy.canRetry(isCancelling: auth.isCancelling,
+        if auth.prompt == nil && !showsInitialCredentialDraft && !V3AuthCancellationRetryPolicy.canRetry(isCancelling: auth.isCancelling,
             cancellationConfirmed: auth.cancellationConfirmed,
             hasSession: auth.hasSession) &&
             (auth.state == "working" || auth.state == "awaitingPrompt" ||
@@ -14257,14 +14294,16 @@ struct V3SignInView: View {
         // Enter the form once after explicit navigation or a failed-status
         // retry, never automatically retry a terminal authentication attempt.
         let retry = preparationRetry
+        let generation = preparationGeneration
         let shouldBegin = !didPrepareSignIn
         didPrepareSignIn = true
         isPreparingSignIn = true
         defer {
-            if preparationRetry == retry { isPreparingSignIn = false }
+            if preparationRetry == retry && preparationGeneration == generation { isPreparingSignIn = false }
         }
         let snapshotConfirmed = await auth.reconcile()
-        guard !Task.isCancelled, preparationRetry == retry else { return }
+        guard !Task.isCancelled, preparationRetry == retry,
+              preparationGeneration == generation else { return }
         hasConfirmedAccountSnapshot = snapshotConfirmed
         guard shouldBegin, snapshotConfirmed,
               auth.state == "idle", !auth.isSignedIn,
@@ -14277,7 +14316,25 @@ struct V3SignInView: View {
     // Credential entry uses Back/Close; submission and later prompts retain
     // cancellation here. Account facts, progress and recovery controls render
     // inside that same panel.
-    private var shouldShowAccountSection: Bool { auth.prompt == nil }
+    // The entry form is local presentation only. Reconciliation and authBegin
+    // still run in order, and only the real prompt can enable submission.
+    private var showsInitialCredentialDraft: Bool {
+        isPreparingInitialCredentials && auth.prompt == nil &&
+            ["idle", "working"].contains(auth.state) && !auth.isSignedIn &&
+            !auth.pendingCertificateRecoveryState.requiresAttention &&
+            !auth.provisioningRecoveryRequiresReconciliation &&
+            !auth.provisioningRetryBlockedByActiveSession && !auth.hasProvisioningProblem &&
+            !auth.isCancelling && auth.cancellationConfirmed && !auth.cancellationWasAttempted
+    }
+    private var displayedPrompt: [String: Any]? {
+        if let prompt = auth.prompt { return prompt }
+        guard showsInitialCredentialDraft else { return nil }
+        return ["id": initialCredentialDraftID, "kind": "credentials", "title": "Apple ID Sign In",
+                "message": "Enter the Apple ID and password used for signing.",
+                "fields": [["key": "appleID", "label": "Apple ID", "secure": "false"],
+                           ["key": "password", "label": "Password", "secure": "true"]]]
+    }
+    private var shouldShowAccountSection: Bool { displayedPrompt == nil }
     private var visiblePromptFailure: [String: Any]? {
         V3AuthPromptFailurePolicy.isVisible(auth.previousFailure,
             promptKind: auth.prompt?["kind"] as? String) ? auth.previousFailure : nil
