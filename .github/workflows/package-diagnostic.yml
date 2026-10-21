@@ -1,6 +1,6 @@
-# Package-only candidate bound to retention run39583289710, attempt1.
+# Package-only candidate bound to retention run39613057347, attempt1.
 # Publish only after its success/artifact review. No native rebuild or public release.
-name: Package retained diagnostic apps
+name: Package retained 6.0 experimental apps
 on:
   push:
     branches: [validation/diagnostic-ipa-20261020]
@@ -31,15 +31,15 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: NRG-Wardog/LiveContainer
-          ref: 0ea58d80f9e0db7e4f56486ba118ae3b85652513
+          ref: 1a227e49a8af33368b39c1ba7605bf3aff244b8b
           path: host
           persist-credentials: false
           submodules: false
       - name: Download only matching successful native artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          COMPILE_RUN: '39583289710'
-          COMPILE_COMMIT: 'b17823928ff2adef5173c3802daa0efb3c895f6d'
+          COMPILE_RUN: '39613057347'
+          COMPILE_COMMIT: '088dff2b3bbae9fbba733a2612f604f4912eea14'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
@@ -139,14 +139,14 @@ jobs:
           done
       - name: Verify retained native input identities and bytes
         env:
-          COMPILE_RUN: '39583289710'
-          COMPILE_COMMIT: 'b17823928ff2adef5173c3802daa0efb3c895f6d'
+          COMPILE_RUN: '39613057347'
+          COMPILE_COMMIT: '088dff2b3bbae9fbba733a2612f604f4912eea14'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
           set -euo pipefail
           test "$(git -C builder rev-parse HEAD)" = 3edd9fa523a223bcd2898d5c960c5da7ff335be8
-          test "$(git -C host rev-parse HEAD)" = 0ea58d80f9e0db7e4f56486ba118ae3b85652513
+          test "$(git -C host rev-parse HEAD)" = 1a227e49a8af33368b39c1ba7605bf3aff244b8b
           test -z "$(git -C builder status --porcelain)"
           test -z "$(git -C host status --porcelain)"
           python3 - <<'PY'
@@ -167,6 +167,48 @@ jobs:
                   else: raise ValueError('Unsupported retained entry')
                   result[p.relative_to(root).as_posix()] = row
               return result
+          expected_graph = {
+              "AnisetteKit": [
+                  "NRG-Wardog/AnisetteKit",
+                  "3e670c2e1b72ff328d3a64353d8de2418df87e73"
+              ],
+              "LiveContainer": [
+                  "NRG-Wardog/LiveContainer",
+                  "1a227e49a8af33368b39c1ba7605bf3aff244b8b"
+              ],
+              "LiveContainer/OpenSSL": [
+                  "krzyzanowskim/OpenSSL",
+                  "623c84da314e85363236507ca38a4bde65df21c3"
+              ],
+              "LiveContainer/litehook": [
+                  "LiveContainerMirror/litehook",
+                  "a7e9f599d7f0b3d77008ad62bf10cb10dab6eca9"
+              ],
+              "SideStore": [
+                  "NRG-Wardog/SideStore",
+                  "28dd1f873cad2e12e1c07cacb80ac9685560e02c"
+              ],
+              "SideStore/Dependencies/SideSign": [
+                  "NRG-Wardog/SideSign",
+                  "9757970d656135f0b21dc00700507d099f170320"
+              ],
+              "SideStore/Dependencies/minimuxer": [
+                  "NRG-Wardog/minimuxer",
+                  "1d033920660c6f50b8f30c4c333f025867cd9e96"
+              ],
+              "idevice": [
+                  "NRG-Wardog/idevice",
+                  "774f02a6d29777c85400f4ba7fa69c12b4227fb3"
+              ],
+              "idevice/cpp/plist_ffi": [
+                  "jkcoxson/plist_ffi",
+                  "66e6e6362b58bc361725c3e1b0a34af498aa2b3a"
+              ],
+              "jktcp": [
+                  "NRG-Wardog/jktcp",
+                  "a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9"
+              ]
+          }
           receipts = []
           for owner in ('LiveContainer', 'SideStore'):
               root = pathlib.Path('unpacked') / owner / ('native-transfer-' + owner)
@@ -178,12 +220,19 @@ jobs:
                   str(receipt['run_attempt']) != os.environ['COMPILE_ATTEMPT'] or
                   receipt['workflow_commit'] != os.environ['COMPILE_COMMIT']):
                   raise ValueError('Retained receipt mismatch')
+              if receipt['requested_graph'] != expected_graph:
+                  raise ValueError('Retained source graph differs from exact reviewed pins')
               for name, expected_hash in receipt['evidence_sha256'].items():
                   if pathlib.PurePosixPath(name).name != name: raise ValueError('Invalid evidence name')
                   evidence_file = root / 'evidence' / name
                   if evidence_file.is_symlink() or not evidence_file.is_file(): raise ValueError('Invalid evidence file')
                   if hashlib.sha256(evidence_file.read_bytes()).hexdigest() != expected_hash:
                       raise ValueError('Compile evidence checksum mismatch: ' + name)
+              graph_file = root / 'evidence/requested-graph.json'
+              if ('requested-graph.json' not in receipt['evidence_sha256'] or
+                  graph_file.is_symlink() or not graph_file.is_file() or
+                  json.loads(graph_file.read_text()) != expected_graph):
+                  raise ValueError('Retained graph evidence differs from exact reviewed pins')
               receipts.append(receipt)
               app = root / 'Products' / (owner + '.app')
               manifest = json.loads((root / 'retained-files.json').read_text())
@@ -256,7 +305,7 @@ jobs:
           # Intentional packaging metadata only, after retained input verification.
           python3 - <<'PY'
           import hashlib, json, os, pathlib, plistlib, re
-          commit = 'b17823928ff2adef5173c3802daa0efb3c895f6d'
+          commit = '088dff2b3bbae9fbba733a2612f604f4912eea14'
           if not re.fullmatch('[0-9a-f]{40}', commit):
               raise ValueError('Invalid native builder commit')
           records = []
@@ -276,19 +325,39 @@ jobs:
                   if plistlib.loads(path.read_bytes()) != value:
                       raise ValueError('Builder metadata write verification failed')
                   records.append({'path': str(path), 'previous': previous, 'LCBuilderCommit': commit,
+                      'CFBundleShortVersionString': value.get('CFBundleShortVersionString'),
+                      'CFBundleVersion': value.get('CFBundleVersion'),
                       'before_sha256': hashlib.sha256(before).hexdigest(),
                       'after_sha256': hashlib.sha256(after).hexdigest()})
           pathlib.Path('package-evidence/builder-stamping.json').write_text(json.dumps({
               'meaning': 'Native compile workflow commit; dependency owners remain identified by compile receipt',
               'intentional_post_retention_metadata_change': True, 'files': records}, indent=2) + '\n')
+          # Product label is separate from the unchanged embedded upstream versions.
+          receipt = json.loads(pathlib.Path('package-evidence/native-receipt.json').read_text())
+          label = {
+              'product_version': '6.0',
+              'channel': 'experimental',
+              'label': '6.0 experimental',
+              'native_compile_run': str(receipt['run_id']),
+              'native_compile_attempt': str(receipt['run_attempt']),
+              'native_workflow_commit': commit,
+              'source_graph': receipt['requested_graph'],
+              'retained_input_versions_unchanged': True,
+              'retained_input_bundle_versions': [{k: row[k] for k in
+                  ('path', 'CFBundleShortVersionString', 'CFBundleVersion')} for row in records],
+              'scope': 'Experimental combined package; compile/static validation is not device sign-in proof.'
+          }
+          label_bytes = (json.dumps(label, indent=2, sort_keys=True) + '\n').encode()
+          pathlib.Path('package-evidence/build-label.json').write_bytes(label_bytes)
+          pathlib.Path('diagnostic/build-label.json').write_bytes(label_bytes)
           PY
           python3 builder/scripts/package_livecontainer_combined.py \
             --root host \
             --host unpacked/LiveContainer/native-transfer-LiveContainer/Products/LiveContainer.app \
             --side unpacked/SideStore/native-transfer-SideStore/Products/SideStore.app \
-            --output diagnostic/LiveContainer-SideStore-auth-copy-diagnostic.ipa 2>&1 | tee package-evidence/packaging.log
-          shasum -a 256 diagnostic/LiveContainer-SideStore-auth-copy-diagnostic.ipa > diagnostic/SHA256SUMS
-          stat -f%z diagnostic/LiveContainer-SideStore-auth-copy-diagnostic.ipa > diagnostic/size-bytes.txt
+            --output diagnostic/LiveContainer-SideStore-6.0-experimental.ipa 2>&1 | tee package-evidence/packaging.log
+          shasum -a 256 diagnostic/LiveContainer-SideStore-6.0-experimental.ipa > diagnostic/SHA256SUMS
+          stat -f%z diagnostic/LiveContainer-SideStore-6.0-experimental.ipa > diagnostic/size-bytes.txt
           test "$(cat diagnostic/size-bytes.txt)" -lt 524288000
           # Wrapper itself checks conversion, entitlements, identities and resources.
           # This is a diagnostic candidate, not proof that sign-in works on device.
