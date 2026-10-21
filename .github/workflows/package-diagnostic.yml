@@ -1,4 +1,4 @@
-# Package-only candidate bound to retention run39575622399, attempt1.
+# Package-only candidate bound to retention run39579089680, attempt1.
 # Publish only after its success/artifact review. No native rebuild or public release.
 name: Package retained diagnostic apps
 on:
@@ -31,15 +31,15 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: NRG-Wardog/LiveContainer
-          ref: 66e4b40a8b21ca5077aa09f5fef7233020c5e636
+          ref: 60018880a49634fb3e826670dc81b20cf721ff1c
           path: host
           persist-credentials: false
           submodules: false
       - name: Download only matching successful native artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          COMPILE_RUN: '39575622399'
-          COMPILE_COMMIT: '98130af4832ab3dc6f4b6321db98d691d325642c'
+          COMPILE_RUN: '39579089680'
+          COMPILE_COMMIT: '4fa6d6957f0cbc6b07949bda040785f94c165c6d'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
@@ -139,14 +139,14 @@ jobs:
           done
       - name: Verify retained native input identities and bytes
         env:
-          COMPILE_RUN: '39575622399'
-          COMPILE_COMMIT: '98130af4832ab3dc6f4b6321db98d691d325642c'
+          COMPILE_RUN: '39579089680'
+          COMPILE_COMMIT: '4fa6d6957f0cbc6b07949bda040785f94c165c6d'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
           set -euo pipefail
           test "$(git -C builder rev-parse HEAD)" = 3edd9fa523a223bcd2898d5c960c5da7ff335be8
-          test "$(git -C host rev-parse HEAD)" = 66e4b40a8b21ca5077aa09f5fef7233020c5e636
+          test "$(git -C host rev-parse HEAD)" = 60018880a49634fb3e826670dc81b20cf721ff1c
           test -z "$(git -C builder status --porcelain)"
           test -z "$(git -C host status --porcelain)"
           python3 - <<'PY'
@@ -256,7 +256,7 @@ jobs:
           # Intentional packaging metadata only, after retained input verification.
           python3 - <<'PY'
           import hashlib, json, os, pathlib, plistlib, re
-          commit = '98130af4832ab3dc6f4b6321db98d691d325642c'
+          commit = '4fa6d6957f0cbc6b07949bda040785f94c165c6d'
           if not re.fullmatch('[0-9a-f]{40}', commit):
               raise ValueError('Invalid native builder commit')
           records = []
@@ -286,9 +286,9 @@ jobs:
             --root host \
             --host unpacked/LiveContainer/native-transfer-LiveContainer/Products/LiveContainer.app \
             --side unpacked/SideStore/native-transfer-SideStore/Products/SideStore.app \
-            --output diagnostic/LiveContainer-SideStore-auth-response-diagnostic.ipa 2>&1 | tee package-evidence/packaging.log
-          shasum -a 256 diagnostic/LiveContainer-SideStore-auth-response-diagnostic.ipa > diagnostic/SHA256SUMS
-          stat -f%z diagnostic/LiveContainer-SideStore-auth-response-diagnostic.ipa > diagnostic/size-bytes.txt
+            --output diagnostic/LiveContainer-SideStore-signin-entry-diagnostic.ipa 2>&1 | tee package-evidence/packaging.log
+          shasum -a 256 diagnostic/LiveContainer-SideStore-signin-entry-diagnostic.ipa > diagnostic/SHA256SUMS
+          stat -f%z diagnostic/LiveContainer-SideStore-signin-entry-diagnostic.ipa > diagnostic/size-bytes.txt
           test "$(cat diagnostic/size-bytes.txt)" -lt 524288000
           # Wrapper itself checks conversion, entitlements, identities and resources.
           # This is a diagnostic candidate, not proof that sign-in works on device.
