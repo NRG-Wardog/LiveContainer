@@ -2,9 +2,9 @@
 import argparse, hashlib, json, re
 from pathlib import Path
 p=argparse.ArgumentParser()
-for name in ('errors','auth','store','host','output'): p.add_argument('--'+name,required=True)
+for name in ('errors','auth','store','host','shell','output'): p.add_argument('--'+name,required=True)
 a=p.parse_args()
-inputs={k:Path(getattr(a,k)).read_text() for k in ('errors','auth','store','host')}
+inputs={k:Path(getattr(a,k)).read_text() for k in ('errors','auth','store','host','shell')}
 def between(s,start,end):
     if s.count(start)!=1: raise ValueError('Nonunique extraction anchor: '+start)
     return s.split(start,1)[1].split(end,1)[0]
@@ -34,7 +34,7 @@ renderer=between(inputs['store'],'        let accountDetails =','        let nat
 if renderer!=between(inputs['host'],'        let accountDetails =','        let nativeDetails ='): raise ValueError('Renderer mirror differs')
 emission=between(inputs['store'],'        if kind == .sideSignInvalidResponse, let authResponseMIME {','        if kind == .anisetteKitADIError, let nativeEvidence {')
 emission='if kind == .sideSignInvalidResponse, let authResponseMIME {'+emission
-source='import Foundation\n'+context+'\n'+errors+'\n'+parser+'''
+source='import Foundation\nimport CoreFoundation\n'+context+'\n'+errors+'\n'+parser+'''
 func outer(_ data: Data, _ statusCode: Int, _ mime: String?) throws -> [String: any Sendable] {
     struct Response { let mimeType: String? }; let response = Response(mimeType: mime)
 '''+guard+'''
@@ -132,5 +132,104 @@ print("PASS: actual parser/context/error/mapper and mirrored validator-render fr
 '''
 # Throwing expressions cannot occur inside precondition's nonthrowing autoclosure.
 source=source.replace('precondition(try outer(data,200,"application/json")["dummy"] as? String == secret)','let accepted = try outer(data,200,"application/json"); precondition(accepted["dummy"] as? String == secret)')
+
+# The actual UI renderer is a third independent implementation. Exercise its
+# complete body, not just the two lower-level renderer copies.
+ui_renderer=block(inputs['shell'],'static func render(_ failure: [String: Any], underlyingCode: Int?,')
+source_step=block(inputs['host'],'public enum SourceStep:').replace('public enum','enum',1)
+context_decode='let signingContext: [String: String]'+between(inputs['host'],'        let signingContext: [String: String]','        if let retry = value["retryable"]')
+context_encode=block(inputs['store'],'if !signingContext.isEmpty { result["signingContext"] = signingContext }')
+# UI copy call-site linkage must remain real; not a test-only renderer.
+if 'UIPasteboard.general.string = V3AuthStore.failureDetails(from: failure)' not in inputs['shell']:
+    raise ValueError('Actual copy action changed')
+if 'V3AuthFailureDiagnosticsPolicy.render(failure,' not in block(inputs['shell'],'static func failureDetails(from failure: [String: Any])'):
+    raise ValueError('UI details no longer uses tested renderer')
+wire_contract=block(inputs['host'],'enum V3WireContract {')
+response_limit = re.findall(r'    static let responseLimit = [0-9_]+', wire_contract)
+if len(response_limit) != 1: raise ValueError('Response limit anchor changed')
+source += '\nenum V3WireContract {\n'+response_limit[0]+'\n'+block(wire_contract,'static func strictBool(')+'\n'+block(wire_contract,'static func strictInt(')+'\n}\n'
+source += '\nstruct CombinedFailure: Error {\n'+source_step+'''
+ enum Stage { case command }; enum Code { case invalidResponse, staleResult }; enum SafeCause { case unused }
+ init(operation:String,stage:Stage,code:Code,id:String,retryable:Bool?=nil) {}
+ static func decode(_ value:[String:Any],expectedID:String) -> CombinedFailure? { preconditionFailure("Top-level failure codec outside this nested-result fixture") }
+'''+block(inputs['host'],'public static func uuidCorrelationMatches(')+'''
+
+ static func validatedSigningContext(_ fields:[String:String]) -> [String:String]? { validate(fields) }
+ static func decodeContext(_ value:[String:Any]) -> [String:String]? {
+'''+context_decode+'''
+ return signingContext
+ }
+}
+enum V3DiagnosticBuild { static let commit = "fixture" }
+// Unrelated optional native diagnostics are absent from these fixtures. These
+// stubs are not a test of those codecs or of diagnostic-code construction.
+struct AbsentDiagnostic {
+ static let contextKey = "absent_fixture_context"
+ let technicalDetails: String = ""
+ init?(encoded: String) { return nil }
+}
+typealias V3ConstructorFaultDiagnostic = AbsentDiagnostic
+typealias V3TemporaryAnisetteTrace = AbsentDiagnostic
+typealias V3TemporaryADIConsumption = AbsentDiagnostic
+typealias V3LoginDiagnosticSnapshot = AbsentDiagnostic
+enum V3AuthFailureDiagnosticsPolicy {
+ static func diagnosticCode(for failure:[String:Any]) -> String { "fixture" }
+'''+ui_renderer+'''
+}
+'''+block(inputs['store'],'struct V3EncodedServiceResponse {')+'''
+enum V3ResponseClassifier {
+ enum Token { static let tooLarge = "tooLarge"; static let encodingFailed = "encodingFailed" }
+ static func safeCause(for token:String) -> CombinedFailure.SafeCause? { nil }
+}
+enum V3ResponseEncoder {
+ static func fallback(id:String,operation:String,token:String,code:CombinedFailure.Code,safeCause:CombinedFailure.SafeCause?) -> Data { preconditionFailure("Fallback outside this successful nested-result fixture") }
+'''+block(inputs['store'],'static func encodeDetailed(')+'''
+}
+enum V3CatalogRequestContext {
+ static func hostStage(for operation:String) -> CombinedFailure.Stage { .command }
+ static func hostFailure(errorToken:String,operation:String,id:String) -> CombinedFailure { preconditionFailure("Legacy error route outside fixture") }
+'''+block(inputs['host'],'static func classifyReply(')+'''
+}
+func transferred(_ signingContext:[String:String]) throws -> [String:Any] {
+ var result:[String:Any] = ["sourceStep":"appleAuthentication","kind":"unknown","stage":"authentication","code":"failed"]
+'''+context_encode+'''
+ let id = "00000000-0000-0000-0000-000000000001"
+ let terminal:[String:Any] = ["state":"failed","failure":result]
+ let reply:[String:Any] = ["version":1,"id":id,"ok":true,"result":terminal]
+ let encoded = V3ResponseEncoder.encodeDetailed(reply,operation:"authPoll",limit:V3WireContract.responseLimit)
+ precondition(encoded.fallbackToken == nil)
+ let returned = try V3CatalogRequestContext.classifyReply(encoded.data,operation:"authPoll",id:id)
+ precondition(returned["state"] as? String == "failed")
+ let decoded = returned["failure"] as! [String:Any]
+ precondition(decoded["kind"] as? String == "unknown")
+ precondition(decoded["signingContext"] as? [String:String] == signingContext)
+ return decoded
+}
+let finiteShapes = ["plistDictionary","plistArray","plistScalar","jsonDictionary","jsonArray","jsonScalar","unrecognized"]
+let finiteMIMEs = ["html","xmlOrPlist","json","other","unavailable"]
+for shape in finiteShapes {
+ for mime in finiteMIMEs {
+  let fields = ["typed_error":"sideSignInvalidResponse","server_code":"unknown","http_status":"503","auth_response_shape":shape,"auth_response_mime":mime]
+  precondition(CombinedFailure.decodeContext(["signingContext":fields]) == fields) // Separate core context fragment, not nested route.
+  let copied = V3AuthFailureDiagnosticsPolicy.render(try transferred(fields),underlyingCode:1,retryableValue:nil)
+  precondition(copied.contains("http_status=503") && copied.contains("auth_response_shape=\\(shape)") && copied.contains("auth_response_mime=\\(mime)"))
+ }
+}
+let parseFailure = ServerError.invalidResponseFormat(rawPayload:"[redacted]",responseContext:AuthenticationResponseContext(data:Data([0xff]),httpStatus:503,mimeType:"text/html"))
+let copied = V3AuthFailureDiagnosticsPolicy.render(try transferred(project(parseFailure)),underlyingCode:1,retryableValue:nil)
+precondition(copied.contains("auth_response_shape=unrecognized") && copied.contains("auth_response_mime=html") && !copied.contains(secret))
+for key in ["auth_response_shape","auth_response_mime"] {
+ for value in [secret,"unknown_label",String(repeating:"x",count:513)] {
+  let unsafe = ["typed_error":"sideSignInvalidResponse",key:value]
+  precondition(CombinedFailure.decodeContext(["signingContext":unsafe]) == nil)
+  let rendered = V3AuthFailureDiagnosticsPolicy.render(try transferred(unsafe),underlyingCode:1,retryableValue:nil)
+  precondition(!rendered.contains(value) && !rendered.contains("auth_response_shape=") && !rendered.contains("auth_response_mime="))
+ }
+}
+let legacyCopied = V3AuthFailureDiagnosticsPolicy.render(try transferred(legacy),underlyingCode:1,retryableValue:nil)
+precondition(!legacyCopied.contains("auth_response_shape=") && !legacyCopied.contains("auth_response_mime="))
+print("PASS: actual complete UI render body plus source-owned context encode/decode and finite validators, binary plist transfer, all35 label pairs; actual service encoder and host nested ok/result route; not full IPC/CombinedFailure/native diagnostic codecs")
+'''
+
 Path(a.output).write_text(source)
 Path(a.output).with_suffix('.sources.json').write_text(json.dumps({'scope':'Extracted production fragments, not full CombinedFailure wire integration; fake data only','input_sha256':{k:hashlib.sha256(v.encode()).hexdigest() for k,v in inputs.items()}},indent=2)+'\n')

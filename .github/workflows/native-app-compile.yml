@@ -80,6 +80,7 @@ jobs:
             --auth sources/SideStore/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift \
             --store sources/SideStore/AltStore/AppDelegate.swift \
             --host sources/LiveContainer/SideStoreSupport/SideStore.swift \
+            --shell sources/LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift \
             --output evidence/auth_response_contract.swift
           swift evidence/auth_response_contract.swift 2>&1 | tee evidence/auth-response-contract.log
           printf '0\n' > evidence/auth-response-contract.exit-code.txt
