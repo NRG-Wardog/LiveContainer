@@ -1,0 +1,45 @@
+{
+  "minimuxer_fake_tests": {
+    "source_inputs": {
+      ".ci/upstream-sync-smoke.swift": "ea8b295db77871c7c34f38d763dc51848c3f9f398f74564be231d3189cce7890",
+      ".ci/verify-upstream-sync.py": "3d3a5b7315eb9f6a99cf24259fd135fa37b7ff6d1d92ce850875648b78bae89c",
+      "Common/ConcurrencyUtils.swift": "a51cdcf1f50f5cf9c45a57ce97ab272d5d0cc5ef08b12775cac6518d7fae21a2",
+      "Common/PairingFile.swift": "16ae51de40d34d97db2600caf4aba3a9c7aff81096398089e747b2811fc6e511",
+      "Common/PairingProtocol.swift": "643c5492e5baeded4b0ea673966b77a92cd1f422fbd9a95146fbeee194b09478",
+      "Sources/DeviceProvider.swift": "d2dac82d40c9499ed6ce62b1ffa2048e5d3e7ef0e52e3e1f64e45636d6d384d9",
+      "Sources/MinimuxerApi.swift": "c71230e058f6d80539796a8a6984148ac6b19dcd20ba543a6c04def83a0049d3",
+      "Sources/RefreshTransportPolicy.swift": "1ddc3d112d8a218db2c8017947595782fbe625dcdf7fef1fc6d4495f8b8b15d0"
+    },
+    "success_line": "SOURCE_ONLY_SWIFT_SMOKE_PASS pairing=7 transport_cases=144 gateway_batch_switch=pass atomic_configuration=pass"
+  },
+  "native_sources": {
+    "SideStore/Dependencies/minimuxer": {
+      "commit": "48419a2d24bd74efcee6dc80552ea89e85dafdee",
+      "files_sha256": {
+        ".ci/source-parity.json": "6de0b21980337d93433339e6c1ddfcb7f203808391108cb70358afedc5acd29c",
+        ".ci/source-parity.py": "6aa1ba176b52552589e648aca7a95c027269ec69d6a0dbe3d0fadac5c229ad98"
+      },
+      "merge_base": "98c3c79982f813878e922ab42f9545314a700f0c",
+      "required_commit_parents": [
+        "efbcab05d7d636aa37c6bf6c7f364d122c5610f6",
+        "12be70dc2627307a16bfd2dc7a009080d5bec909"
+      ],
+      "tree": "7b920eec7784a282b018637375e877e0ebfcb557"
+    },
+    "idevice": {
+      "commit": "f9eebbbeb83d92565204b53f2a317b0a29999b79",
+      "files_sha256": {
+        ".ci/source-parity.json": "b379a775e4c80026a27e7afd4769fed8354dfc73b1bc7ce001a219d41fb5d2ac",
+        ".ci/source-parity.py": "6aa1ba176b52552589e648aca7a95c027269ec69d6a0dbe3d0fadac5c229ad98"
+      },
+      "merge_base": "ebd7dadfc55d1c4facee3d11ecf5b28e20548b57",
+      "required_commit_parents": [
+        "803f9368e6b27a43d8a9f22dc0ec281c87883113",
+        "3e55c8486b2057e40c1f74aaaa1155c82341cf76"
+      ],
+      "tree": "8e05455f44fc3a9311e741e3ffa7d97d7df945fe"
+    }
+  },
+  "schema_version": 1,
+  "sidestore_test_count": 59
+}

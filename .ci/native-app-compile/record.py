@@ -13,12 +13,12 @@ E = ROOT / 'evidence'
 TMP = Path(os.environ.get('RUNNER_TEMP', '/tmp'))
 OWNERS = {
     'LiveContainer': ('NRG-Wardog/LiveContainer', '0ea58d80f9e0db7e4f56486ba118ae3b85652513'),
-    'SideStore': ('NRG-Wardog/SideStore', '4d53289bce3968a6b406e43b8faa65fa30a79ab1'),
-    'AnisetteKit': ('NRG-Wardog/AnisetteKit', 'd444374cbd332b07dadf4e99effcc018cfd22b94'),
-    'idevice': ('NRG-Wardog/idevice', '803f9368e6b27a43d8a9f22dc0ec281c87883113'),
+    'SideStore': ('NRG-Wardog/SideStore', '545ba0b359afd9a0c7a7a1750d9d5148d42d4438'),
+    'AnisetteKit': ('NRG-Wardog/AnisetteKit', '20c17ed96763c7ab39053e9f7a82532a88ad7654'),
+    'idevice': ('NRG-Wardog/idevice', 'f9eebbbeb83d92565204b53f2a317b0a29999b79'),
     'jktcp': ('NRG-Wardog/jktcp', '32c0210f286b4fd16efe05be4f57167a9d94459b'),
-    'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', 'c1469f9ecdc9b59b7bdf8bc3105dca1933686219'),
-    'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', 'efbcab05d7d636aa37c6bf6c7f364d122c5610f6'),
+    'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', 'b3b8ffafcfa7f3873eb77890dbb6fbe46e27b558'),
+    'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', '48419a2d24bd74efcee6dc80552ea89e85dafdee'),
     'LiveContainer/OpenSSL': ('krzyzanowskim/OpenSSL', '623c84da314e85363236507ca38a4bde65df21c3'),
     'idevice/cpp/plist_ffi': ('jkcoxson/plist_ffi', '66e6e6362b58bc361725c3e1b0a34af498aa2b3a'),
     'LiveContainer/litehook': ('LiveContainerMirror/litehook', '8025e0c8ebdf5cdd1d2a4f45025813234bf9dc55'),
@@ -101,6 +101,9 @@ def snapshot(label):
 def acquire():
     # Retain requested identity even when cloning or closure validation fails.
     write('requested-graph.json', OWNERS)
+    # Refuse incomplete reviewed pins before any acquisition/network operation.
+    require(all(re.fullmatch(r'[0-9a-f]{40}', commit) for _, commit in OWNERS.values()),
+            'Reviewed graph has missing or invalid exact commit pins')
     for name, (repo, commit) in OWNERS.items():
         root = S / name
         require(not root.exists() or (root.is_dir() and not list(root.iterdir())), 'Nonfresh checkout: ' + name)

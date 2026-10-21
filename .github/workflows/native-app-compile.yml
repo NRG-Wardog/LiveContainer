@@ -8,6 +8,10 @@ on:
       - '.ci/native-app-compile/test_acquisition_contract.py'
       - '.ci/native-app-compile/test_vendor_contract.py'
       - '.ci/native-app-compile/test_auth_response_contract.py'
+      - '.ci/native-app-compile/verify_upstream_sync.py'
+      - '.ci/native-app-compile/upstream-sync-contract.json'
+      - '.ci/native-app-compile/test_sync_contract.py'
+      - '.ci/native-app-compile/idevice-abi-gate/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -46,6 +50,12 @@ jobs:
           set-safe-directory: false
           submodules: false
           lfs: false
+      - name: Check sync guards with source-owned synthetic fixtures only
+        run: |
+          set -euo pipefail
+          python3 -B harness/.ci/native-app-compile/test_sync_contract.py \
+            2>&1 | tee evidence/upstream-sync-harness-tests.log
+          printf '0\n' > evidence/upstream-sync-harness-tests.exit-code.txt
       - name: Acquire exact immutable source graph
         run: |
           set -euo pipefail
@@ -54,6 +64,21 @@ jobs:
           python3 harness/.ci/native-app-compile/record.py snapshot acquired
           { xcodebuild -version; xcrun --sdk iphoneos --show-sdk-version; swift --version; uname -a; } > evidence/toolchain.txt
           xcodebuild -version | grep -Fx 'Xcode 26.4.1'
+      - name: Verify committed native source parity and both exact parents
+        run: |
+          set -euo pipefail
+          python3 -B harness/.ci/native-app-compile/verify_upstream_sync.py source-parity \
+            --output evidence/upstream-sync-source-parity.json 2>&1 | tee evidence/upstream-sync-source-parity.log
+      - name: Check all SideStore source-owned upstream regressions without skips
+        run: |
+          set -euo pipefail
+          python3 -B harness/.ci/native-app-compile/verify_upstream_sync.py sidestore-tests \
+            --output evidence/SideStore-upstream-sync-tests.json 2>&1 | tee evidence/SideStore-upstream-sync-tests.log
+      - name: Check minimuxer extracted-production Swift with fake dependencies only
+        run: |
+          set -euo pipefail
+          python3 -B harness/.ci/native-app-compile/verify_upstream_sync.py minimuxer-tests \
+            --swiftc "$(command -v swiftc)" --output evidence/minimuxer-upstream-sync-tests.json
       - name: Check bounded acquisition diagnostics with fake errors only
         run: |
           set -euo pipefail
@@ -113,11 +138,19 @@ jobs:
           mkdir -p "$mux"
           test ! -e "$mux/IDevice.xcframework"
           cp -R sources/idevice/swift/IDevice.xcframework "$mux/IDevice.xcframework"
+      - name: Inspect exact native archive symbols and generated header without execution
+        run: |
+          set -euo pipefail
+          python3 -B harness/.ci/native-app-compile/idevice-abi-gate/verify_native_abi.py \
+            --source sources/idevice \
+            --framework sources/idevice/swift/IDevice.xcframework \
+            --staged-framework sources/SideStore/Dependencies/minimuxer/DeviceGateway/LocalBinary/IDevice.xcframework \
+            --output evidence/idevice-abi-inspection.json 2>&1 | tee evidence/idevice-abi-inspection.log
       - name: Capture genuine app lock transition to exact AnisetteKit
         run: |
           set -euo pipefail
           # Fresh Xcode resolution is allowed to update the app lock, then the recorder
-          # admits only AK e6e9 -> 56f9 plus actual resolver originHash. No other pin may move.
+          # admits only AK e6e9 -> 20c17 plus actual resolver originHash. No other pin may move.
           test ! -e "$RUNNER_TEMP/native-SideStore"
           test ! -L "$RUNNER_TEMP/native-SideStore"
           GIT_ALLOW_PROTOCOL=https:file xcodebuild -resolvePackageDependencies -disablePackageRepositoryCache \
