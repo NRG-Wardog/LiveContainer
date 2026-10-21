@@ -6,6 +6,7 @@ on:
       - '.github/workflows/native-app-compile.yml'
       - '.ci/native-app-compile/record.py'
       - '.ci/native-app-compile/test_acquisition_contract.py'
+      - '.ci/native-app-compile/test_vendor_contract.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -62,6 +63,14 @@ jobs:
             --output evidence/acquisition_contract.swift
           swift evidence/acquisition_contract.swift 2>&1 | tee evidence/acquisition-contract.log
           printf '0\n' > evidence/acquisition-contract.exit-code.txt
+      - name: Check verified vendor acquisition with fake network data only
+        run: |
+          set -euo pipefail
+          python3 harness/.ci/native-app-compile/test_vendor_contract.py \
+            sources/SideStore/Dependencies/SideSign/Sources/Anisette/VerifiedAppleMusicLibraries.swift \
+            evidence/vendor_contract.swift > evidence/vendor-contract-sources.json
+          swift evidence/vendor_contract.swift 2>&1 | tee evidence/vendor-contract.log
+          printf '0\n' > evidence/vendor-contract.exit-code.txt
       - name: Install pinned transport build prerequisites
         run: |
           set -euo pipefail
