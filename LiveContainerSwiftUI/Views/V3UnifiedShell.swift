@@ -15643,7 +15643,9 @@ struct V3CustomizationsView: View {
             }
             Section("Signing") {
                 V3ToggleRow(store: store, title: "Customize App ID", key: "customizeAppId")
-                V3ToggleRow(store: store, title: "Customize App Extensions", key: "customizeAppExtensions")
+                V3ToggleRow(store: store, title: "Ask About App Extensions", key: "customizeAppExtensions")
+                V3LocalizedText("Turning this off keeps all extensions. Existing upstream policies are preserved until you change this toggle.")
+                    .font(.caption).foregroundColor(.secondary)
                 V3ToggleRow(store: store, title: "Auto-Fix App Group IDs", key: "autoFixAppGroupIDs")
                 V3ToggleRow(store: store, title: "Prefer Resigned IPA", key: "preferResignedIPA")
                 V3ToggleRow(store: store, title: "Export Resigned App", key: "isExportResignedAppEnabled")
