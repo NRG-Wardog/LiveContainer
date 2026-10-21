@@ -63,14 +63,52 @@ final class FixtureProtocol: URLProtocol {
  }
  override func stopLoading() {}
 }
-func downloadRejects(_ root:URL, _ name:String, preCancelled:Bool=false) async throws {
+func checkDownloadRoot(_ root:URL) throws {
+ let attributes=try FileManager.default.attributesOfItem(atPath:root.path)
+ try check(attributes[.type] as? FileAttributeType == .typeDirectory,"fixture root is not a directory")
+ try check(FileManager.default.isWritableFile(atPath:root.path),"fixture root is not writable")
+}
+enum ExpectedDownloadFailure {
+ case http(Int), metadata, incomplete, byteCap, cancellation, staging
+}
+func checkDownloadFailure(_ error:Error, expected:ExpectedDownloadFailure) throws {
+ switch expected {
+ case .cancellation:
+  try check(error is CancellationError,"expected cancellation, got \(error)")
+ case .http(let status):
+  guard case .archiveHTTPFailure(let actual)? = error as? AnisetteError else {
+   throw NSError(domain:"UnexpectedFailure",code:1,userInfo:[NSLocalizedDescriptionKey:"Expected HTTP rejection, got \(error)"])
+  }
+  try check(actual==status,"wrong HTTP status")
+ default:
+  guard case .downloadFailed(let message)? = error as? AnisetteError else {
+   throw NSError(domain:"UnexpectedFailure",code:2,userInfo:[NSLocalizedDescriptionKey:"Expected download failure, got \(error)"])
+  }
+  let wanted:String
+  switch expected {
+   case .metadata: wanted="Unexpected vendor response metadata."
+   case .incomplete: wanted="Incomplete vendor archive."
+   case .byteCap: wanted="Vendor archive exceeds byte limit."
+   case .staging: wanted="Cannot stage vendor download."
+   default: fatalError("handled above")
+  }
+  try check(message==wanted,"wrong download failure: \(message)")
+ }
+}
+func downloadRejects(_ root:URL, _ name:String, expected:ExpectedDownloadFailure, preCancelled:Bool=false) async throws {
+ print("CASE \(name)")
+ try checkDownloadRoot(root)
  let config=URLSessionConfiguration.ephemeral; config.protocolClasses=[FixtureProtocol.self]
  let target=root.appendingPathComponent(UUID().uuidString)
  let downloader=VendorAPKDownload(destination:target,configuration:config)
+ let before=FixtureProtocol.calls
  if preCancelled { downloader.cancel() }
- do { try await downloader.download() }
- catch { return }
- throw NSError(domain:"VendorContract",code:3,userInfo:[NSLocalizedDescriptionKey:name])
+ var captured:Error?
+ do { try await downloader.download() } catch { captured=error }
+ guard let captured else { throw NSError(domain:"UnexpectedSuccess",code:3,userInfo:[NSLocalizedDescriptionKey:name]) }
+ try checkDownloadFailure(captured,expected:expected)
+ try check(FixtureProtocol.calls-before == (preCancelled ? 0 : 1),"fixture request count for \(name)")
+ print("PASS \(name)")
 }
 func main() async throws {
  let root=FileManager.default.temporaryDirectory.appendingPathComponent("vendor-contract-"+UUID().uuidString)
@@ -90,21 +128,21 @@ func main() async throws {
  try rejects("small malformed APK") { try VerifiedAppleMusicLibraries.extract(archive:malformed,into:root) }
  for status in [206,302,403,500] {
   FixtureProtocol.status=status
-  try await downloadRejects(root,"HTTP status")
+  try await downloadRejects(root,"HTTP status \(status)",expected:.http(status))
  }
  FixtureProtocol.status=200
  for length in [nil,"142139819","142139821"] as [String?] {
   FixtureProtocol.length=length
-  try await downloadRejects(root,"length")
+  try await downloadRejects(root,"length",expected:.metadata)
  }
  FixtureProtocol.length="142139820"; FixtureProtocol.encoding="gzip"
- try await downloadRejects(root,"encoding")
+ try await downloadRejects(root,"encoding",expected:.metadata)
  FixtureProtocol.encoding=nil; FixtureProtocol.responseURL=URL(string:"https://example.invalid/archive")!
- try await downloadRejects(root,"unexpected final URL")
+ try await downloadRejects(root,"unexpected final URL",expected:.metadata)
  FixtureProtocol.responseURL=VerifiedAppleMusicLibraries.source
- try await downloadRejects(root,"truncated stream")
+ try await downloadRejects(root,"truncated stream",expected:.incomplete)
  let before=FixtureProtocol.calls
- try await downloadRejects(root,"pre-start cancellation",preCancelled:true)
+ try await downloadRejects(root,"pre-start cancellation",expected:.cancellation,preCancelled:true)
  try check(FixtureProtocol.calls==before,"cancelled transfer started")
  let publishRoot=root.appendingPathComponent("publish")
  try FileManager.default.createDirectory(at:publishRoot,withIntermediateDirectories:false)
@@ -159,21 +197,35 @@ func main() async throws {
  let successTarget=root.appendingPathComponent("successful-stream")
  let success=VendorAPKDownload(destination:successTarget,configuration:config)
  FixtureProtocol.bodyBytes=Int(VerifiedAppleMusicLibraries.archiveBytes)
+ print("CASE successful stream")
+ try checkDownloadRoot(root)
  try await success.download()
+ print("PASS successful stream")
  let written=try FileManager.default.attributesOfItem(atPath:successTarget.path)[.size] as? NSNumber
  try check(written?.int64Value==VerifiedAppleMusicLibraries.archiveBytes,"stream did not write exact size")
  try FileManager.default.removeItem(at:successTarget)
  FixtureProtocol.bodyBytes=Int(VerifiedAppleMusicLibraries.archiveBytes)+1
- try await downloadRejects(root,"actual byte cap")
+ try await downloadRejects(root,"actual byte cap",expected:.byteCap)
  FixtureProtocol.bodyBytes=1_048_576
  let cancelled=VendorAPKDownload(destination:root.appendingPathComponent("cancelled"),configuration:config)
  FixtureProtocol.afterFirstChunk={ cancelled.cancel() }
- do { try await cancelled.download(); throw NSError(domain:"UnexpectedSuccess",code:1) }
- catch is CancellationError { }
+ print("CASE in-flight cancellation")
+ try checkDownloadRoot(root)
+ var cancellationFailure:Error?
+ do { try await cancelled.download() } catch { cancellationFailure=error }
+ guard let cancellationFailure else { throw NSError(domain:"UnexpectedSuccess",code:1) }
+ try checkDownloadFailure(cancellationFailure,expected:.cancellation)
+ print("PASS in-flight cancellation")
  FixtureProtocol.afterFirstChunk=nil
  let failedDestination=VendorAPKDownload(destination:root,configuration:config)
- do { try await failedDestination.download(); throw NSError(domain:"UnexpectedSuccess",code:2) }
- catch let error as NSError { try check(error.domain != "UnexpectedSuccess","directory destination accepted") }
+ print("CASE existing-directory staging rejection")
+ let stagingCalls=FixtureProtocol.calls
+ var stagingFailure:Error?
+ do { try await failedDestination.download() } catch { stagingFailure=error }
+ guard let stagingFailure else { throw NSError(domain:"UnexpectedSuccess",code:2) }
+ try checkDownloadFailure(stagingFailure,expected:.staging)
+ try check(FixtureProtocol.calls==stagingCalls,"staging failure started network")
+ print("PASS existing-directory staging rejection")
  let session=URLSession(configuration:config)
  let request=URLRequest(url:VerifiedAppleMusicLibraries.source)
  let task=session.dataTask(with:request) // Never resumed; protocol prevents networking regardless.
