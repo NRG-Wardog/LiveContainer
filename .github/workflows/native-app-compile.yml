@@ -7,6 +7,7 @@ on:
       - '.ci/native-app-compile/record.py'
       - '.ci/native-app-compile/test_acquisition_contract.py'
       - '.ci/native-app-compile/test_vendor_contract.py'
+      - '.ci/native-app-compile/test_auth_response_contract.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -71,6 +72,17 @@ jobs:
             evidence/vendor_contract.swift > evidence/vendor-contract-sources.json
           swift evidence/vendor_contract.swift 2>&1 | tee evidence/vendor-contract.log
           printf '0\n' > evidence/vendor-contract.exit-code.txt
+      - name: Check finite auth response diagnostics with fake payloads only
+        run: |
+          set -euo pipefail
+          python3 harness/.ci/native-app-compile/test_auth_response_contract.py \
+            --errors sources/SideStore/Dependencies/SideSign/Sources/Models/Errors.swift \
+            --auth sources/SideStore/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift \
+            --store sources/SideStore/AltStore/AppDelegate.swift \
+            --host sources/LiveContainer/SideStoreSupport/SideStore.swift \
+            --output evidence/auth_response_contract.swift
+          swift evidence/auth_response_contract.swift 2>&1 | tee evidence/auth-response-contract.log
+          printf '0\n' > evidence/auth-response-contract.exit-code.txt
       - name: Install pinned transport build prerequisites
         run: |
           set -euo pipefail
