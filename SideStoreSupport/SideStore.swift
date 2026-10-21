@@ -719,6 +719,15 @@ public struct CombinedFailure: Error, LocalizedError {
             case "auth_response_shape":
                 guard fields["typed_error"] == "sideSignInvalidResponse",
                       V3AccountOperationError.AuthResponseShape(rawValue: text) != nil else { return nil }
+            case "windows_provider":
+                guard fields["typed_error"] == "anisetteFailure",
+                      fields["windows_reason"] != nil,
+                      ["jkcoxson", "stikstore", "unselected"].contains(text) else { return nil }
+            case "windows_reason":
+                guard fields["typed_error"] == "anisetteFailure",
+                      fields["windows_provider"] != nil,
+                      ["consentRequired", "invalidProvider", "invalidState", "stateChanged",
+                       "invalidResponse", "resyncUnavailable", "httpStatus"].contains(text) else { return nil }
             case "http_status":
                 guard text == "unavailable" || Int(text).map({ (100...599).contains($0) && String($0) == text }) == true else { return nil }
             case "provider_code":
@@ -2380,6 +2389,10 @@ struct V3AccountOperationError: Error, LocalizedError {
     var acquisitionFailure: AcquisitionFailure? = nil
     var authResponseShape: AuthResponseShape? = nil
     var authResponseMIME: AuthResponseMIME? = nil
+    // Captured while the explicitly approved Windows attempt is still in scope.
+    // Finite enum labels only: never a URL, provider body, identity or profile.
+    var windowsAnisetteProvider: String? = nil
+    var windowsAnisetteReason: String? = nil
 
     var errorDescription: String? { "An account operation failed; review the safe diagnostics." }
     var credentialCommit: Bool { step == .credentialCommit && kind != .anisetteIdentityStateInvalid }
@@ -2412,6 +2425,10 @@ struct V3AccountOperationError: Error, LocalizedError {
         // HTTP status remains unavailable unless a typed producer observes it.
         var signingContext = ["typed_error": acquisitionFailure?.rawValue ?? kind.rawValue,
             "server_code": serverCode.map(String.init) ?? "unknown", "http_status": httpStatus.map(String.init) ?? "unavailable"]
+        if kind == .anisetteFailure, let windowsAnisetteProvider, let windowsAnisetteReason {
+            signingContext["windows_provider"] = windowsAnisetteProvider
+            signingContext["windows_reason"] = windowsAnisetteReason
+        }
         if kind == .sideSignInvalidResponse, let authResponseMIME {
             signingContext["auth_response_mime"] = authResponseMIME.rawValue
         }
@@ -4413,13 +4430,14 @@ enum V3WireContract {
             let baseKeys: Set<String> = ["session", "sessionDeadline"]
             // A control flag, not an authentication secret. Keep its name out
             // of the raw-secret vocabulary; do not exempt it from that sweep.
-            let allowedKeys = operation == "authBegin" ? baseKeys.union(["provisioningLogin", "finishPendingCertificateActivation"]) : baseKeys
+            let allowedKeys = operation == "authBegin" ? baseKeys.union(["provisioningLogin", "finishPendingCertificateActivation", "windowsAnisetteEndpoint", "windowsAnisetteConsentAttemptID"]) : baseKeys
             guard baseKeys.isSubset(of: Set(payload.keys)), Set(payload.keys).isSubset(of: allowedKeys),
                   payload["provisioningLogin"] == nil || strictBool(payload["provisioningLogin"]) != nil,
                   payload["finishPendingCertificateActivation"] == nil || strictBool(payload["finishPendingCertificateActivation"]) != nil,
                   payload["finishPendingCertificateActivation"] == nil || strictBool(payload["provisioningLogin"]) == true,
                   let session = payload["session"] as? String,
                   canonicalSecretToken(session), session == target,
+                  acceptsWindowsAnisetteConsent(payload, sessionID: session),
                   let sessionDeadline = payload["sessionDeadline"] as? Date,
                   sessionDeadline > now,
                   sessionDeadline.timeIntervalSince(now) <= authSessionLifetime + 10 else { return false }
@@ -4504,6 +4522,23 @@ enum V3WireContract {
     private static func canonicalSecretToken(_ value: Any?) -> Bool {
         guard let token = value as? String, let uuid = UUID(uuidString: token) else { return false }
         return uuid.uuidString == token
+    }
+
+    // PR1835_WINDOWS_CONSENT_WIRE_V1: only a deliberately selected origin and
+    // this exact new authBegin session may carry the experimental route. Neither
+    // field is a secret or an enduring credential; never exempt either from the
+    // normal secret sweep or allow them on authRetryProvisioning/background work.
+    static func acceptsWindowsAnisetteConsent(_ payload: [String: Any], sessionID: String) -> Bool {
+        if payload["windowsAnisetteEndpoint"] == nil && payload["windowsAnisetteConsentAttemptID"] == nil {
+            return true
+        }
+        guard let endpoint = payload["windowsAnisetteEndpoint"] as? String,
+              ["https://ani.jkcoxson.com", "https://ani2.stikstore.app"].contains(endpoint),
+              let consent = payload["windowsAnisetteConsentAttemptID"] as? String,
+              canonicalSecretToken(consent), consent == sessionID,
+              strictBool(payload["provisioningLogin"]) != true,
+              strictBool(payload["finishPendingCertificateActivation"]) != true else { return false }
+        return true
     }
 
     private static func canonicalLowercaseFileToken(_ token: String) -> Bool {
@@ -10054,6 +10089,8 @@ enum V3AuthFailureDiagnosticsPolicy {
         let accountDetails = " source_step=\(step) typed_error=\(fields["typed_error"] ?? "unknown") server_code=\(fields["server_code"] ?? "unknown") http_status=\(fields["http_status"] ?? "unavailable")"
         let authResponseDetails = (fields["auth_response_shape"].map { " auth_response_shape=\($0)" } ?? "") +
             (fields["auth_response_mime"].map { " auth_response_mime=\($0)" } ?? "")
+        let windowsDetails = (fields["windows_provider"].map { " windows_provider=\($0)" } ?? "") +
+            (fields["windows_reason"].map { " windows_reason=\($0)" } ?? "")
         let nativeDetails = fields["typed_error"] == "anisetteKitADIError"
             ? " native_code=\(fields["native_code"] ?? "unknown") native_phase=\(fields["native_phase"] ?? "unknown") native_subcode=\(fields["native_subcode"] ?? "unknown")" : ""
         let initializerDetails = ["native_init_kind", "native_init_reason", "native_init_engine",
@@ -10066,7 +10103,7 @@ enum V3AuthFailureDiagnosticsPolicy {
         let probeDetails = fields["probe_native_code"].map {
             " probe_native_code=\($0) probe_native_phase=\(fields["probe_native_phase"] ?? "unknown") probe_native_subcode=\(fields["probe_native_subcode"] ?? "unknown")"
         } ?? ""
-        return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + authResponseDetails + nativeDetails + initializerDetails + attemptDetails + probeDetails +
+        return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + authResponseDetails + windowsDetails + nativeDetails + initializerDetails + attemptDetails + probeDetails +
             (fields[V3ConstructorFaultDiagnostic.contextKey].flatMap(V3ConstructorFaultDiagnostic.init(encoded:))?.technicalDetails ?? "") +
             (fields[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))?.technicalDetails ?? "") +
             (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "") +

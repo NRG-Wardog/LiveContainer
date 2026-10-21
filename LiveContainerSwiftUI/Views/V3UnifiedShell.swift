@@ -5224,6 +5224,8 @@ enum V3AuthFailureDiagnosticsPolicy {
         let accountDetails = " source_step=\(step) typed_error=\(fields["typed_error"] ?? "unknown") server_code=\(fields["server_code"] ?? "unknown") http_status=\(fields["http_status"] ?? "unavailable")"
         let authResponseDetails = (fields["auth_response_shape"].map { " auth_response_shape=\($0)" } ?? "") +
             (fields["auth_response_mime"].map { " auth_response_mime=\($0)" } ?? "")
+        let windowsDetails = (fields["windows_provider"].map { " windows_provider=\($0)" } ?? "") +
+            (fields["windows_reason"].map { " windows_reason=\($0)" } ?? "")
         let nativeDetails = fields["typed_error"] == "anisetteKitADIError"
             ? " native_code=\(fields["native_code"] ?? "unknown") native_phase=\(fields["native_phase"] ?? "unknown") native_subcode=\(fields["native_subcode"] ?? "unknown")" : ""
         let initializerDetails = ["native_init_kind", "native_init_reason", "native_init_engine",
@@ -5236,7 +5238,7 @@ enum V3AuthFailureDiagnosticsPolicy {
         let probeDetails = fields["probe_native_code"].map {
             " probe_native_code=\($0) probe_native_phase=\(fields["probe_native_phase"] ?? "unknown") probe_native_subcode=\(fields["probe_native_subcode"] ?? "unknown")"
         } ?? ""
-        return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + authResponseDetails + nativeDetails + initializerDetails + attemptDetails + probeDetails +
+        return "diagnostic_code=\(diagnosticCode(for: failure)) builder_commit=\(V3DiagnosticBuild.commit) kind=\(kind) stage=\(stage) code=\(code) correlation=\(correlation) underlying=\(underlyingDomain)/\(codeText) retryable=\(retryableText)" + accountDetails + authResponseDetails + windowsDetails + nativeDetails + initializerDetails + attemptDetails + probeDetails +
             (fields[V3ConstructorFaultDiagnostic.contextKey].flatMap(V3ConstructorFaultDiagnostic.init(encoded:))?.technicalDetails ?? "") +
             (fields[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))?.technicalDetails ?? "") +
             (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "") +
@@ -12359,6 +12361,28 @@ struct V3PromptSection: View {
     }
 }
 
+// PR1835_WINDOWS_CONSENT_UI_V1: no default selection, saved preference, or
+// implicit fallback. The endpoint becomes an attempt argument only after the
+// user sees its recipients/data and confirms on this device.
+fileprivate enum V3WindowsAnisetteChoice: String, CaseIterable, Identifiable {
+    case jkcoxson = "https://ani.jkcoxson.com"
+    case stikstore = "https://ani2.stikstore.app"
+
+    var id: String { rawValue }
+    var host: String {
+        switch self {
+        case .jkcoxson: return "ani.jkcoxson.com"
+        case .stikstore: return "ani2.stikstore.app"
+        }
+    }
+    var disclosure: String {
+        "Use \(rawValue) for this sign-in attempt only?\n\n" +
+        "This third-party provider receives sensitive device/provisioning material: a separate generated identifier, Apple provisioning SPIM and PTM/TK values, and an ADI provisioning blob. If Apple requests one error-434 resync, the same provider also receives Apple's SIM resync value and the generated device ID/local user ID (LU).\n\n" +
+        "That material could be misused to impersonate the generated device. Your Apple ID, password, verification codes and SRP proof are not sent to this provider.\n\n" +
+        "The provider-specific identity and ADI blob are saved in this app’s Keychain and can be reused only after you approve another attempt. Your existing local anisette identity is not changed. This does not enable remote background refresh, save a default provider, or switch providers automatically. Another sign-in attempt requires new confirmation."
+    }
+}
+
 @MainActor
 final class V3AuthStore: ObservableObject {
     @Published var state = "idle"
@@ -12519,7 +12543,15 @@ final class V3AuthStore: ObservableObject {
         startAuthentication(reauthenticatingProvisioning: signedIn && provisioningIncomplete)
     }
 
-    private func startAuthentication(reauthenticatingProvisioning: Bool, finishingPendingCertificate: Bool = false) {
+    fileprivate func beginWithWindowsAnisette(_ choice: V3WindowsAnisetteChoice) {
+        // Called only by the per-attempt disclosure's explicit confirmation.
+        // Require the old attempt to have ended, including its cancellation ACK.
+        guard canBegin, !hasSession, !isSignedIn else { return }
+        startAuthentication(reauthenticatingProvisioning: false, windowsAnisetteChoice: choice)
+    }
+
+    private func startAuthentication(reauthenticatingProvisioning: Bool, finishingPendingCertificate: Bool = false,
+                                     windowsAnisetteChoice: V3WindowsAnisetteChoice? = nil) {
         task?.cancel()
         provisioningRetryReadinessOwnership.clear()
         provisioningRetryReadinessAttemptSequence = nil
@@ -12548,7 +12580,9 @@ final class V3AuthStore: ObservableObject {
         cancellationWasAttempted = false
         if !reauthenticatingProvisioning { signedIn = false }
         clearProvisioningOutcome()
-        task = Task { await run(sessionID: requestedSession) }
+        // The fresh session UUID is also the consent ID. It is generated only
+        // after confirmation, captured by this task, and never saved for retry.
+        task = Task { await run(sessionID: requestedSession, windowsAnisetteChoice: windowsAnisetteChoice) }
     }
     var canBegin: Bool {
         guard !provisioningRecoveryRequiresReconciliation else { return false }
@@ -13102,13 +13136,20 @@ final class V3AuthStore: ObservableObject {
               presentation.state, signedIn ? 1 : 0, snapshotConfirmed ? 1 : 0)
     }
 
-    private func run(sessionID requestedSession: String) async {
+    private func run(sessionID requestedSession: String,
+                     windowsAnisetteChoice: V3WindowsAnisetteChoice? = nil) async {
         let sessionDeadline = Date().addingTimeInterval(V3ServiceBridge.authSessionLifetime)
         do {
             state = "working"
             message = ""
             prompt = nil
             var payload: [String: Any] = ["session": requestedSession, "sessionDeadline": sessionDeadline]
+            if let windowsAnisetteChoice {
+                try Task.checkCancellation()
+                guard session == requestedSession, !isCancelling else { return }
+                payload["windowsAnisetteEndpoint"] = windowsAnisetteChoice.rawValue
+                payload["windowsAnisetteConsentAttemptID"] = requestedSession
+            }
             if reauthenticationSessionID == requestedSession {
                 guard accountRecoveryProtocolAvailable else { return }
                 payload["provisioningLogin"] = true
@@ -13909,6 +13950,8 @@ struct V3SignInView: View {
     @EnvironmentObject private var sharedModel: SharedModel
     @StateObject private var auth = V3AuthStore()
     @State private var confirmPendingCertificateActivation = false
+    @State private var choosingWindowsAnisette = false
+    @State private var pendingWindowsAnisetteChoice: V3WindowsAnisetteChoice?
     @State private var didPrepareSignIn = false
     @State private var isPreparingSignIn = true
     @State private var hasConfirmedAccountSnapshot = false
@@ -13918,6 +13961,7 @@ struct V3SignInView: View {
     private let initialCredentialDraftID = "signin.initial-credential-draft"
     var body: some View {
         List {
+            experimentalWindowsAnisetteSection
             if shouldShowAccountSection {
                 Section("Apple ID") {
                     accountContent
@@ -13959,6 +14003,19 @@ struct V3SignInView: View {
                 }
             }
         }
+        .alert("Experimental Windows Anisette", isPresented: Binding(
+            get: { pendingWindowsAnisetteChoice != nil },
+            set: { if !$0 { pendingWindowsAnisetteChoice = nil } }),
+            presenting: pendingWindowsAnisetteChoice) { choice in
+                Button("Use for This Sign-In Attempt", role: .destructive) {
+                    pendingWindowsAnisetteChoice = nil
+                    choosingWindowsAnisette = false
+                    auth.beginWithWindowsAnisette(choice)
+                }
+                Button("Cancel", role: .cancel) { pendingWindowsAnisetteChoice = nil }
+            } message: { choice in
+                Text(choice.disclosure)
+            }
         .task(id: preparationRetry) { await prepareSignIn() }
         .onChange(of: auth.prompt?["id"] as? String) { promptID in
             if promptID != nil { isPreparingInitialCredentials = false }
@@ -13979,6 +14036,8 @@ struct V3SignInView: View {
             // Invalidates an in-flight idle snapshot even when auth.cancel()
             // has no session to cancel yet. Re-entry cannot reuse its result.
             preparationGeneration = UUID()
+            pendingWindowsAnisetteChoice = nil
+            choosingWindowsAnisette = false
             isPreparingInitialCredentials = false
             auth.cancel()
             auth.clearPreviousFailure()
@@ -13987,6 +14046,48 @@ struct V3SignInView: View {
             status.reload()
         }
     }
+    @ViewBuilder private var experimentalWindowsAnisetteSection: some View {
+        if !isPreparingSignIn && hasConfirmedAccountSnapshot && !auth.isSignedIn &&
+            ((auth.prompt?["kind"] as? String == "credentials" && !auth.promptSubmitting) ||
+             auth.canBegin || choosingWindowsAnisette) {
+            Section("Experimental Error 80045 Workaround") {
+                if choosingWindowsAnisette {
+                    if auth.canBegin && !auth.hasSession {
+                        Text("Choose one third-party provider, then review the disclosure. Nothing is sent to either provider until you confirm.")
+                            .font(.caption).foregroundColor(.secondary)
+                        ForEach(V3WindowsAnisetteChoice.allCases) { choice in
+                            Button("Review \(choice.host)") { pendingWindowsAnisetteChoice = choice }
+                                .accessibilityIdentifier("signin.windows-anisette.\(choice.host)")
+                        }
+                    } else {
+                        Text("The current sign-in must stop before choosing a remote provider. If cancellation is unconfirmed, use Retry Cancellation below.")
+                            .font(.caption).foregroundColor(.secondary)
+                        if auth.canBegin && auth.hasSession {
+                            Button("Reload Status Before Choosing") { auth.reloadAuthoritativeAccountStatus() }
+                        }
+                    }
+                    Button("Keep Local Sign-In", role: .cancel) {
+                        pendingWindowsAnisetteChoice = nil
+                        choosingWindowsAnisette = false
+                    }
+                } else {
+                    Text("Local sign-in remains the default. An experimental Windows anisette provider may help with error 80045; it requires separate permission to share provisioning material.")
+                        .font(.caption).foregroundColor(.secondary)
+                    Button("Choose Experimental Provider…") {
+                        pendingWindowsAnisetteChoice = nil
+                        choosingWindowsAnisette = true
+                        // Cancellation does not reset any account or local pair.
+                        if auth.hasSession {
+                            if auth.canBegin { auth.reloadAuthoritativeAccountStatus() }
+                            else { auth.cancel() }
+                        }
+                    }
+                    .disabled(auth.isCancelling)
+                }
+            }
+        }
+    }
+
     @ViewBuilder private var accountContent: some View {
         if (auth.prompt == nil || auth.isCancelling) && !showsInitialCredentialDraft {
             HStack {
