@@ -33,6 +33,44 @@ def between(source, begin, end):
     return begin + source.split(begin, 1)[1].split(end, 1)[0]
 
 
+def assert_balanced_swift_delimiters(source):
+    """Lightweight structural guard, not a Swift parser or type checker."""
+    stack = []
+    index = 0
+    while index < len(source):
+        if source.startswith('//', index):
+            end = source.find('\n', index)
+            index = len(source) if end < 0 else end + 1
+            continue
+        if source.startswith('/*', index):
+            end = source.find('*/', index + 2)
+            assert end >= 0, 'Unterminated fixture block comment'
+            index = end + 2
+            continue
+        char = source[index]
+        if char == '"':
+            index += 1
+            while index < len(source):
+                if source[index] == '\\':
+                    index += 2
+                elif source[index] == '"':
+                    index += 1
+                    break
+                else:
+                    index += 1
+            else:
+                raise AssertionError('Unterminated fixture string')
+            continue
+        if char in '([{':
+            stack.append((char, index))
+        elif char in ')]}':
+            line = source.count('\n', 0, index) + 1
+            assert stack and stack[-1][0] == {')': '(', ']': '[', '}': '{'}[char], f'Unbalanced fixture delimiter at line {line}'
+            stack.pop()
+        index += 1
+    assert not stack, 'Unclosed fixture delimiter'
+
+
 def portal(source, name, experimental):
     init = between(source, '            let sanitizedAppleID =', '            guard let c = initResponse')
     request = between(source, '    func sendAuthenticationRequest(',
@@ -174,6 +212,9 @@ func plist(_ value: [String: any Sendable]) throws -> Data {
 func reply(_ status: [String: any Sendable]) throws -> FixtureReply {
     FixtureReply(status: 200, body: try plist(["Response": ["Status": status]]))
 }
+func statusEnvelope(_ status: [String: any Sendable]) -> [String: any Sendable] {
+    ["Status": status]
+}
 func body(_ request: URLRequest) throws -> [String: Any] {
     guard let data = request.httpBody,
           let envelope = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
@@ -253,11 +294,11 @@ TESTS = r'''
             try expect(twofa.value(forHTTPHeaderField: "User-Agent") == fresh.userAgent, "2FA UA")
             try expect(twofa.value(forHTTPHeaderField: "X-Apple-I-MD") == fresh.oneTimePassword, "2FA latest OTP")
             try expect(twofa.value(forHTTPHeaderField: "X-Apple-I-SRL-NO") == nil, "2FA serial removed")
-            try expect(remote.authType(["Status": ["hsc": 409]]) == "pushedCode", "missing au 409")
-            try expect(remote.authType(["Status": ["hsc": 409, "au": ""]]) == "pushedCode", "empty au 409")
-            try expect(remote.authType(["Status": ["hsc": 409, "au": "sms"]]) == "sms", "nonempty au precedence")
+            try expect(remote.authType(statusEnvelope(["hsc": 409])) == "pushedCode", "missing au 409")
+            try expect(remote.authType(statusEnvelope(["hsc": 409, "au": ""])) == "pushedCode", "empty au 409")
+            try expect(remote.authType(statusEnvelope(["hsc": 409, "au": "sms"])) == "sms", "nonempty au precedence")
             // A recursive auth attempt inherits the same context and cannot resync again.
-            context.session.enqueue([try reply(["hsc": 434, "X-Apple-I-MD-DATA": "synthetic-sim-second")])
+            context.session.enqueue([try reply(["hsc": 434, "X-Apple-I-MD-DATA": "synthetic-sim-second"])])
             do {
                 _ = try await remote.begin(appleID: "fixture@invalid.example", anisetteData: fresh)
                 throw FixtureFailure.assertion("second operation resync accepted")
@@ -323,7 +364,8 @@ TESTS = r'''
             try expect(invalid.session.requests.count == 5, "unexpected generic retry")
         }
         // Nil-context behavior of empty au is intentionally unchanged.
-        try expect(modified.authType(["Status": ["hsc":409, "au":""]]) == baseline.authType(["Status": ["hsc":409, "au":""]]), "nil-context au behavior changed")
+        let emptyAUStatus = statusEnvelope(["hsc": 409, "au": ""])
+        try expect(modified.authType(emptyAUStatus) == baseline.authType(emptyAUStatus), "nil-context au behavior changed")
         print("PASS: actual-source fake request bytes, CPD field types, headers, resync budget/A2k, cancellation, strict parsing, and 409 semantics")
     }
 }
@@ -337,6 +379,12 @@ assert '.apple.com' not in output
 assert 'URLSessionConfiguration' not in output
 assert output.count('func data(for request: URLRequest)') == 1
 assert 'let publicKey = srpClient.startAuthentication()' in output
+assert_balanced_swift_delimiters(output)
+# Mixed nested Swift dictionary literals otherwise infer non-Sendable Any.
+assert 'func statusEnvelope(_ status: [String: any Sendable]) -> [String: any Sendable]' in output
+assert '.authType(["Status":' not in output
+assert output.count('remote.authType(statusEnvelope(') == 3
+assert 'let emptyAUStatus = statusEnvelope(["hsc": 409, "au": ""])' in output
 destination = ARGS.output
 destination.parent.mkdir(parents=True, exist_ok=True)
 destination.write_text(output)
