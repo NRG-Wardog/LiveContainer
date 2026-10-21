@@ -1,6 +1,6 @@
-# Package-only candidate bound to retention run39613057347, attempt1.
+# Package-only candidate bound to retention run39627420855, attempt1.
 # Publish only after its success/artifact review. No native rebuild or public release.
-name: Package retained 6.0 experimental apps
+name: Package retained 6.0 PR1835 experimental apps
 on:
   push:
     branches: [validation/diagnostic-ipa-20261020]
@@ -31,15 +31,15 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: NRG-Wardog/LiveContainer
-          ref: 1a227e49a8af33368b39c1ba7605bf3aff244b8b
+          ref: 8193d7379c7cbdc420b02bc75d4e9e37c4823f17
           path: host
           persist-credentials: false
           submodules: false
       - name: Download only matching successful native artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          COMPILE_RUN: '39613057347'
-          COMPILE_COMMIT: '088dff2b3bbae9fbba733a2612f604f4912eea14'
+          COMPILE_RUN: '39627420855'
+          COMPILE_COMMIT: '19247a63fdc912d1cf8dac690cdb37769ad9e38a'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
@@ -139,14 +139,14 @@ jobs:
           done
       - name: Verify retained native input identities and bytes
         env:
-          COMPILE_RUN: '39613057347'
-          COMPILE_COMMIT: '088dff2b3bbae9fbba733a2612f604f4912eea14'
+          COMPILE_RUN: '39627420855'
+          COMPILE_COMMIT: '19247a63fdc912d1cf8dac690cdb37769ad9e38a'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
           set -euo pipefail
           test "$(git -C builder rev-parse HEAD)" = 3edd9fa523a223bcd2898d5c960c5da7ff335be8
-          test "$(git -C host rev-parse HEAD)" = 1a227e49a8af33368b39c1ba7605bf3aff244b8b
+          test "$(git -C host rev-parse HEAD)" = 8193d7379c7cbdc420b02bc75d4e9e37c4823f17
           test -z "$(git -C builder status --porcelain)"
           test -z "$(git -C host status --porcelain)"
           python3 - <<'PY'
@@ -170,11 +170,11 @@ jobs:
           expected_graph = {
               "AnisetteKit": [
                   "NRG-Wardog/AnisetteKit",
-                  "3e670c2e1b72ff328d3a64353d8de2418df87e73"
+                  "26e101d72c2a4e0e70ee94342a775b20d6f7092b"
               ],
               "LiveContainer": [
                   "NRG-Wardog/LiveContainer",
-                  "1a227e49a8af33368b39c1ba7605bf3aff244b8b"
+                  "8193d7379c7cbdc420b02bc75d4e9e37c4823f17"
               ],
               "LiveContainer/OpenSSL": [
                   "krzyzanowskim/OpenSSL",
@@ -186,11 +186,11 @@ jobs:
               ],
               "SideStore": [
                   "NRG-Wardog/SideStore",
-                  "28dd1f873cad2e12e1c07cacb80ac9685560e02c"
+                  "825b3f888dfc7cd53e9f17039ffba75659f04ffc"
               ],
               "SideStore/Dependencies/SideSign": [
                   "NRG-Wardog/SideSign",
-                  "9757970d656135f0b21dc00700507d099f170320"
+                  "4e852649fada9851774a80e2639414d20f3efd72"
               ],
               "SideStore/Dependencies/minimuxer": [
                   "NRG-Wardog/minimuxer",
@@ -305,7 +305,7 @@ jobs:
           # Intentional packaging metadata only, after retained input verification.
           python3 - <<'PY'
           import hashlib, json, os, pathlib, plistlib, re
-          commit = '088dff2b3bbae9fbba733a2612f604f4912eea14'
+          commit = '19247a63fdc912d1cf8dac690cdb37769ad9e38a'
           if not re.fullmatch('[0-9a-f]{40}', commit):
               raise ValueError('Invalid native builder commit')
           records = []
@@ -337,7 +337,7 @@ jobs:
           label = {
               'product_version': '6.0',
               'channel': 'experimental',
-              'label': '6.0 experimental',
+              'label': '6.0 PR1835 experimental',
               'native_compile_run': str(receipt['run_id']),
               'native_compile_attempt': str(receipt['run_attempt']),
               'native_workflow_commit': commit,
@@ -355,9 +355,9 @@ jobs:
             --root host \
             --host unpacked/LiveContainer/native-transfer-LiveContainer/Products/LiveContainer.app \
             --side unpacked/SideStore/native-transfer-SideStore/Products/SideStore.app \
-            --output diagnostic/LiveContainer-SideStore-6.0-experimental.ipa 2>&1 | tee package-evidence/packaging.log
-          shasum -a 256 diagnostic/LiveContainer-SideStore-6.0-experimental.ipa > diagnostic/SHA256SUMS
-          stat -f%z diagnostic/LiveContainer-SideStore-6.0-experimental.ipa > diagnostic/size-bytes.txt
+            --output diagnostic/LiveContainer-SideStore-6.0-PR1835-experimental.ipa 2>&1 | tee package-evidence/packaging.log
+          shasum -a 256 diagnostic/LiveContainer-SideStore-6.0-PR1835-experimental.ipa > diagnostic/SHA256SUMS
+          stat -f%z diagnostic/LiveContainer-SideStore-6.0-PR1835-experimental.ipa > diagnostic/size-bytes.txt
           test "$(cat diagnostic/size-bytes.txt)" -lt 524288000
           # Wrapper itself checks conversion, entitlements, identities and resources.
           # This is a diagnostic candidate, not proof that sign-in works on device.
