@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/native-app-compile.yml'
       - '.ci/native-app-compile/record.py'
+      - '.ci/native-app-compile/test_acquisition_contract.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -51,6 +52,16 @@ jobs:
           python3 harness/.ci/native-app-compile/record.py snapshot acquired
           { xcodebuild -version; xcrun --sdk iphoneos --show-sdk-version; swift --version; uname -a; } > evidence/toolchain.txt
           xcodebuild -version | grep -Fx 'Xcode 26.4.1'
+      - name: Check bounded acquisition diagnostics with fake errors only
+        run: |
+          set -euo pipefail
+          python3 harness/.ci/native-app-compile/test_acquisition_contract.py \
+            --sign sources/SideStore/Dependencies/SideSign/Sources/Anisette/AnisetteDataManager.swift \
+            --store sources/SideStore/AltStore/AppDelegate.swift \
+            --host sources/LiveContainer/SideStoreSupport/SideStore.swift \
+            --output evidence/acquisition_contract.swift
+          swift evidence/acquisition_contract.swift 2>&1 | tee evidence/acquisition-contract.log
+          printf '0\n' > evidence/acquisition-contract.exit-code.txt
       - name: Install pinned transport build prerequisites
         run: |
           set -euo pipefail
