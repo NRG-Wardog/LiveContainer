@@ -735,7 +735,7 @@ public struct CombinedFailure: Error, LocalizedError {
             case "device_registration":
                 guard text == "unobserved" else { return nil }
             case "typed_error":
-                guard ["sideSignServerReportedError", "sideSignBadResponse", "sideSignInvalidResponse", "sideSignMissingKey", "sideSignDeveloperPortalError", "keychainWrite", "keychainValidationFailed", "keychainOutcomeUnknown", "legacyMigrationConflict", "persistenceFailure", "persistenceOutcomeUnknown", "transportFailure", "anisetteFailure", "anisetteKitInvalidArgument", "anisetteKitLoaderFailed", "anisetteKitSymbolMissing", "anisetteKitReadFailure", "anisetteKitInvalidResponse", "anisetteKitADIError", "anisetteKitLibrariesNotFound", "anisetteKitHTTPError", "decodingTypeMismatch", "decodingValueNotFound", "decodingKeyNotFound", "decodingDataCorrupted", "archiveFileNotFound", "archiveCorrupt", "archiveReadFailed", "archiveWriteFailed", "archiveMissingApp", "unknownAccountFailure", "anisetteIdentityStateInvalid"].contains(text) else { return nil }
+                guard ["sideSignServerReportedError", "sideSignBadResponse", "sideSignInvalidResponse", "sideSignMissingKey", "sideSignDeveloperPortalError", "keychainWrite", "keychainValidationFailed", "keychainOutcomeUnknown", "legacyMigrationConflict", "persistenceFailure", "persistenceOutcomeUnknown", "transportFailure", "anisetteFailure", "anisetteKitInvalidArgument", "anisetteKitLoaderFailed", "anisetteKitSymbolMissing", "anisetteKitReadFailure", "anisetteKitInvalidResponse", "anisetteKitADIError", "anisetteKitLibrariesNotFound", "anisetteKitHTTPError", "decodingTypeMismatch", "decodingValueNotFound", "decodingKeyNotFound", "decodingDataCorrupted", "archiveFileNotFound", "archiveCorrupt", "archiveReadFailed", "archiveWriteFailed", "archiveMissingApp", "unknownAccountFailure", "anisetteIdentityStateInvalid"].contains(text) || V3AccountOperationError.AcquisitionFailure(rawValue: text) != nil else { return nil }
             default: return nil
             }
         }
@@ -2335,6 +2335,19 @@ struct V3AnisetteNativeEvidence {
 // classifications cross the wire. Original errors stay inside the process for
 // typed guidance; descriptions, userInfo and provider payloads never serialize.
 struct V3AccountOperationError: Error, LocalizedError {
+    // Finite pre-native acquisition diagnostics. No provider strings or hashes cross IPC.
+    enum AcquisitionFailure: String {
+        case serverListHTTP = "anisetteAcquisitionServerListHTTP"
+        case metadataHTTP = "anisetteAcquisitionMetadataHTTP"
+        case archiveHTTP = "anisetteAcquisitionArchiveHTTP"
+        case checksumMismatch = "anisetteAcquisitionChecksumMismatch"
+        case missingMetadata = "anisetteAcquisitionMissingMetadata"
+        case invalidPayload = "anisetteAcquisitionInvalidPayload"
+        case extractionFailed = "anisetteAcquisitionExtractionFailed"
+        case missingLibraries = "anisetteAcquisitionMissingLibraries"
+        case providerNotReady = "anisetteAcquisitionProviderNotReady"
+        case downloadFailed = "anisetteAcquisitionDownloadFailed"
+    }
     enum Kind: String {
         case keychainWrite, keychainValidationFailed, keychainOutcomeUnknown
         case legacyMigrationConflict, persistenceFailure, persistenceOutcomeUnknown, transportFailure
@@ -2352,6 +2365,7 @@ struct V3AccountOperationError: Error, LocalizedError {
     var httpStatus: Int? = nil
     var nativeEvidence: V3AnisetteNativeEvidence? = nil
     var anisetteAttempt: V3AnisetteAttemptContext? = nil
+    var acquisitionFailure: AcquisitionFailure? = nil
 
     var errorDescription: String? { "An account operation failed; review the safe diagnostics." }
     var credentialCommit: Bool { step == .credentialCommit && kind != .anisetteIdentityStateInvalid }
@@ -2382,7 +2396,7 @@ struct V3AccountOperationError: Error, LocalizedError {
         else { safeCause = nil }
         // An associated Apple result is separate from Swift's enum bridge code.
         // HTTP status remains unavailable unless a typed producer observes it.
-        var signingContext = ["typed_error": kind.rawValue,
+        var signingContext = ["typed_error": acquisitionFailure?.rawValue ?? kind.rawValue,
             "server_code": serverCode.map(String.init) ?? "unknown", "http_status": httpStatus.map(String.init) ?? "unavailable"]
         if kind == .anisetteKitADIError, let nativeEvidence {
             signingContext["native_code"] = String(nativeEvidence.code)
@@ -2690,6 +2704,16 @@ extension CombinedFailure {
         case "archiveMissingApp": return "T30"
         case "unknownAccountFailure": return "T31"
         case "anisetteIdentityStateInvalid": return "T32"
+        case "anisetteAcquisitionServerListHTTP": return "T33"
+        case "anisetteAcquisitionMetadataHTTP": return "T34"
+        case "anisetteAcquisitionArchiveHTTP": return "T35"
+        case "anisetteAcquisitionChecksumMismatch": return "T36"
+        case "anisetteAcquisitionMissingMetadata": return "T37"
+        case "anisetteAcquisitionInvalidPayload": return "T38"
+        case "anisetteAcquisitionExtractionFailed": return "T39"
+        case "anisetteAcquisitionMissingLibraries": return "T40"
+        case "anisetteAcquisitionProviderNotReady": return "T41"
+        case "anisetteAcquisitionDownloadFailed": return "T42"
         default: return nil
         }
     }
