@@ -12,6 +12,7 @@ on:
       - '.ci/native-app-compile/upstream-sync-contract.json'
       - '.ci/native-app-compile/test_sync_contract.py'
       - '.ci/native-app-compile/idevice-abi-gate/**'
+      - '.ci/native-app-compile/pr1835/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -70,6 +71,28 @@ jobs:
           python3 harness/.ci/native-app-compile/record.py snapshot acquired
           { xcodebuild -version; xcrun --sdk iphoneos --show-sdk-version; swift --version; uname -a; } > evidence/toolchain.txt
           xcodebuild -version | grep -Fx 'Xcode 26.4.1'
+      - name: Check PR1835 consent and actual auth requests with owned fake data only
+        run: |
+          set -euo pipefail
+          checks=harness/.ci/native-app-compile/pr1835
+          python3 -B "$checks/check_windows_source.py" --source-root sources --baseline-root sources \
+            2>&1 | tee evidence/pr1835-core-source.log
+          PR1835_CONSENT_SOURCE_ROOT=sources python3 -B "$checks/test_consent_contract.py" \
+            2>&1 | tee evidence/pr1835-consent-contract.log
+          git -C sources/SideStore/Dependencies/SideSign show \
+            9757970d656135f0b21dc00700507d099f170320:Sources/DeveloperPortal/Authentication.swift \
+            > evidence/pr1835-authentication-baseline.swift
+          python3 -B "$checks/generate_authentication_fixture.py" \
+            --baseline evidence/pr1835-authentication-baseline.swift \
+            --auth sources/SideStore/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift \
+            --core sources/SideStore/Dependencies/SideSign/Sources/Anisette/WindowsRemoteAnisette.swift \
+            --output evidence/pr1835-authentication-fixture.swift \
+            --manifest evidence/pr1835-authentication-fixture.json
+          # Only extracted owned Swift and in-memory fake dependencies; no target modules/native libraries.
+          swiftc -swift-version 6 -parse-as-library evidence/pr1835-authentication-fixture.swift \
+            -o "$RUNNER_TEMP/pr1835-authentication-fixture"
+          "$RUNNER_TEMP/pr1835-authentication-fixture" 2>&1 | tee evidence/pr1835-authentication-contract.log
+          printf '0\n' > evidence/pr1835-contract.exit-code.txt
       - name: Verify committed native source parity and both exact parents
         run: |
           set -euo pipefail
@@ -162,7 +185,7 @@ jobs:
         run: |
           set -euo pipefail
           # Fresh Xcode resolution is allowed to update the app lock, then the recorder
-          # admits only AK e6e9 -> 3e670 plus actual resolver originHash. No other pin may move.
+          # admits only AK e6e9 -> 26e101 plus actual resolver originHash. No other pin may move.
           test ! -e "$RUNNER_TEMP/native-SideStore"
           test ! -L "$RUNNER_TEMP/native-SideStore"
           GIT_ALLOW_PROTOCOL=https:file xcodebuild -resolvePackageDependencies -disablePackageRepositoryCache \

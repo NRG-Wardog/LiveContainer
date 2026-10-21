@@ -19,7 +19,12 @@ def block(s,anchor):
 context=block(inputs['errors'],'public struct AuthenticationResponseContext:')
 errors=block(inputs['errors'],'public enum ServerError:')
 parser=block(inputs['auth'],'private func parsePlistOrJSON(').replace('private func','func',1)
-guard=block(inputs['auth'],'guard let responseDictionary = parsePlistOrJSON(data) else {')
+# The default and opt-in routes now share the same redacted parse-failure guard.
+# Extract the actual selector and both pure parsers; this historical fixture keeps
+# its nil-context default route, while the PR1835 fixture exercises the opt-in path.
+windows_parser=block(inputs['auth'],'private func parseWindowsAuthenticationResponse(').replace('private func','func',1)
+selector='let parsedResponse:'+between(inputs['auth'],'let parsedResponse:','        guard let responseDictionary = parsedResponse else {')
+guard=block(inputs['auth'],'guard let responseDictionary = parsedResponse else {')
 if 'rawPayload: "[redacted]"' not in guard: raise ValueError('Outer parse error is not redacted')
 enums=[]
 for name in ('AuthResponseMIME','AuthResponseShape'):
@@ -34,10 +39,11 @@ renderer=between(inputs['store'],'        let accountDetails =','        let nat
 if renderer!=between(inputs['host'],'        let accountDetails =','        let nativeDetails ='): raise ValueError('Renderer mirror differs')
 emission=between(inputs['store'],'        if kind == .sideSignInvalidResponse, let authResponseMIME {','        if kind == .anisetteKitADIError, let nativeEvidence {')
 emission='if kind == .sideSignInvalidResponse, let authResponseMIME {'+emission
-source='import Foundation\nimport CoreFoundation\n'+context+'\n'+errors+'\n'+parser+'''
+source='import Foundation\nimport CoreFoundation\n'+context+'\n'+errors+'\n'+parser+'\n'+windows_parser+'''
+enum WindowsAnisetteAuthentication { static let current: Bool? = nil }
 func outer(_ data: Data, _ statusCode: Int, _ mime: String?) throws -> [String: any Sendable] {
     struct Response { let mimeType: String? }; let response = Response(mimeType: mime)
-'''+guard+'''
+'''+selector+guard+'''
     return responseDictionary
 }
 struct V3AccountOperationError {
