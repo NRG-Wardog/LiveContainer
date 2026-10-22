@@ -13,11 +13,11 @@ E = ROOT / 'evidence'
 TMP = Path(os.environ.get('RUNNER_TEMP', '/tmp'))
 OWNERS = {
     'LiveContainer': ('NRG-Wardog/LiveContainer', 'd0f19528ed2784b85dccb50647ee9e46c98aacc9'),
-    'SideStore': ('NRG-Wardog/SideStore', 'c8fe1e962fd21e1f93d89886edd5a0c207d29e4f'),
+    'SideStore': ('NRG-Wardog/SideStore', '40220d67736f7966eb4526e548909c5aac5910e9'),
     'AnisetteKit': ('NRG-Wardog/AnisetteKit', '3e670c2e1b72ff328d3a64353d8de2418df87e73'),
     'idevice': ('NRG-Wardog/idevice', '774f02a6d29777c85400f4ba7fa69c12b4227fb3'),
     'jktcp': ('NRG-Wardog/jktcp', 'a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9'),
-    'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', 'bd5f7975fd4cc9d57e7412dac1ddde0c3d81a28e'),
+    'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', 'd05efa30f37bad7c7ddaa50186fc1ac8ba703eca'),
     'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', '1d033920660c6f50b8f30c4c333f025867cd9e96'),
     'LiveContainer/OpenSSL': ('krzyzanowskim/OpenSSL', '623c84da314e85363236507ca38a4bde65df21c3'),
     'idevice/cpp/plist_ffi': ('jkcoxson/plist_ffi', '66e6e6362b58bc361725c3e1b0a34af498aa2b3a'),
