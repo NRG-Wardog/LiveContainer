@@ -18,7 +18,9 @@ class Controls(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        # macOS may expose the same temporary directory via /var and /private/var.
+        # Match the runner's canonical paths without relaxing evidence comparisons.
+        self.root = Path(self.temp.name).resolve()
         self.sources = self.root / 'sources'
         self.sources.mkdir()
         self.output = self.root / 'evidence'
@@ -204,6 +206,22 @@ class Controls(unittest.TestCase):
                 self.assertNotIn('-L',argv)
                 self.assertNotIn('-lAnisetteKit',argv)
                 self.assertNotIn('-framework',argv)
+
+    def test_symlink_backed_temp_root_preserves_exact_case_paths(self):
+        alias = self.root / 'temp-root-alias'
+        alias.symlink_to(self.root, target_is_directory=True)
+        # Force the macOS-style alias on every platform, then exercise the same
+        # setup and all command/receipt assertions rather than weakening equality.
+        with patch.object(tempfile, 'tempdir', str(alias)):
+            probe = Controls('test_complete_control_order_and_case_interchange')
+            try:
+                probe.setUp()
+                self.assertNotEqual(Path(probe.temp.name), Path(probe.temp.name).resolve())
+                probe.test_complete_control_order_and_case_interchange()
+                self.assertEqual(probe.root, Path(probe.temp.name).resolve())
+                self.assertEqual(probe.output, probe.root / 'evidence')
+            finally:
+                probe.doCleanups()
 
     def test_actual_failure_exit_code_retained(self):
         def fail(argv, **kwargs):
