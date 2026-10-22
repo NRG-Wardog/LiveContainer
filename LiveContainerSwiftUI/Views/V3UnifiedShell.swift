@@ -8177,6 +8177,7 @@ final class V3SideStoreStatusStore: ObservableObject {
     @Published private(set) var certificate = "Unknown"
     @Published private(set) var certificateExpiration: Date?
     @Published private(set) var pairing = "Unknown"
+    @Published private(set) var pairingSelection = "unknown"
     // V3_AUTH_SESSION_SNAPSHOT_V1: the service reports the authenticated Apple
     // session separately from the active account row, because authentication
     // completes before provisioning activates that row.
@@ -9068,6 +9069,7 @@ final class V3SideStoreStatusStore: ObservableObject {
         certificate = snapshot["certificate"] as? String ?? "Unknown"
         certificateExpiration = (snapshot["certificateExpiration"] as? Date).flatMap { $0 == .distantPast ? nil : $0 }
         pairing = snapshot["pairing"] as? String ?? "Unknown"
+        pairingSelection = snapshot["pairingSelection"] as? String ?? "unknown"
         authenticated = V3ServiceBridge.strictBool(snapshot["authenticated"]) ?? false
         pendingCertificateRecoveryState = V3PendingCertificateRecoveryState.decode(
             protocolVersion: V3ServiceBridge.strictInt(snapshot["pendingCertificateRecoveryProtocol"]),
@@ -14918,13 +14920,34 @@ enum V3PlacedPairingPresentation {
     enum Severity: String { case success, warning, error }
     static func result(_ outcome: String?) -> (message: String, severity: Severity) {
         switch outcome {
-        case "adoptedReady": return ("The placed pairing file is active and the device connection was verified.", .success)
-        case "adoptedConnectionNotReady": return ("The placed pairing file was adopted. The device connection is not ready yet. Check VPN and connection settings before refreshing.", .warning)
+        case "adoptedReady": return ("The device connection was verified for the saved pairing file.", .success)
+        case "adoptedConnectionNotReady": return ("The pairing file remains saved. The device connection could not be confirmed. Check the connection before refreshing.", .warning)
         case "adoptedCleanupUncertain": return ("The placed pairing file was adopted, but transport cleanup could not be confirmed. Do not refresh until the recovery check is complete.", .warning)
         default: return ("Reload status to confirm the pairing result.", .warning)
         }
     }
     static let failureMessage = "Pairing could not be confirmed. Check status before trying again. If a different pairing file already exists, use manual import."
+}
+
+// V3_PAIRING_SAVED_SELECTION_PRESENTATION_V1: current file state, not a replay
+// of an earlier live-ready result. Unknown wire values remain unknown.
+enum V3PairingSelectionPresentation {
+    static func isSaved(connected: Bool, observed: Bool, selection: String) -> Bool {
+        connected && observed && selection == "selected"
+    }
+
+    static func detail(connected: Bool, observed: Bool, selection: String) -> String {
+        guard connected && observed else { return "Saved pairing selection could not be confirmed." }
+        switch selection {
+        case "selected": return "Pairing file saved and selected."
+        case "available": return "The placed file is available but has not been selected."
+        case "reset": return "Pairing was reset. Use the placed file or import a file to enable it again."
+        case "missing": return "The selected pairing file is missing."
+        case "changed": return "The pairing files or selected protocol have changed. Check the selection before continuing."
+        case "invalid": return "The saved pairing file could not be validated."
+        default: return "Saved pairing selection could not be confirmed."
+        }
+    }
 }
 
 struct V3PairingView: View {
@@ -14935,6 +14958,7 @@ struct V3PairingView: View {
     @State private var pairingFailure: CombinedFailure?
     @State private var working = false
     @State private var placementTask: Task<Void, Never>?
+    @State private var selectionObserved = false
     var body: some View {
         List {
             Section("Status") {
@@ -14944,8 +14968,16 @@ struct V3PairingView: View {
                     V3LocalizedText(V3PairingPresentationPolicy.displayText(statusConnected: status.connected,
                         pairingStatus: status.pairing)).foregroundColor(.secondary)
                 }
+                V3LocalizedText(V3PairingSelectionPresentation.detail(connected: status.connected,
+                    observed: selectionObserved, selection: status.pairingSelection))
+                    .font(.footnote)
+                    .foregroundColor(V3PairingSelectionPresentation.isSaved(connected: status.connected,
+                        observed: selectionObserved, selection: status.pairingSelection) ? .green : .secondary)
                 if !message.isEmpty {
                     V3LocalizedText(message).font(.footnote).foregroundColor(messageSeverity == .success ? .green : (messageSeverity == .warning ? .orange : .red)).textSelection(.enabled)
+                } else {
+                    V3LocalizedText("Device connection has not been checked on this screen.")
+                        .font(.footnote).foregroundColor(.secondary)
                 }
             }
             if let failure = pairingFailure {
@@ -15043,6 +15075,13 @@ struct V3PairingView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Pairing File")
+        .task {
+            selectionObserved = false
+            message = ""
+            messageSeverity = .error
+            let outcome = await status.reloadAndWait()
+            if !Task.isCancelled { selectionObserved = outcome == .applied }
+        }
         .onDisappear { placementTask?.cancel() }
         .sheet(isPresented: $pickerPresented) {
             V3FilePicker(types: ["com.apple.property-list", "public.xml", "public.data"]) { url in
@@ -15090,6 +15129,7 @@ struct V3PairingView: View {
                 try Task.checkCancellation()
                 let result = try await V3ServiceBridge.shared.request(operation: "pairingUsePlaced")
                 status.finishDirectMutation(ticket: ticket, reply: result, requestReload: true)
+                guard !Task.isCancelled else { return }
                 let presentation = V3PlacedPairingPresentation.result(result["pairingPlacement"] as? String)
                 message = presentation.message
                 messageSeverity = presentation.severity
@@ -15097,6 +15137,8 @@ struct V3PairingView: View {
                     _ = await V3ServiceBridge.shared.acknowledgeDirectRecoveryAfterSuccess(
                         result, operation: "pairingUsePlaced")
                 }
+                let reloadOutcome = await status.reloadAndWait()
+                if !Task.isCancelled { selectionObserved = reloadOutcome == .applied }
             } catch {
                 status.finishDirectMutation(ticket: ticket, requestReload: true)
                 if let failure = error as? CombinedFailure {
@@ -17174,9 +17216,9 @@ struct V3SetupAssistantView: View {
     var body: some View {
         List {
             Section("Device") {
-                setupRow(icon: "app.badge.checkmark", title: "App Running",
+                setupRow(icon: "app.badge.checkmark", title: .appRunning,
                          state: setup.device, destination: nil)
-                setupRow(icon: "graduationcap", title: "Developer Mode",
+                setupRow(icon: "graduationcap", title: .developerMode,
                          state: V3SetupStepState(state: "warning", detail: "Guidance only: keep Developer Mode on in iOS Settings. Setup continues regardless."),
                          destination: nil)
             }
@@ -17185,7 +17227,7 @@ struct V3SetupAssistantView: View {
             // tool, so that is what the row explains first. Manual import stays
             // available as the secondary path.
             Section("Pairing") {
-                setupRow(icon: "link", title: "Pairing File",
+                setupRow(icon: "link", title: .pairingFile,
                          state: setup.pairing,
                          destination: AnyView(V3PairingView().environmentObject(status)))
                 if setup.pairing.state == "actionRequired" {
@@ -17213,7 +17255,7 @@ struct V3SetupAssistantView: View {
                     .navigationViewStyle(StackNavigationViewStyle())
             }
             Section("Apple Account") {
-                setupRow(icon: "person.crop.circle", title: "Apple ID",
+                setupRow(icon: "person.crop.circle", title: .appleID,
                          state: setup.account,
                          destination: AnyView(V3SignInView().environmentObject(status)))
             }
@@ -17224,7 +17266,7 @@ struct V3SetupAssistantView: View {
                 // actually outstanding.
                 let jitless = V3JITLessPresentation.present(status.jitlessReadiness ?? .unknown)
                 Section("JIT-Less Mode") {
-                    setupRow(icon: jitless.icon, title: "JIT-Less",
+                    setupRow(icon: jitless.icon, title: .jitless,
                              state: V3SetupStepState(
                                 state: jitless.isOutstandingSetupTask ? setup.jitless.state : "complete",
                                 detail: jitless.title),
@@ -17258,9 +17300,9 @@ struct V3SetupAssistantView: View {
                 }
             }
             Section("Network") {
-                setupRow(icon: "wifi", title: "Wi-Fi",
+                setupRow(icon: "wifi", title: .wifi,
                          state: setup.network, destination: nil)
-                setupRow(icon: "network", title: "VPN Tunnel",
+                setupRow(icon: "network", title: .vpnTunnel,
                          state: setup.tunnel, destination: nil)
                 if setup.tunnel.state == "actionRequired" {
                     Button {
@@ -17270,11 +17312,11 @@ struct V3SetupAssistantView: View {
                     }
                     .disabled(vpnWorking)
                 }
-                setupRow(icon: "cpu", title: "CoreDevice",
+                setupRow(icon: "cpu", title: .coreDevice,
                          state: coredeviceState(), destination: nil)
             }
             Section("Background Refresh") {
-                setupRow(icon: "clock.arrow.circlepath", title: "Background App Refresh",
+                setupRow(icon: "clock.arrow.circlepath", title: .backgroundRefresh,
                          state: setup.background, destination: nil)
                 if setup.background.state == "warning" {
                     Button {
@@ -17295,17 +17337,17 @@ struct V3SetupAssistantView: View {
                 }
             }
             Section("Automatic Refresh") {
-                setupRow(icon: "calendar.badge.clock", title: "Schedule",
+                setupRow(icon: "calendar.badge.clock", title: .schedule,
                          state: setup.localizedScheduleState(language: V3AppLanguage.resolve(dateLocale.identifier)),
                          destination: AnyView(V3RefreshDetailView()))
             }
             Section("Verification") {
-                setupRow(icon: "signature", title: "Installed Host Signing",
+                setupRow(icon: "signature", title: .installedHostSigning,
                     state: V3SetupStepState(
                         state: status.installedHostSigningState == .compatible ? "complete" : "warning",
                         detail: status.installedHostSigningState.detail),
                     destination: AnyView(V3CertificatesView().environmentObject(status)))
-                setupRow(icon: "checkmark.seal", title: "Test Refresh",
+                setupRow(icon: "checkmark.seal", title: .testRefresh,
                          state: setup.verification, destination: nil)
                 if !setup.verificationGuidance.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
@@ -17447,7 +17489,7 @@ struct V3SetupAssistantView: View {
         return V3SetupStepState(state: "unavailable", detail: "Checked after a successful refresh")
     }
     @ViewBuilder
-    private func setupRow(icon: String, title: String, state: V3SetupStepState, destination: AnyView?) -> some View {
+    private func setupRow(icon: String, title: V3SetupTitle, state: V3SetupStepState, destination: AnyView?) -> some View {
         if let destination {
             NavigationLink(destination: destination.onDisappear {
                 // V3_AWAITABLE_RELOAD_V1: returning from a setup destination may
@@ -17463,13 +17505,13 @@ struct V3SetupAssistantView: View {
             rowContent(icon: icon, title: title, state: state, linked: false)
         }
     }
-    private func rowContent(icon: String, title: String, state: V3SetupStepState, linked: Bool) -> some View {
+    private func rowContent(icon: String, title: V3SetupTitle, state: V3SetupStepState, linked: Bool) -> some View {
         HStack(spacing: 12) {
             Image(systemName: stateIcon(state.state))
                 .foregroundColor(stateColor(state.state))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                V3LocalizedText(title).font(.headline)
+                Text(verbatim: title.localized(language: .resolve(dateLocale.identifier))).font(.headline)
                 Group {
                     if state.detailIsOpaque { Text(state.detail) }
                     else { V3LocalizedText(state.detail.isEmpty ? stateLabel(state.state) : state.detail) }
@@ -17485,7 +17527,7 @@ struct V3SetupAssistantView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(V3Localization.format("%@, %@", V3Localization.prose(title), V3Localization.prose(stateLabel(state.state))))
+        .accessibilityLabel(V3Localization.format("%@, %@", title.localized(language: .resolve(dateLocale.identifier)), V3Localization.prose(stateLabel(state.state), language: .resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
     }
     private func stateIcon(_ state: String) -> String {
         switch state {

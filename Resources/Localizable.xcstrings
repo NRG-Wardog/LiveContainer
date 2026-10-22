@@ -1,6 +1,396 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Pairing file saved and selected.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing file saved and selected."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קובץ הצימוד נשמר ונבחר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对文件已保存并选中。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配對檔案已儲存並選取。"
+          }
+        }
+      }
+    },
+    "The placed file is available but has not been selected.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The placed file is available but has not been selected."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הקובץ שהוצב זמין, אך טרם נבחר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已放置的文件可用，但尚未选中。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已放置的檔案可用，但尚未選取。"
+          }
+        }
+      }
+    },
+    "Pairing was reset. Use the placed file or import a file to enable it again.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing was reset. Use the placed file or import a file to enable it again."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הצימוד אופס. כדי להפעיל אותו שוב, יש להשתמש בקובץ שהוצב או לייבא קובץ."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对已重置。请使用已放置的文件或导入文件，以重新启用配对。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配對已重設。請使用已放置的檔案或匯入檔案，以重新啟用配對。"
+          }
+        }
+      }
+    },
+    "The selected pairing file is missing.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected pairing file is missing."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קובץ הצימוד שנבחר חסר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选的配对文件缺失。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選的配對檔案遺失。"
+          }
+        }
+      }
+    },
+    "The pairing files or selected protocol have changed. Check the selection before continuing.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pairing files or selected protocol have changed. Check the selection before continuing."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קובצי הצימוד או הפרוטוקול שנבחר השתנו. יש לבדוק את הבחירה לפני שממשיכים."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对文件或所选协议已更改。请在继续之前检查选择。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配對檔案或所選通訊協定已變更。請在繼續之前檢查選取項目。"
+          }
+        }
+      }
+    },
+    "The saved pairing file could not be validated.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved pairing file could not be validated."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה לאמת את קובץ הצימוד שנשמר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证已保存的配对文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法驗證已儲存的配對檔案。"
+          }
+        }
+      }
+    },
+    "Saved pairing selection could not be confirmed.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved pairing selection could not be confirmed."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה לאשר את בחירת קובץ הצימוד שנשמרה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法确认已保存的配对文件选择。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法確認已儲存的配對檔案選取項目。"
+          }
+        }
+      }
+    },
+    "Device connection has not been checked on this screen.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device connection has not been checked on this screen."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החיבור למכשיר לא נבדק במסך זה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未在此屏幕上检查设备连接。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未在此畫面上檢查裝置連線。"
+          }
+        }
+      }
+    },
+    "The device connection was verified for the saved pairing file.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device connection was verified for the saved pairing file."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החיבור למכשיר אומת עבור קובץ הצימוד שנשמר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已验证使用已保存配对文件的设备连接。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已驗證使用已儲存配對檔案的裝置連線。"
+          }
+        }
+      }
+    },
+    "The pairing file remains saved. The device connection could not be confirmed. Check the connection before refreshing.": {
+      "comment": "Finite pairing status copy. Saved selection and current device-connection evidence are separate states.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pairing file remains saved. The device connection could not be confirmed. Check the connection before refreshing."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קובץ הצימוד נותר שמור. לא ניתן היה לאשר את החיבור למכשיר. יש לבדוק את החיבור לפני הרענון."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对文件仍已保存。无法确认设备连接。请在刷新之前检查连接。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配對檔案仍已儲存。無法確認裝置連線。請在重新整理之前檢查連線。"
+          }
+        }
+      }
+    },
+    "JIT-Less": {
+      "comment": "Setup Assistant row title. Keep this technical feature name unchanged in all supported languages.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JIT-Less"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JIT-Less"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JIT-Less"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JIT-Less"
+          }
+        }
+      }
+    },
+    "Wi-Fi": {
+      "comment": "Setup Assistant row title. Keep this technical feature name unchanged in all supported languages.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi"
+          }
+        }
+      }
+    },
+    "CoreDevice": {
+      "comment": "Setup Assistant row title. Keep this technical feature name unchanged in all supported languages.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CoreDevice"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CoreDevice"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CoreDevice"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CoreDevice"
+          }
+        }
+      }
+    },
     "\nA retained guest still owns this container. Close its existing window before relaunching.": {
       "extractionState": "manual",
       "localizations": {
@@ -86373,6 +86763,186 @@
           "stringUnit": {
             "state": "translated",
             "value": "配對需要處理"
+          }
+        }
+      }
+    },
+    "The saved remote provider identity is invalid. It was not replaced.": {
+      "comment": "Finite local remote-identity failure. Never interpolate identity, account, token or registration data.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved remote provider identity is invalid. It was not replaced."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הזהות השמורה של הספק המרוחק אינה תקינה. היא לא הוחלפה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存的远程服务提供方身份无效，未被替换。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存的遠端服務提供者身分無效，未被取代。"
+          }
+        }
+      }
+    },
+    "The saved remote provider identity could not be verified in protected storage.": {
+      "comment": "Finite local remote-identity failure. Never interpolate identity, account, token or registration data.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved remote provider identity could not be verified in protected storage."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה לאמת את הזהות השמורה של הספק המרוחק באחסון המוגן."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法在受保护的存储中验证保存的远程服务提供方身份。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法在受保護的儲存空間中驗證已儲存的遠端服務提供者身分。"
+          }
+        }
+      }
+    },
+    "The active account or remote provider identity changed during this request.": {
+      "comment": "Finite local remote-identity failure. Never interpolate identity, account, token or registration data.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The active account or remote provider identity changed during this request."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החשבון הפעיל או זהות הספק המרוחק השתנו במהלך הבקשה הזאת."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在此请求期间，当前账户或远程服务提供方身份发生了变化。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在此請求期間，目前帳號或遠端服務提供者身分發生了變更。"
+          }
+        }
+      }
+    },
+    "Keep the saved identity unchanged and copy Diagnostics before retrying.": {
+      "comment": "Finite local remote-identity failure. Never interpolate identity, account, token or registration data.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the saved identity unchanged and copy Diagnostics before retrying."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "השאר את הזהות השמורה ללא שינוי והעתק את האבחון לפני ניסיון נוסף."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请保持保存的身份不变，并在重试前复制诊断信息。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保持儲存的身分不變，並在重試前複製診斷資訊。"
+          }
+        }
+      }
+    },
+    "Open Account & Signing and sign in again. The local pairing file and certificates are kept.": {
+      "comment": "Finite local remote-identity failure. Never interpolate identity, account, token or registration data.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Account & Signing and sign in again. The local pairing file and certificates are kept."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פתח את חשבון וחתימה והיכנס שוב. קובץ הצימוד המקומי והתעודות נשמרים."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开“账户与签名”并重新登录。本地配对文件和证书将会保留。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟「帳號與簽署」並重新登入。本機配對檔案和憑證將會保留。"
+          }
+        }
+      }
+    },
+    "This saved session needs one manual sign-in to confirm its provider identity.": {
+      "comment": "Finite local remote-identity failure. Never interpolate identity, account, token or registration data.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This saved session needs one manual sign-in to confirm its provider identity."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "נדרשת כניסה ידנית אחת כדי לאמת את זהות הספק של ההפעלה השמורה הזאת."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此已保存的会话需要手动登录一次，以确认其服务提供方身份。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此已儲存的工作階段需要手動登入一次，以確認其服務提供者身分。"
           }
         }
       }

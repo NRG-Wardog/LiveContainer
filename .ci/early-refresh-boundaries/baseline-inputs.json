@@ -1,0 +1,156 @@
+{
+  "schema": "early-refresh-exact-baseline-inputs-v1",
+  "source_commits": {
+    "LiveContainer": "cb21f150e8907d2f8ed1bc7658342bac3fbb9926",
+    "SideStore": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6"
+  },
+  "files": [
+    {
+      "path": "LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift",
+      "repository": "LiveContainer",
+      "commit": "cb21f150e8907d2f8ed1bc7658342bac3fbb9926",
+      "git_object_path": "LiveContainerSwiftUI/App/AppDelegate.swift",
+      "sha256": "c6d50fee591f83397a9b53c2eefe7d2d5573c3ebab3f9bf4f2352856b7f3abaa"
+    },
+    {
+      "path": "LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift",
+      "repository": "LiveContainer",
+      "commit": "cb21f150e8907d2f8ed1bc7658342bac3fbb9926",
+      "git_object_path": "LiveContainerSwiftUI/Views/V3UnifiedShell.swift",
+      "sha256": "ecc7ca72f0d463e491616d080850d60c1be377e2bc94bc499ee9ed19b361676f"
+    },
+    {
+      "path": "LiveContainer/SideStoreSupport/SideStore.swift",
+      "repository": "LiveContainer",
+      "commit": "cb21f150e8907d2f8ed1bc7658342bac3fbb9926",
+      "git_object_path": "SideStoreSupport/SideStore.swift",
+      "sha256": "ab3c5cdfb7376abdd32d392b555b500617c7e39854d230efaf198a01474cbdce"
+    },
+    {
+      "path": "LiveContainer/SideStoreSupport/SideStoreClient.swift",
+      "repository": "LiveContainer",
+      "commit": "cb21f150e8907d2f8ed1bc7658342bac3fbb9926",
+      "git_object_path": "SideStoreSupport/SideStoreClient.swift",
+      "sha256": "9e03646c42531af98b150c7866a6b1bb8297b5d8cb285b7a5da739dce985aed5"
+    },
+    {
+      "path": "SideStore/AltStore/AppDelegate.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "AltStore/AppDelegate.swift",
+      "sha256": "74f1783a84328f25c1566649bc71b00a69772d4b1e00f9805b14e9efd063fd37"
+    },
+    {
+      "path": "SideStore/AltStore/Core/Model/StoreApp.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "AltStore/Core/Model/StoreApp.swift",
+      "sha256": "7fbfbbfd3c5a499eecd94706e51f31fd30dc33f4d4680e5aba173552a526f7e8"
+    },
+    {
+      "path": "SideStore/AltStore/Intents/App Intents/RefreshAllAppsIntent.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "AltStore/Intents/App Intents/RefreshAllAppsIntent.swift",
+      "sha256": "f1bbc0093e1349be884bd33785f204b529a63e5c7e509e8a9806990c877fd055"
+    },
+    {
+      "path": "SideStore/AltStore/Managing Apps/AppManager.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "AltStore/Managing Apps/AppManager.swift",
+      "sha256": "bd31d761c8fc4fd0e8963231cb7f5b5d517ab42628d17c3e828c94ce9c194321"
+    },
+    {
+      "path": "SideStore/Shared/Errors/ALTWrappedError.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "Shared/Errors/ALTWrappedError.swift",
+      "sha256": "7c256bc94613109a34bf603397ef5f4d59e83871a57f3e98600dec6ad477fec0"
+    },
+    {
+      "path": "SideStore/Shared/Extensions/Bundle+AltStore.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "Shared/Extensions/Bundle+AltStore.swift",
+      "sha256": "c89b4b41cce3c16ef15091e37e549d2c3543b0789fee0248f6ea8a23ee789f7b"
+    },
+    {
+      "path": "SideStore/Shared/Extensions/NSError+AltStore.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "Shared/Extensions/NSError+AltStore.swift",
+      "sha256": "eca209ba021071d4d0daf351ccf338559de0fb6b1fae5631f7e2655989b7e516"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Auth/AuthManager.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Auth/AuthManager.swift",
+      "sha256": "d2bfabc3557de31765ce760604b9570b8cb9c56ac9205681ecce539af82bbe5d"
+    },
+    {
+      "path": "SideStore/SideStore/Core/DeviceApi/MinimuxerWrapper.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/DeviceApi/MinimuxerWrapper.swift",
+      "sha256": "6c951fa1b000923c62081330ca34cbaebd7301ef2dcd652b9cdf939db5c41f11"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/AppOperation.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Operations/AppOperation.swift",
+      "sha256": "1d078ee70af9870e86ffdeea713d1410163eeb7990bdf264c245fa6b39f9b9eb"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/Errors/OperationError.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Operations/Errors/OperationError.swift",
+      "sha256": "0df82c2b27c8f7da6147bf4b2856609decd7e3be59370f45851018d2a2fe70e2"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/OperationStep.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Operations/OperationStep.swift",
+      "sha256": "2293b15da7ee02363b9d25b05760d2756a206b539814a108e00a0c9c541ed398"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/PipelineExecutor.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Operations/PipelineExecutor.swift",
+      "sha256": "88fc04a1aef2e13c63bffe6c76683e1d5c5fa93282a5083e9fdcdfda551cb7f1"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/PipelineOperations/PreflightChecksOperation.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Operations/PipelineOperations/PreflightChecksOperation.swift",
+      "sha256": "4c68e6a1eac9e56cb3b654c281e930611bce292b59e97057da1f95aca5ee331a"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/PipelineRunner.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Operations/PipelineRunner.swift",
+      "sha256": "92d21d6db5b8cd4c50b614eee22f0a4b46e0891101d0189516e56004f8dc1bb6"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/RefreshGroup.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Operations/RefreshGroup.swift",
+      "sha256": "525c6485dc55c325459ff6d611fc1da594e38b2f197fe0623eeaecea569ca91f"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/StandaloneOperations/BackgroundRefreshAppsOperation.swift",
+      "repository": "SideStore",
+      "commit": "638fa62ce2a540efe6c92dd20c282c32ddc0b2e6",
+      "git_object_path": "SideStore/Core/Operations/StandaloneOperations/BackgroundRefreshAppsOperation.swift",
+      "sha256": "785325c774abcad22a58850ffc5600bbb41890f2bfed28348082294841840dd6"
+    }
+  ]
+}

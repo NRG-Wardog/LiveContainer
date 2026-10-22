@@ -35,6 +35,33 @@ enum V3AppLanguage: String, CaseIterable, Identifiable {
     static func persist(_ value: Self) { V3Localization.hostDefaults.set(value.rawValue, forKey: storageKey) }
 }
 
+// V3_SETUP_TITLE_LOCALIZATION_V1: only these compile-time-owned row titles may
+// fall back to English/source copy. Dynamic details and provider errors remain
+// on V3Localization.prose's fail-closed path, including in the setup assistant.
+enum V3SetupTitle: String, CaseIterable {
+    case appRunning = "App Running"
+    case developerMode = "Developer Mode"
+    case pairingFile = "Pairing File"
+    case appleID = "Apple ID"
+    case jitless = "JIT-Less"
+    case wifi = "Wi-Fi"
+    case vpnTunnel = "VPN Tunnel"
+    case coreDevice = "CoreDevice"
+    case backgroundRefresh = "Background App Refresh"
+    case schedule = "Schedule"
+    case installedHostSigning = "Installed Host Signing"
+    case testRefresh = "Test Refresh"
+
+    func localized(language: V3AppLanguage = .selected,
+                   bundle: Bundle = V3Localization.hostBundle) -> String {
+        let value = V3Localization.string(rawValue, language: language, bundle: bundle)
+        if !value.isEmpty { return value }
+        // A malformed empty translation must not erase the owned row title.
+        let english = V3Localization.string(rawValue, language: .english, bundle: bundle)
+        return english.isEmpty ? rawValue : english
+    }
+}
+
 enum V3Localization {
     // LiveContainerMain captures these objects before any guest swaps Foundation
     // defaults/bundle. Standalone fixtures have no selectors and use their own domain.
