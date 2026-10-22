@@ -12,8 +12,8 @@ S = ROOT / 'sources'
 E = ROOT / 'evidence'
 TMP = Path(os.environ.get('RUNNER_TEMP', '/tmp'))
 OWNERS = {
-    'LiveContainer': ('NRG-Wardog/LiveContainer', 'c20d8289bb72fdca07dd08506c37ead6d9da37da'),
-    'SideStore': ('NRG-Wardog/SideStore', '6c8ae29c0a9448a83ca710ea484d91d6b2d143cd'),
+    'LiveContainer': ('NRG-Wardog/LiveContainer', 'd22f7c0ea32be749517a20deb719f8c11891f731'),
+    'SideStore': ('NRG-Wardog/SideStore', '606707ee6789b8db1dcbddf9ebe52205338f373d'),
     'AnisetteKit': ('NRG-Wardog/AnisetteKit', '3e670c2e1b72ff328d3a64353d8de2418df87e73'),
     'idevice': ('NRG-Wardog/idevice', '774f02a6d29777c85400f4ba7fa69c12b4227fb3'),
     'jktcp': ('NRG-Wardog/jktcp', 'a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9'),

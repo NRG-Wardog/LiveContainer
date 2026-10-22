@@ -20,6 +20,8 @@ COMMANDS = ('legacy-generate', 'legacy-compile', 'legacy-run',
             'wire-source', 'wire-generate', 'wire-service-compile', 'wire-host-compile',
             'wire-service-run', 'wire-host-run',
             'pairing-source', 'pairing-generate', 'pairing-compile', 'pairing-run',
+            'recovery-source', 'recovery-generate', 'recovery-compile', 'recovery-run',
+            'deferred-prior-extract', 'deferred-prior-generate', 'deferred-prior-compile', 'deferred-prior-run',
             'deferred-source', 'deferred-generate', 'deferred-compile', 'deferred-run')
 AUTH_FILES = ('CandidateAuthentication.swift', 'BaselineAuthentication.swift',
               'AuthenticationDiagnosticTrace.swift', 'Errors.swift', 'Types.swift',
@@ -89,13 +91,49 @@ SETUP_FIXTURES = {
         'command': 'deferred', 'root': 'SideStore/.ci/deferred-device-setup',
         'generator': 'generate.py', 'source_test': 'test_source.py', 'output_arg': '--output-dir',
         'files': ('CandidateDeferredSetup.swift', 'BoundaryDoubles.swift', 'RuntimeTests.swift'),
-        'sources': ('SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
+        'sources': ('SideStore/AltStore/Core/Components/Keychain.swift',
+                    'SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
                     'SideStore/SideStore/Core/Pairing/PairingFileManager.swift',
                     'LiveContainer/SideStoreSupport/SideStore.swift',
                     'SideStore/AltStore/AppDelegate.swift',
                     'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift'),
     },
 }
+PAIRING_RECOVERY_MARKER = 'PAIRING_RECOVERY_BOUNDARY_PASS'
+PAIRING_RECOVERY_BASELINE_STORE_SHA256 = '7f2e5adb99e4e990513152d59c2e7e931d871e4e3c5bbc9f32344a180b4ac19a'
+PAIRING_RECOVERY_INPUT_PATHS = {
+    'host': 'LiveContainer/SideStoreSupport/SideStore.swift',
+    'service': 'SideStore/AltStore/AppDelegate.swift',
+    'ui': 'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
+    'localization': 'LiveContainer/LiveContainerSwiftUI/Utilities/V3Localization.swift',
+    'settings': 'LiveContainer/LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift',
+    'catalog': 'LiveContainer/Resources/Localizable.xcstrings',
+}
+PAIRING_RECOVERY_FIXTURE_PATHS = tuple(WIRE + '/' + name for name in (
+    'generate_pairing_recovery_fixture.py', 'pairing_recovery_harness.swift',
+    'test_pairing_recovery_contract.py', 'generate_wire_fixture.py'))
+PAIRING_RECOVERY_OUTPUTS = ('fixture.swift', 'TestLocalization.bundle/Info.plist',
+    'TestLocalization.bundle/en.lproj/Localizable.strings',
+    'TestLocalization.bundle/he.lproj/Localizable.strings',
+    'TestLocalization.bundle/zh-Hans.lproj/Localizable.strings',
+    'TestLocalization.bundle/zh-Hant.lproj/Localizable.strings')
+REQUIRED_INPUTS.update(PAIRING_RECOVERY_INPUT_PATHS.values())
+REQUIRED_INPUTS.update(PAIRING_RECOVERY_FIXTURE_PATHS)
+
+DEFERRED_PRIOR_MARKER = 'DEFERRED_PRIOR_PEM_REJECTION_REPRODUCED'
+DEFERRED_SYSTEM_FRAMEWORKS = ('Security', 'CryptoKit')
+DEFERRED_BASELINE_OWNERS = {
+    'LiveContainer': {'commit': 'c20d8289bb72fdca07dd08506c37ead6d9da37da',
+                      'tree': '5e92e4275c0b59e48662be9966ef8c2a3f7e0e04'},
+    'SideStore': {'commit': '6c8ae29c0a9448a83ca710ea484d91d6b2d143cd',
+                  'tree': 'f4955c1e4a510b10b0022f2dc7e81ae4002b56bd'},
+}
+SYSTEM_CRYPTO_BOUNDARY = {
+    'platform': 'darwin', 'frameworks': list(DEFERRED_SYSTEM_FRAMEWORKS),
+    'synthetic_in_memory_identities_only': True, 'real_keychain_access': False,
+    'personal_keys_or_certificates': False, 'native_vendor_provider': False,
+}
+
 for _spec in SETUP_FIXTURES.values():
     REQUIRED_INPUTS.update(_spec['sources'])
     REQUIRED_INPUTS.update(_spec['root'] + '/' + name for name in
@@ -159,6 +197,17 @@ def load_contract(path):
         require(isinstance(names, list) and names and
                 all(isinstance(name, str) and name and 'PENDING' not in name for name in names) and
                 len(names) == len(set(names)), 'Unbound or malformed setup case contract: ' + suite)
+    names = contract.get('pairing_recovery_case_names')
+    require(isinstance(names, list) and names and len(names) == len(set(names)) and
+            all(isinstance(n, str) and n and 'PENDING' not in n for n in names),
+            'Missing or malformed pairing recovery case contract')
+    baseline = contract.get('deferred_baseline')
+    require(isinstance(baseline, dict) and baseline.get('owners') == DEFERRED_BASELINE_OWNERS,
+            'Missing exact deferred baseline owners')
+    hashes = baseline.get('input_sha256')
+    require(isinstance(hashes, dict) and set(hashes) == set(SETUP_FIXTURES['deferred-device-setup']['sources']) and
+            all(isinstance(v, str) and re.fullmatch('[0-9a-f]{64}', v) for v in hashes.values()),
+            'Incomplete deferred baseline source hashes')
     return contract
 
 
@@ -278,6 +327,72 @@ def setup_extraction_receipt(output, contract, suite, spec):
             all(isinstance(item, str) and item for item in boundaries) and
             len(boundaries) == len(set(boundaries)), 'Missing or duplicate setup boundary receipt: ' + suite)
     return {'path': path.relative_to(output).as_posix(), 'sha256': digest(path.read_bytes())}
+
+
+def pairing_recovery_extraction(output, contract, before_compile=False):
+    root = output / 'pairing-recovery'
+    path = regular(root, 'sources.json')
+    value = json.loads(path.read_text())
+    require(value.get('status') == 'generated_not_compiled', 'Pairing recovery generator executed unexpectedly')
+    require(value.get('schema') == 'pairing-recovery-sources-v1' and
+            sorted(value.get('case_names', [])) == sorted(contract['pairing_recovery_case_names']),
+            'Pairing recovery source schema/case closure differs')
+    require(value.get('input_sha256') == {key: contract['input_sha256'][name]
+            for key, name in PAIRING_RECOVERY_INPUT_PATHS.items()}, 'Pairing recovery source hashes differ')
+    require(value.get('fixture_inputs') == {Path(name).name: contract['input_sha256'][name]
+            for name in PAIRING_RECOVERY_FIXTURE_PATHS}, 'Pairing recovery fixture input hashes differ')
+    require(value.get('baseline_store_sha256') == PAIRING_RECOVERY_BASELINE_STORE_SHA256,
+            'Pairing recovery delivered baseline method differs')
+    outputs = {name: digest(regular(root, name).read_bytes()) for name in PAIRING_RECOVERY_OUTPUTS}
+    require(value.get('output_sha256') == outputs and value.get('fixture_sha256') == outputs['fixture.swift'],
+            'Pairing recovery generated Swift/bundle hashes differ')
+    for key in ('owned_paths', 'doubles'):
+        require(isinstance(value.get(key), list) and value[key] and
+                all(isinstance(item, str) and item for item in value[key]), 'Missing pairing recovery boundary: ' + key)
+    actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+    allowed = set(PAIRING_RECOVERY_OUTPUTS) | {'sources.json'}
+    if not before_compile: allowed |= {'fixture', 'cases.json'}
+    require(actual <= allowed and allowed - {'fixture', 'cases.json'} <= actual,
+            'Pairing recovery output closure differs')
+    return {'path': 'pairing-recovery/sources.json', 'sha256': digest(path.read_bytes()),
+            'output_sha256': outputs, 'baseline_store_sha256': value['baseline_store_sha256']}
+
+
+def pairing_recovery_export(output, contract):
+    path = regular(output, 'pairing-recovery/cases.json')
+    value = json.loads(path.read_text())
+    require(value.get('status') == 'pass' and value.get('native_pairing_executed') is False,
+            'Pairing recovery runtime boundary differs')
+    return setup_exported_cases(path, 'pairing-recovery', contract['pairing_recovery_case_names'])
+
+
+def generated_swift_inventory(output):
+    return {p.relative_to(output).as_posix(): digest(p.read_bytes())
+            for p in sorted(output.rglob('*.swift')) if p.is_file() and
+            not p.relative_to(output).as_posix().startswith('deferred-prior-pem/sources/')}
+
+
+def deferred_prior_receipt(output, contract):
+    root = output / 'deferred-prior-pem'
+    source_path = regular(root, 'baseline-sources.json')
+    receipt = json.loads(source_path.read_text())
+    baseline = contract['deferred_baseline']
+    expected = {'schema': 'deferred-prior-pem-sources-v1', 'origin': 'exact-local-git-objects',
+                'owners': baseline['owners'], 'input_sha256': baseline['input_sha256'],
+                'network': False, 'target_execution': False}
+    require(receipt == expected, 'Prior deferred source receipt differs')
+    for name, value in baseline['input_sha256'].items():
+        require(digest(regular(root / 'sources', name).read_bytes()) == value,
+                'Prior deferred source bytes differ: ' + name)
+    projected = dict(contract)
+    projected['input_sha256'] = dict(contract['input_sha256'], **baseline['input_sha256'])
+    extraction = setup_extraction_receipt(root, projected, 'deferred-device-setup',
+                                        SETUP_FIXTURES['deferred-device-setup'])
+    extraction['path'] = 'deferred-prior-pem/' + extraction['path']
+    return {'source_receipt_path': 'deferred-prior-pem/baseline-sources.json',
+            'source_receipt_sha256': digest(source_path.read_bytes()), 'extraction': extraction,
+            'owners': baseline['owners'], 'input_sha256': baseline['input_sha256'],
+            'required_marker': DEFERRED_PRIOR_MARKER, 'system_crypto_boundary': SYSTEM_CRYPTO_BOUNDARY}
 
 
 def extraction_receipt(output, contract):
@@ -428,8 +543,15 @@ def verify_receipt(path, contract_path=None):
         require(report.get(key) is False, 'Forbidden execution in receipt: ' + key)
     require(report.get('source_owned_fake_authentication_executed') is True, 'Source-owned fake authentication did not run')
     require(report.get('extraction_manifests') == extraction_receipt(path.parent, contract), 'Extraction evidence receipt differs')
-    require(report.get('generated_swift_sha256') == {p.relative_to(path.parent).as_posix(): digest(p.read_bytes())
-            for p in sorted(path.parent.rglob('*.swift')) if p.is_file()}, 'Generated Swift receipt differs')
+    require(report.get('generated_swift_sha256') == generated_swift_inventory(path.parent), 'Generated Swift receipt differs')
+    require(report.get('pairing_recovery_extraction') == pairing_recovery_extraction(path.parent, contract),
+            'Pairing recovery extraction receipt differs')
+    require(report.get('pairing_recovery_cases') == pairing_recovery_export(path.parent, contract),
+            'Pairing recovery export receipt differs')
+    require(report.get('deferred_prior_pem_rejection') == deferred_prior_receipt(path.parent, contract),
+            'Prior deferred actual-crypto proof differs')
+    require(report.get('system_crypto_synthetic_fixture_executed') is True and
+            report.get('system_crypto_boundary') == SYSTEM_CRYPTO_BOUNDARY, 'Missing bounded system-crypto evidence')
     commands = report.get('commands', [])
     require([row.get('name') for row in commands] == list(COMMANDS) and
             all(row.get('exit_code') == 0 for row in commands), 'Incomplete successful command receipt')
@@ -441,6 +563,16 @@ def verify_receipt(path, contract_path=None):
         require(digest(logfile.read_bytes()) == row['stdout_sha256'], 'Command log hash mismatch')
     marks = contract['success_markers']
     by_name = {row['name']: row for row in commands}
+    recovery = by_name['recovery-run']
+    require(recovery.get('success_marker') == PAIRING_RECOVERY_MARKER, 'Pairing recovery marker differs')
+    require_marker(regular(path.parent, recovery['log']).read_text(), PAIRING_RECOVERY_MARKER)
+    prior = by_name['deferred-prior-run']
+    require(prior.get('success_marker') == DEFERRED_PRIOR_MARKER, 'Prior PEM marker receipt differs')
+    require_marker(regular(path.parent, prior['log']).read_text(), DEFERRED_PRIOR_MARKER)
+    for name in ('deferred-prior-compile', 'deferred-compile'):
+        argv = by_name[name]['argv']
+        actual = [argv[i + 1] for i, value in enumerate(argv[:-1]) if value == '-framework']
+        require(actual == list(DEFERRED_SYSTEM_FRAMEWORKS), 'Synthetic crypto framework closure differs')
     for name, key in (('legacy-run','legacy'),('auth-run','auth'),('iloader-run','iloader'),
                       ('onboarding-run','onboarding'),('profile-run','profile'),
                       ('wire-service-run','wire_service'),('wire-host-run','wire_host'),
@@ -502,11 +634,15 @@ def run(sources, swiftc, output, contract_path=None):
         return regular(sources, name)
     def python(name):
         return [sys.executable, '-B', source(name)]
-    def compile_fixture(name, files, binary, library=False):
+    def compile_fixture(name, files, binary, library=False, frameworks=()):
         for file in files:
             require(file.is_file() and not file.is_symlink() and file.resolve().is_relative_to(output),
                     'Missing or unsafe generated Swift input: ' + str(file))
+        require(frameworks in ((), DEFERRED_SYSTEM_FRAMEWORKS), 'Unexpected system frameworks')
+        if frameworks:
+            require(sys.platform == 'darwin', 'Synthetic Security/CryptoKit fixture requires macOS')
         argv = [swiftc, '-swift-version', '5'] + (['-parse-as-library'] if library else [])
+        argv += [part for framework in frameworks for part in ('-framework', framework)]
         runner.command(name, argv + files + ['-o', binary])
     try:
         marks = contract['success_markers']
@@ -576,6 +712,24 @@ def run(sources, swiftc, output, contract_path=None):
         for suite, spec in SETUP_FIXTURES.items():
             folder = output / suite
             prefix = spec['command']
+            if suite == 'deferred-device-setup':
+                prior = output / 'deferred-prior-pem'
+                prior.mkdir()
+                baseline_sources = prior / 'sources'
+                baseline_output = prior / suite
+                baseline_output.mkdir()
+                runner.command('deferred-prior-extract', [sys.executable, '-B', HERE / 'extract_deferred_baseline.py',
+                    '--sources', sources, '--contract', contract_path, '--output', baseline_sources,
+                    '--receipt', prior / 'baseline-sources.json'])
+                runner.command('deferred-prior-generate', python(spec['root'] + '/' + spec['generator']) +
+                    ['--sources', baseline_sources, spec['output_arg'], baseline_output])
+                require({p.name for p in baseline_output.glob('*.swift')} == set(spec['files']),
+                        'Prior deferred Swift closure differs')
+                report['deferred_prior_pem_rejection'] = deferred_prior_receipt(output, contract)
+                compile_fixture('deferred-prior-compile', [baseline_output / name for name in spec['files']],
+                    baseline_output / 'fixture', library=True, frameworks=DEFERRED_SYSTEM_FRAMEWORKS)
+                runner.command('deferred-prior-run', [baseline_output / 'fixture', '--expect-prior-pem-rejection'],
+                               DEFERRED_PRIOR_MARKER)
             runner.command(prefix + '-source', python(spec['root'] + '/' + spec['source_test']) +
                            ['--sources', sources])
             runner.command(prefix + '-generate', python(spec['root'] + '/' + spec['generator']) +
@@ -586,12 +740,26 @@ def run(sources, swiftc, output, contract_path=None):
             # and the exact generated-file closure before executing any fixture.
             setup_extraction_receipt(output, contract, suite, spec)
             compile_fixture(prefix + '-compile', [folder / name for name in spec['files']],
-                            folder / 'fixture', library=True)
+                            folder / 'fixture', library=True,
+                            frameworks=DEFERRED_SYSTEM_FRAMEWORKS if suite == 'deferred-device-setup' else ())
             runner.command(prefix + '-run', [folder / 'fixture', folder / 'cases.json'], marks[prefix])
             report['fixture_exports'][suite] = setup_exported_cases(
                 folder / 'cases.json', suite, contract[suite + '_case_names'])
+            if suite == 'placed-pairing':
+                recovery = output / 'pairing-recovery'
+                recovery.mkdir()
+                runner.command('recovery-source', python(WIRE + '/test_pairing_recovery_contract.py') + ['--sources', sources])
+                runner.command('recovery-generate', python(WIRE + '/generate_pairing_recovery_fixture.py') +
+                               ['--sources', sources, '--output', recovery])
+                report['pairing_recovery_extraction'] = pairing_recovery_extraction(output, contract, before_compile=True)
+                compile_fixture('recovery-compile', [recovery / 'fixture.swift'], recovery / 'fixture', library=True)
+                runner.command('recovery-run', [recovery / 'fixture', recovery / 'TestLocalization.bundle',
+                               recovery / 'cases.json'], PAIRING_RECOVERY_MARKER)
+                report['pairing_recovery_cases'] = pairing_recovery_export(output, contract)
             report['suites'].append(suite)
         require([row['name'] for row in runner.commands] == list(COMMANDS), 'Command sequence differs')
+        report['system_crypto_synthetic_fixture_executed'] = True
+        report['system_crypto_boundary'] = SYSTEM_CRYPTO_BOUNDARY
         report['source_inputs_after'] = source_inventory(sources, contract)
         require(report['source_inputs_after'] == before, 'Fixture mutated source inputs')
         report['source_input_bytes_unchanged'] = True
@@ -601,8 +769,7 @@ def run(sources, swiftc, output, contract_path=None):
         report['failure'] = str(error)
         raise
     finally:
-        report['generated_swift_sha256'] = {p.relative_to(output).as_posix(): digest(p.read_bytes())
-            for p in sorted(output.rglob('*.swift')) if p.is_file()}
+        report['generated_swift_sha256'] = generated_swift_inventory(output)
         report['artifact_sha256'] = artifact_inventory(output)
         write_json(output / 'report.json', report)
     verify_receipt(output / 'report.json', contract_path)

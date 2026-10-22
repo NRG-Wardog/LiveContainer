@@ -38,6 +38,10 @@ class Controls(unittest.TestCase):
             'success_markers':self.markers, 'onboarding_case_names':['control-case-a'],
             'registration_case_names':['registration-case-a'],
             **{suite + '_case_names': ['control-case-a'] for suite in gate.SETUP_FIXTURES}}
+        self.config['pairing_recovery_case_names'] = ['recovery-control-case']
+        self.config['deferred_baseline'] = {'owners': copy.deepcopy(gate.DEFERRED_BASELINE_OWNERS),
+            'input_sha256': {name: self.config['input_sha256'][name]
+                            for name in gate.SETUP_FIXTURES['deferred-device-setup']['sources']}}
         self.save_contract()
         self.calls = []
 
@@ -109,11 +113,49 @@ class Controls(unittest.TestCase):
             mappings = gate.WIRE_INPUT_PATHS
             gate.write_json(Path(argv[-1])/'sources.json', {'input_sha256':{k:self.config['input_sha256'][v] for k,v in mappings.items()},
                 'generated_sha256':{k:gate.digest((Path(argv[-1])/k).read_bytes()) for k in ('service.swift','host.swift')}})
-        elif name in ('pairing-generate', 'deferred-generate'):
+        elif name == 'recovery-generate':
+            root = Path(argv[argv.index('--output') + 1])
+            for relative in gate.PAIRING_RECOVERY_OUTPUTS:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text('generated control-only recovery data')
+            gate.write_json(root / 'sources.json', {
+                'status': 'generated_not_compiled', 'schema': 'pairing-recovery-sources-v1',
+                'case_names': self.config['pairing_recovery_case_names'],
+                'input_sha256': {key: self.config['input_sha256'][path]
+                                for key, path in gate.PAIRING_RECOVERY_INPUT_PATHS.items()},
+                'fixture_inputs': {Path(name).name: self.config['input_sha256'][name]
+                                   for name in gate.PAIRING_RECOVERY_FIXTURE_PATHS},
+                'fixture_sha256': gate.digest((root / 'fixture.swift').read_bytes()),
+                'baseline_store_sha256': gate.PAIRING_RECOVERY_BASELINE_STORE_SHA256,
+                'output_sha256': {name: gate.digest((root / name).read_bytes()) for name in gate.PAIRING_RECOVERY_OUTPUTS},
+                'owned_paths': ['actual path control double'], 'doubles': ['inert double']})
+        elif name == 'recovery-run':
+            gate.write_json(Path(argv[-1]), {'schema': 'pairing-recovery-cases-v1', 'status': 'pass',
+                'fake_only': True, 'native_pairing_executed': False,
+                'cases': self.config['pairing_recovery_case_names']})
+            data = (gate.PAIRING_RECOVERY_MARKER + '\n').encode()
+        elif name == 'deferred-prior-extract':
+            root = Path(argv[argv.index('--output') + 1])
+            for path in gate.SETUP_FIXTURES['deferred-device-setup']['sources']:
+                target = root / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((self.sources / path).read_bytes())
+            gate.write_json(Path(argv[argv.index('--receipt') + 1]), {
+                'schema': 'deferred-prior-pem-sources-v1', 'origin': 'exact-local-git-objects',
+                'owners': self.config['deferred_baseline']['owners'],
+                'input_sha256': self.config['deferred_baseline']['input_sha256'],
+                'network': False, 'target_execution': False})
+        elif name == 'deferred-prior-run':
+            self.assertEqual(argv[-1], '--expect-prior-pem-rejection')
+            data = (gate.DEFERRED_PRIOR_MARKER + '\n').encode()
+        elif name in ('pairing-generate', 'deferred-generate', 'deferred-prior-generate'):
             suite, spec = next((suite, spec) for suite, spec in gate.SETUP_FIXTURES.items()
-                               if name == spec['command'] + '-generate')
+                               if name == spec['command'] + '-generate' or
+                               (name == 'deferred-prior-generate' and suite == 'deferred-device-setup'))
             folder = Path(argv[argv.index(spec['output_arg']) + 1])
-            self.assertEqual(Path(argv[argv.index('--sources') + 1]), self.sources)
+            self.assertEqual(Path(argv[argv.index('--sources') + 1]),
+                self.output / 'deferred-prior-pem/sources' if name == 'deferred-prior-generate' else self.sources)
             for file in spec['files']:
                 (folder / file).write_text('// generated control double')
             used = {key: value for key, value in self.config['input_sha256'].items()
@@ -166,8 +208,8 @@ class Controls(unittest.TestCase):
             data = (self.markers['legacy'] + '\n').encode()
         return subprocess.CompletedProcess(argv, 0, data)
 
-    def run_control(self, process=None):
-        with patch.object(gate.subprocess, 'run', side_effect=process or self.control_process):
+    def run_control(self, process=None, platform='darwin'):
+        with patch.object(gate.sys, 'platform', platform), patch.object(gate.subprocess, 'run', side_effect=process or self.control_process):
             return gate.run(self.sources, self.swiftc, self.output, self.contract)
 
     def test_unbound_contract_rejected(self):
@@ -273,7 +315,11 @@ class Controls(unittest.TestCase):
             if name.endswith('-compile'):
                 self.assertNotIn('-L',argv)
                 self.assertNotIn('-lAnisetteKit',argv)
-                self.assertNotIn('-framework',argv)
+                if name in ('deferred-prior-compile', 'deferred-compile'):
+                    self.assertEqual([argv[i + 1] for i, word in enumerate(argv[:-1]) if word == '-framework'],
+                                     ['Security', 'CryptoKit'])
+                else:
+                    self.assertNotIn('-framework',argv)
 
     def test_symlink_backed_temp_root_preserves_exact_case_paths(self):
         alias = self.root / 'temp-root-alias'
@@ -767,7 +813,7 @@ class SetupControls(Controls):
     def test_setup_new_suites_and_commands_once(self):
         report = self.run_control()
         self.assertEqual(len(gate.COMMANDS), len(set(gate.COMMANDS)))
-        self.assertEqual(len(gate.COMMANDS), 33)
+        self.assertEqual(len(gate.COMMANDS), 41)
         for suite, spec in gate.SETUP_FIXTURES.items():
             self.assertEqual(report['suites'].count(suite), 1)
             for step in ('source', 'generate', 'compile', 'run'):
@@ -900,6 +946,119 @@ class SetupControls(Controls):
                 gate.write_json(self.output / 'report.json', report)
                 with self.subTest(suite=suite, duplicate=duplicate), self.assertRaisesRegex(ValueError, 'command receipt'):
                     gate.verify_receipt(self.output / 'report.json', self.contract)
+
+
+
+    def test_crypto_frameworks_are_exact_and_baseline_is_once(self):
+        report = self.run_control()
+        for name in ('deferred-prior-compile', 'deferred-compile'):
+            argv = dict(self.calls)[name]
+            self.assertEqual([argv[i + 1] for i, word in enumerate(argv[:-1]) if word == '-framework'],
+                             ['Security', 'CryptoKit'])
+        self.assertEqual([name for name, _ in self.calls].count('deferred-prior-run'), 1)
+        self.assertTrue(report['system_crypto_synthetic_fixture_executed'])
+        self.assertFalse(report['system_crypto_boundary']['real_keychain_access'])
+
+    def test_crypto_platform_guard_prevents_non_macos_compilation(self):
+        with self.assertRaisesRegex(ValueError, 'requires macOS'):
+            self.run_control(platform='linux')
+        self.assertNotIn('deferred-prior-compile', dict(self.calls))
+        self.assertNotIn('deferred-source', dict(self.calls))
+
+    def test_crypto_prior_missing_marker_stops_before_candidate(self):
+        def bad(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'deferred-prior-run':
+                result.stdout = b'no prior failure reproduced'
+            return result
+        with self.assertRaisesRegex(ValueError, 'Missing or duplicate'):
+            self.run_control(bad)
+        self.assertNotIn('deferred-source', dict(self.calls))
+
+    def test_crypto_prior_bad_source_hash_stops_before_compile(self):
+        def bad(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'deferred-prior-generate':
+                root = self.output / 'deferred-prior-pem/sources'
+                (root / next(iter(self.config['deferred_baseline']['input_sha256']))).write_text('drift')
+            return result
+        with self.assertRaisesRegex(ValueError, 'Prior deferred source bytes differ'):
+            self.run_control(bad)
+        self.assertNotIn('deferred-prior-compile', dict(self.calls))
+
+    def test_crypto_prior_contract_missing_input_or_wrong_owner_rejected(self):
+        self.config['deferred_baseline']['input_sha256'].pop(next(iter(self.config['deferred_baseline']['input_sha256'])))
+        self.save_contract()
+        with self.assertRaisesRegex(ValueError, 'baseline source hashes'):
+            self.run_control()
+        self.assertFalse(self.calls)
+        self.config['deferred_baseline']['owners']['SideStore']['commit'] = '0' * 40
+        self.save_contract()
+        with self.assertRaisesRegex(ValueError, 'baseline owners'):
+            self.run_control()
+        self.assertFalse(self.calls)
+
+    def test_crypto_prior_generated_hash_change_rejected(self):
+        def bad(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'deferred-prior-generate':
+                (self.output / 'deferred-prior-pem/deferred-device-setup/CandidateDeferredSetup.swift').write_text('changed')
+            return result
+        with self.assertRaisesRegex(ValueError, 'generated-source hashes'):
+            self.run_control(bad)
+        self.assertNotIn('deferred-prior-compile', dict(self.calls))
+
+
+
+    def test_pairing_recovery_case_contract_is_required(self):
+        del self.config['pairing_recovery_case_names']
+        self.save_contract()
+        with self.assertRaisesRegex(ValueError, 'pairing recovery case contract'):
+            self.run_control()
+        self.assertFalse(self.calls)
+
+    def test_pairing_recovery_bundle_hash_drift_stops_before_compile(self):
+        def bad(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'recovery-generate':
+                (self.output / 'pairing-recovery/TestLocalization.bundle/Info.plist').write_text('changed')
+            return result
+        with self.assertRaisesRegex(ValueError, 'Swift/bundle hashes'):
+            self.run_control(bad)
+        self.assertNotIn('recovery-compile', dict(self.calls))
+
+    def test_pairing_recovery_fixture_hash_drift_stops_before_compile(self):
+        def bad(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'recovery-generate':
+                path = self.output / 'pairing-recovery/sources.json'
+                value = json.loads(path.read_text())
+                value['fixture_inputs']['generate_wire_fixture.py'] = '0' * 64
+                gate.write_json(path, value)
+            return result
+        with self.assertRaisesRegex(ValueError, 'fixture input hashes'):
+            self.run_control(bad)
+        self.assertNotIn('recovery-compile', dict(self.calls))
+
+    def test_pairing_recovery_real_pairing_claim_is_rejected(self):
+        def bad(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'recovery-run':
+                path = Path(argv[-1]); value = json.loads(path.read_text())
+                value['native_pairing_executed'] = True; gate.write_json(path, value)
+            return result
+        with self.assertRaisesRegex(ValueError, 'runtime boundary'):
+            self.run_control(bad)
+        self.assertNotIn('deferred-prior-extract', dict(self.calls))
+
+    def test_pairing_recovery_changed_case_export_cannot_be_rehashed_away(self):
+        report = self.run_control()
+        path = self.output / 'pairing-recovery/cases.json'
+        value = json.loads(path.read_text()); value['cases'] = ['unreviewed']; gate.write_json(path, value)
+        report['artifact_sha256'] = gate.artifact_inventory(self.output)
+        gate.write_json(self.output / 'report.json', report)
+        with self.assertRaisesRegex(ValueError, 'coverage differs'):
+            gate.verify_receipt(self.output / 'report.json', self.contract)
 
 
 def load_tests(loader, tests, pattern):
