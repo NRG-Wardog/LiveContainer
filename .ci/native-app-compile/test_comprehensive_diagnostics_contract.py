@@ -300,9 +300,17 @@ class Controls(unittest.TestCase):
             gate.source_inventory(self.sources, self.config)
 
     def test_extra_fixture_file_rejected(self):
-        (self.sources / gate.AUTH / 'extra.py').write_text('unreviewed')
-        with self.assertRaisesRegex(ValueError, 'Unpinned'):
-            gate.source_inventory(self.sources, self.config)
+        # Scratch bytecode must not be admitted by weakening the executable inventory.
+        for relative in ('extra.py', 'extra.pyc', '__pycache__/extra.cpython-312.pyc'):
+            with self.subTest(relative=relative):
+                path = self.sources / gate.AUTH / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('unreviewed')
+                try:
+                    with self.assertRaisesRegex(ValueError, 'Unpinned'):
+                        gate.source_inventory(self.sources, self.config)
+                finally:
+                    path.unlink()
 
     def test_missing_marker_rejected(self):
         with self.assertRaisesRegex(ValueError, 'Missing or duplicate'):
