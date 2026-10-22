@@ -1,7 +1,22 @@
 @main struct PortalHostCases {
     static let id = "00000000-0000-0000-0000-000000000001"
     static func check(_ value: @autoclosure () -> Bool, _ name: String) { precondition(value(), name) }
+    static func copyPreservesOperationFields(_ copy: String) -> Bool {
+        let fields = Set(copy.split(whereSeparator: { $0.isWhitespace }).map(String.init))
+        return fields.contains("operation=command") && fields.contains("request_operation=certPortalList") &&
+            fields.contains("request_correlation=" + id)
+    }
     static func main() throws {
+        let matchingFields = "operation=command request_operation=certPortalList request_correlation=" + id
+        check(copyPreservesOperationFields(matchingFields), "exact primary and request fields accepted")
+        check(!copyPreservesOperationFields(matchingFields.replacingOccurrences(of: "operation=command", with: "operation=certPortalList")),
+              "wrong primary operation cannot be hidden by the request operation")
+        check(!copyPreservesOperationFields(matchingFields.replacingOccurrences(of: "request_operation=certPortalList ", with: "")),
+              "missing request operation cannot be hidden by the primary operation")
+        check(!copyPreservesOperationFields(matchingFields.replacingOccurrences(of: "request_correlation=" + id, with: "")),
+              "missing request correlation is rejected")
+        check(!copyPreservesOperationFields("request_operation=certPortalList request_correlation=" + id),
+              "substring-only request field is not a primary operation")
         precondition(CommandLine.arguments.count == 3)
         let input = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
         let rows = try PropertyListSerialization.propertyList(from: input, format: nil) as! [[String: Any]]
@@ -19,13 +34,13 @@
             } catch let failure as CombinedFailure {
                 check(name != "success_unchanged", "success must not become failure")
                 let remoteIdentity = name.hasPrefix("remoteIdentity")
-                check(failure.operation == "certPortalList", "command operation preserved through actual host parser")
+                check(failure.operation == "command", "normalized primary operation preserved through actual host parser")
                 if !remoteIdentity {
                     check(failure.stage == .signing && failure.sourceStep == .fetchCertificate, "command identity preserved through actual host parser")
                 }
                 check(failure.correlationID == id && failure.code == .failed, "original primary classification preserved")
                 let copy = V3DiagnosticCopy.details(visibleMessage: failure.safeMessage, technical: failure.technicalDetails)
-                check(copy.contains("operation=certPortalList"), "Copy retains operation")
+                check(copyPreservesOperationFields(copy), "Copy retains exact normalized primary and correlated request fields")
                 if !remoteIdentity { check(copy.contains("source_step=fetchCertificate"), "Copy retains certificate source") }
                 for secret in ["SECRET_", "NEW_IDENTIFIER", "PRIVATE", "lc_stage=installation", "quota", "X-Fixture", "https://", "fixture-serial"] {
                     check(!copy.contains(secret), "Copy rejects raw provider, request, and certificate information")
