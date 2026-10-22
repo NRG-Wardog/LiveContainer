@@ -5211,6 +5211,10 @@ enum V3AuthFailureDiagnosticsPolicy {
         case "credentialStorageUncertain": kindToken = "A10"
         case "accountIdentityMismatch": kindToken = "A11"
         case "anisetteIdentityStateInvalid": kindToken = "A12"
+        case "remoteIdentityInvalidRecord": kindToken = "A13"
+        case "remoteIdentityStorageUnverified": kindToken = "A14"
+        case "remoteIdentityStateChanged": kindToken = "A15"
+        case "remoteIdentityManualSignInRequired": kindToken = "A16"
         default: kindToken = "A00"
         }
         return failureCode + "-" + kindToken
