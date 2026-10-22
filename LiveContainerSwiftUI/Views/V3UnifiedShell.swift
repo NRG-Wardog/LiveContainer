@@ -5206,7 +5206,7 @@ enum V3AuthFailureDiagnosticsPolicy {
     }
     static func shouldShowTerminalDetails(state: String, hasPrompt: Bool,
                                           hasFailure: Bool) -> Bool {
-        hasFailure && !hasPrompt && ["failed", "timedOut", "promptExpired", "resultUnknown"]
+        hasFailure && !hasPrompt && ["failed", "timedOut", "promptExpired", "resultUnknown", "cancelled"]
             .contains(state)
     }
 
@@ -5240,32 +5240,36 @@ enum V3AuthFailureDiagnosticsPolicy {
             (fields[V3ConstructorFaultDiagnostic.contextKey].flatMap(V3ConstructorFaultDiagnostic.init(encoded:))?.technicalDetails ?? "") +
             (fields[V3TemporaryAnisetteTrace.contextKey].flatMap(V3TemporaryAnisetteTrace.init(encoded:))?.technicalDetails ?? "") +
             (fields[V3TemporaryADIConsumption.contextKey].flatMap(V3TemporaryADIConsumption.init(encoded:))?.technicalDetails ?? "") +
-            (fields[V3LoginDiagnosticSnapshot.contextKey].flatMap(V3LoginDiagnosticSnapshot.init(encoded:))?.technicalDetails ?? "")
+            (fields[V3LoginDiagnosticSnapshot.contextKey].flatMap(V3LoginDiagnosticSnapshot.init(encoded:))?.technicalDetails ?? "") + V3AuthenticationDiagnostics.technicalDetails(fields)
     }
 }
 
 // Diagnostic-only retention. This must never feed retry or authentication policy.
 enum V3AuthTimeoutDiagnosticRetentionPolicy {
     static func failure(reply: [String: Any], expectedID: String?) -> [String: Any]? {
-        guard reply["state"] as? String == "timedOut", let expectedID,
+        guard let state = reply["state"] as? String, ["timedOut", "cancelled"].contains(state), let expectedID,
               let supplied = reply["failure"] as? [String: Any],
               let data = try? PropertyListSerialization.data(fromPropertyList: supplied, format: .binary, options: 0),
               data.count <= V3LoginDiagnosticSnapshot.maximumWireBytes,
               let decoded = CombinedFailure.decode(supplied, expectedID: expectedID),
-              decoded.operation == "signIn",
-              decoded.stage == .authentication || decoded.stage == .provisioning,
-              let raw = decoded.signingContext[V3LoginDiagnosticSnapshot.contextKey],
-              V3LoginDiagnosticSnapshot(encoded: raw) != nil else { return nil }
+              decoded.operation == "signIn", state != "cancelled" || decoded.code == .cancelled,
+              decoded.stage == .authentication || decoded.stage == .provisioning else { return nil }
+        let fields = decoded.signingContext
+        let hasLogin = fields[V3LoginDiagnosticSnapshot.contextKey].map { raw in V3LoginDiagnosticSnapshot(encoded: raw) != nil } ?? false
+        let hasRequest = fields[V3AuthenticationRequestSnapshot.contextKey].flatMap(V3AuthenticationRequestSnapshot.init(encoded:)) != nil
+        let hasHeader = fields[V3AuthenticationHeaderProvenance.contextKey].flatMap(V3AuthenticationHeaderProvenance.init(encoded:)) != nil
+        let hasProvider = fields[V3AuthenticationProviderObservation.contextKey].flatMap(V3AuthenticationProviderObservation.init(encoded:)) != nil
+        guard hasLogin || hasRequest || hasHeader || hasProvider else { return nil }
         return decoded.wire
     }
     static func shouldClearOnSessionChange(from old: String?, to new: String?, state: String) -> Bool {
         // Reconciliation retires an already-terminal owner to nil. Its copied
         // diagnostics remain useful until a new attempt or different reply.
-        old != new && (new != nil || state != "timedOut")
+        old != new && (new != nil || !["timedOut", "cancelled"].contains(state))
     }
     static func selecting(state: String, timeout: [String: Any]?,
                           previous: [String: Any]?) -> [String: Any]? {
-        state == "timedOut" ? (timeout ?? previous) : previous
+        state == "cancelled" ? timeout : (state == "timedOut" ? (timeout ?? previous) : previous)
     }
 }
 
@@ -13571,6 +13575,7 @@ final class V3AuthStore: ObservableObject {
         }
         state = replyState
         if ["completed", "authenticatedProvisioningIncomplete", "failed", "timedOut", "promptExpired", "cancelled"].contains(state) {
+            twoFactorTransientStep = nil
             currentAttemptFailure.clear()
             provisioningRetryBlockedByActiveSession = false
         }
