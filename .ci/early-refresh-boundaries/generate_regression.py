@@ -134,8 +134,16 @@ def generate_variant(root, support_root, variant, output_root):
     old_harness = (ci / 'refresh_failure_harness.swift').read_text()
     common_assertions = old_harness.split('    static func main() async {', 1)[0]
     common_assertions = common_assertions.replace('@main\nstruct RefreshFailureCases {', 'enum ChainChecks {', 1) + '\n}\n'
-    for anchor in ['    static func producer(', '    static func rejection(']:
-        common_assertions = common_assertions.replace(block(common_assertions, anchor), '')
+    common_assertions = common_assertions.replace(block(common_assertions, '    static func producer('), '')
+    # The unused rejection helper has a default closure in its signature. A
+    # first-brace extractor would remove only that closure and leave `) async {`.
+    # Remove its complete exact span up to the next known declaration instead.
+    rejection_anchor = '    static func rejection('
+    main_anchor = '    static func main() async {'
+    assert old_harness.count(rejection_anchor) == old_harness.count(main_anchor) == 1
+    rejection = old_harness[old_harness.index(rejection_anchor):old_harness.index(main_anchor)]
+    assert common_assertions.count(rejection) == 1
+    common_assertions = common_assertions.replace(rejection, '')
     source = dict((name, read(relative)) for name, relative in EXTRA_INPUTS.items())
     manager = read(dependency.INPUT_PATHS['manager'])
     producer = read(dependency.INPUT_PATHS['producer'])

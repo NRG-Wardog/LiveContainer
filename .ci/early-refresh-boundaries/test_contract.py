@@ -61,8 +61,14 @@ def validate(candidate_root, baseline_root, output, variants=('baseline', 'candi
         for relative, anchor in exact:
             check(block((root / relative).read_text(), anchor) in swift,
                   variant + ': exact function ' + anchor.strip())
-        check('struct RefreshFailureCases' not in swift and 'static func producer(' not in swift and swift.count('@main') == 1,
-              variant + ': no legacy 36-case entrypoint or producer-injection route')
+        chain = block(swift, 'enum ChainChecks {')
+        harness = (candidate_root / 'LiveContainer/.ci/comprehensive-diagnostics/refresh_failure_harness.swift').read_text()
+        retained_helpers = ['    static func reset(', '    static func encoded(', '    static func rich(',
+                            '    static func terminal(', '    static func mutated(', '    static func mutateManifest(']
+        check('struct RefreshFailureCases' not in swift and 'static func producer(' not in swift and swift.count('@main') == 1 and
+              'static func rejection(' not in chain and 'let server = producer(rich())' not in chain and
+              ') async {' not in chain and all(block(harness, anchor) in chain for anchor in retained_helpers),
+              variant + ': no legacy entrypoint/injection or partial default-closure signature; retained helpers exact')
         check('baseline redacted underlying' in swift and 'SS-VERIFY-C11' in swift,
               variant + ': generic observed-signature negative controls retained')
         check('current_request_gate' in swift and 'current_run_gate' in swift and 'unknown_preflight_error_privacy' in swift,
