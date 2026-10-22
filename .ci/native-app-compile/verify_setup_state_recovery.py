@@ -38,13 +38,15 @@ LOCALIZATION_INPUTS = {
 }
 LOCALIZATION_FILES = ('generate_setup_localization_fixture.py', 'setup_localization_harness.swift',
                       'test_setup_localization_contract.py')
-COMMANDS = ('delivered-baseline-extract', 'localization-source', 'localization-compile', 'localization-run',
-            'early-source', 'early-baseline-compile', 'early-baseline-run',
-            'early-candidate-compile', 'early-candidate-run',
-            'portal-source', 'portal-baseline-compile', 'portal-baseline-host-compile', 'portal-baseline-run',
-            'portal-baseline-host-run', 'portal-candidate-compile', 'portal-candidate-host-compile',
-            'portal-candidate-run', 'portal-candidate-host-run',
-            'identity-controls', 'identity-source', 'identity-compile', 'identity-run')
+COMMANDS = ('delivered-baseline-extract', 'localization-source', 'early-source', 'portal-source',
+            'identity-controls', 'identity-source',
+            'localization-compile', 'early-baseline-compile', 'early-candidate-compile',
+            'portal-baseline-compile', 'portal-baseline-host-compile',
+            'portal-candidate-compile', 'portal-candidate-host-compile', 'identity-compile',
+            'localization-run', 'early-baseline-run', 'early-candidate-run',
+            'portal-baseline-run', 'portal-baseline-host-run',
+            'portal-candidate-run', 'portal-candidate-host-run', 'identity-run')
+COMPILE_COMMANDS = tuple(name for name in COMMANDS if name.endswith('-compile'))
 
 
 SUITE_INPUTS = {'early-refresh-boundaries': {'production': ['LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift',
@@ -274,8 +276,10 @@ def localization_extraction(output, contract):
 class Runner:
     def __init__(self, output):
         self.output, self.commands = output, []
-    def command(self, name, argv, marker=None):
+    def command(self, name, argv, marker=None, *, collect_compile_failure=False):
         require(name in COMMANDS and name not in [r['name'] for r in self.commands], 'Unexpected/repeated setup command')
+        require(not collect_compile_failure or (name in COMPILE_COMMANDS and marker is None),
+                'Only setup compile commands may collect failures')
         row = {'name': name, 'argv': list(map(str, argv)), 'exit_code': None}
         self.commands.append(row)
         log = self.output / ('commands/' + name + '.log')
@@ -293,7 +297,8 @@ class Runner:
             row['launch_error'] = type(error).__name__
         log.write_bytes(data)
         row.update(log=log.relative_to(self.output).as_posix(), stdout_sha256=digest(data))
-        require(type(row['exit_code']) is int and row['exit_code'] == 0, 'Setup command failed: ' + name)
+        if not collect_compile_failure:
+            require(type(row['exit_code']) is int and row['exit_code'] == 0, 'Setup command failed: ' + name)
         if marker:
             require_marker(data.decode('utf-8', errors='replace'), marker)
             row['success_marker'] = marker
@@ -495,7 +500,7 @@ def run(sources, swiftc, output, contract_path=None):
         if module:
             require(module == 'SideSign', 'Unexpected setup fixture module')
             args += ['-module-name', module]
-        runner.command(name, args + [file, '-o', binary])
+        runner.command(name, args + [file, '-o', binary], collect_compile_failure=True)
     try:
         baseline = output / 'delivered-baseline'
         runner.command('delivered-baseline-extract', [sys.executable, '-B', Path(__file__).resolve(),
@@ -507,39 +512,53 @@ def run(sources, swiftc, output, contract_path=None):
             ['--candidate-root', sources / 'LiveContainer', '--baseline-root', baseline / 'LiveContainer',
              '--output', localization])
         localization_extraction(output, contract)
-        compile('localization-compile', localization / 'fixture.swift', localization / 'fixture')
-        runner.command('localization-run', [localization / 'fixture', localization], markers()['localization-run'])
         early = output / 'early-refresh-boundaries'
         runner.command('early-source', python(EARLY + '/test_contract.py') +
             ['--candidate-root', sources, '--baseline-root', baseline, '--output', early])
         for variant in ('baseline', 'candidate'):
             variant_extraction(output, contract, 'early-refresh-boundaries', variant)
-        for variant in ('baseline', 'candidate'):
-            folder = early / variant
-            compile('early-' + variant + '-compile', folder / 'early-refresh.swift', folder / 'fixture')
-            name = 'early-' + variant + '-run'
-            runner.command(name, [folder / 'fixture', folder / 'cases.json'], markers()[name])
         portal = output / 'certificate-portal-evidence'
         runner.command('portal-source', python(PORTAL + '/test_generator.py') +
             ['--candidate-root', sources, '--baseline-root', baseline, '--output', portal])
         for variant in ('baseline', 'candidate'):
             variant_extraction(output, contract, 'certificate-portal-evidence', variant)
-        for variant in ('baseline', 'candidate'):
-            folder = portal / variant
-            prefix = 'portal-' + variant
-            compile(prefix + '-compile', folder / 'service.swift', folder / 'service', module='SideSign')
-            compile(prefix + '-host-compile', folder / 'host.swift', folder / 'host')
-            runner.command(prefix + '-run', [folder / 'service', folder / 'cases.plist'], markers()[prefix + '-run'])
-            runner.command(prefix + '-host-run', [folder / 'host', folder / 'cases.plist', folder / 'results.json'],
-                           markers()[prefix + '-host-run'])
         identity = output / 'remote-identity-reuse'
         runner.command('identity-controls', python(IDENTITY + '/test_generator.py'), markers()['identity-controls'])
         runner.command('identity-source', python(IDENTITY + '/generate_fixture.py') +
             ['--candidate-root', sources, '--baseline-root', baseline, '--output', identity])
         identity_extraction(output, contract)
         identity_files = [regular(identity, name) for name in IDENTITY_SWIFT]
+
+        # The four families are independent until runtime. Compile each closure once,
+        # retaining every compiler failure; no fixture may run until all eight pass.
+        compile('localization-compile', localization / 'fixture.swift', localization / 'fixture')
+        for variant in ('baseline', 'candidate'):
+            folder = early / variant
+            compile('early-' + variant + '-compile', folder / 'early-refresh.swift', folder / 'fixture')
+        for variant in ('baseline', 'candidate'):
+            folder = portal / variant
+            prefix = 'portal-' + variant
+            compile(prefix + '-compile', folder / 'service.swift', folder / 'service', module='SideSign')
+            compile(prefix + '-host-compile', folder / 'host.swift', folder / 'host')
         runner.command('identity-compile', [swiftc, '-swift-version', '5', '-parse-as-library',
-            '-framework', 'Security', *identity_files, '-o', identity / 'fixture'])
+            '-framework', 'Security', *identity_files, '-o', identity / 'fixture'], collect_compile_failure=True)
+        compiled = [row for row in runner.commands if row['name'] in COMPILE_COMMANDS]
+        require([row['name'] for row in compiled] == list(COMPILE_COMMANDS), 'Setup compile closure differs')
+        failed = [row['name'] for row in compiled if type(row['exit_code']) is not int or
+                  row['exit_code'] != 0 or row.get('timed_out') or row.get('launch_error')]
+        require(not failed, 'Setup compile commands failed: ' + ', '.join(failed))
+
+        runner.command('localization-run', [localization / 'fixture', localization], markers()['localization-run'])
+        for variant in ('baseline', 'candidate'):
+            folder = early / variant
+            name = 'early-' + variant + '-run'
+            runner.command(name, [folder / 'fixture', folder / 'cases.json'], markers()[name])
+        for variant in ('baseline', 'candidate'):
+            folder = portal / variant
+            prefix = 'portal-' + variant
+            runner.command(prefix + '-run', [folder / 'service', folder / 'cases.plist'], markers()[prefix + '-run'])
+            runner.command(prefix + '-host-run', [folder / 'host', folder / 'cases.plist', folder / 'results.json'],
+                           markers()[prefix + '-host-run'])
         runner.command('identity-run', [identity / 'fixture', '--cases-output', identity / 'cases.json'],
                        markers()['identity-run'])
         report['evidence'] = all_evidence(output, contract)

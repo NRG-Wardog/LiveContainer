@@ -182,6 +182,16 @@ class Controls(unittest.TestCase):
         report = self.run_gate()
         self.assertEqual(self.command_names, list(gate.COMMANDS))
         self.assertEqual(len(set(self.command_names)), len(gate.COMMANDS))
+        self.assertEqual(len(self.command_names), 22)
+        self.assertEqual(self.command_names[:6], ['delivered-baseline-extract', 'localization-source',
+            'early-source', 'portal-source', 'identity-controls', 'identity-source'])
+        self.assertEqual(self.command_names[6:14], ['localization-compile', 'early-baseline-compile',
+            'early-candidate-compile', 'portal-baseline-compile', 'portal-baseline-host-compile',
+            'portal-candidate-compile', 'portal-candidate-host-compile', 'identity-compile'])
+        self.assertTrue(all(name.endswith('-run') for name in self.command_names[14:]))
+        for variant in ('baseline', 'candidate'):
+            self.assertLess(self.command_names.index('portal-' + variant + '-run'),
+                            self.command_names.index('portal-' + variant + '-host-run'))
         self.assertEqual(report['status'], gate.STATUS)
         self.assertFalse(report['native_provider_executed'])
         gate.verify_receipt(self.output / 'report.json', self.contract_path)
@@ -224,6 +234,54 @@ class Controls(unittest.TestCase):
         report = json.loads((self.output / 'report.json').read_text())
         self.assertEqual(report['status'], 'FAILED')
         self.assertEqual(report['commands'][-1]['exit_code'], 9)
+        self.assertEqual([name for name in self.command_names if name.endswith('-compile')],
+                         list(gate.COMPILE_COMMANDS))
+        self.assertNotIn('identity-run', self.command_names)
+        with mock.patch.object(gate.subprocess, 'run') as process:
+            for name in ('localization-source', 'localization-run'):
+                with self.assertRaisesRegex(ValueError, 'Only setup compile commands'):
+                    gate.Runner(self.root).command(name, ['inert'], collect_compile_failure=True)
+            process.assert_not_called()
+
+    def test_all_compile_failures_collected_before_any_runtime_or_admission(self):
+        nonzero = {'early-baseline-compile': 9, 'portal-candidate-host-compile': 17}
+        def mutate(name, argv, data):
+            if name in nonzero:
+                return subprocess.CompletedProcess(argv, nonzero[name], ('failed ' + name).encode())
+            if name == 'early-candidate-compile':
+                raise subprocess.TimeoutExpired(argv, 300, output=b'partial compiler diagnostics')
+            if name == 'identity-compile':
+                raise OSError('inert compiler launch failure')
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Setup compile commands failed'):
+            self.run_gate()
+        self.assertEqual(self.command_names, list(gate.COMMANDS[:14]))
+        self.assertEqual(len(set(self.command_names)), 14)
+        self.assertFalse(any(name.endswith('-run') for name in self.command_names))
+        report = json.loads((self.output / 'report.json').read_text())
+        self.assertEqual(report['status'], 'FAILED')
+        self.assertFalse(report['source_owned_fixtures_executed'])
+        self.assertEqual(report['suites'], [])
+        rows = {row['name']: row for row in report['commands']}
+        for name in gate.COMPILE_COMMANDS:
+            row = rows[name]
+            self.assertEqual(row['stdout_sha256'], gate.digest((self.output / row['log']).read_bytes()))
+            self.assertNotIn('success_marker', row)
+            if name in nonzero:
+                self.assertEqual(row['exit_code'], nonzero[name])
+            elif name == 'early-candidate-compile':
+                self.assertIsNone(row['exit_code'])
+                self.assertTrue(row['timed_out'])
+                self.assertIn(b'partial compiler diagnostics', (self.output / row['log']).read_bytes())
+            elif name == 'identity-compile':
+                self.assertIsNone(row['exit_code'])
+                self.assertEqual(row['launch_error'], 'OSError')
+            else:
+                self.assertEqual(row['exit_code'], 0)
+        for name in (*nonzero, 'early-candidate-compile', 'identity-compile'):
+            self.assertIn(name, report['failure'])
+        with self.assertRaisesRegex(ValueError, 'Setup-state fixtures did not pass'):
+            gate.verify_receipt(self.output / 'report.json', self.contract_path)
 
     def test_duplicate_marker_rejected(self):
         self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, 0, d + d) if n == 'localization-run' else None
@@ -258,6 +316,7 @@ class Controls(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'generated source bytes differ'):
             self.run_gate()
         self.assertNotIn('portal-baseline-compile', self.command_names)
+        self.assertFalse(any(name.endswith('-compile') or name.endswith('-run') for name in self.command_names))
 
     def test_missing_finite_identity_translation_contract_rejected(self):
         def mutate(name, argv, data):
