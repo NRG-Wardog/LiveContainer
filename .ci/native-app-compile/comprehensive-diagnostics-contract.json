@@ -72,6 +72,7 @@
     "SideStore/SideStore/Core/Operations/Errors/OperationError.swift": "0df82c2b27c8f7da6147bf4b2856609decd7e3be59370f45851018d2a2fe70e2",
     "SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift": "06122c5b62150ca9ec348594ee2d8065728ffa7b774a243e95adec8185c2c944",
     "SideStore/SideStore/Utils/concurrency/TaskChainCoalescer.swift": "9cbd155acef7d25b17ef8f593d718ab5edce47d0c4ba29a502ae7a916a435fae",
+    "SideStore/tests/upstream_sync/test_auth_upstream_adaptation.py": "d8c7fcb56a2db7492956c38587a1e5b8415db97746fb504379f647a33f4a6f2e",
     "SideStore/tests/upstream_sync/test_iloader_submit_route.py": "c5dd329c569713c3712d5bdd91e98d715429fc4d1910b79bb6541eed51e8456d"
   },
   "note": "Frozen device-registration causal-diagnostic source bytes, no runtime claim. Commit pins and native/package admission are separate gates.",
