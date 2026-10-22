@@ -14480,6 +14480,7 @@ struct V3CertificatesView: View {
     @State private var loading = true
     @State private var portalLoaded = false
     @State private var message = ""
+    @State private var diagnosticFailure: CombinedFailure?
     @State private var notice = ""
     @State private var busy = ""
     @State private var loadingRequest = false
@@ -14490,6 +14491,16 @@ struct V3CertificatesView: View {
             if !message.isEmpty {
                 Section {
                     V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled)
+                    if let failure = diagnosticFailure {
+                        DisclosureGroup("Technical details") {
+                            Text(failure.technicalDetails).environment(\.layoutDirection, .leftToRight)
+                                .font(.caption2).textSelection(.enabled)
+                        }
+                        Button("Copy Diagnostics", systemImage: "doc.on.doc") {
+                            UIPasteboard.general.string = V3DiagnosticCopy.details(
+                                visibleMessage: message, technical: failure.technicalDetails)
+                        }
+                    }
                 }
             }
             if !notice.isEmpty {
@@ -14561,17 +14572,20 @@ struct V3CertificatesView: View {
         .navigationTitle("Certificates")
         .task { await reload() }
         .onChange(of: status.identityStamp) { _ in
+            diagnosticFailure = nil
             portalTicket &+= 1
             portal = []
             portalLoaded = false
         }
         .onChange(of: status.authenticated) { authenticated in
+            diagnosticFailure = nil
             portalTicket &+= 1
             portal = []
             portalLoaded = false
             if !authenticated { busy = "" }
         }
         .onChange(of: status.authenticationActive) { active in
+            diagnosticFailure = nil
             portalTicket &+= 1
             if active {
                 portal = []
@@ -14580,6 +14594,7 @@ struct V3CertificatesView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("V3AuthIdentityTransition"))) { _ in
+                diagnosticFailure = nil
                 portalTicket &+= 1
                 portal = []
                 portalLoaded = false
@@ -14588,6 +14603,7 @@ struct V3CertificatesView: View {
                 if status.authenticated { Task { await reload() } }
             }
         .onDisappear {
+            diagnosticFailure = nil
             portalTicket &+= 1
         }
         .confirmationDialog("Are you sure?", isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }), titleVisibility: .visible) {
@@ -14599,8 +14615,13 @@ struct V3CertificatesView: View {
             Text("Revoking or deleting a certificate affects every app signed with it.")
         }
     }
+    private func presentCertificateFailure(_ error: Error) {
+        diagnosticFailure = error as? CombinedFailure
+        message = V3FailureGuidance.message(error)
+    }
     private func reload() async {
         guard !loadingRequest else { return }
+        diagnosticFailure = nil
         loadingRequest = true
         loading = true
         defer { loading = false; loadingRequest = false }
@@ -14608,7 +14629,8 @@ struct V3CertificatesView: View {
             let reply = try await V3ServiceBridge.shared.request(operation: "certList")
             local = (reply["certificates"] as? [[String: Any]] ?? []).compactMap(V3CertificateRow.init)
             message = ""
-        } catch { message = V3FailureGuidance.message(error) }
+            diagnosticFailure = nil
+        } catch { presentCertificateFailure(error) }
     }
     private func loadPortal() async {
         portalTicket &+= 1
@@ -14617,6 +14639,7 @@ struct V3CertificatesView: View {
         guard status.authenticated, let stamp else { return }
         busy = "portal"
         notice = ""
+        diagnosticFailure = nil
         do {
             let reply = try await V3ServiceBridge.shared.request(operation: "certPortalList")
             let currentIdentity = try await V3ServiceBridge.shared.request(operation: "snapshot")
@@ -14640,16 +14663,19 @@ struct V3CertificatesView: View {
             portal = (reply["certificates"] as? [[String: Any]] ?? []).compactMap(V3CertificateRow.init)
             portalLoaded = true
             message = ""
+            diagnosticFailure = nil
             busy = ""
         } catch {
             guard ticket == portalTicket else { return }
             busy = ""
-            message = V3FailureGuidance.message(error)
+            presentCertificateFailure(error)
         }
     }
     private func setActive(serial: String) {
+        diagnosticFailure = nil
         busy = serial
         notice = ""
+        diagnosticFailure = nil
         Task {
             defer { busy = "" }
             let mutationTicket = status.beginDirectMutation()
@@ -14662,7 +14688,7 @@ struct V3CertificatesView: View {
                 notice = "Active certificate updated."
             } catch {
                 status.finishDirectMutation(ticket: mutationTicket, requestReload: true)
-                message = V3FailureGuidance.message(error)
+                presentCertificateFailure(error)
             }
         }
     }
@@ -14670,6 +14696,7 @@ struct V3CertificatesView: View {
         confirm = nil
         busy = action + serial
         notice = ""
+        diagnosticFailure = nil
         defer { busy = "" }
         let mutationTicket = status.beginDirectMutation()
         do {
@@ -14698,6 +14725,7 @@ struct V3CertificatesView: View {
             await reload()
             portalLoaded = false
             message = ""
+            diagnosticFailure = nil
             switch action {
             case "delete": notice = "Certificate deleted."
             case "revoke": notice = "Certificate revoked."
@@ -14706,7 +14734,7 @@ struct V3CertificatesView: View {
             }
         } catch {
             status.finishDirectMutation(ticket: mutationTicket, requestReload: true)
-            message = V3FailureGuidance.message(error)
+            presentCertificateFailure(error)
         }
     }
 }
@@ -14897,10 +14925,25 @@ struct V3ActivitySheet: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
+// V3_PLACED_PAIRING_PRESENTATION_V1: app-owned result, not proof inferred from file presence.
+enum V3PlacedPairingPresentation {
+    enum Severity: String { case success, warning, error }
+    static func result(_ outcome: String?) -> (message: String, severity: Severity) {
+        switch outcome {
+        case "adoptedReady": return ("The placed pairing file is active and the device connection was verified.", .success)
+        case "adoptedConnectionNotReady": return ("The placed pairing file was adopted. The device connection is not ready yet. Check VPN and connection settings before refreshing.", .warning)
+        case "adoptedCleanupUncertain": return ("The placed pairing file was adopted, but transport cleanup could not be confirmed. Do not refresh until the recovery check is complete.", .warning)
+        default: return ("Reload status to confirm the pairing result.", .warning)
+        }
+    }
+    static let failureMessage = "Pairing could not be confirmed. Check status before trying again. If a different pairing file already exists, use manual import."
+}
+
 struct V3PairingView: View {
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @State private var pickerPresented = false
     @State private var message = ""
+    @State private var messageSeverity: V3PlacedPairingPresentation.Severity = .error
     @State private var pairingFailure: CombinedFailure?
     @State private var working = false
     @State private var placementTask: Task<Void, Never>?
@@ -14914,11 +14957,11 @@ struct V3PairingView: View {
                         pairingStatus: status.pairing)).foregroundColor(.secondary)
                 }
                 if !message.isEmpty {
-                    V3LocalizedText(message).font(.footnote).foregroundColor(.red).textSelection(.enabled)
+                    V3LocalizedText(message).font(.footnote).foregroundColor(messageSeverity == .success ? .green : (messageSeverity == .warning ? .orange : .red)).textSelection(.enabled)
                 }
             }
             if let failure = pairingFailure {
-                Section("Pairing file could not be read or validated") {
+                Section("Pairing needs attention") {
                     V3LocalizedText(failure.safeMessage)
                         .font(.footnote)
                         .foregroundColor(.red)
@@ -15051,6 +15094,7 @@ struct V3PairingView: View {
         working = true
         pairingFailure = nil
         message = ""
+        messageSeverity = .error
         placementTask = Task { @MainActor in
             defer { working = false; placementTask = nil }
             let ticket = status.beginDirectMutation()
@@ -15058,20 +15102,21 @@ struct V3PairingView: View {
                 try Task.checkCancellation()
                 let result = try await V3ServiceBridge.shared.request(operation: "pairingUsePlaced")
                 status.finishDirectMutation(ticket: ticket, reply: result, requestReload: true)
-                switch result["pairingPlacement"] as? String {
-                case "adoptedReady": message = "The placed pairing file is active and the device connection was verified."
-                case "adoptedConnectionNotReady": message = "The placed pairing file was adopted. The device connection is not ready yet. Check VPN and connection settings before refreshing."
-                case "adoptedCleanupUncertain": message = "The placed pairing file was adopted, but transport cleanup could not be confirmed. Do not refresh until the recovery check is complete."
-                default: message = "Reload status to confirm the pairing result."
-                }
+                let presentation = V3PlacedPairingPresentation.result(result["pairingPlacement"] as? String)
+                message = presentation.message
+                messageSeverity = presentation.severity
                 if ["adoptedReady", "adoptedConnectionNotReady"].contains(result["pairingPlacement"] as? String ?? "") {
                     _ = await V3ServiceBridge.shared.acknowledgeDirectRecoveryAfterSuccess(
                         result, operation: "pairingUsePlaced")
                 }
             } catch {
                 status.finishDirectMutation(ticket: ticket, requestReload: true)
-                if let failure = error as? CombinedFailure { status.present(failure) }
-                message = "Pairing could not be confirmed. Check status before trying again. If a different pairing file already exists, use manual import."
+                if let failure = error as? CombinedFailure {
+                    pairingFailure = failure
+                    status.present(failure)
+                }
+                messageSeverity = .error
+                message = V3PlacedPairingPresentation.failureMessage
             }
         }
     }
@@ -15079,6 +15124,7 @@ struct V3PairingView: View {
     private func importFile(_ url: URL) async {
         working = true
         message = ""
+        messageSeverity = .error
         pairingFailure = nil
         defer { working = false }
         var mutationTicket: UUID?
@@ -15107,6 +15153,7 @@ struct V3PairingView: View {
                 result, operation: "pairingImportData")
             mutationTicket = nil
             message = ""
+            messageSeverity = .error
         } catch {
             // A failed import may have crossed the service mutation boundary.
             if let mutationTicket {

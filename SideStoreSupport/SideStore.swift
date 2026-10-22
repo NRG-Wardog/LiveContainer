@@ -575,6 +575,7 @@ public struct CombinedFailure: Error, LocalizedError {
         case provisioningProfileRetrieval, provisioningProfileCreation, provisioningProfileUpdate
         case sourceDownload, manifestParsing, sourceValidation, knownSourcePolicyFetch,
              knownSourcePolicyParsing, catalogRead
+        case certificateSelection, refreshMetadataCache, provisioningProfileInstallation, refreshRecordUpdate, refreshApplication
         var portalUserLabel: String? {
             switch self {
             case .appIDLookup: return "while looking up app identifiers"
@@ -721,6 +722,12 @@ public struct CombinedFailure: Error, LocalizedError {
                 let names = text.isEmpty ? [] : text.components(separatedBy: ",")
                 guard names.count <= 32, Set(names).isSubset(of: signingCapabilityNames),
                       Set(names).count == names.count else { return nil }
+            case "refresh_failure_kind":
+                guard ["invalidParameters", "invalidOperationContext", "notAuthenticated", "unknownResult",
+                    "missingAppBundle", "missingProvisioningProfile", "certificateExpired", "certificateRevoked",
+                    "customCertificateExpired", "customCertificateRevoked", "certificateChanged", "invalidApp",
+                    "invalidPairingFile", "pairingNotComplete", "noDevice", "noConnection", "noVPN", "invalidVPN",
+                    "notReachable", "minimuxerNotStarted", "timedOut", "unknownOperation", "otherOperation"].contains(text) else { return nil }
             case "server_code":
                 guard text == "unknown" || (text.utf8.count <= 20 && Int(text).map({ String($0) }) == text) else { return nil }
             case "native_code", "native_subcode", "probe_native_code", "probe_native_subcode":
@@ -3378,6 +3385,11 @@ extension CombinedFailure.SourceStep {
         case .knownSourcePolicyFetch: return "S28"
         case .knownSourcePolicyParsing: return "S29"
         case .catalogRead: return "S30"
+        case .certificateSelection: return "S31"
+        case .refreshMetadataCache: return "S32"
+        case .provisioningProfileInstallation: return "S33"
+        case .refreshRecordUpdate: return "S34"
+        case .refreshApplication: return "S35"
         }
     }
 }
@@ -3975,6 +3987,50 @@ enum V3RefreshAdmissionFailureResolution: Equatable {
     }
 }
 
+// V3_REFRESH_TERMINAL_FAILURE_PRESERVATION_V1: AppIntents may erase a typed
+// app failure while wrapping it. Only the same terminal run's validated per-app
+// envelope can replace that empty wrapper. Transport and concrete outer errors
+// keep their original identity; raw error text is never used as evidence.
+enum V3RefreshTerminalFailurePolicy {
+    static func preservedFailure(outer: CombinedFailure, verification: Data?, runID: String,
+                                 expectedRunID: String?, activeRunID: String?,
+                                 activeRequestID: String?, record: [String: Any]?)
+        -> (failure: CombinedFailure, manifest: [String: Any])? {
+        guard outer.operation == "refresh", outer.correlationID == runID,
+              outer.stage == .command, outer.code == .failed,
+              ["none", "redacted"].contains(outer.underlyingDomain), outer.underlyingCode == 0,
+              outer.safeCause == nil, outer.sourceStep == nil, outer.retryable == nil,
+              outer.signingContext.isEmpty,
+              expectedRunID == runID, activeRunID == runID,
+              let record, record["run_id"] as? String == runID,
+              ["running", "verifying"].contains(record["state"] as? String ?? ""),
+              let requestID = record["request_id"] as? String,
+              (requestID.isEmpty ? activeRequestID == nil :
+                (UUID(uuidString: requestID) != nil && activeRequestID == requestID)),
+              let verification, verification.count <= 262144,
+              let payload = try? PropertyListSerialization.propertyList(from: verification, format: nil) as? [String: Any],
+              let manifest = payload["liveContainerAutoRefreshVerification"] as? [String: Any],
+              CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+              let entries = manifest["results"] as? [[String: Any]] else { return nil }
+        var failures: [CombinedFailure] = []
+        for entry in entries where entry["success"] as? Bool == false {
+            guard let wire = entry["failure"] as? [String: Any],
+                  wire["correlationID"] as? String == runID,
+                  let failure = CombinedFailure.decode(wire, expectedID: runID),
+                  failure.operation == "refresh" else { return nil }
+            failures.append(failure)
+        }
+        // Match the scheduler's conservative batch choice: an explicit user
+        // action failure must not be hidden by an earlier retryable app failure.
+        guard let failure = failures.first(where: {
+            $0.retryable == false || $0.stage == .authentication || $0.code == .cancelled
+        }) ?? failures.first,
+              let safeManifest = CombinedVerification.sanitized(payload, runID: runID)["liveContainerAutoRefreshVerification"] as? [String: Any],
+              CombinedVerification.hasCompleteTerminalResults(safeManifest, runID: runID) else { return nil }
+        return (failure, safeManifest)
+    }
+}
+
 @MainActor
 class RefreshHandler: NSObject {
     static let shared = RefreshHandler()
@@ -4562,11 +4618,22 @@ class RefreshHandler: NSObject {
         guard launchID == id, refreshContinuation != nil, refreshRunID == runID else { return }
         v3RefreshTerminalCallbackRunID = runID
         if let error {
+            let decoded = CombinedFailure.fromEncodedString(error, expectedID: runID)
+            var failure = decoded ?? CombinedFailure(operation: "refresh", stage: .command, id: runID)
             if let defaults = V3SharedAppGroup.sharedUserDefaults() {
+                if let decoded,
+                   let preserved = V3RefreshTerminalFailurePolicy.preservedFailure(
+                    outer: decoded, verification: verification, runID: runID,
+                    expectedRunID: defaults.string(forKey: "liveContainerAutoRefreshExpectedRunID"),
+                    activeRunID: defaults.string(forKey: "liveContainerAutoRefreshActiveRunID"),
+                    activeRequestID: defaults.string(forKey: "liveContainerAutoRefreshActiveRequestID"),
+                    record: defaults.dictionary(forKey: "liveContainerAutoRefreshRunLedger")?[runID] as? [String: Any]) {
+                    failure = preserved.failure
+                    defaults.set(preserved.manifest, forKey: "liveContainerAutoRefreshVerification")
+                }
                 CombinedVerification.clearUncertainty(defaults, runID: runID)
             }
-            finishRefreshContinuation(.failure(CombinedFailure.fromEncodedString(error, expectedID: runID) ??
-                CombinedFailure(operation: "refresh", stage: .command, id: runID)))
+            finishRefreshContinuation(.failure(failure))
             return
         }
         guard let verification, verification.count <= 262144,

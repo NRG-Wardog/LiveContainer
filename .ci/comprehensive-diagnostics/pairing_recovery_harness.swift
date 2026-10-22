@@ -332,10 +332,18 @@ private func emptySnapshot() -> [String: Any] {
         }
         guard CommandLine.arguments.count == 3, let bundle = Bundle(path: CommandLine.arguments[1]) else { throw FixtureError.failed }
         let deferred = appendActualProvisioningSuffix("Apple ID signed in. Add pairing before refreshing or installing apps.")
+        let placementCases: [(String?, V3PlacedPairingPresentation.Severity)] = [
+            ("adoptedReady", .success), ("adoptedConnectionNotReady", .warning),
+            ("adoptedCleanupUncertain", .warning), (nil, .warning), (canary, .warning)]
+        let placementMessages = placementCases.map { outcome, severity -> String in
+            let result = V3PlacedPairingPresentation.result(outcome)
+            precondition(result.severity == severity && !result.message.contains(canary))
+            return result.message
+        } + [V3PlacedPairingPresentation.failureMessage]
         for language in V3AppLanguage.allCases {
             for text in ["SideStore could not start or complete the requested command action.",
                          "SideStore could not start or complete the requested pairingUsePlaced action.",
-                         "A previous placed pairing activation has an unresolved result", deferred] {
+                         "A previous placed pairing activation has an unresolved result", deferred] + placementMessages {
                 let rendered = V3Localization.prose(text, language: language, bundle: bundle)
                 let unavailable = V3Localization.prose(canary, language: language, bundle: bundle)
                 try expect(!rendered.contains(unavailable) && !rendered.contains(canary), "localized known prose \(language.rawValue)")
@@ -352,6 +360,15 @@ private func emptySnapshot() -> [String: Any] {
                 userInfo: [NSLocalizedDescriptionKey: canary]), step: .validateExport)
             try expect(!unknown.contains(canary), "Settings excludes arbitrary error text")
             try expect(V3CertificateImportFailureDetails.copySuffix(message: "new", captured: ("old", typed)).isEmpty, "Settings excludes stale diagnostic suffix")
+            for operation in ["certPortalList", "certCreate"] {
+                let original = CombinedFailure(operation: "command", stage: .signing, code: .failed,
+                    id: requestID, sourceStep: .fetchCertificate)
+                let response = V3ResponseEncoder.encode(["version": 1, "id": requestID, "failure": original.wire,
+                    "error": "operationFailed", "untrusted": canary], operation: operation, limit: V3WireContract.responseLimit)
+                let failure = try await capture { try V3CatalogRequestContext.classifyReply(response, operation: operation, id: requestID) }
+                let copied = V3DiagnosticCopy.details(visibleMessage: failure.safeMessage, technical: failure.technicalDetails)
+                try expect(copied.contains("request_operation=\(operation)") && copied.contains("source_step=fetchCertificate") && !copied.contains(canary), "certificate action and bounded cause reach actual Copy")
+            }
             cases.append("certificate-import-safe-copy-and-stale-suffix")
         }
         let expectedCases: [String] = // EXPECTED_CASE_NAMES_INSERT

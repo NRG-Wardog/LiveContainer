@@ -26,6 +26,17 @@ with tempfile.TemporaryDirectory() as d:
                             (ui, ['struct V3HostDirectRecoveryRecord:', 'enum V3DirectRecoveryHostPolicy {'])]:
         for anchor in anchors: assert g.block(source, anchor) in fixture, anchor
     assert g.block(ui, 'private func applyFullRecoveryEvidence(').replace('private func ', 'func ', 1) in fixture
+    assert g.block(ui, 'enum V3PlacedPairingPresentation {') in fixture
+    placement = g.block(ui, '    private func usePlacedPairing()')
+    assert 'messageSeverity = presentation.severity' in placement
+    assert 'pairingFailure = failure' in placement
+    assert 'V3PlacedPairingPresentation.result' in placement
+    assert 'messageSeverity == .success ? .green' in ui
+    certificate_ui = g.block(ui, 'struct V3CertificatesView: View {')
+    assert 'diagnosticFailure = error as? CombinedFailure' in certificate_ui
+    assert 'visibleMessage: message, technical: failure.technicalDetails' in certificate_ui
+    assert certificate_ui.count('presentCertificateFailure(error)') == 4
+
     assert 'guard !Task.isCancelled,' in fixture
     assert 'withUnsafeCurrentTask { $0?.cancel() }' in fixture
     assert manifest['baseline_store_sha256'] == '7f2e5adb99e4e990513152d59c2e7e931d871e4e3c5bbc9f32344a180b4ac19a'

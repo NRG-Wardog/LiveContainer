@@ -82,6 +82,7 @@ def generate(root, out):
     for anchor in ['struct V3HostDirectRecoveryRecord:', 'enum V3DirectRecoveryPostcondition:',
                    'enum V3DirectRecoveryHostPolicy {', 'enum V3DirectRecoveryPresentationPolicy {']:
         fixture += block(ui, anchor) + '\n'
+    fixture += block(ui, 'enum V3PlacedPairingPresentation {') + '\n'
     fixture += s['localization'] + '\n'
     fixture += block(s['settings'], 'enum V3CertificateImportFailureDetails {') + '\n'
     fixture += block(service, 'private enum V3DirectMutationRecoveryLifecycle {') + '\n'

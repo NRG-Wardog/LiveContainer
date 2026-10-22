@@ -86202,6 +86202,180 @@
           }
         }
       }
+    },
+    "The placed pairing file is active and the device connection was verified.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The placed pairing file is active and the device connection was verified."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קובץ ה־Pairing שהוצב פעיל והחיבור למכשיר אומת."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已放置的配对文件已启用，并已验证设备连接。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已放置的配對檔案已啟用，並已驗證裝置連線。"
+          }
+        }
+      }
+    },
+    "The placed pairing file was adopted. The device connection is not ready yet. Check VPN and connection settings before refreshing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The placed pairing file was adopted. The device connection is not ready yet. Check VPN and connection settings before refreshing."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קובץ ה־Pairing שהוצב נקלט. החיבור למכשיר עדיין אינו מוכן. יש לבדוק את הגדרות ה־VPN והחיבור לפני רענון."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已采用放置的配对文件。设备连接尚未就绪。刷新前请检查 VPN 和连接设置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已採用放置的配對檔案。裝置連線尚未就緒。重新整理前請檢查 VPN 和連線設定。"
+          }
+        }
+      }
+    },
+    "The placed pairing file was adopted, but transport cleanup could not be confirmed. Do not refresh until the recovery check is complete.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The placed pairing file was adopted, but transport cleanup could not be confirmed. Do not refresh until the recovery check is complete."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "קובץ ה־Pairing שהוצב נקלט, אך לא ניתן היה לאשר את ניקוי החיבור. אין לרענן עד להשלמת בדיקת ההתאוששות."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已采用放置的配对文件，但无法确认传输清理是否完成。恢复检查完成前请勿刷新。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已採用放置的配對檔案，但無法確認傳輸清理是否完成。復原檢查完成前請勿重新整理。"
+          }
+        }
+      }
+    },
+    "Reload status to confirm the pairing result.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reload status to confirm the pairing result."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לטעון מחדש את המצב כדי לאשר את תוצאת ה־Pairing."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请重新加载状态以确认配对结果。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請重新載入狀態以確認配對結果。"
+          }
+        }
+      }
+    },
+    "Pairing could not be confirmed. Check status before trying again. If a different pairing file already exists, use manual import.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing could not be confirmed. Check status before trying again. If a different pairing file already exists, use manual import."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה לאשר את ה־Pairing. יש לבדוק את המצב לפני ניסיון נוסף. אם כבר קיים קובץ Pairing אחר, יש להשתמש בייבוא ידני."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法确认配对。再次尝试前请检查状态。如果已存在其他配对文件，请使用手动导入。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法確認配對。再次嘗試前請檢查狀態。如果已存在其他配對檔案，請使用手動匯入。"
+          }
+        }
+      }
+    },
+    "Pairing needs attention": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pairing needs attention"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לבדוק את ה־Pairing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对需要处理"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配對需要處理"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
