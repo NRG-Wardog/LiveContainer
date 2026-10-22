@@ -59,6 +59,21 @@ def read(root, relative):
     return path.read_bytes()
 
 
+def validate_service_dependencies(swift, diagnostic_policy, block):
+    assert swift.count('enum V3AuthFailureDiagnosticsPolicy {') == 1 and diagnostic_policy in swift, \
+        'Actual authentication diagnostic policy missing from service closure'
+    assert swift.count('struct FixtureRemoteAuthenticationContext {') == 1, \
+        'Inert remote context interface missing from service closure'
+    context = block(swift, 'struct FixtureRemoteAuthenticationContext {')
+    assert 'let session = FakeDispatcher()' in context and 'func checkActive() throws {}' in context and \
+        'URLSession' not in context, 'Inert remote context interface missing from service closure'
+    assert swift.count('enum ILoaderRemoteAuthentication {') == 1, \
+        'Nil-only remote route missing from service closure'
+    route = block(swift, 'enum ILoaderRemoteAuthentication {')
+    assert 'static var current: FixtureRemoteAuthenticationContext? { nil }' in route, \
+        'Nil-only remote route missing from service closure'
+
+
 def generate_variant(root, support_root, output, variant, wire):
     block = wire.block
     source_bytes = {key: read(root, path) for key, path in INPUT_PATHS.items()}
@@ -100,7 +115,8 @@ def generate_variant(root, support_root, output, variant, wire):
     common += block(sources['operation_error'], 'public enum OperationError:') + '\n'
     common += sources['wrapped_error'].replace('@objc(ALTWrappedError)\n', '').replace('@objc ', '') + '\n'
     common += block(service, 'enum V3HeadlessPairingFailure {') + '\n'
-    for anchor in ['enum V3ResponseClassifier {', 'struct V3EncodedServiceResponse {', 'enum V3ResponseEncoder {']:
+    for anchor in ['enum V3AuthFailureDiagnosticsPolicy {', 'enum V3ResponseClassifier {',
+                   'struct V3EncodedServiceResponse {', 'enum V3ResponseEncoder {']:
         common += block(service, anchor) + '\n'
     # Extract exact selected dispatcher branch and generic failure-capture leaf.
     case_start = service.index('        case "certPortalList":')
@@ -128,6 +144,7 @@ response["error"] = error is CancellationError ? "cancelled" : "operationFailed"
     swift += 'static func certificateRow(_ certificate: X509Certificate, activeSerial: String?) -> [String: Any] { ["active": certificate.serialNumber == activeSerial] }\n}\n'
     swift += dispatcher + '\nlet fixtureCandidate = ' + ('true' if variant == 'candidate' else 'false') + '\n'
     swift += sources['service_cases']
+    validate_service_dependencies(swift, block(service, 'enum V3AuthFailureDiagnosticsPolicy {'), block)
     target = output
     target.mkdir(parents=True, exist_ok=True)
     (target / 'service.swift').write_text(swift)

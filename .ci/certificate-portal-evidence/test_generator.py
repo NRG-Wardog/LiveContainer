@@ -14,12 +14,38 @@ spec.loader.exec_module(g)
 
 def run(candidate, baseline, output):
     receipt = g.generate(candidate, baseline, output)
+    wire_spec = importlib.util.spec_from_file_location('portal_dependency_wire_controls',
+        candidate / g.SUPPORT_PATHS['wire_generator'])
+    wire = importlib.util.module_from_spec(wire_spec)
+    wire_spec.loader.exec_module(wire)
     checks = []
     for variant, root in [('baseline', baseline), ('candidate', candidate)]:
         value = receipt[variant]
         assert value['expected_case_count'] == len(set(value['expected_case_names'])) == 19
         assert value['inputs_sha256'] == {p: g.digest((root / p).read_bytes()) for p in g.INPUT_PATHS.values()}
         assert value['support_inputs_sha256'] == {p: g.digest((candidate / p).read_bytes()) for p in g.SUPPORT_PATHS.values()}
+        generated = (output / variant / 'service.swift').read_text()
+        policy = wire.block((root / g.INPUT_PATHS['service']).read_text(), 'enum V3AuthFailureDiagnosticsPolicy {')
+        g.validate_service_dependencies(generated, policy, wire.block)
+        # These are dependency-closure assertions within the existing exact-source
+        # controls, not additional runtime cases or replacements for native Swift.
+        context = wire.block(generated, 'struct FixtureRemoteAuthenticationContext {')
+        route = wire.block(generated, 'enum ILoaderRemoteAuthentication {')
+        for scope, omitted in [(policy, policy), (context, context),
+                               (context, 'let session = FakeDispatcher()'),
+                               (context, 'func checkActive() throws {}'), (route, route),
+                               (route, 'static var current: FixtureRemoteAuthenticationContext? { nil }')]:
+            assert generated.count(scope) == 1 and scope.count(omitted) == 1
+            mutated = generated.replace(scope, scope.replace(omitted, '', 1), 1)
+            try:
+                g.validate_service_dependencies(mutated, policy, wire.block)
+            except AssertionError:
+                pass
+            else:
+                raise AssertionError('Missing service dependency was not rejected: ' + omitted)
+        assert 'URLSession' not in context
+        assert wire.block((root / g.INPUT_PATHS['portal']).read_text(),
+                          '    func sendServicesRequest<T: Decodable>') in generated
         checks.append(variant + '-exact-production-and-candidate-support-pinned')
     with tempfile.TemporaryDirectory() as folder:
         temporary = Path(folder)

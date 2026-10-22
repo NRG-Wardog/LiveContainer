@@ -109,6 +109,16 @@ func debugLog(_ text: String) {} // Never prints request or response content.
 struct FixtureRemoteAdmission: Sendable {
     func withScope<T>(_ operation: () async throws -> T) async rethrows -> T { try await operation() }
 }
+// sendServicesRequest retains its actual optional remote-context dispatch branch.
+// This suite admits only the nil route; even this unused context can dispatch
+// only invented responses through FakeDispatcher, never a network session.
+struct FixtureRemoteAuthenticationContext {
+    let session = FakeDispatcher()
+    func checkActive() throws {}
+}
+enum ILoaderRemoteAuthentication {
+    static var current: FixtureRemoteAuthenticationContext? { nil }
+}
 @MainActor enum V3RemoteRequestLeases {
     static func withAuthorizedRoute<T>(operation: () async throws -> T) async rethrows -> T {
         try await operation()
