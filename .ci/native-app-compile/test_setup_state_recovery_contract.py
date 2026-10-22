@@ -90,7 +90,19 @@ class Controls(unittest.TestCase):
 
     def subprocess(self, argv, **kwargs):
         argv = list(map(str, argv))
-        name = gate.COMMANDS[len(self.command_names)]
+        if Path(argv[0]).is_relative_to(self.output.resolve()):
+            # Identify runtimes by their actual executable, not a sequential index:
+            # a blocked portal host is deliberately never launched.
+            relative = Path(argv[0]).relative_to(self.output.resolve()).as_posix()
+            runtime_names = {'setup-localization/fixture': 'localization-run',
+                             'remote-identity-reuse/fixture': 'identity-run'}
+            for variant in ('baseline', 'candidate'):
+                runtime_names['early-refresh-boundaries/' + variant + '/fixture'] = 'early-' + variant + '-run'
+                runtime_names['certificate-portal-evidence/' + variant + '/service'] = 'portal-' + variant + '-run'
+                runtime_names['certificate-portal-evidence/' + variant + '/host'] = 'portal-' + variant + '-host-run'
+            name = runtime_names[relative]
+        else:
+            name = gate.COMMANDS[len(self.command_names)]
         self.command_names.append(name)
         data = (gate.markers().get(name, 'inert generation success') + '\n').encode()
         if name == 'delivered-baseline-extract':
@@ -193,6 +205,8 @@ class Controls(unittest.TestCase):
             self.assertLess(self.command_names.index('portal-' + variant + '-run'),
                             self.command_names.index('portal-' + variant + '-host-run'))
         self.assertEqual(report['status'], gate.STATUS)
+        self.assertNotIn('runtime_failures', report)
+        self.assertNotIn('blocked_runtime_dependencies', report)
         self.assertFalse(report['native_provider_executed'])
         gate.verify_receipt(self.output / 'report.json', self.contract_path)
 
@@ -233,15 +247,70 @@ class Controls(unittest.TestCase):
             self.run_gate()
         report = json.loads((self.output / 'report.json').read_text())
         self.assertEqual(report['status'], 'FAILED')
-        self.assertEqual(report['commands'][-1]['exit_code'], 9)
+        self.assertEqual(next(row for row in report['commands'] if row['name'] == 'early-baseline-run')['exit_code'], 9)
         self.assertEqual([name for name in self.command_names if name.endswith('-compile')],
                          list(gate.COMPILE_COMMANDS))
-        self.assertNotIn('identity-run', self.command_names)
+        self.assertEqual(self.command_names, list(gate.COMMANDS))
+        self.assertEqual([row['name'] for row in report['runtime_failures']], ['early-baseline-run'])
+        self.assertEqual(report['blocked_runtime_dependencies'], [])
         with mock.patch.object(gate.subprocess, 'run') as process:
             for name in ('localization-source', 'localization-run'):
                 with self.assertRaisesRegex(ValueError, 'Only setup compile commands'):
                     gate.Runner(self.root).command(name, ['inert'], collect_compile_failure=True)
             process.assert_not_called()
+
+    def test_independent_runtime_failures_collected_and_failed_service_blocks_host(self):
+        nonzero = {'localization-run': 7, 'portal-baseline-run': 9, 'identity-run': 17}
+        def mutate(name, argv, data):
+            if name in nonzero:
+                return subprocess.CompletedProcess(argv, nonzero[name], ('failed ' + name).encode())
+            if name == 'early-baseline-run':
+                raise subprocess.TimeoutExpired(argv, 300, output=b'partial runtime diagnostics')
+            if name == 'early-candidate-run':
+                raise OSError('inert runtime launch failure')
+            if name == 'portal-candidate-host-run':
+                return subprocess.CompletedProcess(argv, 0, data + data)
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Setup runtime commands failed'):
+            self.run_gate()
+        expected = [name for name in gate.COMMANDS if name != 'portal-baseline-host-run']
+        self.assertEqual(self.command_names, expected)
+        self.assertEqual(len(set(self.command_names)), len(expected))
+        report = json.loads((self.output / 'report.json').read_text())
+        self.assertEqual(report['status'], 'FAILED')
+        self.assertFalse(report['source_owned_fixtures_executed'])
+        self.assertEqual([row['name'] for row in report['commands']], expected)
+        self.assertEqual([row['name'] for row in report['runtime_failures']], ['localization-run',
+            'early-baseline-run', 'early-candidate-run', 'portal-baseline-run',
+            'portal-candidate-host-run', 'identity-run'])
+        self.assertEqual(report['blocked_runtime_dependencies'], [{'name': 'portal-baseline-host-run',
+            'dependency': 'portal-baseline-run', 'reason': 'Service command or required success marker failed'}])
+        # Even an existing partial output does not permit this dependent host.
+        self.assertTrue((self.output / 'certificate-portal-evidence/baseline/cases.plist').is_file())
+        self.assertFalse((self.output / 'certificate-portal-evidence/baseline/results.json').exists())
+        self.assertFalse((self.output / 'commands/portal-baseline-host-run.log').exists())
+        rows = {row['name']: row for row in report['commands']}
+        for name, code in nonzero.items():
+            self.assertEqual(rows[name]['exit_code'], code)
+        self.assertTrue(rows['early-baseline-run']['timed_out'])
+        self.assertEqual(rows['early-candidate-run']['launch_error'], 'OSError')
+        self.assertEqual(rows['portal-candidate-host-run']['exit_code'], 0)
+        self.assertNotIn('success_marker', rows['portal-candidate-host-run'])
+        for row in rows.values():
+            self.assertEqual(row['stdout_sha256'], gate.digest((self.output / row['log']).read_bytes()))
+        with self.assertRaisesRegex(ValueError, 'Setup-state fixtures did not pass'):
+            gate.verify_receipt(self.output / 'report.json', self.contract_path)
+
+    def test_failed_service_marker_blocks_only_its_own_host(self):
+        self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, 0, d + d) if n == 'portal-baseline-run' else None
+        with self.assertRaisesRegex(ValueError, 'duplicate exact success marker'):
+            self.run_gate()
+        self.assertEqual(self.command_names, [name for name in gate.COMMANDS if name != 'portal-baseline-host-run'])
+        report = json.loads((self.output / 'report.json').read_text())
+        self.assertEqual([row['name'] for row in report['runtime_failures']], ['portal-baseline-run'])
+        self.assertEqual([row['name'] for row in report['blocked_runtime_dependencies']], ['portal-baseline-host-run'])
+        self.assertIn('portal-candidate-host-run', self.command_names)
+        self.assertIn('identity-run', self.command_names)
 
     def test_all_compile_failures_collected_before_any_runtime_or_admission(self):
         nonzero = {'early-baseline-compile': 9, 'portal-candidate-host-compile': 17}
@@ -421,10 +490,17 @@ class Controls(unittest.TestCase):
             gate.verify_receipt(self.output / 'report.json', self.contract_path)
 
     def test_missing_command_receipt_rejected(self):
-        self.run_gate()
+        report = self.run_gate()
         self.rewrite_json(self.output / 'report.json', lambda v: v['commands'].pop())
         with self.assertRaisesRegex(ValueError, 'Missing or repeated setup command'):
             gate.verify_receipt(self.output / 'report.json', self.contract_path)
+        for key in ('runtime_failures', 'blocked_runtime_dependencies'):
+            with self.subTest(key=key):
+                forged = copy.deepcopy(report)
+                forged[key] = [{'name': 'portal-baseline-host-run', 'failure': 'inert failure'}]
+                gate.write_json(self.output / 'report.json', forged)
+                with self.assertRaisesRegex(ValueError, 'runtime failures or blocked dependencies remain'):
+                    gate.verify_receipt(self.output / 'report.json', self.contract_path)
 
     def test_portal_module_identity_receipt_drift_rejected(self):
         self.run_gate()

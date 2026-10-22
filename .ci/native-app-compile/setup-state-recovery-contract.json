@@ -1243,7 +1243,7 @@
   "input_sha256": {
     "LiveContainer/.ci/certificate-portal-evidence/README.md": "d3606ae63f3c1783f181933f4b6d6100cec599d510bc9c4c18acf22c2da6681d",
     "LiveContainer/.ci/certificate-portal-evidence/generate_regression.py": "0ada377df97b59f6f6d7ed4592d2ecf5f6bb38e1d2df4bf984e149ab7ffac5a8",
-    "LiveContainer/.ci/certificate-portal-evidence/host_cases.swift": "60ee4aa346e01024beb7d778478e55e1db344195d8f5841ec3d06eb4f32aa3d5",
+    "LiveContainer/.ci/certificate-portal-evidence/host_cases.swift": "393485d45eb79fe69407e7db544abd8e412903871d3ab399a0aa6b10ae29f0b4",
     "LiveContainer/.ci/certificate-portal-evidence/portal_doubles.swift": "19ec6833ae5792f14622669b63f96508bef4d8cf4e2a9352f00f2859185ce49b",
     "LiveContainer/.ci/certificate-portal-evidence/service_cases.swift": "1103dd849ae48b314220667854694e310f5c431d0c4f760ad5bf7f48cdeb62b7",
     "LiveContainer/.ci/certificate-portal-evidence/test_generator.py": "e7ba64f138d4e5bbda59e19d766102a6ad809dc5b48b5ccd1658e1244df691f6",

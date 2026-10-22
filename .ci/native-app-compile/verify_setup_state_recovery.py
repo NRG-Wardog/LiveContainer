@@ -432,6 +432,8 @@ def verify_receipt(path, contract_path=None):
     report = json.loads(path.read_text())
     require(report.get('schema') == 'setup-state-recovery-run-v1' and report.get('status') == STATUS and
             report.get('suites') == list(SUITES), 'Setup-state fixtures did not pass')
+    require(not report.get('runtime_failures') and not report.get('blocked_runtime_dependencies'),
+            'Setup runtime failures or blocked dependencies remain')
     require(report.get('contract_sha256') == digest(contract_path.read_bytes()), 'Setup contract receipt differs')
     require(report.get('source_inputs_before') == contract['input_sha256'] and
             report.get('source_inputs_after') == contract['input_sha256'] and
@@ -501,6 +503,16 @@ def run(sources, swiftc, output, contract_path=None):
             require(module == 'SideSign', 'Unexpected setup fixture module')
             args += ['-module-name', module]
         runner.command(name, args + [file, '-o', binary], collect_compile_failure=True)
+    runtime_failures, blocked_dependencies = [], []
+    def runtime(name, argv):
+        try:
+            runner.command(name, argv, markers()[name])
+        except ValueError as error:
+            # Runner retains the real exit/timeout/launch/log row before raising.
+            # Keep marker failures too, without making a failed command successful.
+            runtime_failures.append({'name': name, 'failure': str(error)})
+            return False
+        return True
     try:
         baseline = output / 'delivered-baseline'
         runner.command('delivered-baseline-extract', [sys.executable, '-B', Path(__file__).resolve(),
@@ -548,19 +560,24 @@ def run(sources, swiftc, output, contract_path=None):
                   row['exit_code'] != 0 or row.get('timed_out') or row.get('launch_error')]
         require(not failed, 'Setup compile commands failed: ' + ', '.join(failed))
 
-        runner.command('localization-run', [localization / 'fixture', localization], markers()['localization-run'])
+        runtime('localization-run', [localization / 'fixture', localization])
         for variant in ('baseline', 'candidate'):
             folder = early / variant
             name = 'early-' + variant + '-run'
-            runner.command(name, [folder / 'fixture', folder / 'cases.json'], markers()[name])
+            runtime(name, [folder / 'fixture', folder / 'cases.json'])
         for variant in ('baseline', 'candidate'):
             folder = portal / variant
             prefix = 'portal-' + variant
-            runner.command(prefix + '-run', [folder / 'service', folder / 'cases.plist'], markers()[prefix + '-run'])
-            runner.command(prefix + '-host-run', [folder / 'host', folder / 'cases.plist', folder / 'results.json'],
-                           markers()[prefix + '-host-run'])
-        runner.command('identity-run', [identity / 'fixture', '--cases-output', identity / 'cases.json'],
-                       markers()['identity-run'])
+            if runtime(prefix + '-run', [folder / 'service', folder / 'cases.plist']):
+                runtime(prefix + '-host-run', [folder / 'host', folder / 'cases.plist', folder / 'results.json'])
+            else:
+                blocked_dependencies.append({'name': prefix + '-host-run', 'dependency': prefix + '-run',
+                                             'reason': 'Service command or required success marker failed'})
+        runtime('identity-run', [identity / 'fixture', '--cases-output', identity / 'cases.json'])
+        if runtime_failures:
+            report.update(runtime_failures=runtime_failures, blocked_runtime_dependencies=blocked_dependencies)
+            require(False, 'Setup runtime commands failed: ' + '; '.join(
+                row['name'] + ': ' + row['failure'] for row in runtime_failures))
         report['evidence'] = all_evidence(output, contract)
         require([r['name'] for r in runner.commands] == list(COMMANDS), 'Setup command order differs')
         report['source_inputs_after'] = inventory(sources, contract)
