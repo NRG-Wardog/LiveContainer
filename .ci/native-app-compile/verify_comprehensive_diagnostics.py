@@ -10,14 +10,17 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 STATUS = 'SOURCE_OWNED_FAKE_DIAGNOSTICS_PASS_NOT_RUNTIME_VALIDATION'
-SUITES = ('legacy-response-core', 'auth-request', 'iloader-auth-parity', 'iloader-onboarding-scope', 'profile-provenance', 'wire-copy')
+SUITES = ('legacy-response-core', 'auth-request', 'iloader-auth-parity', 'iloader-onboarding-scope', 'profile-provenance', 'wire-copy',
+          'placed-pairing', 'deferred-device-setup')
 COMMANDS = ('legacy-generate', 'legacy-compile', 'legacy-run',
             'auth-source', 'auth-generate', 'auth-compile', 'auth-run',
             'iloader-source', 'iloader-generate', 'iloader-compile', 'iloader-run',
             'onboarding-source', 'onboarding-generate', 'onboarding-compile', 'onboarding-run',
             'profile-source', 'profile-generate', 'profile-compile', 'profile-run',
             'wire-source', 'wire-generate', 'wire-service-compile', 'wire-host-compile',
-            'wire-service-run', 'wire-host-run')
+            'wire-service-run', 'wire-host-run',
+            'pairing-source', 'pairing-generate', 'pairing-compile', 'pairing-run',
+            'deferred-source', 'deferred-generate', 'deferred-compile', 'deferred-run')
 AUTH_FILES = ('CandidateAuthentication.swift', 'BaselineAuthentication.swift',
               'AuthenticationDiagnosticTrace.swift', 'Errors.swift', 'Types.swift',
               'BoundaryDoubles.swift', 'RuntimeTests.swift')
@@ -68,6 +71,36 @@ REQUIRED_INPUTS = {
 WIRE_INPUT_PATHS = {'service': 'SideStore/AltStore/AppDelegate.swift', 'host': 'LiveContainer/SideStoreSupport/SideStore.swift', 'ui': 'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift', 'operation': 'SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift', 'collector': 'SideStore/Dependencies/SideSign/Sources/Models/AuthenticationDiagnosticTrace.swift', 'provenance': 'SideStore/Dependencies/SideSign/Sources/Models/AuthenticationHeaderProvenance.swift', 'constants': 'SideStore/Dependencies/SideSign/Sources/Constants.swift', 'operation_errors': 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift', 'portal_errors': 'SideStore/Dependencies/SideSign/Sources/Models/Errors.swift', 'portal_observers': 'SideStore/Dependencies/SideSign/Sources/DeveloperPortal/DeveloperPortalAPI.swift', 'anisette_errors': 'SideStore/Dependencies/SideSign/Sources/Anisette/AnisetteDataManager.swift', 'archive_errors': 'SideStore/Dependencies/SideSign/Sources/Archiver/Archive.swift', 'remote_errors': 'SideStore/Dependencies/SideSign/Sources/Anisette/ILoaderRemoteAnisette.swift', 'minimuxer_mapping': 'SideStore/SideStore/Core/DeviceApi/MinimuxerWrapper.swift', 'registration_doubles': 'SideStore/.ci/iloader-onboarding-scope/RegistrationDoubles.swift', 'registration_cases': 'SideStore/.ci/iloader-onboarding-scope/RegistrationCases.swift'}
 REQUIRED_INPUTS.update(WIRE_INPUT_PATHS.values())
 
+# These two source-owned fixtures exercise only the new setup paths. Existing
+# auth/provenance/wire suites above remain single-run, not duplicated matrices.
+SETUP_FIXTURES = {
+    'placed-pairing': {
+        'command': 'pairing', 'root': 'SideStore/.ci/placed-pairing',
+        'generator': 'generate_fixture.py', 'source_test': 'test_source.py', 'output_arg': '--output',
+        'files': ('Production.swift', 'Doubles.swift', 'RuntimeTests.swift'),
+        'sources': ('SideStore/SideStore/Core/Pairing/PairingFileManager.swift',
+                    'SideStore/AltStore/Core/Extensions/UserDefaults+AltStore.swift',
+                    'SideStore/SideStore/AppBootManager.swift',
+                    'SideStore/AltStore/AppDelegate.swift',
+                    'LiveContainer/SideStoreSupport/SideStore.swift',
+                    'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift'),
+    },
+    'deferred-device-setup': {
+        'command': 'deferred', 'root': 'SideStore/.ci/deferred-device-setup',
+        'generator': 'generate.py', 'source_test': 'test_source.py', 'output_arg': '--output-dir',
+        'files': ('CandidateDeferredSetup.swift', 'BoundaryDoubles.swift', 'RuntimeTests.swift'),
+        'sources': ('SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
+                    'SideStore/SideStore/Core/Pairing/PairingFileManager.swift',
+                    'LiveContainer/SideStoreSupport/SideStore.swift',
+                    'SideStore/AltStore/AppDelegate.swift',
+                    'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift'),
+    },
+}
+for _spec in SETUP_FIXTURES.values():
+    REQUIRED_INPUTS.update(_spec['sources'])
+    REQUIRED_INPUTS.update(_spec['root'] + '/' + name for name in
+                           (_spec['generator'], _spec['source_test']))
+
 
 def require(ok, why):
     if not ok:
@@ -109,7 +142,7 @@ def load_contract(path):
         require(isinstance(name, str) and isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value),
                 'Malformed source hash')
     markers = contract.get('success_markers')
-    require(isinstance(markers, dict) and set(markers) == {'legacy', 'auth', 'iloader', 'onboarding', 'profile', 'wire_service', 'wire_host'},
+    require(isinstance(markers, dict) and set(markers) == {'legacy', 'auth', 'iloader', 'onboarding', 'profile', 'wire_service', 'wire_host', 'pairing', 'deferred'},
             'Incomplete marker contract')
     require(all(isinstance(v, str) and v and '\n' not in v and 'PENDING' not in v for v in markers.values()),
             'Unbound or malformed success marker')
@@ -121,6 +154,11 @@ def load_contract(path):
     require(isinstance(names, list) and names and
             all(isinstance(name, str) and name and 'PENDING' not in name for name in names) and
             len(names) == len(set(names)), 'Unbound or malformed Registration case contract')
+    for suite in SETUP_FIXTURES:
+        names = contract.get(suite + '_case_names')
+        require(isinstance(names, list) and names and
+                all(isinstance(name, str) and name and 'PENDING' not in name for name in names) and
+                len(names) == len(set(names)), 'Unbound or malformed setup case contract: ' + suite)
     return contract
 
 
@@ -128,7 +166,8 @@ def source_inventory(root, contract):
     actual = {name: digest(regular(root, name).read_bytes()) for name in contract['input_sha256']}
     require(actual == contract['input_sha256'], 'Source input hash mismatch')
     # Hash all executable fixture inputs, not just selected known filenames.
-    for folder in (AUTH, ILOADER, ONBOARDING, PROFILE, WIRE):
+    for folder in (AUTH, ILOADER, ONBOARDING, PROFILE, WIRE,
+                   *(spec['root'] for spec in SETUP_FIXTURES.values())):
         directory = root / folder
         require(directory.is_dir() and not directory.is_symlink(), 'Missing source-owned fixture directory')
         for path in directory.rglob('*'):
@@ -203,6 +242,42 @@ def registration_exported_cases(path, expected_names):
             'Registration case coverage differs from frozen source contract')
     export['fake_only'] = True
     return export
+
+
+def setup_exported_cases(path, suite, expected_names):
+    value = json.loads(path.read_text())
+    require(isinstance(value, dict) and value.get('schema') == suite + '-cases-v1' and
+            value.get('fake_only') is True, 'Setup case export schema or fake-only flag differs: ' + suite)
+    cases = value.get('cases')
+    require(isinstance(cases, list) and cases and all(isinstance(name, str) and name for name in cases) and
+            len(cases) == len(set(cases)), 'Setup case names are empty, malformed or duplicated: ' + suite)
+    require(sorted(cases) == sorted(expected_names), 'Setup case coverage differs: ' + suite)
+    return {'schema': value['schema'], 'count': len(cases), 'names': cases,
+            'sha256': digest(path.read_bytes()), 'fake_only': True}
+
+
+def setup_extraction_receipt(output, contract, suite, spec):
+    path = regular(output, suite + '/source-evidence.json')
+    evidence = json.loads(path.read_text())
+    require(evidence.get('schema') == suite + '-source-evidence-v1', 'Setup extraction schema differs: ' + suite)
+    for key in ('network', 'native_provider', 'swift_executed'):
+        require(evidence.get(key) is False, 'Forbidden setup generator execution claim: ' + suite + '/' + key)
+    require(evidence.get('output_closure') == list(spec['files']), 'Setup generated-source closure differs: ' + suite)
+    require(evidence.get('outputs') == {name: digest(regular(output, suite + '/' + name).read_bytes())
+                                        for name in spec['files']}, 'Setup generated-source hashes differ: ' + suite)
+    inputs = contract['input_sha256']
+    used = evidence.get('inputs')
+    required = set(spec['sources']) | {name for name in inputs if name.startswith(spec['root'] + '/')}
+    require(isinstance(used, dict) and required <= set(used), 'Missing setup extraction input: ' + suite)
+    for relative, value in used.items():
+        require(isinstance(relative, str) and relative in inputs and
+                isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) and
+                value == inputs[relative], 'Setup extraction input hash differs: ' + suite)
+    boundaries = evidence.get('boundary_replacements')
+    require(isinstance(boundaries, list) and boundaries and
+            all(isinstance(item, str) and item for item in boundaries) and
+            len(boundaries) == len(set(boundaries)), 'Missing or duplicate setup boundary receipt: ' + suite)
+    return {'path': path.relative_to(output).as_posix(), 'sha256': digest(path.read_bytes())}
 
 
 def extraction_receipt(output, contract):
@@ -300,8 +375,11 @@ def extraction_receipt(output, contract):
     require(values['wire-copy'].get('generated_sha256') ==
             {name: digest(regular(output, 'wire-copy/' + name).read_bytes()) for name in ('service.swift','host.swift')},
             'Wire generated-source hashes differ')
-    return {name: {'path': path, 'sha256': digest(regular(output, path).read_bytes())}
-            for name, path in manifests.items()}
+    result = {name: {'path': path, 'sha256': digest(regular(output, path).read_bytes())}
+              for name, path in manifests.items()}
+    for suite, spec in SETUP_FIXTURES.items():
+        result[suite] = setup_extraction_receipt(output, contract, suite, spec)
+    return result
 
 
 class Runner:
@@ -365,7 +443,8 @@ def verify_receipt(path, contract_path=None):
     by_name = {row['name']: row for row in commands}
     for name, key in (('legacy-run','legacy'),('auth-run','auth'),('iloader-run','iloader'),
                       ('onboarding-run','onboarding'),('profile-run','profile'),
-                      ('wire-service-run','wire_service'),('wire-host-run','wire_host')):
+                      ('wire-service-run','wire_service'),('wire-host-run','wire_host'),
+                      ('pairing-run','pairing'),('deferred-run','deferred')):
         row = by_name[name]
         require(row.get('success_marker') == marks[key], 'Success-marker receipt differs')
         require_marker(regular(path.parent, row['log']).read_text(), marks[key])
@@ -386,8 +465,13 @@ def verify_receipt(path, contract_path=None):
     export = iloader_exported_cases(regular(path.parent, 'iloader-auth-parity/cases.json'))
     require(report.get('fixture_exports', {}).get('iloader-auth-parity') == export, 'iLoader fixture case receipt mismatch')
     onboarding_export = onboarding_exported_cases(regular(path.parent, 'iloader-onboarding-scope/cases.json'), contract['onboarding_case_names'])
-    require(report.get('fixture_exports') == {'iloader-auth-parity': export, 'iloader-onboarding-scope': onboarding_export},
+    require(report.get('fixture_exports', {}).get('iloader-onboarding-scope') == onboarding_export,
             'Onboarding fixture case receipt mismatch')
+    expected_exports = {'iloader-auth-parity': export, 'iloader-onboarding-scope': onboarding_export}
+    for suite in SETUP_FIXTURES:
+        expected_exports[suite] = setup_exported_cases(
+            regular(path.parent, suite + '/cases.json'), suite, contract[suite + '_case_names'])
+    require(report.get('fixture_exports') == expected_exports, 'Setup fixture case receipt mismatch')
     return report
 
 
@@ -489,6 +573,24 @@ def run(sources, swiftc, output, contract_path=None):
             require_marker(service_log, f"WIRE_IMPORTED_CASES schema={export['schema']} producer_cases={export['count']} wire_cases={2 * export['count']}")
         runner.command('wire-host-run', [wire / 'host', transferred], marks['wire_host'])
         report['suites'].append('wire-copy')
+        for suite, spec in SETUP_FIXTURES.items():
+            folder = output / suite
+            prefix = spec['command']
+            runner.command(prefix + '-source', python(spec['root'] + '/' + spec['source_test']) +
+                           ['--sources', sources])
+            runner.command(prefix + '-generate', python(spec['root'] + '/' + spec['generator']) +
+                           ['--sources', sources, spec['output_arg'], folder])
+            require({p.name for p in folder.glob('*.swift')} == set(spec['files']),
+                    'Setup generated Swift closure differs: ' + suite)
+            # Verify input hashes, the generator's claimed side-effect boundaries,
+            # and the exact generated-file closure before executing any fixture.
+            setup_extraction_receipt(output, contract, suite, spec)
+            compile_fixture(prefix + '-compile', [folder / name for name in spec['files']],
+                            folder / 'fixture', library=True)
+            runner.command(prefix + '-run', [folder / 'fixture', folder / 'cases.json'], marks[prefix])
+            report['fixture_exports'][suite] = setup_exported_cases(
+                folder / 'cases.json', suite, contract[suite + '_case_names'])
+            report['suites'].append(suite)
         require([row['name'] for row in runner.commands] == list(COMMANDS), 'Command sequence differs')
         report['source_inputs_after'] = source_inventory(sources, contract)
         require(report['source_inputs_after'] == before, 'Fixture mutated source inputs')

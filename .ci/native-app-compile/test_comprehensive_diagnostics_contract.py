@@ -27,7 +27,7 @@ class Controls(unittest.TestCase):
         self.swiftc = self.root / 'swiftc-control-double'
         self.swiftc.write_text('Never executed\n')
         self.contract = self.root / 'contract.json'
-        self.markers = {k: 'CONTROL_PASS_' + k for k in ('legacy','auth','iloader','onboarding','profile','wire_service','wire_host')}
+        self.markers = {k: 'CONTROL_PASS_' + k for k in ('legacy','auth','iloader','onboarding','profile','wire_service','wire_host','pairing','deferred')}
         for name in gate.REQUIRED_INPUTS:
             path = self.sources / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -36,7 +36,8 @@ class Controls(unittest.TestCase):
             'source_inputs_bound':True, 'schemas':{'request':'ar1','profile':'hp2','provider':'ap1'},
             'input_sha256':{name:gate.digest((self.sources/name).read_bytes()) for name in sorted(gate.REQUIRED_INPUTS)},
             'success_markers':self.markers, 'onboarding_case_names':['control-case-a'],
-            'registration_case_names':['registration-case-a']}
+            'registration_case_names':['registration-case-a'],
+            **{suite + '_case_names': ['control-case-a'] for suite in gate.SETUP_FIXTURES}}
         self.save_contract()
         self.calls = []
 
@@ -108,6 +109,26 @@ class Controls(unittest.TestCase):
             mappings = gate.WIRE_INPUT_PATHS
             gate.write_json(Path(argv[-1])/'sources.json', {'input_sha256':{k:self.config['input_sha256'][v] for k,v in mappings.items()},
                 'generated_sha256':{k:gate.digest((Path(argv[-1])/k).read_bytes()) for k in ('service.swift','host.swift')}})
+        elif name in ('pairing-generate', 'deferred-generate'):
+            suite, spec = next((suite, spec) for suite, spec in gate.SETUP_FIXTURES.items()
+                               if name == spec['command'] + '-generate')
+            folder = Path(argv[argv.index(spec['output_arg']) + 1])
+            self.assertEqual(Path(argv[argv.index('--sources') + 1]), self.sources)
+            for file in spec['files']:
+                (folder / file).write_text('// generated control double')
+            used = {key: value for key, value in self.config['input_sha256'].items()
+                    if key in spec['sources'] or key.startswith(spec['root'] + '/')}
+            gate.write_json(folder / 'source-evidence.json', {
+                'schema': suite + '-source-evidence-v1', 'inputs': used,
+                'outputs': {key: gate.digest((folder / key).read_bytes()) for key in spec['files']},
+                'output_closure': list(spec['files']), 'boundary_replacements': ['control double boundary'],
+                'network': False, 'native_provider': False, 'swift_executed': False})
+        elif name in ('pairing-run', 'deferred-run'):
+            suite, spec = next((suite, spec) for suite, spec in gate.SETUP_FIXTURES.items()
+                               if name == spec['command'] + '-run')
+            gate.write_json(Path(argv[-1]), {'schema': suite + '-cases-v1', 'fake_only': True,
+                                           'cases': ['control-case-a']})
+            data = (self.markers[spec['command']] + '\n').encode()
         elif name.endswith('-compile'):
             Path(argv[-1]).write_bytes(b'not an executable; control double only')
         elif name == 'auth-run':
@@ -243,7 +264,7 @@ class Controls(unittest.TestCase):
         self.assertEqual(report['status'], gate.STATUS)
         self.assertEqual([name for name,_ in self.calls].count('iloader-run'), 1)
         self.assertEqual(set(report['producer_exports']), {'auth-request', 'profile-provenance', 'device-registration'})
-        self.assertEqual(set(report['fixture_exports']), {'iloader-auth-parity', 'iloader-onboarding-scope'})
+        self.assertEqual(set(report['fixture_exports']), {'iloader-auth-parity', 'iloader-onboarding-scope', *gate.SETUP_FIXTURES})
         self.assertEqual([name for name,_ in self.calls].count('onboarding-run'), 1)
         self.assertTrue(report['source_owned_fake_authentication_executed'])
         self.assertFalse(report['live_authentication_executed'])
@@ -732,6 +753,159 @@ class Controls(unittest.TestCase):
                     gate.write_json(path, value)
                     with self.assertRaisesRegex(ValueError, 'Wire extraction input evidence'):
                         gate.extraction_receipt(self.output, self.config)
+
+
+class SetupControls(Controls):
+    # Inherit the control process, not the inherited test matrix: unittest's
+    # loader below runs old Controls once, then this class's new checks once.
+    def fresh(self):
+        probe = Controls('test_complete_control_order_and_case_interchange')
+        probe.setUp()
+        self.addCleanup(probe.doCleanups)
+        return probe
+
+    def test_setup_new_suites_and_commands_once(self):
+        report = self.run_control()
+        self.assertEqual(len(gate.COMMANDS), len(set(gate.COMMANDS)))
+        self.assertEqual(len(gate.COMMANDS), 33)
+        for suite, spec in gate.SETUP_FIXTURES.items():
+            self.assertEqual(report['suites'].count(suite), 1)
+            for step in ('source', 'generate', 'compile', 'run'):
+                name = spec['command'] + '-' + step
+                self.assertEqual([name for name, _ in self.calls].count(name), 1)
+            self.assertEqual(report['fixture_exports'][suite]['names'], ['control-case-a'])
+
+    def test_setup_source_and_generator_root_arguments(self):
+        self.run_control()
+        for suite, spec in gate.SETUP_FIXTURES.items():
+            for step in ('source', 'generate'):
+                argv = dict(self.calls)[spec['command'] + '-' + step]
+                self.assertEqual(Path(argv[argv.index('--sources') + 1]), self.sources)
+
+    def test_setup_unbound_case_contract_stops_before_execution(self):
+        for suite in gate.SETUP_FIXTURES:
+            for names in (None, [], ['a', 'a'], ['__PENDING_CASES__']):
+                probe = self.fresh()
+                probe.config[suite + '_case_names'] = names
+                probe.save_contract()
+                with self.subTest(suite=suite, names=names), self.assertRaisesRegex(ValueError, 'setup case contract'):
+                    probe.run_control()
+                self.assertFalse(probe.calls)
+
+    def test_setup_unpinned_fixture_stops_before_execution(self):
+        for suite, spec in gate.SETUP_FIXTURES.items():
+            probe = self.fresh()
+            (probe.sources / spec['root'] / 'unapproved.py').write_text('not admitted')
+            with self.subTest(suite=suite), self.assertRaisesRegex(ValueError, 'Unpinned'):
+                probe.run_control()
+            self.assertFalse(probe.calls)
+
+    def test_setup_missing_extra_or_symlink_swift_stops_before_compile(self):
+        for suite, spec in gate.SETUP_FIXTURES.items():
+            for action in ('missing', 'extra', 'symlink'):
+                probe = self.fresh()
+                def bad(argv, **kwargs):
+                    result = probe.control_process(argv, **kwargs)
+                    if probe.calls[-1][0] == spec['command'] + '-generate':
+                        path = probe.output / suite / spec['files'][0]
+                        if action == 'extra':
+                            (path.parent / 'Unapproved.swift').write_text('// not admitted')
+                        else:
+                            path.unlink()
+                            if action == 'symlink':
+                                path.symlink_to(probe.contract)
+                    return result
+                with self.subTest(suite=suite, action=action), self.assertRaisesRegex(ValueError, 'closure|Symlink'):
+                    probe.run_control(bad)
+                self.assertNotIn(spec['command'] + '-compile', [name for name, _ in probe.calls])
+
+    def test_setup_manifest_guards_stop_before_compile(self):
+        for suite, spec in gate.SETUP_FIXTURES.items():
+            for action in ('schema', 'missing-input', 'wrong-input', 'output', 'closure', 'network',
+                           'native_provider', 'swift_executed', 'boundaries'):
+                probe = self.fresh()
+                def bad(argv, **kwargs):
+                    result = probe.control_process(argv, **kwargs)
+                    if probe.calls[-1][0] == spec['command'] + '-generate':
+                        path = probe.output / suite / 'source-evidence.json'
+                        value = json.loads(path.read_text())
+                        if action == 'schema': value['schema'] = 'wrong'
+                        elif action == 'missing-input': value['inputs'].pop(spec['root'] + '/' + spec['generator'])
+                        elif action == 'wrong-input': value['inputs'][spec['sources'][0]] = '0' * 64
+                        elif action == 'output': value['outputs'][spec['files'][0]] = '0' * 64
+                        elif action == 'closure': value['output_closure'].reverse()
+                        elif action == 'boundaries': value['boundary_replacements'] = ['same', 'same']
+                        else: value[action] = True
+                        gate.write_json(path, value)
+                    return result
+                with self.subTest(suite=suite, action=action), self.assertRaisesRegex(ValueError, 'Setup|setup'):
+                    probe.run_control(bad)
+                self.assertNotIn(spec['command'] + '-compile', [name for name, _ in probe.calls])
+
+    def test_setup_missing_or_duplicate_success_marker(self):
+        for suite, spec in gate.SETUP_FIXTURES.items():
+            for duplicate in (False, True):
+                probe = self.fresh()
+                def bad(argv, **kwargs):
+                    result = probe.control_process(argv, **kwargs)
+                    if probe.calls[-1][0] == spec['command'] + '-run':
+                        data = result.stdout * 2 if duplicate else b'not a success marker'
+                        return subprocess.CompletedProcess(argv, 0, data)
+                    return result
+                with self.subTest(suite=suite, duplicate=duplicate), self.assertRaisesRegex(ValueError, 'Missing or duplicate'):
+                    probe.run_control(bad)
+
+    def test_setup_failed_exit_retained(self):
+        for suite, spec in gate.SETUP_FIXTURES.items():
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                return subprocess.CompletedProcess(argv, 17, b'fixture rejected') if probe.calls[-1][0] == spec['command'] + '-run' else result
+            with self.subTest(suite=suite), self.assertRaisesRegex(ValueError, 'exit=17'):
+                probe.run_control(bad)
+            value = json.loads((probe.output / 'report.json').read_text())
+            self.assertEqual(value['status'], 'FAILED')
+            self.assertEqual(value['commands'][-1]['exit_code'], 17)
+
+    def test_setup_case_export_guards(self):
+        path = self.root / 'setup-cases.json'
+        for suite in gate.SETUP_FIXTURES:
+            valid = {'schema': suite + '-cases-v1', 'fake_only': True, 'cases': ['control-case-a']}
+            for key, value in [('schema', 'wrong'), ('fake_only', False), ('cases', []),
+                               ('cases', ['a', 'a']), ('cases', [{'name': 'control-case-a'}]),
+                               ('cases', ['unreviewed-case'])]:
+                gate.write_json(path, {**valid, key: value})
+                with self.subTest(suite=suite, key=key, value=value), self.assertRaises(ValueError):
+                    gate.setup_exported_cases(path, suite, ['control-case-a'])
+
+    def test_setup_export_change_rejected_after_artifact_rehash(self):
+        for suite in gate.SETUP_FIXTURES:
+            probe = self.fresh()
+            report = probe.run_control()
+            path = probe.output / suite / 'cases.json'
+            value = json.loads(path.read_text()); value['metadata'] = 'changed'; gate.write_json(path, value)
+            report['artifact_sha256'] = gate.artifact_inventory(probe.output)
+            gate.write_json(probe.output / 'report.json', report)
+            with self.subTest(suite=suite), self.assertRaisesRegex(ValueError, 'Setup fixture case receipt'):
+                gate.verify_receipt(probe.output / 'report.json', probe.contract)
+
+    def test_setup_no_missing_or_duplicate_commands_admitted(self):
+        original = self.run_control()
+        for suite, spec in gate.SETUP_FIXTURES.items():
+            for duplicate in (False, True):
+                report = copy.deepcopy(original)
+                index = next(i for i, row in enumerate(report['commands']) if row['name'] == spec['command'] + '-run')
+                if duplicate: report['commands'].insert(index, copy.deepcopy(report['commands'][index]))
+                else: report['commands'].pop(index)
+                gate.write_json(self.output / 'report.json', report)
+                with self.subTest(suite=suite, duplicate=duplicate), self.assertRaisesRegex(ValueError, 'command receipt'):
+                    gate.verify_receipt(self.output / 'report.json', self.contract)
+
+
+def load_tests(loader, tests, pattern):
+    suite = loader.loadTestsFromTestCase(Controls)
+    suite.addTests(SetupControls(name) for name in sorted(SetupControls.__dict__) if name.startswith('test_'))
+    return suite
 
 
 if __name__ == '__main__':

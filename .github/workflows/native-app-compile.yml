@@ -1,7 +1,7 @@
 name: Exact native app compile evidence (not release admission)
 on:
   push:
-    branches: [validation/native-registration-diagnostics-20261022]
+    branches: [validation/native-pairing-deferred-setup-20261022]
     paths:
       - '.github/workflows/native-app-compile.yml'
       - '.ci/native-app-compile/record.py'
@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   compile:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/native-registration-diagnostics-20261022'
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/native-pairing-deferred-setup-20261022'
     runs-on: macos-26
     timeout-minutes: 100
     env:
