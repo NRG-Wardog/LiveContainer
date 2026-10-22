@@ -1,13 +1,16 @@
 name: Exact native app compile evidence (not release admission)
 on:
   push:
-    branches: [validation/native-app-compile-20261020]
+    branches: [validation/native-comprehensive-diagnostics-20261021]
     paths:
       - '.github/workflows/native-app-compile.yml'
       - '.ci/native-app-compile/record.py'
       - '.ci/native-app-compile/test_acquisition_contract.py'
       - '.ci/native-app-compile/test_vendor_contract.py'
       - '.ci/native-app-compile/test_auth_response_contract.py'
+      - '.ci/native-app-compile/verify_comprehensive_diagnostics.py'
+      - '.ci/native-app-compile/test_comprehensive_diagnostics_contract.py'
+      - '.ci/native-app-compile/comprehensive-diagnostics-contract.json'
       - '.ci/native-app-compile/verify_upstream_sync.py'
       - '.ci/native-app-compile/upstream-sync-contract.json'
       - '.ci/native-app-compile/test_sync_contract.py'
@@ -20,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   compile:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/native-app-compile-20261020'
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/native-comprehensive-diagnostics-20261021'
     runs-on: macos-26
     timeout-minutes: 100
     env:
@@ -56,6 +59,9 @@ jobs:
           python3 -B harness/.ci/native-app-compile/test_sync_contract.py \
             2>&1 | tee evidence/upstream-sync-harness-tests.log
           printf '0\n' > evidence/upstream-sync-harness-tests.exit-code.txt
+          python3 -B harness/.ci/native-app-compile/test_comprehensive_diagnostics_contract.py \
+            2>&1 | tee evidence/comprehensive-diagnostics-control-tests.log
+          printf '0\n' > evidence/comprehensive-diagnostics-control-tests.exit-code.txt
       - name: Check native ABI inspection with source-owned fake tools only
         run: |
           set -euo pipefail
@@ -107,18 +113,13 @@ jobs:
             evidence/vendor_contract.swift > evidence/vendor-contract-sources.json
           swift evidence/vendor_contract.swift 2>&1 | tee evidence/vendor-contract.log
           printf '0\n' > evidence/vendor-contract.exit-code.txt
-      - name: Check finite auth response diagnostics with fake payloads only
+      - name: Check comprehensive auth request provenance and real IPC copy with fake boundaries once
         run: |
           set -euo pipefail
-          python3 harness/.ci/native-app-compile/test_auth_response_contract.py \
-            --errors sources/SideStore/Dependencies/SideSign/Sources/Models/Errors.swift \
-            --auth sources/SideStore/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift \
-            --store sources/SideStore/AltStore/AppDelegate.swift \
-            --host sources/LiveContainer/SideStoreSupport/SideStore.swift \
-            --shell sources/LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift \
-            --output evidence/auth_response_contract.swift
-          swift evidence/auth_response_contract.swift 2>&1 | tee evidence/auth-response-contract.log
-          printf '0\n' > evidence/auth-response-contract.exit-code.txt
+          python3 -B harness/.ci/native-app-compile/verify_comprehensive_diagnostics.py \
+            --sources sources --swiftc "$(command -v swiftc)" --output evidence/comprehensive-diagnostics \
+            2>&1 | tee evidence/comprehensive-diagnostics.log
+          printf '0\n' > evidence/comprehensive-diagnostics.exit-code.txt
       - name: Install pinned transport build prerequisites
         run: |
           set -euo pipefail

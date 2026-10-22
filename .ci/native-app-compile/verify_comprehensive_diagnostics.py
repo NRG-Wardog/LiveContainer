@@ -1,0 +1,367 @@
+"""Consolidated source-owned fake diagnostics; never links or executes native providers."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import subprocess
+import sys
+
+HERE = Path(__file__).resolve().parent
+STATUS = 'SOURCE_OWNED_FAKE_DIAGNOSTICS_PASS_NOT_RUNTIME_VALIDATION'
+SUITES = ('legacy-response-core', 'auth-request', 'profile-provenance', 'wire-copy')
+COMMANDS = ('legacy-generate', 'legacy-compile', 'legacy-run',
+            'auth-source', 'auth-generate', 'auth-compile', 'auth-run',
+            'profile-source', 'profile-generate', 'profile-compile', 'profile-run',
+            'wire-source', 'wire-generate', 'wire-service-compile', 'wire-host-compile',
+            'wire-service-run', 'wire-host-run')
+AUTH_FILES = ('CandidateAuthentication.swift', 'BaselineAuthentication.swift',
+              'AuthenticationDiagnosticTrace.swift', 'Errors.swift', 'Types.swift',
+              'BoundaryDoubles.swift', 'RuntimeTests.swift')
+SIGN = 'SideStore/Dependencies/SideSign'
+AUTH = SIGN + '/.ci/auth-request-diagnostics'
+PROFILE = SIGN + '/.ci/profile-provenance'
+WIRE = 'LiveContainer/.ci/comprehensive-diagnostics'
+REQUIRED_INPUTS = {
+    AUTH + '/generate.py', AUTH + '/test_source.py',
+    PROFILE + '/generate_fixture.py', PROFILE + '/check_sources.py',
+    WIRE + '/generate_wire_fixture.py', WIRE + '/test_generator.py',
+    SIGN + '/Sources/DeveloperPortal/Authentication.swift',
+    SIGN + '/Sources/Models/AuthenticationDiagnosticTrace.swift',
+    SIGN + '/Sources/Models/Errors.swift', SIGN + '/Sources/Constants.swift',
+    SIGN + '/Sources/Models/AuthenticationHeaderProvenance.swift',
+    SIGN + '/Sources/Anisette/AnisetteDataManager.swift',
+    'SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
+    'SideStore/AltStore/AppDelegate.swift',
+    'LiveContainer/SideStoreSupport/SideStore.swift',
+    'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
+}
+
+
+def require(ok, why):
+    if not ok:
+        raise ValueError(why)
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def write_json(path, data):
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
+
+
+def regular(root, relative):
+    parts = PurePosixPath(relative).parts
+    require(parts and not PurePosixPath(relative).is_absolute() and
+            relative == '/'.join(parts) and all(p not in ('.', '..') for p in parts),
+            'Unsafe relative path: ' + relative)
+    path = root.joinpath(*parts)
+    require(not root.is_symlink(), 'Symlinked input root')
+    current = root
+    for part in parts:
+        current = current / part
+        require(not current.is_symlink(), 'Symlink input: ' + str(current))
+    require(path.is_file() and path.resolve().is_relative_to(root.resolve()),
+            'Missing or escaping file: ' + str(path))
+    return path
+
+
+def load_contract(path):
+    contract = json.loads(path.read_text())
+    require(contract.get('schema') == 'comprehensive-diagnostics-source-contract-v1', 'Contract schema mismatch')
+    require(contract.get('source_inputs_bound') is True, 'Source input hashes remain unbound')
+    require(contract.get('schemas') == {'request': 'ar1', 'profile': 'hp2', 'provider': 'ap1'}, 'Diagnostic schema mismatch')
+    inputs = contract.get('input_sha256')
+    require(isinstance(inputs, dict) and REQUIRED_INPUTS <= set(inputs), 'Incomplete source input inventory')
+    for name, value in inputs.items():
+        require(isinstance(name, str) and isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value),
+                'Malformed source hash')
+    markers = contract.get('success_markers')
+    require(isinstance(markers, dict) and set(markers) == {'legacy', 'auth', 'profile', 'wire_service', 'wire_host'},
+            'Incomplete marker contract')
+    require(all(isinstance(v, str) and v and '\n' not in v and 'PENDING' not in v for v in markers.values()),
+            'Unbound or malformed success marker')
+    return contract
+
+
+def source_inventory(root, contract):
+    actual = {name: digest(regular(root, name).read_bytes()) for name in contract['input_sha256']}
+    require(actual == contract['input_sha256'], 'Source input hash mismatch')
+    # Hash all executable fixture inputs, not just selected known filenames.
+    for folder in (AUTH, PROFILE, WIRE):
+        directory = root / folder
+        require(directory.is_dir() and not directory.is_symlink(), 'Missing source-owned fixture directory')
+        for path in directory.rglob('*'):
+            require(not path.is_symlink(), 'Symlink in source-owned fixture')
+            if path.is_file():
+                relative = path.relative_to(root).as_posix()
+                require(relative in actual, 'Unpinned fixture file: ' + relative)
+    return actual
+
+
+def artifact_inventory(root):
+    found = {}
+    require(root.is_dir() and not root.is_symlink(), 'Invalid evidence root')
+    for path in sorted(root.rglob('*')):
+        require(not path.is_symlink(), 'Symlinked retained artifact')
+        if path.is_dir():
+            continue
+        relative = path.relative_to(root).as_posix()
+        if relative == 'report.json':
+            continue
+        require(path.is_file(), 'Nonregular retained artifact')
+        found[relative] = digest(path.read_bytes())
+    return found
+
+
+def require_marker(text, marker):
+    require(text.splitlines().count(marker) == 1, 'Missing or duplicate exact success marker: ' + marker)
+
+
+def exported_cases(path, schema, expected_count=None):
+    value = json.loads(path.read_text())
+    require(isinstance(value, dict) and value.get('schema') == schema, 'Case export schema mismatch')
+    cases = value.get('cases')
+    require(isinstance(cases, list) and len(cases) > 0, 'Empty or malformed case export')
+    names = [row.get('name') for row in cases if isinstance(row, dict)]
+    require(len(names) == len(cases) and all(isinstance(n, str) and n for n in names) and
+            len(names) == len(set(names)), 'Case names are missing or duplicated')
+    require(expected_count is None or len(cases) == expected_count, 'Case export count mismatch')
+    return {'schema': schema, 'count': len(cases), 'sha256': digest(path.read_bytes()),
+            'names': names, 'producer': value.get('producer')}
+
+
+def extraction_receipt(output, contract):
+    """Require every generator's actual-source evidence, not just generated Swift."""
+    manifests = {
+        'legacy-response-core': 'legacy-response-core/fixture.sources.json',
+        'auth-request': 'auth-request/source-evidence.json',
+        'profile-provenance': 'profile-provenance/sources.json',
+        'wire-copy': 'wire-copy/sources.json',
+    }
+    values = {name: json.loads(regular(output, path).read_text()) for name, path in manifests.items()}
+    inputs = contract['input_sha256']
+    legacy_paths = {'errors': SIGN + '/Sources/Models/Errors.swift',
+                    'auth': SIGN + '/Sources/DeveloperPortal/Authentication.swift',
+                    'store': 'SideStore/AltStore/AppDelegate.swift',
+                    'host': 'LiveContainer/SideStoreSupport/SideStore.swift',
+                    'shell': 'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift'}
+    require(values['legacy-response-core'].get('input_sha256') ==
+            {key: inputs[path] for key, path in legacy_paths.items()}, 'Legacy extraction input evidence differs')
+    auth = values['auth-request']
+    require(auth.get('schema') == 'auth-request-source-evidence-v1', 'Auth extraction evidence schema differs')
+    auth_inputs = auth.get('inputs', {})
+    require({'Sources/DeveloperPortal/Authentication.swift', 'Sources/Models/AuthenticationDiagnosticTrace.swift',
+             'Sources/Models/Errors.swift'} <= set(auth_inputs), 'Missing actual authentication source evidence')
+    for relative, value in auth_inputs.items():
+        require(inputs.get(SIGN + '/' + relative) == value, 'Auth extraction input hash differs: ' + relative)
+    require(auth.get('outputs') == {name: digest(regular(output, 'auth-request/' + name).read_bytes())
+                                   for name in AUTH_FILES}, 'Auth generated-source hashes differ')
+    profile = values['profile-provenance']
+    used = profile.get('sources', {})
+    require({'SideSign/Sources/Models/AuthenticationHeaderProvenance.swift',
+             'SideSign/Sources/Anisette/AnisetteDataManager.swift'} <= set(used), 'Profile extraction evidence incomplete')
+    for relative, row in used.items():
+        if relative.startswith(('baseline/', 'fixture/')):
+            continue  # Embedded baselines/templates are independently frozen in the full source contract.
+        name = 'SideStore/Dependencies/' + relative if relative.startswith('SideSign/') else relative
+        require(inputs.get(name) == row.get('sha256'), 'Profile extraction input hash differs: ' + relative)
+    require(profile.get('generated_sha256') == digest(regular(output, 'profile-provenance/fixture.swift').read_bytes()),
+            'Profile generated-source hash differs')
+    wire_paths = {'service': legacy_paths['store'], 'host': legacy_paths['host'], 'ui': legacy_paths['shell'],
+                  'operation': 'SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
+                  'collector': SIGN + '/Sources/Models/AuthenticationDiagnosticTrace.swift',
+                  'provenance': SIGN + '/Sources/Models/AuthenticationHeaderProvenance.swift',
+                  'constants': SIGN + '/Sources/Constants.swift'}
+    require(values['wire-copy'].get('input_sha256') == {key: inputs[path] for key, path in wire_paths.items()},
+            'Wire extraction input evidence differs')
+    require(values['wire-copy'].get('generated_sha256') ==
+            {name: digest(regular(output, 'wire-copy/' + name).read_bytes()) for name in ('service.swift','host.swift')},
+            'Wire generated-source hashes differ')
+    return {name: {'path': path, 'sha256': digest(regular(output, path).read_bytes())}
+            for name, path in manifests.items()}
+
+
+class Runner:
+    def __init__(self, output):
+        self.output = output
+        self.commands = []
+
+    def command(self, name, arguments, marker=None):
+        require(name in COMMANDS and name not in [row['name'] for row in self.commands], 'Unexpected or repeated command')
+        row = {'name': name, 'argv': [str(arg) for arg in arguments], 'exit_code': None}
+        self.commands.append(row)
+        log = self.output / ('commands/' + name + '.log')
+        log.parent.mkdir(exist_ok=True)
+        try:
+            result = subprocess.run(row['argv'], cwd=self.output, stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'}, timeout=300)
+            data = result.stdout
+            row['exit_code'] = result.returncode
+        except subprocess.TimeoutExpired as error:
+            data = (error.stdout or b'') + b'\nCOMMAND_TIMEOUT\n'
+            row['timed_out'] = True
+        except OSError as error:
+            data = str(error).encode()
+            row['launch_error'] = type(error).__name__
+        log.write_bytes(data)
+        row.update(stdout_sha256=digest(data), log=log.relative_to(self.output).as_posix())
+        require(row['exit_code'] == 0, 'Command failed: ' + name + ', exit=' + str(row['exit_code']))
+        text = data.decode('utf-8', errors='replace')
+        if marker is not None:
+            require_marker(text, marker)
+            row['success_marker'] = marker
+        return text
+
+
+def verify_receipt(path, contract_path=None):
+    contract_path = contract_path or HERE / 'comprehensive-diagnostics-contract.json'
+    contract = load_contract(contract_path)
+    report = json.loads(path.read_text())
+    require(report.get('status') == STATUS and report.get('suites') == list(SUITES), 'Consolidated suite did not pass')
+    require(report.get('contract_sha256') == digest(contract_path.read_bytes()), 'Receipt source contract differs')
+    require(report.get('source_inputs_before') == contract['input_sha256'] and
+            report.get('source_inputs_after') == contract['input_sha256'] and
+            report.get('source_input_bytes_unchanged') is True, 'Input immutability receipt missing')
+    for key in ('live_authentication_executed', 'guest_binary_executed', 'native_provider_executed', 'native_linked_tests_executed'):
+        require(report.get(key) is False, 'Forbidden execution in receipt: ' + key)
+    require(report.get('source_owned_fake_authentication_executed') is True, 'Source-owned fake authentication did not run')
+    require(report.get('extraction_manifests') == extraction_receipt(path.parent, contract), 'Extraction evidence receipt differs')
+    require(report.get('generated_swift_sha256') == {p.relative_to(path.parent).as_posix(): digest(p.read_bytes())
+            for p in sorted(path.parent.rglob('*.swift')) if p.is_file()}, 'Generated Swift receipt differs')
+    commands = report.get('commands', [])
+    require([row.get('name') for row in commands] == list(COMMANDS) and
+            all(row.get('exit_code') == 0 for row in commands), 'Incomplete successful command receipt')
+    outputs = report.get('artifact_sha256')
+    require(isinstance(outputs, dict) and outputs and artifact_inventory(path.parent) == outputs,
+            'Retained evidence missing or changed')
+    for row in commands:
+        logfile = regular(path.parent, row['log'])
+        require(digest(logfile.read_bytes()) == row['stdout_sha256'], 'Command log hash mismatch')
+    marks = contract['success_markers']
+    by_name = {row['name']: row for row in commands}
+    for name, key in (('legacy-run','legacy'),('auth-run','auth'),('profile-run','profile'),
+                      ('wire-service-run','wire_service'),('wire-host-run','wire_host')):
+        row = by_name[name]
+        require(row.get('success_marker') == marks[key], 'Success-marker receipt differs')
+        require_marker(regular(path.parent, row['log']).read_text(), marks[key])
+    for owner, schema, count in (('auth-request','auth-request-cases-v1',None),
+                                 ('profile-provenance','profile-provenance-cases-v1',12)):
+        export = exported_cases(regular(path.parent, owner + '/cases.json'), schema, count)
+        require(report.get('producer_exports', {}).get(owner) == export, 'Producer case receipt mismatch')
+        marker = f"WIRE_IMPORTED_CASES schema={schema} producer_cases={export['count']} wire_cases={2 * export['count']}"
+        require_marker(regular(path.parent, by_name['wire-service-run']['log']).read_text(), marker)
+    return report
+
+
+def run(sources, swiftc, output, contract_path=None):
+    contract_path = contract_path or HERE / 'comprehensive-diagnostics-contract.json'
+    contract = load_contract(contract_path)
+    require(not sources.is_symlink(), 'Symlink source root')
+    sources = sources.resolve(strict=True)
+    before = source_inventory(sources, contract)
+    require(not output.exists() and not output.is_symlink(), 'Output must be fresh')
+    require(not output.resolve().is_relative_to(sources), 'Output must not be inside source inputs')
+    require(swiftc.is_file(), 'Missing Swift compiler')
+    swiftc = swiftc.resolve()
+    output.mkdir(parents=True)
+    output = output.resolve()
+    runner = Runner(output)
+    report = {'schema': 'comprehensive-diagnostics-run-v1', 'status': 'FAILED', 'suites': [],
+              'contract_sha256': digest(contract_path.read_bytes()), 'source_inputs_before': before,
+              'source_inputs_after': {}, 'source_input_bytes_unchanged': False,
+              'live_authentication_executed': False, 'guest_binary_executed': False,
+              'native_provider_executed': False, 'native_linked_tests_executed': False,
+              'source_owned_fake_authentication_executed': False, 'producer_exports': {},
+              'commands': runner.commands}
+    for directory in SUITES:
+        (output / directory).mkdir()
+    def source(name):
+        require(name in before, 'Command input is not frozen: ' + name)
+        return regular(sources, name)
+    def python(name):
+        return [sys.executable, '-B', source(name)]
+    def compile_fixture(name, files, binary, library=False):
+        for file in files:
+            require(file.is_file() and not file.is_symlink() and file.resolve().is_relative_to(output),
+                    'Missing or unsafe generated Swift input: ' + str(file))
+        argv = [swiftc, '-swift-version', '5'] + (['-parse-as-library'] if library else [])
+        runner.command(name, argv + files + ['-o', binary])
+    try:
+        marks = contract['success_markers']
+        legacy = output / 'legacy-response-core'
+        legacy_generator = HERE / 'test_auth_response_contract.py'
+        runner.command('legacy-generate', [sys.executable, '-B', legacy_generator,
+            '--errors', source(SIGN + '/Sources/Models/Errors.swift'),
+            '--auth', source(SIGN + '/Sources/DeveloperPortal/Authentication.swift'),
+            '--store', source('SideStore/AltStore/AppDelegate.swift'),
+            '--host', source('LiveContainer/SideStoreSupport/SideStore.swift'),
+            '--shell', source('LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift'),
+            '--output', legacy / 'fixture.swift'])
+        compile_fixture('legacy-compile', [legacy / 'fixture.swift'], legacy / 'fixture')
+        runner.command('legacy-run', [legacy / 'fixture'], marks['legacy'])
+        report['suites'].append('legacy-response-core')
+        auth = output / 'auth-request'
+        runner.command('auth-source', python(AUTH + '/test_source.py'))
+        runner.command('auth-generate', python(AUTH + '/generate.py') + ['--output-dir', auth])
+        require({p.name for p in auth.glob('*.swift')} == set(AUTH_FILES), 'Auth seven-file Swift closure differs')
+        compile_fixture('auth-compile', [auth / name for name in AUTH_FILES], auth / 'fixture', library=True)
+        runner.command('auth-run', [auth / 'fixture', auth / 'cases.json'], marks['auth'])
+        report['source_owned_fake_authentication_executed'] = True
+        report['producer_exports']['auth-request'] = exported_cases(auth / 'cases.json', 'auth-request-cases-v1')
+        report['suites'].append('auth-request')
+        profile = output / 'profile-provenance'
+        runner.command('profile-source', python(PROFILE + '/check_sources.py') + [
+            '--sources', sources, '--report', profile / 'static.json'])
+        runner.command('profile-generate', python(PROFILE + '/generate_fixture.py') + [
+            '--sources', sources, '--output', profile / 'fixture.swift', '--manifest', profile / 'sources.json'])
+        compile_fixture('profile-compile', [profile / 'fixture.swift'], profile / 'fixture', library=True)
+        runner.command('profile-run', [profile / 'fixture', profile / 'cases.json'], marks['profile'])
+        report['producer_exports']['profile-provenance'] = exported_cases(profile / 'cases.json', 'profile-provenance-cases-v1', 12)
+        report['suites'].append('profile-provenance')
+        wire = output / 'wire-copy'
+        runner.command('wire-source', python(WIRE + '/test_generator.py') + ['--sources', sources])
+        runner.command('wire-generate', python(WIRE + '/generate_wire_fixture.py') + ['--sources', sources, '--output', wire])
+        compile_fixture('wire-service-compile', [wire / 'service.swift'], wire / 'service')
+        compile_fixture('wire-host-compile', [wire / 'host.swift'], wire / 'host')
+        transferred = wire / 'wire-cases.plist'
+        service_log = runner.command('wire-service-run', [wire / 'service', transferred,
+                    auth / 'cases.json', profile / 'cases.json'], marks['wire_service'])
+        for export in report['producer_exports'].values():
+            require_marker(service_log, f"WIRE_IMPORTED_CASES schema={export['schema']} producer_cases={export['count']} wire_cases={2 * export['count']}")
+        runner.command('wire-host-run', [wire / 'host', transferred], marks['wire_host'])
+        report['suites'].append('wire-copy')
+        require([row['name'] for row in runner.commands] == list(COMMANDS), 'Command sequence differs')
+        report['source_inputs_after'] = source_inventory(sources, contract)
+        require(report['source_inputs_after'] == before, 'Fixture mutated source inputs')
+        report['source_input_bytes_unchanged'] = True
+        report['extraction_manifests'] = extraction_receipt(output, contract)
+        report['status'] = STATUS
+    except Exception as error:
+        report['failure'] = str(error)
+        raise
+    finally:
+        report['generated_swift_sha256'] = {p.relative_to(output).as_posix(): digest(p.read_bytes())
+            for p in sorted(output.rglob('*.swift')) if p.is_file()}
+        report['artifact_sha256'] = artifact_inventory(output)
+        write_json(output / 'report.json', report)
+    verify_receipt(output / 'report.json', contract_path)
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--sources', type=Path, required=True)
+    parser.add_argument('--swiftc', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    args = parser.parse_args()
+    report = run(args.sources, args.swiftc, args.output)
+    print(json.dumps({'status': report['status'], 'suites': report['suites'],
+                      'producer_case_counts': {k: v['count'] for k, v in report['producer_exports'].items()}}, sort_keys=True))
+
+
+if __name__ == '__main__':
+    main()
