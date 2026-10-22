@@ -38,6 +38,7 @@ class Controls(unittest.TestCase):
             'success_markers':self.markers, 'onboarding_case_names':['control-case-a'],
             'registration_case_names':['registration-case-a'],
             **{suite + '_case_names': ['control-case-a'] for suite in gate.SETUP_FIXTURES}}
+        self.config['refresh_failure_case_names'] = ['refresh-control-case']
         self.config['pairing_recovery_case_names'] = ['recovery-control-case']
         self.config['deferred_baseline'] = {'owners': copy.deepcopy(gate.DEFERRED_BASELINE_OWNERS),
             'input_sha256': {name: self.config['input_sha256'][name]
@@ -113,6 +114,23 @@ class Controls(unittest.TestCase):
             mappings = gate.WIRE_INPUT_PATHS
             gate.write_json(Path(argv[-1])/'sources.json', {'input_sha256':{k:self.config['input_sha256'][v] for k,v in mappings.items()},
                 'generated_sha256':{k:gate.digest((Path(argv[-1])/k).read_bytes()) for k in ('service.swift','host.swift')}})
+        elif name == 'refresh-generate':
+            root = Path(argv[argv.index('--output') + 1])
+            (root / 'refresh-failure.swift').write_text('// inert refresh generator control double')
+            inputs = {key: self.config['input_sha256'][path] for key, path in gate.REFRESH_INPUT_PATHS.items()}
+            inputs.update({name: self.config['input_sha256'][gate.WIRE + '/' + name] for name in gate.REFRESH_FIXTURE_FILES})
+            gate.write_json(root / 'sources.json', {
+                'schema': 'refresh-failure-sources-v1', 'status': 'generated_not_compiled',
+                'case_names': self.config['refresh_failure_case_names'], 'inputs_sha256': inputs,
+                'generated_sha256': gate.digest((root / 'refresh-failure.swift').read_bytes()),
+                'boundaries': ['actual-chain control double, never runtime evidence'],
+                'native_provider_executed': False, 'network_executed': False, 'swift_executed': False})
+        elif name == 'refresh-run':
+            gate.write_json(Path(argv[-1]), {'schema': 'refresh-failure-cases-v1', 'status': 'pass',
+                'fake_only': True, 'native_provider_executed': False,
+                'cases': self.config['refresh_failure_case_names'],
+                'case_count': len(self.config['refresh_failure_case_names'])})
+            data = (gate.refresh_failure_marker(self.config) + '\n').encode()
         elif name == 'recovery-generate':
             root = Path(argv[argv.index('--output') + 1])
             for relative in gate.PAIRING_RECOVERY_OUTPUTS:
@@ -813,7 +831,7 @@ class SetupControls(Controls):
     def test_setup_new_suites_and_commands_once(self):
         report = self.run_control()
         self.assertEqual(len(gate.COMMANDS), len(set(gate.COMMANDS)))
-        self.assertEqual(len(gate.COMMANDS), 41)
+        self.assertEqual(len(gate.COMMANDS), 44)
         for suite, spec in gate.SETUP_FIXTURES.items():
             self.assertEqual(report['suites'].count(suite), 1)
             for step in ('source', 'generate', 'compile', 'run'):
@@ -1061,9 +1079,114 @@ class SetupControls(Controls):
             gate.verify_receipt(self.output / 'report.json', self.contract)
 
 
+class RefreshControls(Controls):
+    # Run the inherited control matrix once, never once per extension subclass.
+    def fresh(self):
+        probe = Controls('test_complete_control_order_and_case_interchange')
+        probe.setUp()
+        self.addCleanup(probe.doCleanups)
+        return probe
+
+    def test_refresh_command_and_suite_uniqueness(self):
+        report = self.run_control()
+        self.assertEqual(len(report['suites']), 8)
+        self.assertEqual(report['suites'].count('wire-copy'), 1)
+        self.assertEqual(len(gate.COMMANDS), 44)
+        self.assertEqual(len(set(gate.COMMANDS)), 44)
+        for name in ('refresh-generate', 'refresh-compile', 'refresh-run'):
+            self.assertEqual([n for n, _ in self.calls].count(name), 1)
+        self.assertEqual(report['refresh_failure_cases']['names'], ['refresh-control-case'])
+
+    def test_refresh_case_contract_rejected_before_execution(self):
+        for names in (None, [], ['same', 'same'], ['__PENDING__']):
+            probe = self.fresh()
+            probe.config['refresh_failure_case_names'] = names
+            probe.save_contract()
+            with self.subTest(names=names), self.assertRaisesRegex(ValueError, 'refresh failure case contract'):
+                probe.run_control()
+            self.assertFalse(probe.calls)
+
+    def test_refresh_source_or_fixture_drift_stops_before_compile(self):
+        for key in list(gate.REFRESH_INPUT_PATHS) + list(gate.REFRESH_FIXTURE_FILES):
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                if probe.calls[-1][0] == 'refresh-generate':
+                    path = probe.output / 'refresh-failure/sources.json'
+                    value = json.loads(path.read_text())
+                    value['inputs_sha256'][key] = '0' * 64
+                    gate.write_json(path, value)
+                return result
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'source/fixture hashes'):
+                probe.run_control(bad)
+            self.assertNotIn('refresh-compile', dict(probe.calls))
+
+    def test_refresh_output_schema_and_boundary_guards(self):
+        for change in ('schema', 'status', 'generated_sha256', 'case_names', 'boundaries',
+                       'native_provider_executed', 'network_executed', 'swift_executed', 'extra'):
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                if probe.calls[-1][0] == 'refresh-generate':
+                    root = probe.output / 'refresh-failure'
+                    path = root / 'sources.json'
+                    value = json.loads(path.read_text())
+                    if change == 'extra': (root / 'unreviewed.swift').write_text('// reject')
+                    elif change == 'case_names': value[change] = ['unreviewed']
+                    elif change == 'boundaries': value[change] = ['same', 'same']
+                    elif change in ('native_provider_executed', 'network_executed', 'swift_executed'): value[change] = True
+                    else: value[change] = 'wrong'
+                    gate.write_json(path, value)
+                return result
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, 'Refresh|refresh'):
+                probe.run_control(bad)
+            self.assertNotIn('refresh-compile', dict(probe.calls))
+
+    def test_refresh_missing_or_duplicate_marker_rejected(self):
+        for duplicate in (False, True):
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                if probe.calls[-1][0] == 'refresh-run':
+                    result.stdout = result.stdout * 2 if duplicate else b'no runtime success marker'
+                return result
+            with self.subTest(duplicate=duplicate), self.assertRaisesRegex(ValueError, 'Missing or duplicate'):
+                probe.run_control(bad)
+
+    def test_refresh_runtime_export_rejected(self):
+        for key, value in [('schema', 'wrong'), ('status', 'failed'), ('fake_only', False),
+                           ('native_provider_executed', True), ('case_count', -1), ('cases', ['unreviewed'])]:
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                if probe.calls[-1][0] == 'refresh-run':
+                    path = Path(argv[-1]); data = json.loads(path.read_text())
+                    data[key] = value; gate.write_json(path, data)
+                return result
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'Refresh|refresh|Setup'):
+                probe.run_control(bad)
+            self.assertNotIn('pairing-source', dict(probe.calls))
+
+    def test_refresh_receipt_rehash_cannot_mask_case_changes(self):
+        report = self.run_control()
+        path = self.output / 'refresh-failure/cases.json'
+        value = json.loads(path.read_text()); value['cases'] = ['unreviewed']; gate.write_json(path, value)
+        report['artifact_sha256'] = gate.artifact_inventory(self.output)
+        gate.write_json(self.output / 'report.json', report)
+        with self.assertRaisesRegex(ValueError, 'coverage differs'):
+            gate.verify_receipt(self.output / 'report.json', self.contract)
+
+    def test_refresh_unpinned_native_boundary_fixture_rejected(self):
+        (self.sources / gate.REFRESH_TEST_ROOT / 'unapproved.py').write_text('not admitted')
+        with self.assertRaisesRegex(ValueError, 'Unpinned'):
+            self.run_control()
+        self.assertFalse(self.calls)
+
+
 def load_tests(loader, tests, pattern):
     suite = loader.loadTestsFromTestCase(Controls)
     suite.addTests(SetupControls(name) for name in sorted(SetupControls.__dict__) if name.startswith('test_'))
+    suite.addTests(RefreshControls(name) for name in sorted(RefreshControls.__dict__) if name.startswith('test_'))
     return suite
 
 

@@ -19,6 +19,7 @@ COMMANDS = ('legacy-generate', 'legacy-compile', 'legacy-run',
             'profile-source', 'profile-generate', 'profile-compile', 'profile-run',
             'wire-source', 'wire-generate', 'wire-service-compile', 'wire-host-compile',
             'wire-service-run', 'wire-host-run',
+            'refresh-generate', 'refresh-compile', 'refresh-run',
             'pairing-source', 'pairing-generate', 'pairing-compile', 'pairing-run',
             'recovery-source', 'recovery-generate', 'recovery-compile', 'recovery-run',
             'deferred-prior-extract', 'deferred-prior-generate', 'deferred-prior-compile', 'deferred-prior-run',
@@ -120,6 +121,39 @@ PAIRING_RECOVERY_OUTPUTS = ('fixture.swift', 'TestLocalization.bundle/Info.plist
 REQUIRED_INPUTS.update(PAIRING_RECOVERY_INPUT_PATHS.values())
 REQUIRED_INPUTS.update(PAIRING_RECOVERY_FIXTURE_PATHS)
 
+REFRESH_INPUT_PATHS = {'host': 'LiveContainer/SideStoreSupport/SideStore.swift',
+ 'service': 'SideStore/AltStore/AppDelegate.swift',
+ 'client': 'LiveContainer/SideStoreSupport/SideStoreClient.swift',
+ 'scheduler': 'LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift',
+ 'ui': 'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
+ 'producer': 'SideStore/SideStore/Core/Operations/StandaloneOperations/BackgroundRefreshAppsOperation.swift',
+ 'intent': 'SideStore/AltStore/Intents/App Intents/RefreshAllAppsIntent.swift',
+ 'manager': 'SideStore/AltStore/Managing Apps/AppManager.swift',
+ 'pipeline': 'SideStore/SideStore/Core/Operations/PipelineExecutor.swift',
+ 'pipeline_steps': 'SideStore/SideStore/Core/Operations/OperationStep.swift',
+ 'app_operation': 'SideStore/SideStore/Core/Operations/AppOperation.swift',
+ 'refresh_operation': 'SideStore/SideStore/Core/Operations/PipelineOperations/RefreshAppOperation.swift',
+ 'operation_error': 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift',
+ 'error_title': 'SideStore/Shared/Extensions/NSError+AltStore.swift',
+ 'wrapped_error': 'SideStore/Shared/Errors/ALTWrappedError.swift',
+ 'refresh_contract': 'SideStore/tests/refresh_failure/test_contract.py',
+ 'refresh_boundary_assertions': 'SideStore/tests/refresh_failure/boundary_assertions.swift',
+ 'refresh_boundary_cases': 'SideStore/tests/refresh_failure/boundary_cases.swift',
+ 'certificate_boundary_cases': 'SideStore/tests/refresh_failure/certificate_cases.swift',
+ 'service_boundary_doubles': 'SideStore/tests/refresh_failure/pipeline_harness.swift'}
+REFRESH_FIXTURE_FILES = ['generate_refresh_failure_fixture.py',
+ 'generate_wire_fixture.py',
+ 'refresh_completed_baseline.swift',
+ 'refresh_failure_doubles.swift',
+ 'refresh_handler_doubles.swift',
+ 'refresh_failure_harness.swift',
+ 'test_refresh_failure_contract.py']
+REFRESH_TEST_ROOT = 'SideStore/tests/refresh_failure'
+REQUIRED_INPUTS.update(REFRESH_INPUT_PATHS.values())
+REQUIRED_INPUTS.update(WIRE + '/' + name for name in REFRESH_FIXTURE_FILES)
+REQUIRED_INPUTS.update(REFRESH_TEST_ROOT + '/' + name for name in ('test_contract.py', 'pipeline_harness.swift', 'README.md'))
+
+
 DEFERRED_PRIOR_MARKER = 'DEFERRED_PRIOR_PEM_REJECTION_REPRODUCED'
 DEFERRED_SYSTEM_FRAMEWORKS = ('Security', 'CryptoKit')
 DEFERRED_BASELINE_OWNERS = {
@@ -201,6 +235,10 @@ def load_contract(path):
     require(isinstance(names, list) and names and len(names) == len(set(names)) and
             all(isinstance(n, str) and n and 'PENDING' not in n for n in names),
             'Missing or malformed pairing recovery case contract')
+    names = contract.get('refresh_failure_case_names')
+    require(isinstance(names, list) and names and len(names) == len(set(names)) and
+            all(isinstance(n, str) and n and 'PENDING' not in n for n in names),
+            'Missing or malformed refresh failure case contract')
     baseline = contract.get('deferred_baseline')
     require(isinstance(baseline, dict) and baseline.get('owners') == DEFERRED_BASELINE_OWNERS,
             'Missing exact deferred baseline owners')
@@ -215,7 +253,7 @@ def source_inventory(root, contract):
     actual = {name: digest(regular(root, name).read_bytes()) for name in contract['input_sha256']}
     require(actual == contract['input_sha256'], 'Source input hash mismatch')
     # Hash all executable fixture inputs, not just selected known filenames.
-    for folder in (AUTH, ILOADER, ONBOARDING, PROFILE, WIRE,
+    for folder in (AUTH, ILOADER, ONBOARDING, PROFILE, WIRE, REFRESH_TEST_ROOT,
                    *(spec['root'] for spec in SETUP_FIXTURES.values())):
         directory = root / folder
         require(directory.is_dir() and not directory.is_symlink(), 'Missing source-owned fixture directory')
@@ -364,6 +402,48 @@ def pairing_recovery_export(output, contract):
     require(value.get('status') == 'pass' and value.get('native_pairing_executed') is False,
             'Pairing recovery runtime boundary differs')
     return setup_exported_cases(path, 'pairing-recovery', contract['pairing_recovery_case_names'])
+
+
+def refresh_failure_marker(contract):
+    return 'PASS refresh_failure_actual_source_chain cases=' + str(len(contract['refresh_failure_case_names']))
+
+
+def refresh_failure_extraction(output, contract, before_compile=False):
+    root = output / 'refresh-failure'
+    path = regular(root, 'sources.json')
+    value = json.loads(path.read_text())
+    require(value.get('schema') == 'refresh-failure-sources-v1' and
+            value.get('status') == 'generated_not_compiled', 'Refresh failure extraction schema/status differs')
+    require(isinstance(value.get('case_names'), list) and
+            sorted(value['case_names']) == sorted(contract['refresh_failure_case_names']),
+            'Refresh failure extraction cases differ')
+    expected = {key: contract['input_sha256'][name] for key, name in REFRESH_INPUT_PATHS.items()}
+    expected.update({name: contract['input_sha256'][WIRE + '/' + name] for name in REFRESH_FIXTURE_FILES})
+    require(value.get('inputs_sha256') == expected, 'Refresh failure extraction source/fixture hashes differ')
+    generated = digest(regular(root, 'refresh-failure.swift').read_bytes())
+    require(value.get('generated_sha256') == generated, 'Refresh failure generated Swift hash differs')
+    boundaries = value.get('boundaries')
+    require(isinstance(boundaries, list) and boundaries and len(boundaries) == len(set(boundaries)) and
+            all(isinstance(v, str) and v for v in boundaries), 'Refresh failure source boundaries missing')
+    for key in ('native_provider_executed', 'network_executed', 'swift_executed'):
+        require(value.get(key) is False, 'Forbidden refresh failure generator claim: ' + key)
+    actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+    allowed = {'refresh-failure.swift', 'sources.json'}
+    if not before_compile: allowed |= {'refresh-failure', 'cases.json'}
+    require(actual <= allowed and {'refresh-failure.swift', 'sources.json'} <= actual,
+            'Refresh failure generated output closure differs')
+    return {'path': 'refresh-failure/sources.json', 'sha256': digest(path.read_bytes()),
+            'generated_sha256': generated, 'input_count': len(expected)}
+
+
+def refresh_failure_export(output, contract):
+    path = regular(output, 'refresh-failure/cases.json')
+    value = json.loads(path.read_text())
+    require(value.get('status') == 'pass' and value.get('native_provider_executed') is False,
+            'Refresh failure runtime boundary differs')
+    require(value.get('case_count') == len(contract['refresh_failure_case_names']),
+            'Refresh failure runtime case count differs')
+    return setup_exported_cases(path, 'refresh-failure', contract['refresh_failure_case_names'])
 
 
 def generated_swift_inventory(output):
@@ -548,6 +628,10 @@ def verify_receipt(path, contract_path=None):
             'Pairing recovery extraction receipt differs')
     require(report.get('pairing_recovery_cases') == pairing_recovery_export(path.parent, contract),
             'Pairing recovery export receipt differs')
+    require(report.get('refresh_failure_extraction') == refresh_failure_extraction(path.parent, contract),
+            'Refresh failure extraction receipt differs')
+    require(report.get('refresh_failure_cases') == refresh_failure_export(path.parent, contract),
+            'Refresh failure case receipt differs')
     require(report.get('deferred_prior_pem_rejection') == deferred_prior_receipt(path.parent, contract),
             'Prior deferred actual-crypto proof differs')
     require(report.get('system_crypto_synthetic_fixture_executed') is True and
@@ -563,6 +647,9 @@ def verify_receipt(path, contract_path=None):
         require(digest(logfile.read_bytes()) == row['stdout_sha256'], 'Command log hash mismatch')
     marks = contract['success_markers']
     by_name = {row['name']: row for row in commands}
+    refresh = by_name['refresh-run']
+    require(refresh.get('success_marker') == refresh_failure_marker(contract), 'Refresh failure marker differs')
+    require_marker(regular(path.parent, refresh['log']).read_text(), refresh_failure_marker(contract))
     recovery = by_name['recovery-run']
     require(recovery.get('success_marker') == PAIRING_RECOVERY_MARKER, 'Pairing recovery marker differs')
     require_marker(regular(path.parent, recovery['log']).read_text(), PAIRING_RECOVERY_MARKER)
@@ -708,6 +795,15 @@ def run(sources, swiftc, output, contract_path=None):
         for export in report['producer_exports'].values():
             require_marker(service_log, f"WIRE_IMPORTED_CASES schema={export['schema']} producer_cases={export['count']} wire_cases={2 * export['count']}")
         runner.command('wire-host-run', [wire / 'host', transferred], marks['wire_host'])
+        refresh = output / 'refresh-failure'
+        refresh.mkdir()
+        runner.command('refresh-generate', python(WIRE + '/generate_refresh_failure_fixture.py') +
+                       ['--sources', sources, '--output', refresh])
+        report['refresh_failure_extraction'] = refresh_failure_extraction(output, contract, before_compile=True)
+        compile_fixture('refresh-compile', [refresh / 'refresh-failure.swift'], refresh / 'refresh-failure', library=True)
+        runner.command('refresh-run', [refresh / 'refresh-failure', refresh / 'cases.json'],
+                       refresh_failure_marker(contract))
+        report['refresh_failure_cases'] = refresh_failure_export(output, contract)
         report['suites'].append('wire-copy')
         for suite, spec in SETUP_FIXTURES.items():
             folder = output / suite
