@@ -38,6 +38,7 @@ class Controls(unittest.TestCase):
             'success_markers':self.markers, 'onboarding_case_names':['control-case-a'],
             'registration_case_names':['registration-case-a'],
             **{suite + '_case_names': ['control-case-a'] for suite in gate.SETUP_FIXTURES}}
+        self.config['extension_selection_case_names'] = ['extension-control-' + str(n) for n in range(17)]
         self.config['refresh_failure_case_names'] = ['refresh-control-case']
         self.config['pairing_recovery_case_names'] = ['recovery-control-case']
         self.config['deferred_baseline'] = {'owners': copy.deepcopy(gate.DEFERRED_BASELINE_OWNERS),
@@ -131,6 +132,25 @@ class Controls(unittest.TestCase):
                 'cases': self.config['refresh_failure_case_names'],
                 'case_count': len(self.config['refresh_failure_case_names'])})
             data = (gate.refresh_failure_marker(self.config) + '\n').encode()
+        elif name == 'extension-generate':
+            folder = Path(argv[-1])
+            positive = '// inert control targetExtensions: appBundle.appExtensions,'
+            (folder / 'Fixture.swift').write_text(positive)
+            (folder / 'NegativeControl.swift').write_text(positive.replace('targetExtensions: appBundle.appExtensions,', 'targetExtensions: excessExtensions,'))
+            gate.write_json(folder / 'source-receipt.json', {
+                'schema': 2, 'case_names': self.config['extension_selection_case_names'],
+                'static_wiring_checks': 'passed', 'swift_execution': 'not-run-by-generator',
+                'native_signing_device_install': 'not-run',
+                'source_sha256': {k: self.config['input_sha256'][v] for k, v in gate.EXTENSION_INPUT_PATHS.items()},
+                'fixture_files_sha256': {n: self.config['input_sha256'][gate.EXTENSION + '/' + n] for n in gate.EXTENSION_FIXTURE_FILES},
+                'generated_sha256': {n: gate.digest((folder / n).read_bytes()) for n in gate.EXTENSION_OUTPUTS},
+                'fixture_sha256': gate.digest((folder / 'Fixture.swift').read_bytes())})
+        elif name == 'extension-run':
+            gate.write_json(Path(argv[-1]), {'schema': 1, 'count': 17,
+                'native_signing_device_install': 'not-run', 'passed_cases': self.config['extension_selection_case_names']})
+            data = (gate.EXTENSION_MARKER + '\n').encode()
+        elif name == 'extension-negative-run':
+            return subprocess.CompletedProcess(argv, -6, (gate.EXTENSION_NEGATIVE_MARKER + '\n').encode())
         elif name == 'recovery-generate':
             root = Path(argv[argv.index('--output') + 1])
             for relative in gate.PAIRING_RECOVERY_OUTPUTS:
@@ -831,7 +851,7 @@ class SetupControls(Controls):
     def test_setup_new_suites_and_commands_once(self):
         report = self.run_control()
         self.assertEqual(len(gate.COMMANDS), len(set(gate.COMMANDS)))
-        self.assertEqual(len(gate.COMMANDS), 44)
+        self.assertEqual(len(gate.COMMANDS), 49)
         for suite, spec in gate.SETUP_FIXTURES.items():
             self.assertEqual(report['suites'].count(suite), 1)
             for step in ('source', 'generate', 'compile', 'run'):
@@ -1091,8 +1111,8 @@ class RefreshControls(Controls):
         report = self.run_control()
         self.assertEqual(len(report['suites']), 8)
         self.assertEqual(report['suites'].count('wire-copy'), 1)
-        self.assertEqual(len(gate.COMMANDS), 44)
-        self.assertEqual(len(set(gate.COMMANDS)), 44)
+        self.assertEqual(len(gate.COMMANDS), 49)
+        self.assertEqual(len(set(gate.COMMANDS)), 49)
         for name in ('refresh-generate', 'refresh-compile', 'refresh-run'):
             self.assertEqual([n for n, _ in self.calls].count(name), 1)
         self.assertEqual(report['refresh_failure_cases']['names'], ['refresh-control-case'])
@@ -1183,10 +1203,97 @@ class RefreshControls(Controls):
         self.assertFalse(self.calls)
 
 
+class ExtensionControls(RefreshControls):
+    def test_extension_command_uniqueness(self):
+        report = self.run_control()
+        self.assertEqual(len(report['suites']), 8)
+        self.assertEqual(len(gate.COMMANDS), 49)
+        self.assertEqual(len(set(gate.COMMANDS)), 49)
+        self.assertEqual(report['extension_selection_cases']['count'], 17)
+        self.assertEqual(next(row['exit_code'] for row in report['commands'] if row['name'] == 'extension-negative-run'), -6)
+
+    def test_extension_contract_required(self):
+        for names in (None, [], ['same'] * 17):
+            probe = self.fresh(); probe.config['extension_selection_case_names'] = names; probe.save_contract()
+            with self.subTest(names=names), self.assertRaisesRegex(ValueError, 'extension selection case contract'):
+                probe.run_control()
+            self.assertFalse(probe.calls)
+
+    def test_extension_provenance_and_output_guard(self):
+        for key in ('source_sha256', 'fixture_files_sha256', 'generated_sha256', 'case_names', 'schema', 'swift_execution'):
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                if probe.calls[-1][0] == 'extension-generate':
+                    path = Path(argv[-1]) / 'source-receipt.json'; value = json.loads(path.read_text())
+                    value[key] = [] if key == 'case_names' else 'wrong'; gate.write_json(path, value)
+                return result
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'Extension'):
+                probe.run_control(bad)
+            self.assertNotIn('extension-compile', dict(probe.calls))
+
+    def test_extension_negative_must_fail_exact_assertion(self):
+        for mode in ('zero', 'wrong', 'timeout'):
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                if probe.calls[-1][0] == 'extension-negative-run':
+                    if mode == 'zero': result.returncode = 0
+                    elif mode == 'wrong': result.stdout = b'unrelated crash'
+                    else: raise subprocess.TimeoutExpired(argv, 300)
+                return result
+            with self.subTest(mode=mode), self.assertRaisesRegex(ValueError, 'Command failed|Extension negative'):
+                probe.run_control(bad)
+
+    def test_extension_positive_marker_is_exact(self):
+        for duplicate in (False, True):
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                if probe.calls[-1][0] == 'extension-run': result.stdout = result.stdout * 2 if duplicate else b'no success'
+                return result
+            with self.subTest(duplicate=duplicate), self.assertRaisesRegex(ValueError, 'Missing or duplicate'):
+                probe.run_control(bad)
+
+    def test_extension_runtime_case_export_guards(self):
+        for key, value in [('schema', 3), ('count', 0), ('passed_cases', []), ('native_signing_device_install', 'run')]:
+            probe = self.fresh()
+            def bad(argv, **kwargs):
+                result = probe.control_process(argv, **kwargs)
+                if probe.calls[-1][0] == 'extension-run':
+                    path = Path(argv[-1]); data = json.loads(path.read_text()); data[key] = value; gate.write_json(path, data)
+                return result
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'Extension runtime'):
+                probe.run_control(bad)
+
+    def test_extension_mutation_is_one_actual_handler_argument(self):
+        def bad(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'extension-generate':
+                root = Path(argv[-1]); (root / 'NegativeControl.swift').write_text('// wrong control')
+                path = root / 'source-receipt.json'; value = json.loads(path.read_text())
+                value['generated_sha256']['NegativeControl.swift'] = gate.digest((root / 'NegativeControl.swift').read_bytes())
+                gate.write_json(path, value)
+            return result
+        with self.assertRaisesRegex(ValueError, 'Extension negative mutation'):
+            self.run_control(bad)
+
+    def test_extension_expected_failure_cannot_mask_other_failure(self):
+        self.assertFalse(gate.command_passed({'name': 'refresh-run', 'exit_code': -6,
+            'expected_failure_marker': gate.EXTENSION_NEGATIVE_MARKER}))
+        report = self.run_control()
+        row = next(row for row in report['commands'] if row['name'] == 'extension-negative-run')
+        row['exit_code'] = 0
+        gate.write_json(self.output / 'report.json', report)
+        with self.assertRaisesRegex(ValueError, 'Incomplete successful command'):
+            gate.verify_receipt(self.output / 'report.json', self.contract)
+
+
 def load_tests(loader, tests, pattern):
     suite = loader.loadTestsFromTestCase(Controls)
     suite.addTests(SetupControls(name) for name in sorted(SetupControls.__dict__) if name.startswith('test_'))
     suite.addTests(RefreshControls(name) for name in sorted(RefreshControls.__dict__) if name.startswith('test_'))
+    suite.addTests(ExtensionControls(name) for name in sorted(ExtensionControls.__dict__) if name.startswith('test_'))
     return suite
 
 

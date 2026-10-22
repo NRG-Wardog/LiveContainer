@@ -20,6 +20,8 @@ COMMANDS = ('legacy-generate', 'legacy-compile', 'legacy-run',
             'wire-source', 'wire-generate', 'wire-service-compile', 'wire-host-compile',
             'wire-service-run', 'wire-host-run',
             'refresh-generate', 'refresh-compile', 'refresh-run',
+            'extension-generate', 'extension-compile', 'extension-run',
+            'extension-negative-compile', 'extension-negative-run',
             'pairing-source', 'pairing-generate', 'pairing-compile', 'pairing-run',
             'recovery-source', 'recovery-generate', 'recovery-compile', 'recovery-run',
             'deferred-prior-extract', 'deferred-prior-generate', 'deferred-prior-compile', 'deferred-prior-run',
@@ -144,6 +146,7 @@ REFRESH_INPUT_PATHS = {'host': 'LiveContainer/SideStoreSupport/SideStore.swift',
 REFRESH_FIXTURE_FILES = ['generate_refresh_failure_fixture.py',
  'generate_wire_fixture.py',
  'refresh_completed_baseline.swift',
+ 'refresh_copy_baseline.swift',
  'refresh_failure_doubles.swift',
  'refresh_handler_doubles.swift',
  'refresh_failure_harness.swift',
@@ -152,6 +155,25 @@ REFRESH_TEST_ROOT = 'SideStore/tests/refresh_failure'
 REQUIRED_INPUTS.update(REFRESH_INPUT_PATHS.values())
 REQUIRED_INPUTS.update(WIRE + '/' + name for name in REFRESH_FIXTURE_FILES)
 REQUIRED_INPUTS.update(REFRESH_TEST_ROOT + '/' + name for name in ('test_contract.py', 'pipeline_harness.swift', 'README.md'))
+
+
+EXTENSION = 'LiveContainer/.ci/extension-selection'
+EXTENSION_INPUT_PATHS = {
+    'service': 'SideStore/AltStore/AppDelegate.swift',
+    'removal': 'SideStore/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift',
+    'steps': 'SideStore/SideStore/Core/Operations/OperationStepDefinition.swift',
+    'runner': 'SideStore/SideStore/Core/Operations/PipelineRunner.swift',
+    'executor': 'SideStore/SideStore/Core/Operations/PipelineExecutor.swift',
+    'profiles': 'SideStore/SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift',
+    'install': 'SideStore/SideStore/Core/Operations/PipelineOperations/InstallAppOperation.swift',
+    'ui': 'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
+}
+EXTENSION_FIXTURE_FILES = ('generate_fixture.py', 'Doubles.swift', 'Cases.swift', 'run.sh')
+EXTENSION_OUTPUTS = ('Fixture.swift', 'NegativeControl.swift')
+EXTENSION_MARKER = 'PASS 17 source-path extension-selection cases; platform models and prompt transport are doubles. No signing or device install performed.'
+EXTENSION_NEGATIVE_MARKER = 'fresh-nil-local-empty-excess-prompts-and-selects: prompt count'
+REQUIRED_INPUTS.update(EXTENSION_INPUT_PATHS.values())
+REQUIRED_INPUTS.update(EXTENSION + '/' + name for name in EXTENSION_FIXTURE_FILES)
 
 
 DEFERRED_PRIOR_MARKER = 'DEFERRED_PRIOR_PEM_REJECTION_REPRODUCED'
@@ -239,6 +261,10 @@ def load_contract(path):
     require(isinstance(names, list) and names and len(names) == len(set(names)) and
             all(isinstance(n, str) and n and 'PENDING' not in n for n in names),
             'Missing or malformed refresh failure case contract')
+    names = contract.get('extension_selection_case_names')
+    require(isinstance(names, list) and len(names) == 17 and len(names) == len(set(names)) and
+            all(isinstance(n, str) and n and 'PENDING' not in n for n in names),
+            'Missing or malformed extension selection case contract')
     baseline = contract.get('deferred_baseline')
     require(isinstance(baseline, dict) and baseline.get('owners') == DEFERRED_BASELINE_OWNERS,
             'Missing exact deferred baseline owners')
@@ -253,7 +279,7 @@ def source_inventory(root, contract):
     actual = {name: digest(regular(root, name).read_bytes()) for name in contract['input_sha256']}
     require(actual == contract['input_sha256'], 'Source input hash mismatch')
     # Hash all executable fixture inputs, not just selected known filenames.
-    for folder in (AUTH, ILOADER, ONBOARDING, PROFILE, WIRE, REFRESH_TEST_ROOT,
+    for folder in (AUTH, ILOADER, ONBOARDING, PROFILE, WIRE, REFRESH_TEST_ROOT, EXTENSION,
                    *(spec['root'] for spec in SETUP_FIXTURES.values())):
         directory = root / folder
         require(directory.is_dir() and not directory.is_symlink(), 'Missing source-owned fixture directory')
@@ -577,12 +603,61 @@ def extraction_receipt(output, contract):
     return result
 
 
+def extension_selection_extraction(output, contract, before_compile=False):
+    root = output / 'extension-selection'
+    path = regular(root, 'source-receipt.json')
+    value = json.loads(path.read_text())
+    require(value.get('schema') == 2 and value.get('static_wiring_checks') == 'passed' and
+            value.get('swift_execution') == 'not-run-by-generator' and
+            value.get('native_signing_device_install') == 'not-run', 'Extension extraction boundary differs')
+    require(isinstance(value.get('case_names'), list) and
+            sorted(value['case_names']) == sorted(contract['extension_selection_case_names']),
+            'Extension extraction case closure differs')
+    require(value.get('source_sha256') == {key: contract['input_sha256'][name]
+            for key, name in EXTENSION_INPUT_PATHS.items()}, 'Extension source hashes differ')
+    require(value.get('fixture_files_sha256') == {name: contract['input_sha256'][EXTENSION + '/' + name]
+            for name in EXTENSION_FIXTURE_FILES}, 'Extension fixture hashes differ')
+    generated = {name: digest(regular(root, name).read_bytes()) for name in EXTENSION_OUTPUTS}
+    require(value.get('generated_sha256') == generated and value.get('fixture_sha256') == generated['Fixture.swift'],
+            'Extension generated source hashes differ')
+    positive = regular(root, 'Fixture.swift').read_text()
+    original = 'targetExtensions: appBundle.appExtensions,'
+    require(positive.count(original) == 1 and regular(root, 'NegativeControl.swift').read_text() ==
+            positive.replace(original, 'targetExtensions: excessExtensions,'), 'Extension negative mutation differs')
+    allowed = set(EXTENSION_OUTPUTS) | {'source-receipt.json'}
+    if not before_compile: allowed |= {'fixture', 'negative-control', 'cases.json'}
+    actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+    require(actual <= allowed and set(EXTENSION_OUTPUTS) | {'source-receipt.json'} <= actual,
+            'Extension generated output closure differs')
+    return {'path': 'extension-selection/source-receipt.json', 'sha256': digest(path.read_bytes()),
+            'generated_sha256': generated, 'input_count': len(EXTENSION_INPUT_PATHS) + len(EXTENSION_FIXTURE_FILES)}
+
+
+def extension_selection_export(output, contract):
+    path = regular(output, 'extension-selection/cases.json')
+    value = json.loads(path.read_text())
+    names = value.get('passed_cases')
+    require(value.get('schema') == 1 and value.get('native_signing_device_install') == 'not-run' and
+            value.get('count') == 17 and isinstance(names, list) and
+            sorted(names) == sorted(contract['extension_selection_case_names']), 'Extension runtime case coverage differs')
+    return {'schema': 1, 'count': 17, 'names': names, 'sha256': digest(path.read_bytes()),
+            'native_signing_device_install': 'not-run'}
+
+
+def command_passed(row):
+    if row.get('name') == 'extension-negative-run':
+        return (type(row.get('exit_code')) is int and row['exit_code'] != 0 and
+                row.get('expected_failure_marker') == EXTENSION_NEGATIVE_MARKER and
+                not row.get('timed_out') and not row.get('launch_error'))
+    return row.get('exit_code') == 0 and 'expected_failure_marker' not in row
+
+
 class Runner:
     def __init__(self, output):
         self.output = output
         self.commands = []
 
-    def command(self, name, arguments, marker=None):
+    def command(self, name, arguments, marker=None, expected_failure=None):
         require(name in COMMANDS and name not in [row['name'] for row in self.commands], 'Unexpected or repeated command')
         row = {'name': name, 'argv': [str(arg) for arg in arguments], 'exit_code': None}
         self.commands.append(row)
@@ -602,8 +677,12 @@ class Runner:
             row['launch_error'] = type(error).__name__
         log.write_bytes(data)
         row.update(stdout_sha256=digest(data), log=log.relative_to(self.output).as_posix())
-        require(row['exit_code'] == 0, 'Command failed: ' + name + ', exit=' + str(row['exit_code']))
         text = data.decode('utf-8', errors='replace')
+        if expected_failure is not None:
+            require(name == 'extension-negative-run' and expected_failure == EXTENSION_NEGATIVE_MARKER and
+                    expected_failure in text, 'Extension negative control did not reach expected assertion')
+            row['expected_failure_marker'] = expected_failure
+        require(command_passed(row), 'Command failed: ' + name + ', exit=' + str(row['exit_code']))
         if marker is not None:
             require_marker(text, marker)
             row['success_marker'] = marker
@@ -632,13 +711,17 @@ def verify_receipt(path, contract_path=None):
             'Refresh failure extraction receipt differs')
     require(report.get('refresh_failure_cases') == refresh_failure_export(path.parent, contract),
             'Refresh failure case receipt differs')
+    require(report.get('extension_selection_extraction') == extension_selection_extraction(path.parent, contract),
+            'Extension extraction receipt differs')
+    require(report.get('extension_selection_cases') == extension_selection_export(path.parent, contract),
+            'Extension runtime receipt differs')
     require(report.get('deferred_prior_pem_rejection') == deferred_prior_receipt(path.parent, contract),
             'Prior deferred actual-crypto proof differs')
     require(report.get('system_crypto_synthetic_fixture_executed') is True and
             report.get('system_crypto_boundary') == SYSTEM_CRYPTO_BOUNDARY, 'Missing bounded system-crypto evidence')
     commands = report.get('commands', [])
     require([row.get('name') for row in commands] == list(COMMANDS) and
-            all(row.get('exit_code') == 0 for row in commands), 'Incomplete successful command receipt')
+            all(command_passed(row) for row in commands), 'Incomplete successful command receipt')
     outputs = report.get('artifact_sha256')
     require(isinstance(outputs, dict) and outputs and artifact_inventory(path.parent) == outputs,
             'Retained evidence missing or changed')
@@ -647,6 +730,12 @@ def verify_receipt(path, contract_path=None):
         require(digest(logfile.read_bytes()) == row['stdout_sha256'], 'Command log hash mismatch')
     marks = contract['success_markers']
     by_name = {row['name']: row for row in commands}
+    extension = by_name['extension-run']
+    require(extension.get('success_marker') == EXTENSION_MARKER, 'Extension marker receipt differs')
+    require_marker(regular(path.parent, extension['log']).read_text(), EXTENSION_MARKER)
+    negative = by_name['extension-negative-run']
+    require(EXTENSION_NEGATIVE_MARKER in regular(path.parent, negative['log']).read_text(),
+            'Extension negative assertion log missing')
     refresh = by_name['refresh-run']
     require(refresh.get('success_marker') == refresh_failure_marker(contract), 'Refresh failure marker differs')
     require_marker(regular(path.parent, refresh['log']).read_text(), refresh_failure_marker(contract))
@@ -804,6 +893,18 @@ def run(sources, swiftc, output, contract_path=None):
         runner.command('refresh-run', [refresh / 'refresh-failure', refresh / 'cases.json'],
                        refresh_failure_marker(contract))
         report['refresh_failure_cases'] = refresh_failure_export(output, contract)
+        extension = output / 'extension-selection'
+        extension.mkdir()
+        runner.command('extension-generate', python(EXTENSION + '/generate_fixture.py') +
+                       ['--root', sources, '--output', extension])
+        report['extension_selection_extraction'] = extension_selection_extraction(output, contract, before_compile=True)
+        compile_fixture('extension-compile', [extension / 'Fixture.swift'], extension / 'fixture', library=True)
+        runner.command('extension-run', [extension / 'fixture', extension / 'cases.json'], EXTENSION_MARKER)
+        report['extension_selection_cases'] = extension_selection_export(output, contract)
+        compile_fixture('extension-negative-compile', [extension / 'NegativeControl.swift'], extension / 'negative-control', library=True)
+        runner.command('extension-negative-run', [extension / 'negative-control', extension / 'negative-cases.json'],
+                       expected_failure=EXTENSION_NEGATIVE_MARKER)
+        require(not (extension / 'negative-cases.json').exists(), 'Extension negative control unexpectedly completed cases')
         report['suites'].append('wire-copy')
         for suite, spec in SETUP_FIXTURES.items():
             folder = output / suite
