@@ -49,5 +49,31 @@ for path in [sign/'Sources/Models/AnisetteData.swift']:
             keys=g.block(text,'enum CodingKeys')
             for forbidden in ['auth_request_trace','auth_provider_observation','auth_header_provenance','diagnosticHeaderProvenance']:
                 assert forbidden not in keys
-print('WIRE_GENERATOR_STATIC_PASS source_owned_routes=6 privacy_guards=true swift_executed=false')
+# Bind every source-owned provisioning extension and all new causal/wire route coverage.
+for anchor in ['public struct V3ProvisioningCauseDiagnostic {', 'struct V3ProvisioningCauseError:',
+               'extension V3ProvisioningCauseDiagnostic {', 'struct V3AccountOperationError:']:
+    assert g.block(service, anchor) == g.block(host, anchor), anchor
+for anchor in ['func v3AccountOperationFailure(', 'func v3CaptureAuthFailure(', 'func v3AccountUnderlyingError(',
+               'func v3OperationErrorGuidance(', 'func v3ClassifyAuthError(']:
+    assert g.block(service, anchor) in generated_service, anchor
+operation = (ss/'SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift').read_text()
+assert g.block(operation, 'private func registerCurrentDevice(') in generated_service
+assert operation[operation.index('// V3_PROVISIONING_CAUSE_PRODUCER_V1:'):] in generated_service
+mapper = g.block(service, 'func v3AccountOperationFailure(')
+assert mapper.index('v3ProvisioningCauseContext(error)') < mapper.index('v3AccountUnderlyingError(error)')
+unwrap = g.block(service, 'func v3AccountUnderlyingError(')
+assert 'V3ProvisioningCauseError' in unwrap
+assert 'MinimuxerServiceError' not in unwrap and 'ALTWrappedError' not in unwrap
+terminal = g.block(service, 'func v3CaptureAuthFailure(')
+assert 'failure.code != .cancelled' in terminal
+assert 'stage: failure.stage, code: failure.code' in terminal and 'retryable: failure.retryable, safeCause: failure.safeCause' in terminal
+for required in ['device-registration-cause-cases-v1', 'registrationFixtureCases()', 'provisioning_widest_',
+                 'provisioning_nonstring_', 'causeMutations', 'terminal primary classification/cancellation/transport policy unchanged',
+                 'actual provisioning retry details retain safe cause']:
+    assert required in generated_service, required
+for key in ['operation_errors', 'portal_errors', 'portal_observers', 'anisette_errors', 'archive_errors',
+            'remote_errors', 'minimuxer_mapping', 'registration_doubles', 'registration_cases']:
+    assert key in hashes, key
+assert 'SECRET_' in generated_host and 'V3AuthStore.failureDetails(from: failure)' in generated_host
+print('WIRE_GENERATOR_STATIC_PASS source_owned_routes=8 privacy_guards=true swift_executed=false')
 

@@ -15,22 +15,28 @@ for item in cases {
     require(result["state"] as? String == item["state"] as? String, "state preserved")
     var canonical = failure; canonical.removeValue(forKey: "kind")
     guard let decoded = CombinedFailure.decode(canonical, expectedID: id) else { fatalError("primary disappeared: \(name)") }
-    require(decoded.operation == "signIn" && decoded.stage == .authentication, "category preserved")
+    require(decoded.operation == "signIn" && decoded.stage.rawValue == item["primaryStage"] as? String, "category preserved")
     require(decoded.underlyingCode == item["primaryCode"] as! Int, "underlying ordinal preserved: \(name)")
     let fields = decoded.signingContext; require(fields.count <= 20, "host key cap")
+    if let typed = item["primaryTyped"] as? String, typed != "unknown" {
+        require(fields["typed_error"] == typed, "original typed primary retained")
+    }
     if key == "previousFailure" { require(failure["kind"] as? String == "unknown", "prior failure kind preserved") }
     for (key, value) in item["expectedSnapshots"] as? [String: String] ?? [:] { require(fields[key] == value, "exact imported ar1/hp2/ap1 survived decoder") }
     if name == "terminal_structured" { validSnapshots = fields.filter { ["auth_request_trace", "auth_header_provenance", "auth_provider_observation"].contains($0.key) } }
     let copy = V3AuthStore.failureDetails(from: failure)
     let render = V3AuthFailureDiagnosticsPolicy.render(failure, underlyingCode: V3WireContract.strictInt(failure["underlyingCode"]), retryableValue: V3WireContract.strictBool(failure["retryable"]))
     require(copy == render, "actual Copy Details equals actual visible renderer")
-    require(!copy.contains(sentinel) && !copy.contains("SENTINEL_"), "no secret sentinel copied")
+    require(!copy.contains(sentinel) && !copy.contains("SENTINEL_") && !copy.contains("SECRET_"), "no secret sentinel copied")
     require(!(result["technicalDetails"] as? String ?? "").contains(sentinel), "untrusted freeform duplicate replaced")
     for expected in item["expected"] as! [String] { require(copy.contains(expected), "\(name): \(expected)") }
     if item["rejected"] as? Bool == true {
         require(fields["auth_diagnostic_state"] == "rejected", "optional fail closed marker")
         require(decoded.code == .failed, "rejected optional does not change primary error")
-        if !name.hasPrefix("legacy_") {
+        if name.hasPrefix("provisioning_") {
+            require(fields["typed_error"] == "unknownAccountFailure" && fields["server_code"] == "unknown" && decoded.retryable == false, "pc1 rejected optional keeps primary and policy")
+            require(fields[V3ProvisioningCauseDiagnostic.contextKey] == V3ProvisioningCauseDiagnostic.rejected, "malformed pc1 canonical rejected sentinel")
+        } else if !name.hasPrefix("legacy_") {
             require(fields["typed_error"] == "sideSignServerReportedError" && fields["server_code"] == "-80045" && decoded.retryable == false, "primary typed context and retryability preserved")
         } else { require(!copy.contains("auth_response_shape=") && !copy.contains("auth_response_mime="), "invalid legacy labels suppressed") }
     } else { require(V3AuthenticationDiagnostics.fits(decoded.wire), "full decoded failure budgets") }

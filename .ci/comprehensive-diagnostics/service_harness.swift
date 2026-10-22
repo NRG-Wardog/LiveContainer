@@ -1,7 +1,7 @@
 // Pure synthetic IPC. Actual collector/profile outputs are imported once; no
 // authentication, HTTP task, native library, provider or clipboard is executed.
 func require(_ value: @autoclosure () -> Bool, _ label: String) { if !value() { fatalError(label) } }
-require(CommandLine.arguments.count == 4, "service wire.plist auth-cases.json profile-cases.json")
+require(CommandLine.arguments.count == 5, "service wire.plist auth-cases.json profile-cases.json registration-cases.json")
 let sentinel = "SECRET_PASSWORD_TOKEN_PRIVATE_DEVICE_ID"
 let id = "00000000-0000-0000-0000-000000000001"
 let requestID = "00000000-0000-0000-0000-000000000002"
@@ -15,7 +15,7 @@ var maxBinary = 0; var maxJSON = 0
 func emit(_ name: String, _ result: [String: Any], key: String = "failure", expected: [String] = [],
           rejected: Bool = false, primaryCode: Int = 3, snapshots: [String: String] = [:]) throws {
     let failure = result[key] as! [String: Any]
-    let fields = failure["signingContext"] as? [String: String] ?? [:]
+    let fields = (failure["signingContext"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String }
     for (key, value) in snapshots { require(fields[key] == value, "exact producer snapshot survived service") }
     require(fields.count <= 20, "context cap: \(name)")
     let binary = try PropertyListSerialization.data(fromPropertyList: failure, format: .binary, options: 0)
@@ -28,7 +28,9 @@ func emit(_ name: String, _ result: [String: Any], key: String = "failure", expe
     let encoded = V3ResponseEncoder.encodeDetailed(envelope, operation: "authPoll", limit: V3WireContract.responseLimit)
     require(encoded.fallbackToken == nil, "real encoder must not replace primary")
     cases.append(["name": name, "response": encoded.data, "key": key, "state": result["state"] as! String,
-                  "expected": expected, "rejected": rejected, "primaryCode": primaryCode, "expectedSnapshots": snapshots])
+                  "expected": expected, "rejected": rejected, "primaryCode": primaryCode, "expectedSnapshots": snapshots,
+                  "primaryStage": failure["stage"] as? String ?? "authentication",
+                  "primaryTyped": fields["typed_error"] ?? "unknown"])
 }
 func producer(_ argument: Int, schema: String) throws -> [[String: Any]] {
     let root = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[argument]))) as! [String: Any]
@@ -190,6 +192,187 @@ let wrongKind = ["typed_error": "sideSignServerReportedError", "auth_response_sh
 require(CombinedFailure.validatedSigningContext(wrongKind) == nil, "wrong typed error association rejected")
 var wrongKindFailure = legacy; wrongKindFailure["signingContext"] = wrongKind
 try emit("legacy_wrong_kind", ["state": "failed", "failure": wrongKindFailure], expected: ["auth_diagnostic_state=rejected"], rejected: true, primaryCode: 1)
+
+
+// Real registration source -> real mapper -> both real exporters. Compare with
+// the independently executed onboarding producer, never synthesize exported pc1.
+let registrationImported = try producer(4, schema: "device-registration-cause-cases-v1")
+let registrationActual = try await registrationFixtureCases()
+require(registrationActual.count == registrationImported.count, "all real producer failures reach mapper")
+require(Set(registrationActual.map { $0.name }) == Set(registrationImported.compactMap { $0["name"] as? String }), "same finite registration cases")
+for actual in registrationActual {
+    let imported = registrationImported.first { $0["name"] as? String == actual.name }!
+    let diagnosed = v3AccountOperationFailure(actual.error, step: .registerDevice)
+    require(diagnosed.provisioningCause == imported["provisioning_cause"] as? String, "original producer pc1 survives actual mapper")
+    require((v3AccountUnderlyingError(actual.error) is OperationError) == (diagnosed.underlying is OperationError), "original OperationError not replaced")
+    require((v3AccountUnderlyingError(actual.error) is MinimuxerError) == (diagnosed.underlying is MinimuxerError), "original MinimuxerError not replaced by guidance")
+    let retryDetails = CombinedFailure.provisioningRetryTechnicalDetails(for: diagnosed, correlationID: id,
+        requestTrace: validRequest, headerProvenance: hp, providerObservation: ap, loginTrace: nil)
+    require(retryDetails.contains("provisioning_cause_schema=pc1") && !retryDetails.contains("SECRET_"), "actual provisioning retry details retain safe cause")
+    let failure = diagnosed.failure(operation: "signIn", id: id)
+    require(failure.sourceStep == .registerDevice, "real device-registration boundary retained")
+    let raw = failure.signingContext[V3ProvisioningCauseDiagnostic.contextKey]!
+    require(raw == imported["provisioning_cause"] as? String, "actual failure emits exact pc1")
+    let parsed = V3ProvisioningCauseDiagnostic(encoded: raw)!
+    var expected = ["provisioning_cause_schema=pc1", "provisioning_substep=" + parsed.phase.rawValue,
+        "cause_truncated=\(parsed.truncated)", "cause_unknown=\(parsed.unknown)", "cause_cycle=\(parsed.cycle)", "source_step=registerDevice"]
+    expected += parsed.rows.map { "type=\($0.type) case=\($0.kind)" }
+    var snapshots = exact; snapshots[V3ProvisioningCauseDiagnostic.contextKey] = raw
+    let terminal = V3AuthDiagnosticExport.terminal(["state": "failed", "failure": failure.wire], sessionID: id,
+        requestTrace: validRequest, headerProvenance: hp, providerObservation: ap, loginTrace: longLogin)
+    try emit("actual_registration_terminal_" + actual.name, terminal, expected: expected, primaryCode: failure.underlyingCode, snapshots: snapshots)
+    let previous = V3AuthDiagnosticExport.previousFailure(failure.wire, kind: "unknown", requestTrace: validRequest,
+        headerProvenance: hp, providerObservation: ap, loginTrace: longLogin)
+    try emit("actual_registration_previous_" + actual.name, ["state": "awaitingPrompt", "previousFailure": previous], key: "previousFailure",
+        expected: expected, primaryCode: failure.underlyingCode, snapshots: snapshots)
+}
+print("WIRE_IMPORTED_CASES schema=device-registration-cause-cases-v1 producer_cases=\(registrationImported.count) wire_cases=\(registrationImported.count * 2)")
+// Generic provisioning errors bypassing the registration wrapper still carry
+// the observed original type/case, but must honestly report substep=unobserved.
+let genericErrors: [(String, Error)] = [
+    ("operation", OperationError.provisioningError(result: "SECRET_RESULT_CANARY", message: "SECRET_MESSAGE_CANARY")),
+    ("minimuxer", MinimuxerError.noVPN("SECRET_PAIRING_CANARY")),
+    ("unknown", NSError(domain: "SECRET_DOMAIN_CANARY", code: 777,
+        userInfo: [NSLocalizedDescriptionKey: "SECRET_PASSWORD_TOKEN_CANARY", "SECRET_KEY_CANARY": "SECRET_ACCOUNT_CANARY"]))]
+for step in [CombinedFailure.SourceStep.fetchTeams, .fetchCertificate, .registerDevice, .provisioningUnknown] {
+    for (name, original) in genericErrors {
+        let diagnosed = v3AccountOperationFailure(original, step: step)
+        require(diagnosed.kind == .unknownAccountFailure, "generic classification remains T31")
+        guard let cause = diagnosed.provisioningCause, let parsed = V3ProvisioningCauseDiagnostic(encoded: cause) else { fatalError("generic cause not captured") }
+        require(parsed.phase == .unobserved && !cause.contains("SECRET_"), "generic error does not invent substep or expose raw payload")
+        let failure = diagnosed.failure(operation: "signIn", id: id)
+        let result = V3AuthDiagnosticExport.terminal(["state": "failed", "failure": failure.wire], sessionID: id,
+            requestTrace: nil, headerProvenance: nil, providerObservation: nil, loginTrace: nil)
+        try emit("generic_provisioning_\(step.rawValue)_\(name)", result, expected: ["provisioning_substep=unobserved", "type=" + name],
+            primaryCode: failure.underlyingCode, snapshots: [V3ProvisioningCauseDiagnostic.contextKey: cause])
+    }
+}
+let unrelated = v3AccountOperationFailure(OperationError.notAuthenticated, step: .authenticate)
+require(unrelated.provisioningCause == nil, "unrelated authentication error does not gain provisioning cause")
+let rawMinimuxer = MinimuxerError.noVPN("SECRET_PAIRING_CANARY")
+let guidance = v3OperationErrorGuidance(rawMinimuxer.asOperationError)
+require(guidance.message.contains("LocalDevVPN") && !guidance.message.contains("SECRET_"), "known raw minimuxer uses existing typed guidance safely")
+
+
+// Owned observation wrapping must not change authentication classification,
+// identity guards, or cancellation; it is never behavioral recovery evidence.
+for original in [ServerError.underlyingError(code: -21668, message: "SECRET_TOKEN_CANARY") as Error,
+                 V3ProvisioningReauthenticationIdentityError(), LCAnisettePairError.orphanedBlob,
+                 CancellationError(), URLError(.cancelled)] {
+    let observed = V3ProvisioningCauseError(underlying: original, provisioningCause: v3UnobservedProvisioningCause(original))
+    require(v3ClassifyAuthError(original) == v3ClassifyAuthError(observed), "real classifier and identity guard unchanged by observation wrapper")
+    require(v3IsAuthCancellation(original) == v3IsAuthCancellation(observed), "owned wrapper preserves cancellation decision")
+}
+// Direct post-auth terminal catch retains exactly the pre-observer tuple.
+for original in [CancellationError() as Error, URLError(.cancelled), URLError(.timedOut), URLError(.notConnectedToInternet),
+                 OperationError.notAuthenticated, NSError(domain: "SECRET_DOMAIN_CANARY", code: 777)] {
+    let before = CombinedFailure.capture(original, operation: "signIn", stage: .provisioning, id: id)
+    let after = v3CaptureAuthFailure(original, operation: "signIn", stage: .provisioning, id: id)
+    require(before.stage == after.stage && before.code == after.code && before.retryable == after.retryable &&
+        before.safeCause == after.safeCause && before.sourceStep == after.sourceStep &&
+        before.underlyingDomain == after.underlyingDomain && before.underlyingCode == after.underlyingCode, "terminal primary classification/cancellation/transport policy unchanged")
+    if before.code == .cancelled {
+        require(after.code == .cancelled && after.retryable == false && after.signingContext[V3ProvisioningCauseDiagnostic.contextKey] == nil, "cancel stays terminal without provisioning failure")
+    } else { require(after.signingContext[V3ProvisioningCauseDiagnostic.contextKey] != nil, "unwrapped generic terminal receives cause without reclassification") }
+}
+
+// pc1 strict extension: malformed optional data must never erase primary error,
+// retry policy, or the independent ar1/hp2/ap1 snapshots through either route.
+let cause = "pc1|liveUDID|0|0|0|liveUDID,minimuxer,noVPN,-,-,-,-,unobserved,unavailable,unavailable,-,-,0"
+require(V3ProvisioningCauseDiagnostic.validated(cause) == cause, "finite pc1 accepted")
+require(V3ProvisioningCauseDiagnostic.validated(V3ProvisioningCauseDiagnostic.rejected) != nil, "rejected sentinel schema")
+let pcFields = ["typed_error": "unknownAccountFailure", "server_code": "unknown", "http_status": "unavailable", V3ProvisioningCauseDiagnostic.contextKey: cause]
+let pcPrimary = CombinedFailure(operation: "signIn", stage: .provisioning, code: .failed, id: id,
+    underlying: NSError(domain: NSURLErrorDomain, code: -1001), retryable: false, sourceStep: .registerDevice, signingContext: pcFields)
+for route in ["terminal", "previous"] {
+    let result: [String: Any]
+    if route == "terminal" {
+        result = V3AuthDiagnosticExport.terminal(["state": "failed", "failure": pcPrimary.wire], sessionID: id,
+            requestTrace: validRequest, headerProvenance: hp, providerObservation: ap, loginTrace: longLogin)
+    } else {
+        result = ["state": "awaitingPrompt", "previousFailure": V3AuthDiagnosticExport.previousFailure(pcPrimary.wire, kind: "unknown",
+            requestTrace: validRequest, headerProvenance: hp, providerObservation: ap, loginTrace: longLogin)]
+    }
+    var snapshots = exact; snapshots[V3ProvisioningCauseDiagnostic.contextKey] = cause
+    try emit("provisioning_" + route, result, key: route == "terminal" ? "failure" : "previousFailure",
+        expected: ["provisioning_cause_schema=pc1", "provisioning_substep=liveUDID", "type=minimuxer case=noVPN", "source_step=registerDevice"], primaryCode: -1001, snapshots: snapshots)
+}
+var causeMutations = ["", sentinel, cause + "|extra", cause + ";", String(repeating: "x", count: 1025), cause + "é",
+    cause.replacingOccurrences(of: "pc1|", with: "pc2|"),
+    cause.replacingOccurrences(of: "|liveUDID|", with: "|" + sentinel + "|"),
+    cause.replacingOccurrences(of: "|0|0|0|", with: "|false|0|0|"),
+    cause.replacingOccurrences(of: ",minimuxer,noVPN,", with: ",minimuxer,unknownInjectedCase,"),
+    cause.replacingOccurrences(of: ",minimuxer,noVPN,-,", with: ",minimuxer,noVPN,7,"),
+    cause.replacingOccurrences(of: ",-,-,0", with: ",-,-,4")]
+let sourceRow = cause.components(separatedBy: "|")[5].components(separatedBy: ",")
+for index in sourceRow.indices {
+    var changed = sourceRow; changed[index] = sentinel
+    causeMutations.append("pc1|liveUDID|0|0|0|" + changed.joined(separator: ","))
+}
+for number in ["+200", "0200", "200.0", "99", "600", "2147483648", "-2147483649"] {
+    var changed = sourceRow; changed[5] = number
+    causeMutations.append("pc1|liveUDID|0|0|0|" + changed.joined(separator: ","))
+}
+for (index, invalid) in causeMutations.enumerated() {
+    require(V3ProvisioningCauseDiagnostic.validated(invalid) == nil, "strict pc1 negative \(index)")
+    for route in ["terminal", "previous"] {
+        var failure = pcPrimary.wire; var fields = pcFields; fields[V3ProvisioningCauseDiagnostic.contextKey] = invalid
+        failure["signingContext"] = fields
+        let key = route == "terminal" ? "failure" : "previousFailure"
+        let result = route == "terminal"
+            ? V3AuthDiagnosticExport.terminal(["state": "failed", "failure": failure], sessionID: id,
+                requestTrace: validRequest, headerProvenance: hp, providerObservation: ap, loginTrace: nil)
+            : ["state": "awaitingPrompt", "previousFailure": V3AuthDiagnosticExport.previousFailure(failure, kind: "unknown",
+                requestTrace: validRequest, headerProvenance: hp, providerObservation: ap, loginTrace: nil)]
+        try emit("provisioning_invalid_\(route)_\(index)", result, key: key,
+            expected: ["cause_unknown=true", "auth_diagnostic_state=rejected", "source_step=registerDevice"],
+            rejected: true, primaryCode: -1001, snapshots: exact)
+    }
+}
+// Host receives invalid nonstring observations through both production routes.
+for (index, bad) in [[sentinel] as Any, ["raw": sentinel] as Any, 42 as Any, true as Any].enumerated() {
+    for key in ["failure", "previousFailure"] {
+        var failure = pcPrimary.wire; var fields = pcFields.mapValues { $0 as Any }
+        fields[V3ProvisioningCauseDiagnostic.contextKey] = bad
+        exact.forEach { fields[$0.key] = $0.value }; failure["signingContext"] = fields
+        if key == "previousFailure" { failure["kind"] = "unknown" }
+        try emit("provisioning_nonstring_\(key)_\(index)", ["state": key == "failure" ? "failed" : "awaitingPrompt", key: failure], key: key,
+            expected: ["cause_unknown=true", "auth_diagnostic_state=rejected", "source_step=registerDevice"], rejected: true, primaryCode: -1001)
+    }
+}
+// Dense legitimate context: keep primary fields and all four decisive observations.
+var pcDense = crowdedFields
+pcDense.merge(pcFields) { _, new in new }
+for key in ["session_generation", "capability_count", "app_group_count", "extension_count"] { pcDense[key] = "18446744073709551615" }
+for key in ["account_binding", "team_binding"] { pcDense[key] = "verified" }
+var denseFailure = pcPrimary.wire; denseFailure["signingContext"] = pcDense
+let pcDenseResult = V3AuthDiagnosticExport.terminal(["state": "failed", "failure": denseFailure], sessionID: id,
+    requestTrace: wideRequest, headerProvenance: hp, providerObservation: ap, loginTrace: longLogin)
+var pcDenseExact = exact; pcDenseExact["auth_request_trace"] = wideRequest; pcDenseExact[V3ProvisioningCauseDiagnostic.contextKey] = cause
+try emit("provisioning_dense", pcDenseResult, expected: ["auth_diagnostic_state=trimmed", "type=minimuxer case=noVPN"], primaryCode: -1001, snapshots: pcDenseExact)
+
+
+let wideCauseRows = [
+    "liveUDID,server,invalidResponseFormat,-,-,599,-,plistDictionary,xmlOrPlist,over4096,-,-,0",
+    "fallbackUDID,server,invalidResponseFormat,-,-,599,-,plistDictionary,xmlOrPlist,over4096,-,-,0",
+    "listDevices,server,invalidResponseFormat,-,-2147483648,599,ENTITY_ERROR.RELATIONSHIP.INVALID_NOT_ALLOWED,plistDictionary,xmlOrPlist,over4096,-,-,0",
+    "registerDevice,server,invalidResponseFormat,-,2147483647,599,ENTITY_ERROR.RELATIONSHIP.INVALID_NOT_ALLOWED,plistDictionary,xmlOrPlist,over4096,-,-,0"]
+let wideCause = "pc1|registerDevice|1|0|0|" + wideCauseRows.joined(separator: ";")
+require(V3ProvisioningCauseDiagnostic.validated(wideCause) == wideCause, "wide legitimate four-boundary cause")
+pcDense[V3ProvisioningCauseDiagnostic.contextKey] = wideCause
+denseFailure["signingContext"] = pcDense
+for route in ["terminal", "previous"] {
+    let key = route == "terminal" ? "failure" : "previousFailure"
+    let result = route == "terminal"
+        ? V3AuthDiagnosticExport.terminal(["state": "failed", "failure": denseFailure], sessionID: id,
+            requestTrace: wideRequest, headerProvenance: wideHP, providerObservation: wideAP, loginTrace: longLogin)
+        : ["state": "awaitingPrompt", "previousFailure": V3AuthDiagnosticExport.previousFailure(denseFailure, kind: "unknown",
+            requestTrace: wideRequest, headerProvenance: wideHP, providerObservation: wideAP, loginTrace: longLogin)]
+    let snapshots = [V3ProvisioningCauseDiagnostic.contextKey: wideCause, "auth_request_trace": wideRequest,
+        "auth_header_provenance": wideHP, "auth_provider_observation": wideAP]
+    try emit("provisioning_widest_" + route, result, key: key, expected: ["cause_truncated=true", "auth_diagnostic_state=trimmed"], primaryCode: -1001, snapshots: snapshots)
+}
+
 try PropertyListSerialization.data(fromPropertyList: cases, format: .binary, options: 0).write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
 print("WIRE_SERVICE_PASS cases=\(cases.count) max_binary=\(maxBinary) max_json=\(maxJSON)")
 print("PASS wire_service_real_codec_and_imported_cases")
