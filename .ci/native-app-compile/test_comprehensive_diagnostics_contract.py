@@ -35,7 +35,8 @@ class Controls(unittest.TestCase):
         self.config = {'schema':'comprehensive-diagnostics-source-contract-v1',
             'source_inputs_bound':True, 'schemas':{'request':'ar1','profile':'hp2','provider':'ap1'},
             'input_sha256':{name:gate.digest((self.sources/name).read_bytes()) for name in sorted(gate.REQUIRED_INPUTS)},
-            'success_markers':self.markers, 'onboarding_case_names':['control-case-a']}
+            'success_markers':self.markers, 'onboarding_case_names':['control-case-a'],
+            'registration_case_names':['registration-case-a']}
         self.save_contract()
         self.calls = []
 
@@ -104,12 +105,7 @@ class Controls(unittest.TestCase):
         elif name == 'wire-generate':
             for file in ('service.swift','host.swift'):
                 (Path(argv[-1])/file).write_text('// generated control double')
-            mappings = {'service':'SideStore/AltStore/AppDelegate.swift', 'host':'LiveContainer/SideStoreSupport/SideStore.swift',
-                'ui':'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
-                'operation':'SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
-                'collector':gate.SIGN+'/Sources/Models/AuthenticationDiagnosticTrace.swift',
-                'provenance':gate.SIGN+'/Sources/Models/AuthenticationHeaderProvenance.swift',
-                'constants':gate.SIGN+'/Sources/Constants.swift'}
+            mappings = gate.WIRE_INPUT_PATHS
             gate.write_json(Path(argv[-1])/'sources.json', {'input_sha256':{k:self.config['input_sha256'][v] for k,v in mappings.items()},
                 'generated_sha256':{k:gate.digest((Path(argv[-1])/k).read_bytes()) for k in ('service.swift','host.swift')}})
         elif name.endswith('-compile'):
@@ -125,6 +121,9 @@ class Controls(unittest.TestCase):
         elif name == 'onboarding-run':
             gate.write_json(Path(argv[-1]), {'schema':'iloader-onboarding-scope-cases-v1','fake_only':True,
                                           'cases':['control-case-a']})
+            gate.write_json(Path(argv[-1]).with_name('registration-cases.json'), {
+                'schema':gate.REGISTRATION_SCHEMA, 'fake_only':True, 'producer':'control-only',
+                'cases':[{'name':'registration-case-a'}]})
             data = (self.markers['onboarding'] + '\n').encode()
         elif name == 'profile-run':
             gate.write_json(Path(argv[-1]), {'schema':'profile-provenance-cases-v1','producer':'control-only',
@@ -133,9 +132,11 @@ class Controls(unittest.TestCase):
         elif name == 'wire-service-run':
             self.assertEqual(Path(argv[2]), self.output/'auth-request/cases.json')
             self.assertEqual(Path(argv[3]), self.output/'profile-provenance/cases.json')
+            self.assertEqual(Path(argv[4]), self.output/'iloader-onboarding-scope/registration-cases.json')
             Path(argv[1]).write_bytes(b'control-only wire output')
             data = ('WIRE_IMPORTED_CASES schema=auth-request-cases-v1 producer_cases=1 wire_cases=2\n'
                     'WIRE_IMPORTED_CASES schema=profile-provenance-cases-v1 producer_cases=12 wire_cases=24\n'
+                    + f'WIRE_IMPORTED_CASES schema={gate.REGISTRATION_SCHEMA} producer_cases=1 wire_cases=2\n'
                     + self.markers['wire_service'] + '\n').encode()
         elif name == 'wire-host-run':
             self.assertEqual(Path(argv[1]), self.output/'wire-copy/wire-cases.plist')
@@ -241,7 +242,7 @@ class Controls(unittest.TestCase):
         self.assertEqual([name for name,_ in self.calls], list(gate.COMMANDS))
         self.assertEqual(report['status'], gate.STATUS)
         self.assertEqual([name for name,_ in self.calls].count('iloader-run'), 1)
-        self.assertEqual(set(report['producer_exports']), {'auth-request', 'profile-provenance'})
+        self.assertEqual(set(report['producer_exports']), {'auth-request', 'profile-provenance', 'device-registration'})
         self.assertEqual(set(report['fixture_exports']), {'iloader-auth-parity', 'iloader-onboarding-scope'})
         self.assertEqual([name for name,_ in self.calls].count('onboarding-run'), 1)
         self.assertTrue(report['source_owned_fake_authentication_executed'])
@@ -629,6 +630,108 @@ class Controls(unittest.TestCase):
         gate.write_json(path,value)
         with self.assertRaisesRegex(ValueError,'Onboarding extraction input hash'):
             gate.extraction_receipt(self.output,self.config)
+
+
+    def test_registration_case_contract_rejects_missing_or_duplicates(self):
+        for names in (None, [], ['same', 'same'], ['PENDING'], [None]):
+            with self.subTest(names=names):
+                self.config['registration_case_names'] = names
+                self.save_contract()
+                with self.assertRaisesRegex(ValueError, 'Registration case contract'):
+                    gate.load_contract(self.contract)
+
+    def test_registration_export_schema_and_exact_names(self):
+        path = self.root/'registration-cases.json'
+        valid = {'schema':gate.REGISTRATION_SCHEMA, 'fake_only':True,
+                 'producer':'control-only', 'cases':[{'name':'registration-case-a'}]}
+        for patch_value in ({'schema':'wrong'}, {'fake_only':False}, {'cases':[]},
+                            {'cases':[{'name':'registration-case-a'}, {'name':'registration-case-a'}]},
+                            {'cases':[{'name':'wrong'}]}, {'cases':[{'name':None}]},
+                            {'cases':[{'name':'registration-case-a'}, {'name':'extra'}]}):
+            with self.subTest(patch_value=patch_value):
+                gate.write_json(path, {**valid, **patch_value})
+                with self.assertRaises(ValueError):
+                    gate.registration_exported_cases(path, self.config['registration_case_names'])
+        gate.write_json(path, valid)
+        self.assertEqual(gate.registration_exported_cases(path, self.config['registration_case_names'])['count'], 1)
+
+    def test_registration_missing_export_stops_before_profile(self):
+        def missing(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'onboarding-run':
+                (self.output/'iloader-onboarding-scope/registration-cases.json').unlink()
+            return result
+        with self.assertRaises(FileNotFoundError):
+            self.run_control(missing)
+        self.assertEqual(self.calls[-1][0], 'onboarding-run')
+
+    def test_registration_wrong_export_stops_before_profile(self):
+        def wrong(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'onboarding-run':
+                gate.write_json(self.output/'iloader-onboarding-scope/registration-cases.json', {
+                    'schema':gate.REGISTRATION_SCHEMA, 'fake_only':True, 'cases':[{'name':'wrong'}]})
+            return result
+        with self.assertRaisesRegex(ValueError, 'Registration case coverage'):
+            self.run_control(wrong)
+        self.assertEqual(self.calls[-1][0], 'onboarding-run')
+
+    def test_registration_missing_wire_import_marker_stops_before_host(self):
+        def missing(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'wire-service-run':
+                result.stdout = result.stdout.replace(
+                    f'WIRE_IMPORTED_CASES schema={gate.REGISTRATION_SCHEMA} producer_cases=1 wire_cases=2\n'.encode(), b'')
+            return result
+        with self.assertRaisesRegex(ValueError, 'Missing or duplicate exact success marker'):
+            self.run_control(missing)
+        self.assertEqual(self.calls[-1][0], 'wire-service-run')
+
+    def test_registration_wrong_wire_multiplicity_stops_before_host(self):
+        def wrong(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'wire-service-run':
+                result.stdout = result.stdout.replace(
+                    f'WIRE_IMPORTED_CASES schema={gate.REGISTRATION_SCHEMA} producer_cases=1 wire_cases=2'.encode(),
+                    f'WIRE_IMPORTED_CASES schema={gate.REGISTRATION_SCHEMA} producer_cases=1 wire_cases=1'.encode())
+            return result
+        with self.assertRaisesRegex(ValueError, 'Missing or duplicate exact success marker'):
+            self.run_control(wrong)
+        self.assertEqual(self.calls[-1][0], 'wire-service-run')
+
+    def test_registration_missing_retained_producer_receipt_rejected(self):
+        report = self.run_control()
+        del report['producer_exports']['device-registration']
+        gate.write_json(self.output/'report.json', report)
+        with self.assertRaisesRegex(ValueError, 'Registration producer case receipt'):
+            gate.verify_receipt(self.output/'report.json', self.contract)
+
+    def test_registration_mutated_export_is_rejected_even_with_updated_inventory(self):
+        report = self.run_control()
+        path = self.output/'iloader-onboarding-scope/registration-cases.json'
+        value = json.loads(path.read_text()); value['producer'] = 'changed'
+        gate.write_json(path, value)
+        report['artifact_sha256'] = gate.artifact_inventory(self.output)
+        gate.write_json(self.output/'report.json', report)
+        with self.assertRaisesRegex(ValueError, 'Registration producer case receipt'):
+            gate.verify_receipt(self.output/'report.json', self.contract)
+
+
+    def test_registration_mapper_source_evidence_is_exact(self):
+        self.run_control()
+        path = self.output/'wire-copy/sources.json'
+        original = json.loads(path.read_text())
+        for key in ('operation_errors', 'portal_errors', 'portal_observers', 'anisette_errors',
+                    'archive_errors', 'remote_errors', 'minimuxer_mapping',
+                    'registration_doubles', 'registration_cases'):
+            for action in ('remove', 'change'):
+                with self.subTest(key=key, action=action):
+                    value = copy.deepcopy(original)
+                    if action == 'remove': del value['input_sha256'][key]
+                    else: value['input_sha256'][key] = '0' * 64
+                    gate.write_json(path, value)
+                    with self.assertRaisesRegex(ValueError, 'Wire extraction input evidence'):
+                        gate.extraction_receipt(self.output, self.config)
 
 
 if __name__ == '__main__':

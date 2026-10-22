@@ -26,6 +26,7 @@ ILOADER_FILES = ('CandidateAuthentication.swift', 'AuthenticationDiagnosticTrace
                  'ILoaderRemoteAnisette.swift', 'RuntimeTests.swift')
 ONBOARDING_FILES = ('CandidateOnboarding.swift', 'BoundaryDoubles.swift', 'RuntimeTests.swift')
 ONBOARDING = 'SideStore/.ci/iloader-onboarding-scope'
+REGISTRATION_SCHEMA = 'device-registration-cause-cases-v1'
 ONBOARDING_REQUIRED_SOURCES = (
     'SideStore/AltStore/AppDelegate.swift',
     'SideStore/SideStore/Core/Auth/AuthManager.swift',
@@ -63,6 +64,9 @@ REQUIRED_INPUTS = {
     'LiveContainer/SideStoreSupport/SideStore.swift',
     'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
 }
+
+WIRE_INPUT_PATHS = {'service': 'SideStore/AltStore/AppDelegate.swift', 'host': 'LiveContainer/SideStoreSupport/SideStore.swift', 'ui': 'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift', 'operation': 'SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift', 'collector': 'SideStore/Dependencies/SideSign/Sources/Models/AuthenticationDiagnosticTrace.swift', 'provenance': 'SideStore/Dependencies/SideSign/Sources/Models/AuthenticationHeaderProvenance.swift', 'constants': 'SideStore/Dependencies/SideSign/Sources/Constants.swift', 'operation_errors': 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift', 'portal_errors': 'SideStore/Dependencies/SideSign/Sources/Models/Errors.swift', 'portal_observers': 'SideStore/Dependencies/SideSign/Sources/DeveloperPortal/DeveloperPortalAPI.swift', 'anisette_errors': 'SideStore/Dependencies/SideSign/Sources/Anisette/AnisetteDataManager.swift', 'archive_errors': 'SideStore/Dependencies/SideSign/Sources/Archiver/Archive.swift', 'remote_errors': 'SideStore/Dependencies/SideSign/Sources/Anisette/ILoaderRemoteAnisette.swift', 'minimuxer_mapping': 'SideStore/SideStore/Core/DeviceApi/MinimuxerWrapper.swift', 'registration_doubles': 'SideStore/.ci/iloader-onboarding-scope/RegistrationDoubles.swift', 'registration_cases': 'SideStore/.ci/iloader-onboarding-scope/RegistrationCases.swift'}
+REQUIRED_INPUTS.update(WIRE_INPUT_PATHS.values())
 
 
 def require(ok, why):
@@ -113,6 +117,10 @@ def load_contract(path):
     require(isinstance(names, list) and names and
             all(isinstance(name, str) and name and 'PENDING' not in name for name in names) and
             len(names) == len(set(names)), 'Unbound or malformed Onboarding case contract')
+    names = contract.get('registration_case_names')
+    require(isinstance(names, list) and names and
+            all(isinstance(name, str) and name and 'PENDING' not in name for name in names) and
+            len(names) == len(set(names)), 'Unbound or malformed Registration case contract')
     return contract
 
 
@@ -184,6 +192,17 @@ def onboarding_exported_cases(path, expected_names):
     require(sorted(cases) == sorted(expected_names), 'Onboarding case coverage differs from frozen source contract')
     return {'schema': value['schema'], 'count': len(cases), 'names': cases,
             'sha256': digest(path.read_bytes()), 'fake_only': True}
+
+
+def registration_exported_cases(path, expected_names):
+    value = json.loads(path.read_text())
+    require(isinstance(value, dict) and value.get('schema') == REGISTRATION_SCHEMA and
+            value.get('fake_only') is True, 'Registration case export schema or fake-only flag differs')
+    export = exported_cases(path, REGISTRATION_SCHEMA)
+    require(sorted(export['names']) == sorted(expected_names),
+            'Registration case coverage differs from frozen source contract')
+    export['fake_only'] = True
+    return export
 
 
 def extraction_receipt(output, contract):
@@ -275,11 +294,7 @@ def extraction_receipt(output, contract):
         require(inputs.get(name) == row.get('sha256'), 'Profile extraction input hash differs: ' + relative)
     require(profile.get('generated_sha256') == digest(regular(output, 'profile-provenance/fixture.swift').read_bytes()),
             'Profile generated-source hash differs')
-    wire_paths = {'service': legacy_paths['store'], 'host': legacy_paths['host'], 'ui': legacy_paths['shell'],
-                  'operation': 'SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
-                  'collector': SIGN + '/Sources/Models/AuthenticationDiagnosticTrace.swift',
-                  'provenance': SIGN + '/Sources/Models/AuthenticationHeaderProvenance.swift',
-                  'constants': SIGN + '/Sources/Constants.swift'}
+    wire_paths = WIRE_INPUT_PATHS
     require(values['wire-copy'].get('input_sha256') == {key: inputs[path] for key, path in wire_paths.items()},
             'Wire extraction input evidence differs')
     require(values['wire-copy'].get('generated_sha256') ==
@@ -360,6 +375,14 @@ def verify_receipt(path, contract_path=None):
         require(report.get('producer_exports', {}).get(owner) == export, 'Producer case receipt mismatch')
         marker = f"WIRE_IMPORTED_CASES schema={schema} producer_cases={export['count']} wire_cases={2 * export['count']}"
         require_marker(regular(path.parent, by_name['wire-service-run']['log']).read_text(), marker)
+    registration = registration_exported_cases(
+        regular(path.parent, 'iloader-onboarding-scope/registration-cases.json'), contract['registration_case_names'])
+    require(report.get('producer_exports', {}).get('device-registration') == registration,
+            'Registration producer case receipt mismatch')
+    require(set(report.get('producer_exports', {})) == {'auth-request', 'profile-provenance', 'device-registration'},
+            'Producer export closure differs')
+    marker = f"WIRE_IMPORTED_CASES schema={registration['schema']} producer_cases={registration['count']} wire_cases={2 * registration['count']}"
+    require_marker(regular(path.parent, by_name['wire-service-run']['log']).read_text(), marker)
     export = iloader_exported_cases(regular(path.parent, 'iloader-auth-parity/cases.json'))
     require(report.get('fixture_exports', {}).get('iloader-auth-parity') == export, 'iLoader fixture case receipt mismatch')
     onboarding_export = onboarding_exported_cases(regular(path.parent, 'iloader-onboarding-scope/cases.json'), contract['onboarding_case_names'])
@@ -442,6 +465,8 @@ def run(sources, swiftc, output, contract_path=None):
         compile_fixture('onboarding-compile', [onboarding / name for name in ONBOARDING_FILES], onboarding / 'fixture', library=True)
         runner.command('onboarding-run', [onboarding / 'fixture', onboarding / 'cases.json'], marks['onboarding'])
         report['fixture_exports']['iloader-onboarding-scope'] = onboarding_exported_cases(onboarding / 'cases.json', contract['onboarding_case_names'])
+        report['producer_exports']['device-registration'] = registration_exported_cases(
+            onboarding / 'registration-cases.json', contract['registration_case_names'])
         report['suites'].append('iloader-onboarding-scope')
         profile = output / 'profile-provenance'
         runner.command('profile-source', python(PROFILE + '/check_sources.py') + [
@@ -459,7 +484,7 @@ def run(sources, swiftc, output, contract_path=None):
         compile_fixture('wire-host-compile', [wire / 'host.swift'], wire / 'host')
         transferred = wire / 'wire-cases.plist'
         service_log = runner.command('wire-service-run', [wire / 'service', transferred,
-                    auth / 'cases.json', profile / 'cases.json'], marks['wire_service'])
+                    auth / 'cases.json', profile / 'cases.json', onboarding / 'registration-cases.json'], marks['wire_service'])
         for export in report['producer_exports'].values():
             require_marker(service_log, f"WIRE_IMPORTED_CASES schema={export['schema']} producer_cases={export['count']} wire_cases={2 * export['count']}")
         runner.command('wire-host-run', [wire / 'host', transferred], marks['wire_host'])
