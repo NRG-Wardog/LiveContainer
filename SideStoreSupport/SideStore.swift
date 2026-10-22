@@ -645,7 +645,7 @@ public struct CombinedFailure: Error, LocalizedError {
         let launchStages: Set<Stage> = [.extensionDiscovery, .extensionLaunch, .xpcConnection, .serviceReadiness]
         self.launchContext = normalized == "connect" && launchStages.contains(stage) ? launchContext : nil
     }
-    private static let operations: Set<String> = ["connect", "status", "command", "recovery", "refresh", "install", "update", "signIn", "signOut", "catalog", "source", "sign", "activate", "deactivate", "delete", "remove", "backup", "restore", "jit", "pairingImportData", "anisetteList", "anisetteReset", "anisetteSync"]
+    private static let operations: Set<String> = ["connect", "status", "command", "recovery", "refresh", "install", "update", "signIn", "signOut", "catalog", "source", "sign", "activate", "deactivate", "delete", "remove", "backup", "restore", "jit", "pairingImportData", "pairingUsePlaced", "anisetteList", "anisetteReset", "anisetteSync"]
     private static let domains: Set<String> = ["none", "NSCocoaErrorDomain", "NSPOSIXErrorDomain", "NSURLErrorDomain", "NSOSStatusErrorDomain", "ALTServerErrorDomain", "ALTAppleAPIErrorDomain", "ALTErrorDomain", "MinimuxerError", "DeviceGatewayError", "IdeviceGatewayError", "InstallationProxyErrorDomain", "com.apple.installd", "com.apple.mobile.installation_proxy", "V3IPAFileErrorDomain", "Foundation", "CoreData", "CoreFoundation", "IOKit", "Security", "CFNetwork", "kCFErrorDomainCFNetwork", "HTTPStatus", "io.sidestore.SideStore.DecodingError", "io.sidestore.LiveContainer.ExtensionLaunch", "com.SideStore.Keychain", "LiveContainerRefresh.Configuration", "SideSign.ServerError", "SideSign.DeveloperPortalError"]
     private static let verificationDomains: Set<String> = ["ALTServerErrorDomain", "ALTErrorDomain", "IdeviceGatewayError", "DeviceGatewayError", "InstallationProxyErrorDomain", "com.apple.installd", "com.apple.mobile.installation_proxy"]
 
@@ -4759,7 +4759,7 @@ enum V3WireContract {
         "certList", "certExportActive", "certSetActive", "certDelete", "certPortalList", "certRevoke", "certCreate",
         "devTeams", "devDevices", "devAppIDs", "devGroups", "devProfiles",
         "sourcePreview", "sourceAddConfirmed", "sourceRemoveConfirmed",
-        "pairingImportData", "settingsGet", "settingsSet",
+        "pairingImportData", "pairingUsePlaced", "settingsGet", "settingsSet",
         "anisetteList", "anisetteReset", "anisetteSync",
         "sidesignGet", "sidesignSet", "sidesignReset", "sidesignImport", "sidesignExport",
         "logTail", "healthSnapshot", "accountExport", "accountImport"]
@@ -4782,7 +4782,7 @@ enum V3WireContract {
               deadline > now, deadline.timeIntervalSince(now) <= 610 else { return nil }
         if request["value"] != nil { return nil }
         let emptyTargetOperations: Set<String> = [
-            "snapshot", "opStart", "accountExport", "ipaActiveTokens", "refreshSources", "signOut",
+            "snapshot", "opStart", "accountExport", "ipaActiveTokens", "refreshSources", "signOut", "pairingUsePlaced",
             "syncAppIDs", "clearCache", "settingsGet", "settingsSet", "sidesignGet", "sidesignSet",
             "sidesignReset", "sidesignExport", "anisetteList", "anisetteReset", "anisetteSync",
             "logTail", "certList", "certExportActive", "certPortalList", "certCreate", "opRecoveryPrepare",
@@ -5397,7 +5397,7 @@ struct V3HostDirectRecoveryRecord: Equatable {
 
     static let operations: Set<String> = [
         "certCreate", "certRevoke", "sourceAddConfirmed", "sourceRemoveConfirmed",
-        "pairingImportData", "settingsSet", "accountImport"
+        "pairingImportData", "pairingUsePlaced", "settingsSet", "accountImport"
     ]
 }
 
@@ -5418,6 +5418,9 @@ enum V3DirectRecoveryHostPolicy {
             return result["outcome"] as? String == "createdAndStored"
         }
         if operation == "accountImport" { return false }
+        if operation == "pairingUsePlaced" {
+            return ["adoptedReady", "adoptedConnectionNotReady"].contains(result["pairingPlacement"] as? String ?? "")
+        }
         return true
     }
 
@@ -5438,6 +5441,7 @@ enum V3DirectRecoveryPresentationPolicy {
         case "sourceAddConfirmed": return "source add"
         case "sourceRemoveConfirmed": return "source removal"
         case "pairingImportData": return "pairing import"
+        case "pairingUsePlaced": return "placed pairing activation"
         case "settingsSet": return "setting change"
         case "accountImport": return "account import"
         default: return "SideStore request"
@@ -5763,7 +5767,7 @@ enum V3StatusAuthorityOperationPolicy {
         let writes: Set<String> = [
             "signOut", "accountImport", "syncAppIDs", "clearCache", "refreshSources", "jit",
             "certSetActive", "certDelete", "certRevoke", "certCreate",
-            "sourceAddConfirmed", "sourceRemoveConfirmed", "pairingImportData", "settingsSet",
+            "sourceAddConfirmed", "sourceRemoveConfirmed", "pairingImportData", "pairingUsePlaced", "settingsSet",
             "sidesignSet", "sidesignReset", "sidesignImport", "anisetteReset", "anisetteSync",
             "opRecoveryPrepare", "recoveryDiscardUnreadable", "authReconcileStorage"
         ]
@@ -5818,6 +5822,9 @@ enum V3StatusAuthorityOperationPolicy {
         case "directRecoveryReconcile":
             return V3OperationReplyFieldPolicy.strictBoolean(payload["reconciled"]) == true
                 ? .committed : nil
+        case "pairingUsePlaced":
+            return ["adoptedReady", "adoptedConnectionNotReady"].contains(payload["pairingPlacement"] as? String ?? "")
+                ? .committed : .outcomeUnknown
         default:
             return .committed
         }
@@ -9706,6 +9713,22 @@ enum V3ProvisioningResumeExecutionPolicy {
 // The journal is invalidated durably BEFORE a new attempt can mutate anything.
 // A process restart may reuse verified completion only for the exact hashed
 // credential route, team, certificate and device binding, never row presence.
+// V3_MANUAL_SIGNIN_DEVICE_SETUP_DEFERRED_V1: never turn an error into deferral.
+enum V3DeviceSetupDeferralPolicy {
+    static func mayDefer(interactive: Bool, fullProvisioning: Bool,
+                         retry: Bool, reauthenticating: Bool, pendingActivation: Bool,
+                         skipDevice: Bool, skipCertificate: Bool, unconfigured: Bool) -> Bool {
+        interactive && fullProvisioning && !retry && !reauthenticating && !pendingActivation &&
+            !skipDevice && !skipCertificate && unconfigured
+    }
+
+    static func isIntentionalOutcome(state: String?, outcome: String?, reason: String?,
+                                     authenticated: Bool, hasFailure: Bool) -> Bool {
+        state == "authenticatedProvisioningIncomplete" && outcome == "setupDeferred" &&
+            reason == "pairingUnconfigured" && authenticated && !hasFailure
+    }
+}
+
 struct V3ProvisioningCompletionState {
     private static let journalKey = "V3VerifiedProvisioningCompletionV1"
     private let defaults: UserDefaults

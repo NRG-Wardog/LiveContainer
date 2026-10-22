@@ -104,7 +104,7 @@ struct V3HostDirectRecoveryRecord: Equatable {
 
     static let operations: Set<String> = [
         "certCreate", "certRevoke", "sourceAddConfirmed", "sourceRemoveConfirmed",
-        "pairingImportData", "settingsSet", "accountImport"
+        "pairingImportData", "pairingUsePlaced", "settingsSet", "accountImport"
     ]
 }
 
@@ -125,6 +125,9 @@ enum V3DirectRecoveryHostPolicy {
             return result["outcome"] as? String == "createdAndStored"
         }
         if operation == "accountImport" { return false }
+        if operation == "pairingUsePlaced" {
+            return ["adoptedReady", "adoptedConnectionNotReady"].contains(result["pairingPlacement"] as? String ?? "")
+        }
         return true
     }
 
@@ -145,6 +148,7 @@ enum V3DirectRecoveryPresentationPolicy {
         case "sourceAddConfirmed": return "source add"
         case "sourceRemoveConfirmed": return "source removal"
         case "pairingImportData": return "pairing import"
+        case "pairingUsePlaced": return "placed pairing activation"
         case "settingsSet": return "setting change"
         case "accountImport": return "account import"
         default: return "SideStore request"
@@ -470,7 +474,7 @@ enum V3StatusAuthorityOperationPolicy {
         let writes: Set<String> = [
             "signOut", "accountImport", "syncAppIDs", "clearCache", "refreshSources", "jit",
             "certSetActive", "certDelete", "certRevoke", "certCreate",
-            "sourceAddConfirmed", "sourceRemoveConfirmed", "pairingImportData", "settingsSet",
+            "sourceAddConfirmed", "sourceRemoveConfirmed", "pairingImportData", "pairingUsePlaced", "settingsSet",
             "sidesignSet", "sidesignReset", "sidesignImport", "anisetteReset", "anisetteSync",
             "opRecoveryPrepare", "recoveryDiscardUnreadable", "authReconcileStorage"
         ]
@@ -525,6 +529,9 @@ enum V3StatusAuthorityOperationPolicy {
         case "directRecoveryReconcile":
             return V3OperationReplyFieldPolicy.strictBoolean(payload["reconciled"]) == true
                 ? .committed : nil
+        case "pairingUsePlaced":
+            return ["adoptedReady", "adoptedConnectionNotReady"].contains(payload["pairingPlacement"] as? String ?? "")
+                ? .committed : .outcomeUnknown
         default:
             return .committed
         }
@@ -4413,6 +4420,22 @@ enum V3ProvisioningResumeExecutionPolicy {
 // The journal is invalidated durably BEFORE a new attempt can mutate anything.
 // A process restart may reuse verified completion only for the exact hashed
 // credential route, team, certificate and device binding, never row presence.
+// V3_MANUAL_SIGNIN_DEVICE_SETUP_DEFERRED_V1: never turn an error into deferral.
+enum V3DeviceSetupDeferralPolicy {
+    static func mayDefer(interactive: Bool, fullProvisioning: Bool,
+                         retry: Bool, reauthenticating: Bool, pendingActivation: Bool,
+                         skipDevice: Bool, skipCertificate: Bool, unconfigured: Bool) -> Bool {
+        interactive && fullProvisioning && !retry && !reauthenticating && !pendingActivation &&
+            !skipDevice && !skipCertificate && unconfigured
+    }
+
+    static func isIntentionalOutcome(state: String?, outcome: String?, reason: String?,
+                                     authenticated: Bool, hasFailure: Bool) -> Bool {
+        state == "authenticatedProvisioningIncomplete" && outcome == "setupDeferred" &&
+            reason == "pairingUnconfigured" && authenticated && !hasFailure
+    }
+}
+
 struct V3ProvisioningCompletionState {
     private static let journalKey = "V3VerifiedProvisioningCompletionV1"
     private let defaults: UserDefaults
@@ -12408,6 +12431,7 @@ final class V3AuthStore: ObservableObject {
     @Published private(set) var provisioningSessionUnavailable = false
     @Published private(set) var provisioningRetryBlockedByActiveSession = false
     @Published private(set) var provisioningFinishedLater = false
+    @Published private(set) var deviceSetupDeferred = false
     @Published private(set) var provisioningIncomplete = false
     // Sticky once the service reports an authenticated terminal. It survives a
     // provisioning retry so the screen keeps saying the sign-in succeeded while
@@ -12580,6 +12604,7 @@ final class V3AuthStore: ObservableObject {
         provisioningSessionUnavailable = false
         provisioningRetryBlockedByActiveSession = false
         provisioningFinishedLater = false
+        deviceSetupDeferred = false
         provisioningIncomplete = false
     }
 
@@ -13616,6 +13641,11 @@ final class V3AuthStore: ObservableObject {
             // payload carries the classified provisioning problem, which is
             // retained verbatim. This state is never collapsed into "failed".
             provisioningIncomplete = true
+            deviceSetupDeferred = V3DeviceSetupDeferralPolicy.isIntentionalOutcome(
+                state: state, outcome: reply["outcome"] as? String,
+                reason: reply["setupDeferredReason"] as? String,
+                authenticated: V3ServiceBridge.strictBool(reply["authenticated"]) == true,
+                hasFailure: reply["failure"] != nil)
             team = reply["team"] as? String ?? team
             provisioningIdentityStateBlocked = ((reply["failure"] as? [String: Any])?["signingContext"] as? [String: String])?["typed_error"] == "anisetteIdentityStateInvalid"
             if provisioningIdentityStateBlocked {
@@ -13639,10 +13669,12 @@ final class V3AuthStore: ObservableObject {
             if !provisioningRetryAvailable && !provisioningIdentityStateBlocked {
                 provisioningMessage += " Checking the saved provisioning state before another attempt."
             }
-            let diagnosticPresentation = V3AuthFailureDiagnosticsPolicy.provisioning(reply: reply,
-                message: provisioningMessage, technical: provisioningTechnical)
-            provisioningMessage = diagnosticPresentation.message
-            provisioningTechnical = diagnosticPresentation.technical
+            if !deviceSetupDeferred {
+                let diagnosticPresentation = V3AuthFailureDiagnosticsPolicy.provisioning(reply: reply,
+                    message: provisioningMessage, technical: provisioningTechnical)
+                provisioningMessage = diagnosticPresentation.message
+                provisioningTechnical = diagnosticPresentation.technical
+            }
             provisioningFinishedLater = false
         } else if state == "failed" {
             message = reply["message"] as? String ?? "The sign-in request failed for an unknown reason." + "\nError ID: SS-AUTH-D039"
@@ -14106,10 +14138,10 @@ struct V3SignInView: View {
         // stays green while the provisioning problem is stated separately.
         if auth.hasProvisioningProblem {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Provisioning needs attention")
+                Text(auth.deviceSetupDeferred ? "Device setup pending" : "Provisioning needs attention")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.orange)
-                Text("Provisioning could not be completed.")
+                Text(auth.deviceSetupDeferred ? "Sign-in is complete. Pairing is needed for refresh and installation." : "Provisioning could not be completed.")
                     .font(.footnote.weight(.medium))
                     .foregroundColor(.orange)
                 V3LocalizedText(auth.provisioningMessage)
@@ -14289,7 +14321,7 @@ struct V3SignInView: View {
                     .font(.caption).foregroundColor(.secondary)
             }
             if recovery.showFinishLater {
-                Button("Finish Later") { finishProvisioningLater() }
+                Button(auth.deviceSetupDeferred ? "Done" : "Finish Later") { finishProvisioningLater() }
             }
         }
 
@@ -14360,7 +14392,8 @@ struct V3SignInView: View {
         visiblePromptFailure.map { V3AuthStore.failureDetails(from: $0) } ?? ""
     }
     private var statusText: String {
-        V3AuthCancellationFeedbackPolicy.statusLabel(isCancelling: auth.isCancelling,
+        if auth.deviceSetupDeferred && !auth.isCancelling { return "Signed in, device setup pending" }
+        return V3AuthCancellationFeedbackPolicy.statusLabel(isCancelling: auth.isCancelling,
             normalLabel: V3AuthStatusTextPolicy.label(state: auth.state, isSignedIn: auth.isSignedIn,
                 provisioningFinishedLater: auth.provisioningFinishedLater))
     }
@@ -14857,6 +14890,7 @@ struct V3PairingView: View {
     @State private var message = ""
     @State private var pairingFailure: CombinedFailure?
     @State private var working = false
+    @State private var placementTask: Task<Void, Never>?
     var body: some View {
         List {
             Section("Status") {
@@ -14913,9 +14947,9 @@ struct V3PairingView: View {
                     Text("Other installation tools use different menu names, but they all place the pairing file for the installed app.")
                         .font(.caption).foregroundColor(.secondary)
                     Button {
-                        recheck()
+                        usePlacedPairing()
                     } label: {
-                        Label("Re-check Pairing", systemImage: "arrow.clockwise")
+                        Label("Use Placed Pairing File", systemImage: "arrow.clockwise")
                     }
                     .disabled(working)
                 }
@@ -14924,22 +14958,28 @@ struct V3PairingView: View {
                     V3LocalizedText("LiveContainer could not confirm the pairing-file state. Reload status before treating setup as complete." + "\nError ID: SS-PAIR-D043")
                         .font(.footnote).foregroundColor(.secondary)
                     Button {
-                        recheck()
+                        usePlacedPairing()
                     } label: {
-                        Label("Re-check Pairing", systemImage: "arrow.clockwise")
+                        Label("Use Placed Pairing File", systemImage: "arrow.clockwise")
                     }
                     .disabled(working)
                 }
             } else {
                 Section("Pairing File Ready") {
-                    Text("A valid pairing file is available. Re-check if you replace the file or reset the device.")
+                    Text("A pairing file is available. Use the placed file only if you intentionally placed it for this installation.")
                         .font(.footnote).foregroundColor(.secondary)
                     Button {
-                        recheck()
+                        usePlacedPairing()
                     } label: {
-                        Label("Re-check Pairing", systemImage: "arrow.clockwise")
+                        Label("Use Placed Pairing File", systemImage: "arrow.clockwise")
                     }
                     .disabled(working)
+                }
+            }
+            if placementTask != nil {
+                Section {
+                    ProgressView("Checking placed pairing file...")
+                    Button("Cancel", role: .cancel) { placementTask?.cancel() }
                 }
             }
             // V3_PAIRING_IMPORT_IS_FALLBACK_V1: kept, presented as an alternative.
@@ -14959,6 +14999,7 @@ struct V3PairingView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Pairing File")
+        .onDisappear { placementTask?.cancel() }
         .sheet(isPresented: $pickerPresented) {
             V3FilePicker(types: ["com.apple.property-list", "public.xml", "public.data"]) { url in
                 pickerPresented = false
@@ -14978,7 +15019,8 @@ struct V3PairingView: View {
         "Find the installed LC+SS app.",
         "Choose Place for this app.",
         "Wait for the tool to confirm success.",
-        "Return to LC+SS."
+        "Return to LC+SS.",
+        "Choose Use Placed Pairing File to validate and activate the placed file. This explicitly re-enables pairing after a reset."
     ]
 
     // V3_REFRESH_PREREQUISITE_POLICY_V1: one interpretation, shared with every
@@ -14991,10 +15033,34 @@ struct V3PairingView: View {
         V3PairingPresentationPolicy.state(statusConnected: status.connected, pairingStatus: status.pairing)
     }
 
-    private func recheck() {
+    private func usePlacedPairing() {
+        guard !working else { return }
+        working = true
         pairingFailure = nil
         message = ""
-        status.reload()
+        placementTask = Task { @MainActor in
+            defer { working = false; placementTask = nil }
+            let ticket = status.beginDirectMutation()
+            do {
+                try Task.checkCancellation()
+                let result = try await V3ServiceBridge.shared.request(operation: "pairingUsePlaced")
+                status.finishDirectMutation(ticket: ticket, reply: result, requestReload: true)
+                switch result["pairingPlacement"] as? String {
+                case "adoptedReady": message = "The placed pairing file is active and the device connection was verified."
+                case "adoptedConnectionNotReady": message = "The placed pairing file was adopted. The device connection is not ready yet. Check VPN and connection settings before refreshing."
+                case "adoptedCleanupUncertain": message = "The placed pairing file was adopted, but transport cleanup could not be confirmed. Do not refresh until the recovery check is complete."
+                default: message = "Reload status to confirm the pairing result."
+                }
+                if ["adoptedReady", "adoptedConnectionNotReady"].contains(result["pairingPlacement"] as? String ?? "") {
+                    _ = await V3ServiceBridge.shared.acknowledgeDirectRecoveryAfterSuccess(
+                        result, operation: "pairingUsePlaced")
+                }
+            } catch {
+                status.finishDirectMutation(ticket: ticket, requestReload: true)
+                if let failure = error as? CombinedFailure { status.present(failure) }
+                message = "Pairing could not be confirmed. Check status before trying again. If a different pairing file already exists, use manual import."
+            }
+        }
     }
 
     private func importFile(_ url: URL) async {
