@@ -12009,10 +12009,9 @@ struct V3PromptSection: View {
     @State private var copiedDiagnostic: String?
     @State private var repairURL: URL?
     @State private var loadedPromptID: String?
-    @State private var useRemoteMacAnisette = false
     private var kind: String { prompt["kind"] as? String ?? "" }
-    private var offersRemoteMacAnisette: Bool {
-        kind == "credentials" && prompt["remoteMacAnisette"] as? String == "submit-v1"
+    private var usesRemoteMacAnisetteForSubmit: Bool {
+        kind == "credentials" && prompt["remoteMacAnisette"] as? String == "submit-v2"
     }
     private var title: String { prompt["title"] as? String ?? "Input Needed" }
     private var message: String { prompt["message"] as? String ?? "" }
@@ -12161,15 +12160,6 @@ struct V3PromptSection: View {
                         .disableAutocorrection(true)
                 }
             }
-            if offersRemoteMacAnisette {
-                Toggle("Use Remote Mac Anisette for This Sign-In", isOn: $useRemoteMacAnisette)
-                    .disabled(isSubmitting || isSubmissionBlocked)
-                    .accessibilityIdentifier("signin.remote-mac-anisette")
-                Text("Optional: Submit with this switch on sends a separate generated device identity, Apple provisioning exchange data and remote ADI material to mac-ani.jkcoxson.com for this sign-in only. The provider can correlate this activity and could misuse that material. Your Apple ID, password and verification code are sent only to Apple. Remote identity and ADI state stay in memory for this attempt; your local anisette identity and default provider are not changed. There is no automatic provider fallback.")
-                    .font(.caption).foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("signin.remote-mac-anisette.disclosure")
-            }
             if fieldDefs.count > 0 && options.isEmpty {
                 Button("Submit") { submit(choice: "") }
                     .buttonStyle(.borderedProminent)
@@ -12288,7 +12278,6 @@ struct V3PromptSection: View {
             selected = []
             repairURL = nil
             loadedPromptID = nil
-            useRemoteMacAnisette = false
         }
     }
     private func copyDiagnostic(_ value: String) {
@@ -12297,7 +12286,6 @@ struct V3PromptSection: View {
     }
     private func loadFields(preservingCredentialDraft: Bool = false) {
         let draft = preservingCredentialDraft ? fields : [:]
-        useRemoteMacAnisette = false
         fields = [:]
         selected = []
         for field in fieldDefs { fields[field["key"] ?? ""] = field["value"] ?? "" }
@@ -12361,7 +12349,7 @@ struct V3PromptSection: View {
     private func submit(choice: String) {
         var answer = fields
         answer["choice"] = choice
-        if offersRemoteMacAnisette && useRemoteMacAnisette {
+        if usesRemoteMacAnisetteForSubmit {
             answer["anisetteProvider"] = "remoteMac"
         }
         respond(answer)
