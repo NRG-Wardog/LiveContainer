@@ -1,0 +1,424 @@
+"""Gate-control tests use inert local files and subprocess doubles, never Swift or native execution."""
+import copy
+import json
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+from unittest import mock
+
+import verify_setup_state_recovery as gate
+
+
+class Controls(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.sources, self.output = self.root / 'sources', self.root / 'output'
+        self.sources.mkdir()
+        self.swiftc = self.root / 'inert-compiler'
+        self.swiftc.write_text('This is not executable and is never launched.')
+        required = set(gate.LOCALIZATION_INPUTS.values()) | {gate.LOCALIZATION + '/' + n for n in gate.LOCALIZATION_FILES}
+        required |= {gate.EARLY + '/test_contract.py', gate.PORTAL + '/test_generator.py'}
+        for spec in gate.SUITE_INPUTS.values():
+            for names in spec.values():
+                required.update(names)
+        for path in required:
+            target = self.sources / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text('inert current source: ' + path)
+        baseline = set(gate.LOCALIZATION_INPUTS.values()).union(*(set(v['production']) for v in gate.SUITE_INPUTS.values()))
+        self.baseline_bytes = {p: ('inert delivered source: ' + p).encode() for p in baseline}
+        self.contract = {'schema': 'setup-state-recovery-contract-v1', 'source_inputs_bound': True,
+            'suites': list(gate.SUITES), 'suite_inputs': copy.deepcopy(gate.SUITE_INPUTS),
+            'input_sha256': {p: gate.digest((self.sources / p).read_bytes()) for p in required},
+            'delivered_baseline': {'owners': copy.deepcopy(gate.BASELINE_OWNERS),
+                                  'input_sha256': {p: gate.digest(raw) for p, raw in self.baseline_bytes.items()}},
+            'case_names': {suite: [suite + '-case-' + str(i) for i in range(count)] for suite, count in
+                           [('setup-localization', 1076), ('early-refresh-boundaries', 24),
+                            ('certificate-portal-evidence', 19), ('remote-identity-reuse', gate.IDENTITY_CASE_COUNT)]}}
+        self.contract_path = self.root / 'contract.json'
+        self.save_contract()
+        self.mutation = None
+        self.command_names = []
+
+    def save_contract(self):
+        gate.write_json(self.contract_path, self.contract)
+
+    def baseline_output(self, root, receipt):
+        for p, raw in self.baseline_bytes.items():
+            target = root / p
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(raw)
+        gate.write_json(receipt, {'schema': 'setup-delivered-baseline-v1', 'origin': 'exact-local-git-objects',
+            **self.contract['delivered_baseline'], 'network': False, 'target_execution': False})
+
+    def variant_output(self, suite, root):
+        for variant in ('baseline', 'candidate'):
+            folder = root / variant
+            folder.mkdir(parents=True)
+            spec = gate.SUITE_INPUTS[suite]
+            inventory = self.contract['delivered_baseline']['input_sha256'] if variant == 'baseline' else self.contract['input_sha256']
+            value = {'variant': variant, 'status': 'GENERATED_NOT_COMPILED_NOT_RUN',
+                'swift_executed': False, 'network_executed': False, 'native_provider_executed': False,
+                'expected_case_names': self.contract['case_names'][suite],
+                'expected_case_count': len(self.contract['case_names'][suite]),
+                'inputs_sha256': {p: inventory[p] for p in spec['production']},
+                'support_inputs_sha256': {p: self.contract['input_sha256'][p] for p in spec['support']}}
+            if suite == 'early-refresh-boundaries':
+                (folder / 'early-refresh.swift').write_text('inert early ' + variant)
+                value.update(schema='early-refresh-source-extraction-v1',
+                    admitted_route_body_extracted=variant == 'candidate',
+                    generated_sha256=gate.digest((folder / 'early-refresh.swift').read_bytes()),
+                    fixture_inputs_sha256={p: self.contract['input_sha256'][p] for p in spec['fixture']})
+            else:
+                for name in ['host.swift', 'service.swift']:
+                    (folder / name).write_text('inert portal ' + variant + ' ' + name)
+                value.update(schema='certificate-portal-evidence-sources-v2',
+                    generated_sha256={n: gate.digest((folder / n).read_bytes()) for n in ['host.swift', 'service.swift']})
+            gate.write_json(folder / 'sources.json', value)
+        if suite == 'early-refresh-boundaries':
+            gate.write_json(root / 'contract.json', {'schema': 'early-refresh-portable-contract-v1',
+                'status': 'STATIC_PASS_RUNTIME_NOT_RUN', 'check_count': 102,
+                'checks': ['control-' + str(i) for i in range(102)], 'expected_generic_baseline_cases': 12,
+                'variants': ['baseline', 'candidate'], 'swift_compiled': False, 'swift_executed': False})
+        else:
+            gate.write_json(root / 'static-controls.json', {'schema': 'portal-portability-controls-v1',
+                'status': 'pass', 'check_count': 6, 'checks': ['control-' + str(i) for i in range(6)],
+                'swift_executed': False, 'network_executed': False})
+
+    def subprocess(self, argv, **kwargs):
+        argv = list(map(str, argv))
+        name = gate.COMMANDS[len(self.command_names)]
+        self.command_names.append(name)
+        data = (gate.markers().get(name, 'inert generation success') + '\n').encode()
+        if name == 'delivered-baseline-extract':
+            self.assertIn('extract-baseline', argv)
+            self.baseline_output(Path(argv[argv.index('--output') + 1]), Path(argv[argv.index('--receipt') + 1]))
+        elif name == 'localization-source':
+            folder = Path(argv[argv.index('--output') + 1]); folder.mkdir()
+            (folder / 'fixture.swift').write_text('inert localization fixture')
+            (folder / 'baseline_missing_keys.json').write_text('[]')
+            gate.write_json(folder / 'sources.json', {'schema': 'setup-localization-sources-v1',
+                'status': 'generated_not_compiled',
+                'source_sha256': {k: self.contract['input_sha256'][p] for k, p in gate.LOCALIZATION_INPUTS.items()},
+                'baseline_sha256': {k: self.contract['delivered_baseline']['input_sha256'][p] for k, p in gate.LOCALIZATION_INPUTS.items()},
+                'fixture_inputs': {n: self.contract['input_sha256'][gate.LOCALIZATION + '/' + n] for n in gate.LOCALIZATION_FILES},
+                'key_count': 157, 'localized_value_count': 628, 'expected_native_case_count': 1076,
+                'expected_case_names': self.contract['case_names']['setup-localization'],
+                'output_sha256': {p.name: gate.digest(p.read_bytes()) for p in folder.iterdir()}})
+            gate.write_json(folder / 'static-contract.json', {'schema': 'setup-localization-static-contract-v1',
+                'status': 'pass', 'candidate_key_coverage': 'pass', 'baseline_key_coverage': 'fail_as_expected',
+                'baseline_missing': list(range(52)), 'missing_translation_mutation_cases': 628,
+                'identity_diagnostic_keys': ['inert-finite-key-' + str(i) for i in range(6)],
+                'source_sha256': {k: self.contract['input_sha256'][p] for k, p in gate.LOCALIZATION_INPUTS.items()},
+                'baseline_sha256': {k: self.contract['delivered_baseline']['input_sha256'][p] for k, p in gate.LOCALIZATION_INPUTS.items()}})
+        elif name == 'identity-controls':
+            pass
+        elif name == 'identity-source':
+            folder = Path(argv[argv.index('--output') + 1]); folder.mkdir()
+            for filename in gate.IDENTITY_SWIFT:
+                (folder / filename).write_text('inert identity ' + filename)
+            spec = gate.SUITE_INPUTS['remote-identity-reuse']
+            gate.write_json(folder / 'source-evidence.json', {
+                'schema': 'remote-identity-reuse-source-evidence-v1', 'status': 'GENERATED_NOT_COMPILED_NOT_RUN',
+                'swift_executed': False, 'network_executed': False,
+                'native_provider_executed': False, 'native_keychain_executed': False,
+                'inputs_sha256': {p: self.contract['input_sha256'][p] for p in spec['production']},
+                'baseline_inputs_sha256': {p: self.contract['delivered_baseline']['input_sha256'][p] for p in spec['production']},
+                'support_inputs_sha256': {p: self.contract['input_sha256'][p] for p in spec['support']},
+                'outputs_sha256': {p.name: gate.digest(p.read_bytes()) for p in folder.iterdir()},
+                'expected_case_names': self.contract['case_names']['remote-identity-reuse'],
+                'candidate_source_wiring': {name: True for name in gate.IDENTITY_SOURCE_WIRING},
+                'baseline_source_gaps': {'protected_identity_record_absent': True,
+                    'protected_identity_adapter_absent': True, 'attempt_identity_only': True},
+                'production_extracts': [{'source': spec['production'][0], 'anchor': 'inert',
+                                        'first_line': 1, 'sha256': '0' * 64}]})
+        elif name == 'identity-run':
+            gate.write_json(Path(argv[-1]), {'schema': 'remote-identity-reuse-cases-v1', 'status': 'pass',
+                'case_count': gate.IDENTITY_CASE_COUNT, 'cases': self.contract['case_names']['remote-identity-reuse'],
+                'fake_only': True, 'network_executed': False, 'native_provider_executed': False,
+                'native_keychain_executed': False})
+        elif name in ['early-source', 'portal-source']:
+            suite = 'early-refresh-boundaries' if name == 'early-source' else 'certificate-portal-evidence'
+            self.variant_output(suite, Path(argv[argv.index('--output') + 1]))
+        elif name.endswith('-compile'):
+            if name.startswith('portal-') and '-host-' not in name:
+                self.assertEqual(argv[argv.index('-module-name') + 1], 'SideSign')
+            Path(argv[-1]).write_text('inert non-executable compiler output')
+        elif name == 'localization-run':
+            gate.write_json(Path(argv[-1]) / 'cases.json', {'schema': 'setup-localization-cases-v1', 'status': 'pass',
+                'case_count': 1076, 'cases': self.contract['case_names']['setup-localization']})
+        elif name.startswith('early-') and name.endswith('-run'):
+            variant = name.split('-')[1]
+            gate.write_json(Path(argv[-1]), {'schema': 'early-refresh-cases-v1', 'status': 'pass',
+                'variant': variant, 'case_count': 24, 'cases': self.contract['case_names']['early-refresh-boundaries'],
+                'network_executed': False, 'native_provider_executed': False})
+        elif name.startswith('portal-') and name.endswith('-host-run'):
+            variant = name.split('-')[1]
+            gate.write_json(Path(argv[-1]), {'schema': 'portal-evidence-runtime-v1', 'status': 'pass',
+                'candidate': variant == 'candidate', 'case_count': 19,
+                'cases': self.contract['case_names']['certificate-portal-evidence'],
+                'fake_only': True, 'network_executed': False, 'native_provider_executed': False})
+        elif name.startswith('portal-') and name.endswith('-run'):
+            Path(argv[-1]).write_bytes(b'inert plist placeholder, never native data')
+        else:
+            raise AssertionError(name)
+        if self.mutation:
+            altered = self.mutation(name, argv, data)
+            if altered is not None:
+                return altered
+        return subprocess.CompletedProcess(argv, 0, data)
+
+    def run_gate(self):
+        with mock.patch.object(gate.subprocess, 'run', side_effect=self.subprocess):
+            return gate.run(self.sources, self.swiftc, self.output, self.contract_path)
+
+    def rewrite_json(self, path, modify):
+        value = json.loads(path.read_text()); modify(value); gate.write_json(path, value)
+
+    def test_success_all_commands_once_with_no_real_processes(self):
+        report = self.run_gate()
+        self.assertEqual(self.command_names, list(gate.COMMANDS))
+        self.assertEqual(len(set(self.command_names)), len(gate.COMMANDS))
+        self.assertEqual(report['status'], gate.STATUS)
+        self.assertFalse(report['native_provider_executed'])
+        gate.verify_receipt(self.output / 'report.json', self.contract_path)
+
+    def test_unbound_contract_stops_before_subprocess(self):
+        self.contract['source_inputs_bound'] = False; self.save_contract()
+        with self.assertRaisesRegex(ValueError, 'remain unbound'):
+            self.run_gate()
+        self.assertFalse(self.command_names)
+
+    def test_candidate_source_drift_rejected(self):
+        (self.sources / next(iter(self.contract['input_sha256']))).write_text('drift')
+        with self.assertRaisesRegex(ValueError, 'hashes differ'):
+            self.run_gate()
+
+    def test_baseline_owner_drift_rejected(self):
+        self.contract['delivered_baseline']['owners']['LiveContainer']['commit'] = '0' * 40; self.save_contract()
+        with self.assertRaisesRegex(ValueError, 'baseline commit/tree'):
+            self.run_gate()
+
+    def test_baseline_path_omission_rejected(self):
+        self.contract['delivered_baseline']['input_sha256'].pop(next(iter(self.baseline_bytes)));self.save_contract()
+        with self.assertRaisesRegex(ValueError, 'Incomplete delivered baseline'):
+            self.run_gate()
+
+    def test_extra_unpinned_fixture_rejected(self):
+        (self.sources / gate.EARLY / 'unreviewed.py').write_text('inert')
+        with self.assertRaisesRegex(ValueError, 'Unpinned setup fixture'):
+            self.run_gate()
+
+    def test_symlink_fixture_rejected(self):
+        (self.sources / gate.PORTAL / 'alias.py').symlink_to(self.swiftc)
+        with self.assertRaisesRegex(ValueError, 'Symlink setup fixture'):
+            self.run_gate()
+
+    def test_nonzero_command_persists_failure_receipt(self):
+        self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, 9, b'failed') if n == 'early-baseline-run' else None
+        with self.assertRaisesRegex(ValueError, 'Setup command failed'):
+            self.run_gate()
+        report = json.loads((self.output / 'report.json').read_text())
+        self.assertEqual(report['status'], 'FAILED')
+        self.assertEqual(report['commands'][-1]['exit_code'], 9)
+
+    def test_duplicate_marker_rejected(self):
+        self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, 0, d + d) if n == 'localization-run' else None
+        with self.assertRaisesRegex(ValueError, 'duplicate exact success marker'):
+            self.run_gate()
+
+    def test_early_baseline_candidate_source_swap_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'early-source':
+                path = self.output / 'early-refresh-boundaries/baseline/sources.json'
+                self.rewrite_json(path, lambda v: v.update(inputs_sha256={p: self.contract['input_sha256'][p]
+                    for p in gate.SUITE_INPUTS['early-refresh-boundaries']['production']}))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'actual-source inputs differ'):
+            self.run_gate()
+
+    def test_missing_admitted_runner_helper_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'early-source':
+                self.rewrite_json(self.output / 'early-refresh-boundaries/candidate/sources.json',
+                    lambda v: v.update(admitted_route_body_extracted=False))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'admitted-route helper extraction'):
+            self.run_gate()
+        self.assertNotIn('early-baseline-compile', self.command_names)
+
+    def test_generated_swift_tampering_rejected_before_compile(self):
+        def mutate(name, argv, data):
+            if name == 'portal-source':
+                (self.output / 'certificate-portal-evidence/baseline/service.swift').write_text('drift')
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'generated source bytes differ'):
+            self.run_gate()
+        self.assertNotIn('portal-baseline-compile', self.command_names)
+
+    def test_missing_finite_identity_translation_contract_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'localization-source':
+                self.rewrite_json(self.output / 'setup-localization/static-contract.json',
+                                  lambda v: v['identity_diagnostic_keys'].pop())
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'static/negative-control receipt'):
+            self.run_gate()
+        self.assertNotIn('localization-compile', self.command_names)
+
+    def test_identity_baseline_source_swap_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'identity-source':
+                path = self.output / 'remote-identity-reuse/source-evidence.json'
+                self.rewrite_json(path, lambda v: v.update(baseline_inputs_sha256=v['inputs_sha256']))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Identity actual-source input closure'):
+            self.run_gate()
+        self.assertNotIn('identity-compile', self.command_names)
+
+    def test_identity_baseline_feature_gap_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'identity-source':
+                self.rewrite_json(self.output / 'remote-identity-reuse/source-evidence.json',
+                    lambda v: v['baseline_source_gaps'].update(protected_identity_record_absent=False))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'baseline identity negative controls'):
+            self.run_gate()
+        self.assertNotIn('identity-compile', self.command_names)
+
+    def test_identity_missing_source_wiring_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'identity-source':
+                self.rewrite_json(self.output / 'remote-identity-reuse/source-evidence.json',
+                    lambda v: v['candidate_source_wiring'].pop(gate.IDENTITY_SOURCE_WIRING[0]))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'exact source-wiring controls'):
+            self.run_gate()
+        self.assertNotIn('identity-compile', self.command_names)
+
+    def test_identity_extra_swift_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'identity-source':
+                (self.output / 'remote-identity-reuse/unreviewed.swift').write_text('inert')
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Identity generated Swift closure'):
+            self.run_gate()
+
+    def test_identity_native_keychain_claim_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'identity-run':
+                self.rewrite_json(Path(argv[-1]), lambda v: v.update(native_keychain_executed=True))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'runtime boundary differs'):
+            self.run_gate()
+
+    def test_identity_required_framework_closure_rejected(self):
+        report = self.run_gate()
+        row = next(r for r in report['commands'] if r['name'] == 'identity-compile')
+        row['argv'][row['argv'].index('Security')] = 'Network'
+        gate.write_json(self.output / 'report.json', report)
+        with self.assertRaisesRegex(ValueError, 'Identity compile-only argument closure'):
+            gate.verify_receipt(self.output / 'report.json', self.contract_path)
+
+    def test_missing_runtime_case_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'early-candidate-run':
+                self.rewrite_json(Path(argv[-1]), lambda v: v['cases'].pop())
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'case closure differs'):
+            self.run_gate()
+
+    def test_duplicate_runtime_case_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'portal-candidate-host-run':
+                self.rewrite_json(Path(argv[-1]), lambda v: v.update(cases=[v['cases'][0]] * 19))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'case closure differs'):
+            self.run_gate()
+
+    def test_native_provider_claim_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'portal-baseline-host-run':
+                self.rewrite_json(Path(argv[-1]), lambda v: v.update(native_provider_executed=True))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'runtime boundary differs'):
+            self.run_gate()
+
+    def test_source_mutation_after_fixture_rejected(self):
+        def mutate(name, argv, data):
+            if name == 'portal-candidate-host-run':
+                (self.sources / next(iter(self.contract['input_sha256']))).write_text('drift')
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'source hashes differ'):
+            self.run_gate()
+
+    def test_retained_artifact_tampering_rejected(self):
+        self.run_gate()
+        (self.output / 'early-refresh-boundaries/candidate/fixture').write_text('changed')
+        with self.assertRaisesRegex(ValueError, 'retained artifact changed'):
+            gate.verify_receipt(self.output / 'report.json', self.contract_path)
+
+    def test_missing_command_receipt_rejected(self):
+        self.run_gate()
+        self.rewrite_json(self.output / 'report.json', lambda v: v['commands'].pop())
+        with self.assertRaisesRegex(ValueError, 'Missing or repeated setup command'):
+            gate.verify_receipt(self.output / 'report.json', self.contract_path)
+
+    def test_portal_module_identity_receipt_drift_rejected(self):
+        self.run_gate()
+        def modify(value):
+            command = next(r for r in value['commands'] if r['name'] == 'portal-candidate-compile')
+            command['argv'][command['argv'].index('-module-name') + 1] = 'UnreviewedModule'
+        self.rewrite_json(self.output / 'report.json', modify)
+        with self.assertRaisesRegex(ValueError, 'argument closure differs'):
+            gate.verify_receipt(self.output / 'report.json', self.contract_path)
+
+    def test_local_git_object_extractor_has_no_network_and_uses_nested_owner(self):
+        for owner in gate.BASELINE_OWNERS:
+            (self.sources / owner / '.git').mkdir(parents=True)
+        calls = []
+        def fake_git(argv, **kwargs):
+            calls.append(argv)
+            self.assertEqual(kwargs['env']['GIT_ALLOW_PROTOCOL'], '')
+            self.assertEqual(kwargs['env']['GIT_NO_LAZY_FETCH'], '1')
+            self.assertEqual(kwargs['env']['GIT_NO_REPLACE_OBJECTS'], '1')
+            root = Path(argv[argv.index('-C') + 1])
+            owner = root.relative_to(self.sources).as_posix()
+            action, argument = argv[-2:]
+            self.assertIn(action, ['cat-file', 'rev-parse', 'show']) if action != '-t' else None
+            if '-t' in argv:
+                data = b'commit\n'
+            elif 'rev-parse' in argv:
+                data = (gate.BASELINE_OWNERS[owner]['tree'] + '\n').encode()
+            else:
+                commit, relative = argument.split(':', 1)
+                self.assertEqual(commit, gate.BASELINE_OWNERS[owner]['commit'])
+                data = self.baseline_bytes[owner + '/' + relative]
+            return subprocess.CompletedProcess(argv, 0, data)
+        with mock.patch.object(gate.subprocess, 'run', side_effect=fake_git):
+            gate.extract_baseline(self.sources, self.contract, self.output / 'delivered-baseline',
+                                  self.output / 'delivered-baseline.json')
+        gate.baseline_receipt(self.output, self.contract)
+        self.assertEqual(len(calls), 6 + len(self.baseline_bytes))
+        self.assertTrue(any(str(self.sources / 'SideStore/Dependencies/SideSign') in call for call in calls))
+
+    def test_local_git_object_byte_mismatch_rejected_without_output(self):
+        for owner in gate.BASELINE_OWNERS:
+            (self.sources / owner / '.git').mkdir(parents=True)
+        def fake_git(argv, **kwargs):
+            owner = Path(argv[argv.index('-C') + 1]).relative_to(self.sources).as_posix()
+            data = b'commit\n' if '-t' in argv else ((gate.BASELINE_OWNERS[owner]['tree'] + '\n').encode()
+                   if 'rev-parse' in argv else b'wrong delivered bytes')
+            return subprocess.CompletedProcess(argv, 0, data)
+        with mock.patch.object(gate.subprocess, 'run', side_effect=fake_git):
+            with self.assertRaisesRegex(ValueError, 'baseline source bytes differ'):
+                gate.extract_baseline(self.sources, self.contract, self.output / 'delivered-baseline',
+                                      self.output / 'delivered-baseline.json')
+        self.assertFalse(self.output.exists())
+
+
+if __name__ == '__main__':
+    unittest.main()

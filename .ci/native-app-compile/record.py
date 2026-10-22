@@ -12,12 +12,12 @@ S = ROOT / 'sources'
 E = ROOT / 'evidence'
 TMP = Path(os.environ.get('RUNNER_TEMP', '/tmp'))
 OWNERS = {
-    'LiveContainer': ('NRG-Wardog/LiveContainer', 'cb21f150e8907d2f8ed1bc7658342bac3fbb9926'),
-    'SideStore': ('NRG-Wardog/SideStore', '638fa62ce2a540efe6c92dd20c282c32ddc0b2e6'),
+    'LiveContainer': ('NRG-Wardog/LiveContainer', 'e39559a8c823073415a7b4fad1403e6a7f99eefc'),
+    'SideStore': ('NRG-Wardog/SideStore', '02fc8d8d43863fa8c5375194a50e187e762479c8'),
     'AnisetteKit': ('NRG-Wardog/AnisetteKit', '3e670c2e1b72ff328d3a64353d8de2418df87e73'),
     'idevice': ('NRG-Wardog/idevice', '774f02a6d29777c85400f4ba7fa69c12b4227fb3'),
     'jktcp': ('NRG-Wardog/jktcp', 'a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9'),
-    'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', 'd05efa30f37bad7c7ddaa50186fc1ac8ba703eca'),
+    'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', 'ad390ad9636808ad76ff9a8e5a28f589314799f4'),
     'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', '1d033920660c6f50b8f30c4c333f025867cd9e96'),
     'LiveContainer/OpenSSL': ('krzyzanowskim/OpenSSL', '623c84da314e85363236507ca38a4bde65df21c3'),
     'idevice/cpp/plist_ffi': ('jkcoxson/plist_ffi', '66e6e6362b58bc361725c3e1b0a34af498aa2b3a'),
@@ -321,6 +321,9 @@ def receipt():
     from verify_comprehensive_diagnostics import verify_receipt
     diagnostic_report = E / 'comprehensive-diagnostics/report.json'
     verify_receipt(diagnostic_report)
+    from verify_setup_state_recovery import verify_receipt as verify_setup_receipt
+    setup_report = E / 'setup-state-recovery/report.json'
+    verify_setup_receipt(setup_report)
     outputs = {}
     for owner in ('LiveContainer', 'SideStore'):
         product = TMP / ('native-' + owner) / 'Build/Products/Release-iphoneos' / (owner + '.app')
@@ -341,6 +344,7 @@ def receipt():
           'live_authentication_executed': False, 'source_owned_fake_authentication_executed': True,
           'source_owned_fake_diagnostics_executed': True,
           'comprehensive_diagnostics_report_sha256': sha(diagnostic_report),
+          'setup_state_recovery_report_sha256': sha(setup_report),
           'tests_executed': False, 'independent_review': 'pending',
           'evidence_sha256': {p.name: sha(p) for p in sorted(E.iterdir()) if p.is_file() and p.name != 'receipt.json'}})
 

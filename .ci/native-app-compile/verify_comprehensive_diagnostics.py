@@ -84,6 +84,7 @@ SETUP_FIXTURES = {
         'generator': 'generate_fixture.py', 'source_test': 'test_source.py', 'output_arg': '--output',
         'files': ('Production.swift', 'Doubles.swift', 'RuntimeTests.swift'),
         'sources': ('SideStore/SideStore/Core/Pairing/PairingFileManager.swift',
+                    'SideStore/SideStore/Core/DeviceApi/MinimuxerWrapper.swift',
                     'SideStore/AltStore/Core/Extensions/UserDefaults+AltStore.swift',
                     'SideStore/SideStore/AppBootManager.swift',
                     'SideStore/AltStore/AppDelegate.swift',
