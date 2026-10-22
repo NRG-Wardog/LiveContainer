@@ -9229,6 +9229,18 @@ final class V3SideStoreStatusStore: ObservableObject {
             }
         }
         if recoveryHold && !foundValidEvidence && !unreadable { unreadable = true }
+        // The mutation's own snapshot can still contain its dispatched record.
+        // A later successful ACK removes that journal entry, but absence alone
+        // is not proof. Retire only its exact acknowledged owner after this
+        // full, current-ticket, quiescent snapshot confirms no durable hold.
+        if !snapshot.keys.contains("directRecovery"), !recoveryHold, !unreadable,
+           V3ServiceBridge.strictBool(snapshot["activeMutation"]) == false,
+           V3ServiceBridge.strictBool(snapshot["busy"]) == false,
+           let direct = unresolvedDirectRecovery,
+           V3ServiceBridge.shared.hasAcknowledgedDirectRecovery(
+            requestID: direct.requestID, operation: direct.operation) {
+            unresolvedDirectRecovery = nil
+        }
         unresolvedRecoveryJournalUnreadable = unreadable
         directRecoveryPostcondition = nil
         // Only a full, current-ticket snapshot with no durable hold can clear
@@ -13667,7 +13679,8 @@ final class V3AuthStore: ObservableObject {
             provisioningRetryAvailable = V3ServiceBridge.strictBool(reply["resumable"]) ?? false
             provisioningSessionUnavailable = false
             if !provisioningRetryAvailable && !provisioningIdentityStateBlocked {
-                provisioningMessage += " Checking the saved provisioning state before another attempt."
+                // Keep independently reviewed prose separate for the strict renderer.
+                provisioningMessage += "\nChecking the saved provisioning state before another attempt."
             }
             if !deviceSetupDeferred {
                 let diagnosticPresentation = V3AuthFailureDiagnosticsPolicy.provisioning(reply: reply,

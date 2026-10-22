@@ -10,6 +10,20 @@ import SideStoreSupport
 import SwiftUI
 import UserNotifications
 
+// V3_CERTIFICATE_IMPORT_SAFE_DETAILS_BEGIN
+enum V3CertificateImportFailureDetails {
+    enum Step: String { case exportActive, validateExport, readHealth, verifyActiveIdentity }
+    static func capture(_ error: Error, step: Step) -> String {
+        let cause = (error as? CombinedFailure).map { "\n" + $0.technicalDetails }
+            ?? "\ncause=localValidationOrUnknown"
+        return "certificate_import_step=\(step.rawValue)" + cause
+    }
+    static func copySuffix(message: String, captured: (message: String, details: String)?) -> String {
+        captured.flatMap { $0.message == message ? "\n" + $0.details : nil } ?? ""
+    }
+}
+// V3_CERTIFICATE_IMPORT_SAFE_DETAILS_END
+
 enum JITEnablerType : Int, CaseIterable, Identifiable {
     var id: Int { rawValue }
     case SideJITServer = 0
@@ -47,6 +61,7 @@ struct LCSettingsView: View {
     @AppStorage("LCGuestReturnBackgroundRGB", store: UserDefaults.lcShared()) private var returnBackgroundRGB = 0xF2F2F7
     @State var errorShow = false
     @State var errorDisplay = V3DisplayMessage.raw("")
+    @State private var certificateImportDiagnostic: (message: String, details: String)?
     var errorInfo: String {
         get { errorDisplay.original }
         nonmutating set { errorDisplay = .raw(newValue) }
@@ -536,6 +551,7 @@ struct LCSettingsView: View {
             Button("lc.common.ok".loc, role: .cancel) {}
             Button("lc.common.copy".loc) {
                 UIPasteboard.general.string = LCNativeErrorPresentation.details(errorInfo, site: .settings)
+                    + V3CertificateImportFailureDetails.copySuffix(message: errorInfo, captured: certificateImportDiagnostic)
             }
             } message: {
                 V3LocalizedText(errorDisplay.appendingDiagnostic(LCNativeErrorSite.settings.rawValue))
@@ -751,6 +767,7 @@ struct LCSettingsView: View {
     // active Keychain group. The returned PKCS#12 is transient and enters the
     // existing explicitly-confirmed, request-owned callback path.
     func importCertificateFromSideStore() async {
+        certificateImportDiagnostic = nil
         // V3_SERVICE_CERTIFICATE_EXPORT_V1
         let requestID = V3CertificateImportOwnership.begin()
         if UserDefaults.sideStoreExist() {
@@ -760,8 +777,10 @@ struct LCSettingsView: View {
             }
             guard V3CertificateImportOwnership.isActive(requestID) else { return }
 
+            var importStep = V3CertificateImportFailureDetails.Step.exportActive
             do {
                 let reply = try await V3ServiceBridge.shared.request(operation: "certExportActive")
+                importStep = .validateExport
                 guard V3CertificateImportOwnership.isActive(requestID),
                       Set(reply.keys) == Set(["data", "password", "teamIdentifier", "identitySHA256"]),
                       let data = reply["data"] as? Data, !data.isEmpty, data.count <= 1_048_576,
@@ -774,7 +793,9 @@ struct LCSettingsView: View {
                       LCUtils.getCertTeamId(withKeyData: data, password: password) == team else {
                     throw NSError(domain: "V3CertificateImport", code: 2)
                 }
+                importStep = .readHealth
                 let status = try await V3ServiceBridge.shared.request(operation: "healthSnapshot")
+                importStep = .verifyActiveIdentity
                 guard V3CertificateImportOwnership.isActive(requestID),
                       let current = status["certificateState"] as? [String: Any],
                       V3ServiceBridge.strictBool(current["active"]) == true,
@@ -787,6 +808,9 @@ struct LCSettingsView: View {
             } catch {
                 guard V3CertificateImportOwnership.cancel(requestID) else { return }
                 errorInfo = "The active SideStore certificate could not be imported. Check Certificates and try again."
+                // Preserve only the already-sanitized wire failure and a fixed local
+                // boundary. Never copy P12 bytes, passwords or arbitrary NSError data.
+                certificateImportDiagnostic = (errorInfo, V3CertificateImportFailureDetails.capture(error, step: importStep))
                 errorShow = true
             }
         } else {

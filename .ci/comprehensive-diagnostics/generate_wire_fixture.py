@@ -70,7 +70,9 @@ def main():
     prelude='import Foundation\nimport CoreFoundation\n#if canImport(FoundationNetworking)\nimport FoundationNetworking\n#endif\n'
     wire=block(s['host'],'enum V3WireContract {')
     limit=re.findall(r'    static let responseLimit = [0-9_]+',wire); assert len(limit)==1
-    primitive='enum V3WireContract {\n'+limit[0]+'\n'+block(wire,'static func strictBool(')+'\n'+block(wire,'static func strictInt(')+'\n}\n'
+    operations=re.search(r'    static let operations: Set<String> = \[.*?\]', wire, re.S)
+    assert operations is not None
+    primitive='enum V3WireContract {\n'+limit[0]+'\n'+operations.group(0)+'\n'+block(wire,'static func strictBool(')+'\n'+block(wire,'static func strictInt(')+'\n}\n'
     service=prelude+pure_model(s['service'])+'\n'+primitive
     for anchor in ['enum V3AuthFailureDiagnosticsPolicy {','enum V3ResponseClassifier {','struct V3EncodedServiceResponse {','enum V3ResponseEncoder {']:
         service+=block(s['service'],anchor)+'\n'

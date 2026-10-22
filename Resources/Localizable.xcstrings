@@ -85913,6 +85913,295 @@
           }
         }
       }
+    },
+    "command": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "request"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בקשה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请求"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要求"
+          }
+        }
+      }
+    },
+    "pairingUsePlaced": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "placed pairing activation"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפעלת קובץ הצימוד שהוצב"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "激活已放置的配对文件"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟用已放置的配對檔案"
+          }
+        }
+      }
+    },
+    "placed pairing activation": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "placed pairing activation"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפעלת קובץ הצימוד שהוצב"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "激活已放置的配对文件"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟用已放置的配對檔案"
+          }
+        }
+      }
+    },
+    "Checking the saved provisioning state before another attempt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking the saved provisioning state before another attempt."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בודק את מצב הכנת המכשיר שנשמר לפני ניסיון נוסף."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查已保存的设备配置状态，然后再尝试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在檢查已儲存的裝置佈建狀態，然後再嘗試。"
+          }
+        }
+      }
+    },
+    "SideStore no longer has the recovery record for this request.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore no longer has the recovery record for this request."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ל-SideStore אין עוד רשומת שחזור עבור בקשה זו."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 已没有此请求的恢复记录。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 已沒有此要求的復原記錄。"
+          }
+        }
+      }
+    },
+    "A different request now owns SideStore's recovery record.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A different request now owns SideStore's recovery record."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "רשומת השחזור של SideStore שייכת כעת לבקשה אחרת."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 的恢复记录现属于另一个请求。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 的復原記錄現屬於另一個要求。"
+          }
+        }
+      }
+    },
+    "The recovery request did not specify one valid confirmation mode.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The recovery request did not specify one valid confirmation mode."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בקשת השחזור לא ציינה מצב אישור תקין יחיד."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复请求未指定一个有效的确认模式。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "復原要求未指定一個有效的確認模式。"
+          }
+        }
+      }
+    },
+    "The recovery record is not in a state that accepts this confirmation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The recovery record is not in a state that accepts this confirmation."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "רשומת השחזור אינה במצב שמאפשר אישור זה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复记录的当前状态不接受此确认。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "復原記錄的目前狀態不接受此確認。"
+          }
+        }
+      }
+    },
+    "Reload status and inspect the current recovery request before trying again. No recovery record was cleared by this refusal.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reload status and inspect the current recovery request before trying again. No recovery record was cleared by this refusal."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לטעון מחדש את המצב ולבדוק את בקשת השחזור הנוכחית לפני ניסיון נוסף. סירוב זה לא מחק אף רשומת שחזור."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请重新加载状态并检查当前恢复请求，然后再试。此次拒绝未清除任何恢复记录。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請重新載入狀態並檢查目前的復原要求，然後再試。此次拒絕未清除任何復原記錄。"
+          }
+        }
+      }
+    },
+    "Apple ID signed in. Add pairing before refreshing or installing apps.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple ID signed in. Add pairing before refreshing or installing apps."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הכניסה ל-Apple ID הושלמה. יש להוסיף קובץ צימוד לפני רענון או התקנה של יישומים."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已登录 Apple ID。请先添加配对文件，再刷新或安装应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已登入 Apple ID。請先加入配對檔案，再重新整理或安裝 App。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

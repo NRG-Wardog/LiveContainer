@@ -476,6 +476,8 @@ public struct CombinedFailure: Error, LocalizedError {
         case recoveryMalformedRecord, recoveryIncompatibleRecord
         case recoveryStorageUnavailable, recoveryLockUnavailable
         case recoveryReadFailure, recoveryDeleteFailure
+        case directRecoveryRecordMissing, directRecoveryTargetMismatch
+        case directRecoveryModeInvalid, directRecoveryPhaseNotEligible
 
         fileprivate var inferredRetryable: Bool? {
             switch self {
@@ -552,7 +554,9 @@ public struct CombinedFailure: Error, LocalizedError {
                 return true
             case .operationPersistenceFailed:
                 return false
-            case .recoveryMalformedRecord, .recoveryIncompatibleRecord:
+            case .recoveryMalformedRecord, .recoveryIncompatibleRecord,
+                 .directRecoveryRecordMissing, .directRecoveryTargetMismatch,
+                 .directRecoveryModeInvalid, .directRecoveryPhaseNotEligible:
                 return false
             case .recoveryStorageUnavailable, .recoveryLockUnavailable,
                  .recoveryReadFailure, .recoveryDeleteFailure:
@@ -951,6 +955,10 @@ public struct CombinedFailure: Error, LocalizedError {
             case .recoveryLockUnavailable: return "SideStore could not acquire its recovery storage lock."
             case .recoveryReadFailure: return "SideStore could not read the recovery file. Its contents have not been classified."
             case .recoveryDeleteFailure: return "SideStore could not delete and confirm removal of the recovery record."
+            case .directRecoveryRecordMissing: return "SideStore no longer has the recovery record for this request."
+            case .directRecoveryTargetMismatch: return "A different request now owns SideStore's recovery record."
+            case .directRecoveryModeInvalid: return "The recovery request did not specify one valid confirmation mode."
+            case .directRecoveryPhaseNotEligible: return "The recovery record is not in a state that accepts this confirmation."
             }
         }
         switch stage {
@@ -1210,6 +1218,9 @@ public struct CombinedFailure: Error, LocalizedError {
                 return "Keep changes paused. Check device storage access and copy Diagnostics; do not clear an unclassified record."
             case .recoveryDeleteFailure:
                 return "Keep changes paused and copy Diagnostics. The record was not confirmed removed."
+            case .directRecoveryRecordMissing, .directRecoveryTargetMismatch,
+                 .directRecoveryModeInvalid, .directRecoveryPhaseNotEligible:
+                return "Reload status and inspect the current recovery request before trying again. No recovery record was cleared by this refusal."
             }
         }
         switch stage {
@@ -3327,6 +3338,10 @@ extension CombinedFailure.SafeCause {
         case .recoveryLockUnavailable: return "F62"
         case .recoveryReadFailure: return "F63"
         case .recoveryDeleteFailure: return "F64"
+        case .directRecoveryRecordMissing: return "F65"
+        case .directRecoveryTargetMismatch: return "F66"
+        case .directRecoveryModeInvalid: return "F67"
+        case .directRecoveryPhaseNotEligible: return "F68"
         }
     }
 }
@@ -11172,6 +11187,17 @@ enum V3CatalogRequestContext {
         return result
     }
 
+    // Host-only context from the submitted command, added only after both
+    // envelope correlations match. Never attach payloads, targets or raw text.
+    static func correlatedReplyFailure(_ failure: CombinedFailure,
+                                       operation: String, id: String) -> CombinedFailure {
+        guard V3WireContract.operations.contains(operation), UUID(uuidString: id) != nil,
+              CombinedFailure.uuidCorrelationMatches(failure.correlationID, expectedID: id) else { return failure }
+        var result = failure
+        result.annotatingRequest(requestedOperation: operation, requestID: id)
+        return result
+    }
+
     static func classifyReply(_ response: Data, operation: String, id: String) throws -> [String: Any] {
         guard let decoded = try PropertyListSerialization.propertyList(from: response, format: nil) as? [String: Any] else {
             throw CombinedFailure(operation: operation, stage: hostStage(for: operation),
@@ -11198,10 +11224,11 @@ enum V3CatalogRequestContext {
                 throw CombinedFailure(operation: operation, stage: hostStage(for: operation),
                     code: .invalidResponse, id: id, retryable: false)
             }
-            throw failure
+            throw correlatedReplyFailure(failure, operation: operation, id: id)
         }
         if let code = decoded["error"] as? String {
-            throw hostFailure(errorToken: code, operation: operation, id: id)
+            throw correlatedReplyFailure(hostFailure(errorToken: code, operation: operation, id: id),
+                operation: operation, id: id)
         }
         guard V3WireContract.strictBool(decoded["ok"]) == true,
               let result = decoded["result"] as? [String: Any] else {
@@ -11555,6 +11582,17 @@ public final class V3ServiceBridge {
     /// ACKs only an exact terminal direct request after its feature caller has
     /// accepted the successful result. The certCreate partial-remote outcome is
     /// deliberately left in recovery for a manual check.
+    // One exact, service-bound acknowledgement, never an absent-journal guess.
+    private var acknowledgedDirectRecovery: (requestID: String, operation: String,
+        serviceEpoch: UInt64, serviceInstanceID: String)?
+
+    public func hasAcknowledgedDirectRecovery(requestID: String, operation: String) -> Bool {
+        guard let proof = acknowledgedDirectRecovery else { return false }
+        return proof.requestID == requestID && proof.operation == operation &&
+            proof.serviceEpoch == statusWriteAuthority.serviceEpoch &&
+            proof.serviceInstanceID == currentStatusServiceInstanceID
+    }
+
     public func acknowledgeDirectRecoveryAfterSuccess(_ result: [String: Any],
                                                        operation: String) async -> Bool {
         guard V3DirectRecoveryHostPolicy.mayAcknowledgeSuccessfulResponse(
@@ -11564,14 +11602,21 @@ public final class V3ServiceBridge {
         // Close host admission while the durable terminal slot is being
         // acknowledged. A current quiescent snapshot reopens it after proof.
         setHostRecoveryHold(true)
+        let acknowledgedServiceEpoch = statusWriteAuthority.serviceEpoch
+        let acknowledgedServiceInstanceID = currentStatusServiceInstanceID
         do {
             let ack = try await request(operation: "directRecoveryReconcile", target: requestID,
                 payload: ["ackTerminal": true])
-            guard ack["requestID"] as? String == requestID,
-                  V3WireContract.strictBool(ack["reconciled"]) == true else {
+            guard !Task.isCancelled,
+                  ack["requestID"] as? String == requestID,
+                  V3WireContract.strictBool(ack["reconciled"]) == true,
+                  acknowledgedServiceEpoch == statusWriteAuthority.serviceEpoch,
+                  acknowledgedServiceInstanceID == currentStatusServiceInstanceID else {
                 NotificationCenter.default.post(name: Notification.Name("V3StatusAuthorityChanged"), object: nil)
                 return false
             }
+            acknowledgedDirectRecovery = (requestID, operation,
+                acknowledgedServiceEpoch, acknowledgedServiceInstanceID)
             NotificationCenter.default.post(name: Notification.Name("V3StatusAuthorityChanged"), object: nil)
             return true
         } catch {
