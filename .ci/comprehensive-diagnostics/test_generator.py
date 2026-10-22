@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -75,5 +76,15 @@ for key in ['operation_errors', 'portal_errors', 'portal_observers', 'anisette_e
             'remote_errors', 'minimuxer_mapping', 'registration_doubles', 'registration_cases']:
     assert key in hashes, key
 assert 'SECRET_' in generated_host and 'V3AuthStore.failureDetails(from: failure)' in generated_host
+# Legacy malformed non-optional context is rejected wholesale by the existing
+# host validator. This finite exception asserts a stricter replacement context;
+# every other wire vector still must preserve its original typed primary.
+legacy_rejections = ['legacy_hostile_auth_response_shape_0', 'legacy_hostile_auth_response_shape_1', 'legacy_hostile_auth_response_shape_2', 'legacy_hostile_auth_response_mime_0', 'legacy_hostile_auth_response_mime_1', 'legacy_hostile_auth_response_mime_2', 'legacy_bad_http_0', 'legacy_bad_http_1', 'legacy_bad_http_2', 'legacy_bad_http_3', 'legacy_wrong_kind']
+legacy_block = generated_host.split('let rejectedLegacyContextCases: Set<String> = [', 1)[1].split(']', 1)[0]
+assert set(re.findall(r'"([^"\n]+)"', legacy_block)) == set(legacy_rejections)
+assert 'fields == [V3AuthenticationDiagnostics.stateKey: "rejected"]' in generated_host
+assert 'else if let typed = item["primaryTyped"] as? String, typed != "unknown"' in generated_host
+assert 'fields["typed_error"] == typed, "\\(name): original typed primary retained"' in generated_host
+assert 'rejectedLegacyContextCases.isSubset(of: seen)' in generated_host
 print('WIRE_GENERATOR_STATIC_PASS source_owned_routes=8 privacy_guards=true swift_executed=false')
 

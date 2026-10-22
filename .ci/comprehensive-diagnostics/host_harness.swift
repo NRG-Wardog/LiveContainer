@@ -7,6 +7,22 @@ let other = "00000000-0000-0000-0000-000000000003"
 let data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
 let cases = try PropertyListSerialization.propertyList(from: data, format: nil) as! [[String: Any]]
 require(cases.count >= 80, "complete imported and local matrix")
+// These finite legacy negatives intentionally invalidate the entire old context.
+// Unlike optional pc1/ar1/hp2/ap1 rejection, that existing contract drops its
+// typed_error too. Require exact rejection here, never relax other cases.
+let rejectedLegacyContextCases: Set<String> = [
+    "legacy_hostile_auth_response_shape_0",
+    "legacy_hostile_auth_response_shape_1",
+    "legacy_hostile_auth_response_shape_2",
+    "legacy_hostile_auth_response_mime_0",
+    "legacy_hostile_auth_response_mime_1",
+    "legacy_hostile_auth_response_mime_2",
+    "legacy_bad_http_0",
+    "legacy_bad_http_1",
+    "legacy_bad_http_2",
+    "legacy_bad_http_3",
+    "legacy_wrong_kind",
+]
 var seen = Set<String>(); var validSnapshots: [String: String] = [:]
 for item in cases {
     let name = item["name"] as! String; require(seen.insert(name).inserted, "unique rows")
@@ -18,8 +34,12 @@ for item in cases {
     require(decoded.operation == "signIn" && decoded.stage.rawValue == item["primaryStage"] as? String, "category preserved")
     require(decoded.underlyingCode == item["primaryCode"] as! Int, "underlying ordinal preserved: \(name)")
     let fields = decoded.signingContext; require(fields.count <= 20, "host key cap")
-    if let typed = item["primaryTyped"] as? String, typed != "unknown" {
-        require(fields["typed_error"] == typed, "original typed primary retained")
+    if rejectedLegacyContextCases.contains(name) {
+        require(item["rejected"] as? Bool == true, "\(name): explicit legacy negative")
+        require(fields == [V3AuthenticationDiagnostics.stateKey: "rejected"], "\(name): entire invalid legacy context rejected")
+        require(decoded.underlyingDomain == "SideSign.ServerError" && decoded.retryable == nil && decoded.safeCause == nil && decoded.sourceStep == nil, "\(name): legacy primary envelope unchanged")
+    } else if let typed = item["primaryTyped"] as? String, typed != "unknown" {
+        require(fields["typed_error"] == typed, "\(name): original typed primary retained")
     }
     if key == "previousFailure" { require(failure["kind"] as? String == "unknown", "prior failure kind preserved") }
     for (key, value) in item["expectedSnapshots"] as? [String: String] ?? [:] { require(fields[key] == value, "exact imported ar1/hp2/ap1 survived decoder") }
@@ -59,6 +79,7 @@ for item in cases {
     if name == "fresh_attempt" { require(fields["auth_request_trace"] == nil && fields["auth_header_provenance"] == nil, "new attempt has no stale request") }
     if name == "legacy_absent_context" { require(!copy.contains("auth_response_shape=") && !copy.contains("auth_response_mime="), "legacy absent context remains absent") }
 }
+require(rejectedLegacyContextCases.isSubset(of: seen), "all finite legacy rejection cases exercised")
 require(V3AuthTimeoutDiagnosticRetentionPolicy.shouldClearOnSessionChange(from: id, to: other, state: "working"), "new attempt clears retired evidence")
 require(V3AuthTimeoutDiagnosticRetentionPolicy.selecting(state: "timedOut", timeout: nil, previous: nil) == nil, "no stale timeout evidence")
 for state in ["completed", "authenticatedProvisioningIncomplete", "failed", "timedOut", "promptExpired", "cancelled"] {
