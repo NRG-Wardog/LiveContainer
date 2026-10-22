@@ -35,6 +35,10 @@ with tempfile.TemporaryDirectory() as temporary:
                   'failure.operation == "refresh"', 'wire["correlationID"] as? String == runID']:
         assert guard in preservation,guard
     assert 'localizedDescription' not in preservation and 'entry["error"]' not in preservation
+    renderer=g.block(ui,'enum V3RefreshAllFailureDiagnostics {')
+    assert 'failure.technicalDetails' in renderer
+    assert 'failure.signingContext[' not in renderer and 'failure.underlyingDomain' not in renderer
+    assert 'localizedDescription' not in renderer and 'userInfo' not in renderer
     assert receipt['status']=='generated_not_compiled' and receipt['swift_executed'] is False
     assert receipt['native_provider_executed'] is False and receipt['network_executed'] is False
     assert set(g.INPUT_PATHS).issubset(receipt['inputs_sha256'])

@@ -2608,13 +2608,10 @@ enum V3RefreshAllFailureDiagnostics {
             ].joined(separator: "\n")
         }
         guard let failure else { return nil }
-        let retryable = failure.retryable.map { $0 ? "true" : "false" } ?? "unknown"
-        let underlying = CombinedFailure.safeDiagnosticUnderlying(domain: failure.underlyingDomain,
-                                                                    code: failure.underlyingCode)
+        // The decoded failure already enforces finite fields and snapshot bounds.
+        // Render its canonical details so no causal context is silently omitted.
         return [
-            "schema=1",
-            "diagnostic_code=\(failure.diagnosticCode)",
-            "builder_commit=\(V3DiagnosticBuild.commit)",
+            failure.technicalDetails,
             "request_id=\(requestID)",
             "manual_refresh_request=\(requestID)",
             "run_id=\(runID)",
@@ -2630,15 +2627,6 @@ enum V3RefreshAllFailureDiagnostics {
             "requested_app_ids=\(safeIDs("requested_ids"))",
             "attempted_app_ids=\(safeIDs("expected_ids"))",
             "skipped_app_ids=\(safeIDs("skipped_ids"))",
-            "operation=\(failure.operation)",
-            "stage=\(failure.stage.rawValue)",
-            "code=\(failure.code.rawValue)",
-            "correlation=\(failure.correlationID)",
-            "underlying_domain=\(underlying.domain)",
-            "underlying_code=\(underlying.code)",
-            "retryable=\(retryable)",
-            "safe_cause=\(failure.safeCause?.rawValue ?? "unknown")",
-            "source_step=\(failure.sourceStep?.rawValue ?? "unknown")",
             "safe_message=\(failure.safeMessage.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " "))"
         ].joined(separator: "\n")
     }

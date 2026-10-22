@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-CASE_NAMES = ['delivered_generic_wrapper_reproduced', 'actual_manifest_callback_ledger_copy', 'source_certificateSelection', 'source_refreshMetadataCache', 'source_provisioningProfileInstallation', 'source_refreshRecordUpdate', 'source_refreshApplication', 'certificate_authenticate', 'certificate_accountLookup', 'certificate_fetchCertificate', 'finite_boundary_invariants', 'invalid_refresh_failure_kind', 'missing_payload', 'invalid_plist', 'oversized_payload', 'stale_manifest', 'incomplete_manifest', 'duplicate_target', 'malformed_boolean', 'wrong_failure_run', 'wrong_failure_operation', 'invalid_failure', 'missing_failure_no_raw_fallback', 'contradictory_handoff', 'wrong_active_run', 'wrong_expected_run', 'wrong_active_request', 'missing_ledger', 'terminal_ledger', 'concrete_transport_retained', 'untyped_outer_retained', 'wrong_callback_run_ignored', 'wrong_launch_ignored', 'secret_canary_and_copy_identity']
+CASE_NAMES = ['delivered_generic_wrapper_reproduced', 'actual_manifest_callback_ledger_copy', 'copy_kind_omission_reproduced', 'copy_structured_snapshot_preserved', 'source_certificateSelection', 'source_refreshMetadataCache', 'source_provisioningProfileInstallation', 'source_refreshRecordUpdate', 'source_refreshApplication', 'certificate_authenticate', 'certificate_accountLookup', 'certificate_fetchCertificate', 'finite_boundary_invariants', 'invalid_refresh_failure_kind', 'missing_payload', 'invalid_plist', 'oversized_payload', 'stale_manifest', 'incomplete_manifest', 'duplicate_target', 'malformed_boolean', 'wrong_failure_run', 'wrong_failure_operation', 'invalid_failure', 'missing_failure_no_raw_fallback', 'contradictory_handoff', 'wrong_active_run', 'wrong_expected_run', 'wrong_active_request', 'missing_ledger', 'terminal_ledger', 'concrete_transport_retained', 'untyped_outer_retained', 'wrong_callback_run_ignored', 'wrong_launch_ignored', 'secret_canary_and_copy_identity']
 SUCCESS_MARKER = "PASS refresh_failure_actual_source_chain"
 
 INPUT_PATHS = {
@@ -37,7 +37,7 @@ INPUT_PATHS = {
     'service_boundary_doubles': 'SideStore/tests/refresh_failure/pipeline_harness.swift',
 }
 FIXTURE_FILES = ['generate_refresh_failure_fixture.py', 'generate_wire_fixture.py',
-    'refresh_completed_baseline.swift', 'refresh_failure_doubles.swift',
+    'refresh_completed_baseline.swift', 'refresh_copy_baseline.swift', 'refresh_failure_doubles.swift',
     'refresh_handler_doubles.swift', 'refresh_failure_harness.swift', 'test_refresh_failure_contract.py']
 
 HERE = Path(__file__).resolve().parent
@@ -59,6 +59,8 @@ def generate(root, output):
 
     before = (HERE/'refresh_completed_baseline.swift').read_text().rstrip()
     assert hashlib.sha256(before.encode()).hexdigest() == 'f730e5fd206bfbc38dea6d452d2b79d3bf8fbc2ffb05bb970d1e495607275a46', 'Delivered callback negative control changed'
+    before_copy = (HERE/'refresh_copy_baseline.swift').read_text().rstrip()
+    assert hashlib.sha256(before_copy.encode()).hexdigest() == 'ee1156e3c033017895aabb3c946088061e1e2d977c178d509dbbdda55cfc6002', 'First CI Copy renderer negative control changed'
     current = block(host, 'fileprivate func completedRefresh(')
     assert 'V3RefreshTerminalFailurePolicy.preservedFailure(' in current
     assert 'defaults.set(preserved.manifest' in current
@@ -102,6 +104,7 @@ def generate(root, output):
 static func publishRunState(_ state: String, runID: String, requestID: String?, origin: String?) {}
 static func notify(title: String, body: String, kind: String, runID: String, requestID: String?, origin: String?) {}
 }\n'''
+    swift += before_copy.replace('enum V3RefreshAllFailureDiagnostics {', 'enum BeforeKindRefreshDiagnostics {', 1) + '\n'
     swift += block(s['ui'], 'enum V3RefreshAllFailureDiagnostics {') + '\n'
     swift += (HERE/'refresh_failure_harness.swift').read_text()
     output.mkdir(parents=True, exist_ok=True)
@@ -110,7 +113,7 @@ static func notify(title: String, body: String, kind: String, runID: String, req
     inputs.update({name: HERE/name for name in FIXTURE_FILES})
     receipt = {'schema':'refresh-failure-sources-v1', 'case_names':CASE_NAMES, 'status':'generated_not_compiled', 'native_provider_executed':False, 'network_executed':False, 'swift_executed':False, 'inputs_sha256':{name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in inputs.items()},
                'generated_sha256':hashlib.sha256(swift.encode()).hexdigest(),
-               'boundaries':['actual finite refresh boundary annotations and native OperationError classifier','actual AppManager mapper and NSError localized-title wrapper','actual certificate portal read routes with inert provider calls','actual manifest producer','actual IntentError sanitizer constructor','actual service callback plist export','delivered and current completion callback','actual terminal ledger persistence and compaction','actual refresh Copy Diagnostics renderer'],
+               'boundaries':['actual finite refresh boundary annotations and native OperationError classifier','actual AppManager mapper and NSError localized-title wrapper','actual certificate portal read routes with inert provider calls','actual manifest producer','actual IntentError sanitizer constructor','actual service callback plist export','delivered and current completion callback','actual terminal ledger persistence and compaction','first CI and current refresh Copy Diagnostics renderers'],
                'limits':['Synthetic finite errors and in-memory app/defaults/transport boundaries only. No private runner, device, provider, native library or credential execution.','Generation is not Swift compilation or execution.']}
     (output/'sources.json').write_text(json.dumps(receipt,indent=2)+'\n')
     return receipt

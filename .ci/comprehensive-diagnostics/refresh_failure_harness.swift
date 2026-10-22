@@ -99,10 +99,28 @@ struct RefreshFailureCases {
         let current = terminal(await CurrentHandler().deliver(server.error, runID: runID, verification: server.verification))
         check(current.0.sourceStep == .localCodeSigning && current.0.safeCause == .certificateUnavailable, "current preserves cause")
         check(current.1.contains("source_step=localCodeSigning") && current.1.contains("underlying_domain=NSPOSIXErrorDomain") && current.1.contains("underlying_code=13") && current.1.contains("retryable=false"), "actual copy preserves semantic fields")
+        check(current.0.signingContext["refresh_failure_kind"] == "certificateChanged", "typed refresh kind survives host and ledger")
+        let beforeCopy = V3DiagnosticCopy.details(visibleMessage: current.0.safeMessage,
+            technical: BeforeKindRefreshDiagnostics.text(requestID: requestID, runID: runID, record: current.2)!)
+        check(!beforeCopy.contains("refresh_failure_kind="), "first CI renderer reproduces finite-kind omission")
+        pass("copy_kind_omission_reproduced")
         check(current.1.contains("refresh_failure_kind=certificateChanged"), "typed refresh kind reaches Copy")
         let durable = V3SharedAppGroup.defaults.dictionary(forKey: "liveContainerAutoRefreshCurrentRunFailure")!
         check(durable["source_step"] as? String == "localCodeSigning", "durable current failure records source")
+        check(current.1.contains(current.0.technicalDetails), "Copy reuses complete canonical safe details")
         pass("actual_manifest_callback_ledger_copy")
+
+        reset()
+        let cause = V3ProvisioningCauseDiagnostic(encoded: "pc1|registerDevice|0|0|0|registerDevice,portal,invalidDeviceID,-,-,-,-,unobserved,unavailable,unavailable,-,-,0")!
+        let provisioning = CombinedFailure(operation: "refresh", stage: .provisioning, id: runID,
+            sourceStep: .registerDevice, signingContext: [V3ProvisioningCauseDiagnostic.contextKey: cause.encoded])
+        server = producer(provisioning)
+        let structured = terminal(await CurrentHandler().deliver(server.error, runID: runID, verification: server.verification))
+        check(structured.1.contains(cause.technicalDetails), "structured provisioning cause survives complete Copy chain")
+        check(structured.1.contains("case=invalidDeviceID"), "second legitimate structured cause is visible")
+        let priorStructured = BeforeKindRefreshDiagnostics.text(requestID: requestID, runID: runID, record: structured.2)!
+        check(!priorStructured.contains("provisioning_cause_schema="), "first CI renderer reproduces structured snapshot omission")
+        pass("copy_structured_snapshot_preserved")
 
         for row in refreshBoundaryFixtureCases() {
             reset(); server = producer(row.error)
