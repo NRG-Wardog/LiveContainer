@@ -1,9 +1,9 @@
 # Inert template only. Native run/attempt and independently reviewed artifacts remain unbound.
 # Publish only after its success/artifact review. No native rebuild or public release.
-name: Package retained registration diagnostics experimental apps
+name: Package retained pairing and deferred setup experimental apps
 on:
   push:
-    branches: [validation/package-registration-diagnostics-20261022]
+    branches: [validation/package-pairing-finalization-recovery-20261022]
     paths: ['.github/workflows/package-diagnostic.yml']
   workflow_dispatch:
 permissions:
@@ -11,17 +11,17 @@ permissions:
   actions: read
 jobs:
   package:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/package-registration-diagnostics-20261022'
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/package-pairing-finalization-recovery-20261022'
     runs-on: macos-26
     timeout-minutes: 20
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONOPTIMIZE: '0'
       PYTHONDONTWRITEBYTECODE: '1'
-      REVIEWED_NATIVE_RECEIPT_SHA256: 'dde21ffd6c96963358f08e45433842c9861093cd0e08276794c9112e5b97ada8'
-      REVIEWED_LIVECONTAINER_UNSIGNED_SHA256: '39a18da9596b2ad7e253c09fdba90da1790ab9dc10cda9a5cfb114e3ba1ff210'
-      REVIEWED_SIDESTORE_UNSIGNED_SHA256: '81cd72d49d4f6c996ec3b43cb07a4007de9e4637f52a97d08b9645b383b465e6'
-      REVIEWED_COMPREHENSIVE_REPORT_SHA256: '4428c48b708bb341d9bfadad335685b0a6a5a24af3255e188407aeee65a9476a'
+      REVIEWED_NATIVE_RECEIPT_SHA256: '098515a38217082837323315a6ff3238dd7a47e719dcf0a11c7afd4d6f416a03'
+      REVIEWED_LIVECONTAINER_UNSIGNED_SHA256: '53b6191c70815ff099d9b80c3babd799bc96ce4543a62b523ce83128122bc737'
+      REVIEWED_SIDESTORE_UNSIGNED_SHA256: '7cb13836d1cb7b632511b38f57af2d359e7fd03a0920246d3d8e1986c428056e'
+      REVIEWED_COMPREHENSIVE_REPORT_SHA256: 'fbb3ecc63da009d061a8c0b3a44d651ecef94db634de3fd2175a8ac96b0644f5'
     steps:
       - name: Require independently reviewed native artifact bindings
         shell: bash
@@ -42,15 +42,15 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: NRG-Wardog/LiveContainer
-          ref: 0b98afc7ad5ea51dc97612466743a15baa9305ed
+          ref: d22f7c0ea32be749517a20deb719f8c11891f731
           path: host
           persist-credentials: false
           submodules: false
       - name: Download only matching successful native artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          COMPILE_RUN: '39782439194'
-          COMPILE_COMMIT: 'ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f'
+          COMPILE_RUN: '39814024883'
+          COMPILE_COMMIT: 'e375ffda1afb160da332833baae404845ec60476'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
@@ -62,10 +62,12 @@ jobs:
           python3 - <<'PY'
           import json, os
           r = json.load(open('package-evidence/compile-run.json'))
+          if r.get('workflow_id') != 390741603:
+              raise ValueError('Wrong exact native workflow identity')
           if (r['head_sha'] != os.environ['COMPILE_COMMIT'] or
               r['run_attempt'] != int(os.environ['COMPILE_ATTEMPT']) or
               r['conclusion'] != 'success' or r['path'] != '.github/workflows/native-app-compile.yml' or
-              r['head_branch'] != 'validation/native-registration-diagnostics-20261022'):
+              r['head_branch'] != 'validation/native-pairing-finalization-recovery-20261022'):
               raise ValueError('Not the requested successful native compile')
           PY
           cat > package-evidence/zip_preflight.py <<'PY'
@@ -152,14 +154,14 @@ jobs:
           done
       - name: Verify retained native input identities and bytes
         env:
-          COMPILE_RUN: '39782439194'
-          COMPILE_COMMIT: 'ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f'
+          COMPILE_RUN: '39814024883'
+          COMPILE_COMMIT: 'e375ffda1afb160da332833baae404845ec60476'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
           set -euo pipefail
           test "$(git -C builder rev-parse HEAD)" = 3edd9fa523a223bcd2898d5c960c5da7ff335be8
-          test "$(git -C host rev-parse HEAD)" = 0b98afc7ad5ea51dc97612466743a15baa9305ed
+          test "$(git -C host rev-parse HEAD)" = d22f7c0ea32be749517a20deb719f8c11891f731
           test -z "$(git -C builder status --porcelain)"
           test -z "$(git -C host status --porcelain)"
           python3 - <<'PY'
@@ -187,7 +189,7 @@ jobs:
               ],
               "LiveContainer": [
                   "NRG-Wardog/LiveContainer",
-                  "0b98afc7ad5ea51dc97612466743a15baa9305ed"
+                  "d22f7c0ea32be749517a20deb719f8c11891f731"
               ],
               "LiveContainer/OpenSSL": [
                   "krzyzanowskim/OpenSSL",
@@ -199,7 +201,7 @@ jobs:
               ],
               "SideStore": [
                   "NRG-Wardog/SideStore",
-                  "9071aa585fb39001c4f0e7357b3b33529cbcea2a"
+                  "606707ee6789b8db1dcbddf9ebe52205338f373d"
               ],
               "SideStore/Dependencies/SideSign": [
                   "NRG-Wardog/SideSign",
@@ -257,6 +259,122 @@ jobs:
               diagnostic_report = json.loads(report.read_text())
               if diagnostic_report.get('status') != 'SOURCE_OWNED_FAKE_DIAGNOSTICS_PASS_NOT_RUNTIME_VALIDATION':
                   raise ValueError('Comprehensive diagnostic report is not passing')
+              # The exact independently reviewed report remains authoritative.
+              # Require the added narrow suites and their frozen case closure too;
+              # these are fake-boundary checks, never on-device sign-in evidence.
+              expected_suites = ['legacy-response-core', 'auth-request', 'iloader-auth-parity', 'iloader-onboarding-scope', 'profile-provenance', 'wire-copy', 'placed-pairing', 'deferred-device-setup']
+              expected_commands = ["legacy-generate", "legacy-compile", "legacy-run", "auth-source", "auth-generate", "auth-compile", "auth-run", "iloader-source", "iloader-generate", "iloader-compile", "iloader-run", "onboarding-source", "onboarding-generate", "onboarding-compile", "onboarding-run", "profile-source", "profile-generate", "profile-compile", "profile-run", "wire-source", "wire-generate", "wire-service-compile", "wire-host-compile", "wire-service-run", "wire-host-run", "pairing-source", "pairing-generate", "pairing-compile", "pairing-run", "recovery-source", "recovery-generate", "recovery-compile", "recovery-run", "deferred-prior-extract", "deferred-prior-generate", "deferred-prior-compile", "deferred-prior-run", "deferred-source", "deferred-generate", "deferred-compile", "deferred-run"]
+              expected_setup_cases = {"deferred-device-setup": ["background_retry_reauth_and_skip_modes_never_defer", "cancellation_before_or_during_activation_never_succeeds", "configured_success_registers_and_completes", "deferred_completion_skips_resign_and_postauth", "failed_activation_never_publishes_deferred_success", "fresh_pem_real_proof_finalization_terminal_and_export", "missing_pairing_defers_after_certificate_and_checked_activation", "network_udid_portal_and_certificate_failures_never_defer", "present_invalid_empty_and_unreadable_never_defer", "real_proof_rejects_wrong_malformed_and_truncated_keys", "reloaded_pkcs1_and_pkcs8_real_proof_finalization_terminal_and_export", "reset_pairing_defers_without_adopting_stale_record", "service_terminal_and_export_reject_mismatched_ownership", "stale_identity_wrong_team_or_key_never_activates", "wire_outcome_allowlist_preserves_incomplete_journal"], "placed-pairing": ["activation-gate-serializes", "actual-live-query-ready", "boot-and-status-preserve-reset", "cached-device-id-is-not-live-proof", "cancelled-startup-retains-adopted-file", "changed-placement-after-commit-stops-transport", "changed-preference-after-commit-not-overwritten", "changed-state-after-live-query-not-ready", "cleanup-uncertainty-retains-file-and-hold", "commit-cancellation-preserves-reset", "conflicting-destination-preserved", "diagnostics-do-not-contain-pairing-data", "different-live-device-not-ready", "directory-replacement-rejected", "failed-live-identity-retains-adopted-file", "failed-publication-cleanup-quarantines-leftover", "failed-startup-retains-adopted-file", "fresh-place-explicit-adoption", "invalid-placement-no-mutation", "oversized-file-rejected", "queued-boot-does-not-override-cleanup-uncertain", "queued-boot-does-not-retry-not-ready", "reset-with-no-file-preserved", "stale-before-commit-no-adoption", "symlink-directory-rejected", "symlink-placement-rejected", "verified-existing-copy-adopted"]}
+              if (set(expected_setup_cases) != {'placed-pairing', 'deferred-device-setup'} or
+                  any(not isinstance(names, list) or not names or
+                      any(not isinstance(name, str) or not name for name in names) or
+                      len(names) != len(set(names)) for names in expected_setup_cases.values())):
+                  raise ValueError('Frozen setup case contract is incomplete')
+              if diagnostic_report.get('suites') != expected_suites:
+                  raise ValueError('Consolidated diagnostic suite closure differs')
+              commands = diagnostic_report.get('commands', [])
+              if ([row.get('name') for row in commands] != expected_commands or
+                  any(row.get('exit_code') != 0 for row in commands)):
+                  raise ValueError('Consolidated diagnostic command closure differs')
+              for key in ('live_authentication_executed', 'guest_binary_executed',
+                          'native_provider_executed', 'native_linked_tests_executed'):
+                  if diagnostic_report.get(key) is not False:
+                      raise ValueError('Forbidden runtime claim in retained diagnostic report')
+              if (diagnostic_report.get('source_owned_fake_authentication_executed') is not True or
+                  diagnostic_report.get('source_input_bytes_unchanged') is not True or
+                  diagnostic_report.get('source_inputs_before') != diagnostic_report.get('source_inputs_after')):
+                  raise ValueError('Missing fake-only or source immutability evidence')
+              exports = diagnostic_report.get('fixture_exports', {})
+              if set(exports) != {'iloader-auth-parity', 'iloader-onboarding-scope',
+                                 'placed-pairing', 'deferred-device-setup'}:
+                  raise ValueError('Retained fixture export closure differs')
+              for suite, names in expected_setup_cases.items():
+                  path = report_dir / suite / 'cases.json'
+                  if path.is_symlink() or not path.is_file() or path.parent.is_symlink():
+                      raise ValueError('Missing or linked setup case export')
+                  case_bytes = path.read_bytes()
+                  value = json.loads(case_bytes)
+                  cases = value.get('cases')
+                  if (value.get('schema') != suite + '-cases-v1' or value.get('fake_only') is not True or
+                      not isinstance(cases, list) or any(not isinstance(name, str) for name in cases) or
+                      len(cases) != len(set(cases)) or sorted(cases) != sorted(names)):
+                      raise ValueError('Setup case export differs from frozen source contract')
+                  expected = {'schema': suite + '-cases-v1', 'fake_only': True, 'names': cases,
+                              'count': len(cases), 'sha256': hashlib.sha256(case_bytes).hexdigest()}
+                  if exports.get(suite) != expected:
+                      raise ValueError('Setup case receipt differs from retained bytes')
+              # Narrow recovery identities supplement the exact independently admitted report.
+              expected_recovery = json.loads(r'''{"baseline_store_sha256": "7f2e5adb99e4e990513152d59c2e7e931d871e4e3c5bbc9f32344a180b4ac19a", "contract_sha256": "4f9066eaad6e520580f158722d4e84606423077b774d96084b953c0ab64b9850", "deferred_baseline": {"input_sha256": {"LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift": "9767154ceb1cb7c8ba55548554fd56c675bdd1946824f9480266e3c8f8f8b844", "LiveContainer/SideStoreSupport/SideStore.swift": "500c90f61be0f1b41c4e7ff785ff84080fff56f59a4392123ac8660a549c7b05", "SideStore/AltStore/AppDelegate.swift": "0d78665e470757d56ac1977fcb9d443fc1c43d1d0ed296a21092c02ec1fcac7f", "SideStore/AltStore/Core/Components/Keychain.swift": "9d617b70b9ab8f77e336a9788953eee837692738c08e7c2abae79b286e3265dd", "SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift": "e972f41a596e83602f1a6cec3914efb8ab044291abf2f2a31aedc4473f0550c4", "SideStore/SideStore/Core/Pairing/PairingFileManager.swift": "83320f94fcf086627c1f7c104469eacc8852ca4d328916c9a299cfadfb506274"}, "owners": {"LiveContainer": {"commit": "c20d8289bb72fdca07dd08506c37ead6d9da37da", "tree": "5e92e4275c0b59e48662be9966ef8c2a3f7e0e04"}, "SideStore": {"commit": "6c8ae29c0a9448a83ca710ea484d91d6b2d143cd", "tree": "f4955c1e4a510b10b0022f2dc7e81ae4002b56bd"}}}, "pairing_recovery_case_names": ["ack-cancel-retains-owner", "ack-cancelAfterResponse-retains-owner", "ack-epochChanged-retains-owner", "ack-fail-retains-owner", "ack-falseAck-retains-owner", "ack-serviceChanged-retains-owner", "ack-wrongTarget-retains-owner", "baseline-dispatched-snapshot-ack-stale-owner-reproduced", "certificate-import-safe-copy-and-stale-suffix", "cleanup-uncertainty-retains-durable-and-host-owner", "correlation-inner-no-request-context", "correlation-outer-no-request-context", "correlation-unallowlistedOperation-no-request-context", "exact-ack-plus-quiescent-snapshot-retires-owner", "failed-repeat-ack-retains-only-original-success-proof", "finite-recovery-refusal-causes-preserve-journal", "localized-command-recovery-deferred-en", "localized-command-recovery-deferred-he", "localized-command-recovery-deferred-zh-Hans", "localized-command-recovery-deferred-zh-Hant", "snapshot-activeMutation-retains-owner", "snapshot-busy-retains-owner", "snapshot-differentOperation-retains-owner", "snapshot-malformedDirect-retains-owner", "snapshot-missingAck-retains-owner", "snapshot-newerOwner-retains-owner", "snapshot-postAckEpochChanged-retains-owner", "snapshot-unreadable-retains-owner", "wire-classify-copy-directRecoveryInspect", "wire-classify-copy-directRecoveryReconcile", "wire-classify-copy-pairingUsePlaced"], "pairing_recovery_fixture_inputs": {"generate_pairing_recovery_fixture.py": "5caa33d5053b2e52088f597a736347569841dff375fecff6fc1d965ed701a91c", "generate_wire_fixture.py": "eae2b298aa9c4a23b4aa8bacc0e72a0645ec6acdcae8d38c3391c7dc468c4683", "pairing_recovery_harness.swift": "f28fd762d13ada3419e37b672fe54c863b0d29778b261437760cbda1e1bbcb87", "test_pairing_recovery_contract.py": "085c00713fc72efb7d56bae8753b5d053b492801418368a92759ea39433fb31c"}, "pairing_recovery_input_sha256": {"catalog": "6db2df7a72da5384f0a255dba6975549ec0765a700d79a5717af9196c073110d", "host": "1b289b344701654498a3fab9e3a8bf2f7c8b43536cb65b37f2b916b75b470527", "localization": "42a1b385d22be1a59854551faff25855be01c73cf1e6cd85dab66b41e247aba8", "service": "51e30757931bcf6c82f77bebdca98765f91d6eae9e600e5c891c2a051d660da1", "settings": "53e9141cd2ef1e3aaccb74e099cddfed9ed8451b0dbbca0ac3c7a3b53fe0b84a", "ui": "bfad75629bb4fe6cdd8b3cfa2b60346eff8d7d6ebf50f892e6acea4e697ecfa2"}, "pairing_recovery_outputs": ["fixture.swift", "TestLocalization.bundle/Info.plist", "TestLocalization.bundle/en.lproj/Localizable.strings", "TestLocalization.bundle/he.lproj/Localizable.strings", "TestLocalization.bundle/zh-Hans.lproj/Localizable.strings", "TestLocalization.bundle/zh-Hant.lproj/Localizable.strings"], "source_input_count": 93, "system_crypto_boundary": {"frameworks": ["Security", "CryptoKit"], "native_vendor_provider": false, "personal_keys_or_certificates": false, "platform": "darwin", "real_keychain_access": false, "synthetic_in_memory_identities_only": true}}''')
+              if (diagnostic_report.get('contract_sha256') != expected_recovery['contract_sha256'] or
+                  len(diagnostic_report.get('source_inputs_before', {})) != expected_recovery['source_input_count'] or
+                  diagnostic_report.get('system_crypto_synthetic_fixture_executed') is not True or
+                  diagnostic_report.get('system_crypto_boundary') != expected_recovery['system_crypto_boundary']):
+                  raise ValueError('Missing bounded synthetic Security/CryptoKit recovery evidence')
+              def retained_bytes(relative):
+                  path = report_dir / relative
+                  if not path.is_file() or path.is_symlink() or any(p.is_symlink() for p in path.parents):
+                      raise ValueError('Missing or linked recovery evidence: ' + relative)
+                  return path.read_bytes()
+              def retained_hash(relative):
+                  return hashlib.sha256(retained_bytes(relative)).hexdigest()
+              prior = diagnostic_report.get('deferred_prior_pem_rejection', {})
+              baseline = expected_recovery['deferred_baseline']
+              prior_path = 'deferred-prior-pem/baseline-sources.json'
+              prior_expected = {'schema': 'deferred-prior-pem-sources-v1', 'origin': 'exact-local-git-objects',
+                                'owners': baseline['owners'], 'input_sha256': baseline['input_sha256'],
+                                'network': False, 'target_execution': False}
+              if (json.loads(retained_bytes(prior_path)) != prior_expected or
+                  prior.get('source_receipt_path') != prior_path or prior.get('source_receipt_sha256') != retained_hash(prior_path) or
+                  prior.get('owners') != baseline['owners'] or prior.get('input_sha256') != baseline['input_sha256'] or
+                  prior.get('required_marker') != 'DEFERRED_PRIOR_PEM_REJECTION_REPRODUCED' or
+                  prior.get('system_crypto_boundary') != expected_recovery['system_crypto_boundary']):
+                  raise ValueError('Prior exact delivered PEM rejection receipt differs')
+              for name, digest in baseline['input_sha256'].items():
+                  if retained_hash('deferred-prior-pem/sources/' + name) != digest:
+                      raise ValueError('Prior delivered source bytes differ')
+              prior_extraction = 'deferred-prior-pem/deferred-device-setup/source-evidence.json'
+              if prior.get('extraction') != {'path': prior_extraction, 'sha256': retained_hash(prior_extraction)}:
+                  raise ValueError('Prior actual-source extraction receipt differs')
+              recovery_path = 'pairing-recovery/cases.json'
+              recovery = json.loads(retained_bytes(recovery_path))
+              names = recovery.get('cases')
+              if (recovery.get('schema') != 'pairing-recovery-cases-v1' or recovery.get('status') != 'pass' or
+                  recovery.get('fake_only') is not True or recovery.get('native_pairing_executed') is not False or
+                  not isinstance(names, list) or any(not isinstance(name, str) for name in names) or
+                  len(names) != len(set(names)) or sorted(names) != sorted(expected_recovery['pairing_recovery_case_names'])):
+                  raise ValueError('Actual pairing recovery case closure differs')
+              if diagnostic_report.get('pairing_recovery_cases') != {
+                      'schema': 'pairing-recovery-cases-v1', 'fake_only': True, 'names': names,
+                      'count': len(names), 'sha256': retained_hash(recovery_path)}:
+                  raise ValueError('Pairing recovery case receipt differs')
+              recovery_source_path = 'pairing-recovery/sources.json'
+              recovery_source = json.loads(retained_bytes(recovery_source_path))
+              outputs = {name: retained_hash('pairing-recovery/' + name) for name in expected_recovery['pairing_recovery_outputs']}
+              if (recovery_source.get('schema') != 'pairing-recovery-sources-v1' or
+                  recovery_source.get('status') != 'generated_not_compiled' or
+                  recovery_source.get('input_sha256') != expected_recovery['pairing_recovery_input_sha256'] or
+                  recovery_source.get('fixture_inputs') != expected_recovery['pairing_recovery_fixture_inputs'] or
+                  recovery_source.get('baseline_store_sha256') != expected_recovery['baseline_store_sha256'] or
+                  recovery_source.get('output_sha256') != outputs or recovery_source.get('fixture_sha256') != outputs['fixture.swift'] or
+                  sorted(recovery_source.get('case_names', [])) != sorted(names)):
+                  raise ValueError('Pairing recovery actual-source or generated closure differs')
+              if diagnostic_report.get('pairing_recovery_extraction') != {
+                      'path': recovery_source_path, 'sha256': retained_hash(recovery_source_path),
+                      'output_sha256': outputs, 'baseline_store_sha256': expected_recovery['baseline_store_sha256']}:
+                  raise ValueError('Pairing recovery extraction receipt differs')
+              by_name = {row['name']: row for row in commands}
+              for command in ('deferred-prior-compile', 'deferred-compile'):
+                  argv = by_name[command]['argv']
+                  if [argv[i + 1] for i, value in enumerate(argv[:-1]) if value == '-framework'] != ['Security', 'CryptoKit']:
+                      raise ValueError('Synthetic cryptographic framework closure differs')
+              for command, marker in (('deferred-prior-run', 'DEFERRED_PRIOR_PEM_REJECTION_REPRODUCED'),
+                                      ('recovery-run', 'PAIRING_RECOVERY_BOUNDARY_PASS'),
+                                      ('deferred-run', 'DEFERRED_DEVICE_SETUP_FIXTURE_PASS')):
+                  row = by_name[command]
+                  raw = retained_bytes(row['log'])
+                  if (row.get('success_marker') != marker or hashlib.sha256(raw).hexdigest() != row['stdout_sha256'] or
+                      raw.decode('utf-8').splitlines().count(marker) != 1):
+                      raise ValueError('Required source-extracted recovery success marker differs')
               actual_artifacts = {}
               for path in sorted(report_dir.rglob('*')):
                   if path.is_symlink(): raise ValueError('Symlinked comprehensive diagnostic artifact')
@@ -344,7 +462,7 @@ jobs:
           # Intentional packaging metadata only, after retained input verification.
           python3 - <<'PY'
           import hashlib, json, os, pathlib, plistlib, re
-          commit = 'ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f'
+          commit = 'e375ffda1afb160da332833baae404845ec60476'
           if not re.fullmatch('[0-9a-f]{40}', commit):
               raise ValueError('Invalid native builder commit')
           records = []
@@ -376,7 +494,7 @@ jobs:
           label = {
               'product_version': '6.0',
               'channel': 'experimental',
-              'label': '6.0 registration diagnostics experimental',
+              'label': '6.0 pairing and deferred setup experimental',
               'native_compile_run': str(receipt['run_id']),
               'native_compile_attempt': str(receipt['run_attempt']),
               'native_workflow_commit': commit,
@@ -394,9 +512,9 @@ jobs:
             --root host \
             --host unpacked/LiveContainer/native-transfer-LiveContainer/Products/LiveContainer.app \
             --side unpacked/SideStore/native-transfer-SideStore/Products/SideStore.app \
-            --output diagnostic/LiveContainer-SideStore-6.0-registration-diagnostics-experimental.ipa 2>&1 | tee package-evidence/packaging.log
-          shasum -a 256 diagnostic/LiveContainer-SideStore-6.0-registration-diagnostics-experimental.ipa > diagnostic/SHA256SUMS
-          stat -f%z diagnostic/LiveContainer-SideStore-6.0-registration-diagnostics-experimental.ipa > diagnostic/size-bytes.txt
+            --output diagnostic/LiveContainer-SideStore-6.0-pairing-deferred-setup-experimental.ipa 2>&1 | tee package-evidence/packaging.log
+          shasum -a 256 diagnostic/LiveContainer-SideStore-6.0-pairing-deferred-setup-experimental.ipa > diagnostic/SHA256SUMS
+          stat -f%z diagnostic/LiveContainer-SideStore-6.0-pairing-deferred-setup-experimental.ipa > diagnostic/size-bytes.txt
           test "$(cat diagnostic/size-bytes.txt)" -lt 524288000
           # Wrapper itself checks conversion, entitlements, identities and resources.
           # This is a diagnostic candidate, not proof that sign-in works on device.
