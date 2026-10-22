@@ -20,6 +20,39 @@
         precondition(CommandLine.arguments.count == 3)
         let input = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
         let rows = try PropertyListSerialization.propertyList(from: input, format: nil) as! [[String: Any]]
+        let candidateRenderer = rows[0]["candidate"] as! Bool
+        // Exercise the real renderer, not a replacement Copy formatter. The
+        // historical projection deliberately lacks this finite state field.
+        for state in ["recorded", "trimmed", "rejected", "notRecorded"] {
+            let failure = CombinedFailure(operation: "certPortalList", stage: .authentication,
+                id: id, signingContext: [V3AuthenticationDiagnostics.stateKey: state])
+            let details = failure.technicalDetails
+            let fields = Set(details.split(whereSeparator: { $0.isWhitespace }).map(String.init))
+            check(fields.contains("auth_diagnostic_state=" + state) == candidateRenderer,
+                  "finite authentication state absent before and retained after")
+            check(!details.contains("auth_request_trace=") && !details.contains("actual_request_used=") &&
+                  !details.contains("latest_acquisition_observation="),
+                  "finite command state does not enable full authentication traces")
+        }
+        let absentState = CombinedFailure(operation: "certPortalList", stage: .authentication, id: id)
+        check(!absentState.technicalDetails.contains("auth_diagnostic_state="), "absent state emits nothing")
+        let rejectedState = CombinedFailure(operation: "certPortalList", stage: .authentication,
+            id: id, signingContext: [V3AuthenticationDiagnostics.stateKey: "SECRET_INVALID_STATE"])
+        check(rejectedState.signingContext[V3AuthenticationDiagnostics.stateKey] == "rejected",
+              "actual constructor sanitizes invalid state to finite rejection")
+        let rejectedFields = Set(rejectedState.technicalDetails.split(whereSeparator: { $0.isWhitespace }).map(String.init))
+        check(rejectedFields.contains("auth_diagnostic_state=rejected") == candidateRenderer &&
+              !rejectedState.technicalDetails.contains("SECRET_"),
+              "sanitized rejection is retained without rendering invalid input")
+        let nonAuthentication = CombinedFailure(operation: "certPortalList", stage: .signing,
+            id: id, signingContext: [V3AuthenticationDiagnostics.stateKey: "trimmed"])
+        check(!nonAuthentication.technicalDetails.contains("auth_diagnostic_state="),
+              "finite state rendering remains authentication-stage scoped")
+        let signIn = CombinedFailure(operation: "signIn", stage: .authentication,
+            id: id, signingContext: [V3AuthenticationDiagnostics.stateKey: "trimmed"])
+        check(signIn.technicalDetails.contains("auth_diagnostic_state=trimmed") &&
+              signIn.technicalDetails.contains("auth_request_trace=notRecorded"),
+              "existing sign-in-only full diagnostics remain unchanged")
         var names = Set<String>()
         var reports: [[String: Any]] = []
         for row in rows {
