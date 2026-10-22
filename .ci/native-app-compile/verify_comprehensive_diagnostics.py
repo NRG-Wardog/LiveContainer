@@ -10,10 +10,11 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 STATUS = 'SOURCE_OWNED_FAKE_DIAGNOSTICS_PASS_NOT_RUNTIME_VALIDATION'
-SUITES = ('legacy-response-core', 'auth-request', 'iloader-auth-parity', 'profile-provenance', 'wire-copy')
+SUITES = ('legacy-response-core', 'auth-request', 'iloader-auth-parity', 'iloader-onboarding-scope', 'profile-provenance', 'wire-copy')
 COMMANDS = ('legacy-generate', 'legacy-compile', 'legacy-run',
             'auth-source', 'auth-generate', 'auth-compile', 'auth-run',
             'iloader-source', 'iloader-generate', 'iloader-compile', 'iloader-run',
+            'onboarding-source', 'onboarding-generate', 'onboarding-compile', 'onboarding-run',
             'profile-source', 'profile-generate', 'profile-compile', 'profile-run',
             'wire-source', 'wire-generate', 'wire-service-compile', 'wire-host-compile',
             'wire-service-run', 'wire-host-run')
@@ -23,6 +24,17 @@ AUTH_FILES = ('CandidateAuthentication.swift', 'BaselineAuthentication.swift',
 ILOADER_FILES = ('CandidateAuthentication.swift', 'AuthenticationDiagnosticTrace.swift',
                  'Errors.swift', 'Types.swift', 'BoundaryDoubles.swift',
                  'ILoaderRemoteAnisette.swift', 'RuntimeTests.swift')
+ONBOARDING_FILES = ('CandidateOnboarding.swift', 'BoundaryDoubles.swift', 'RuntimeTests.swift')
+ONBOARDING = 'SideStore/.ci/iloader-onboarding-scope'
+ONBOARDING_REQUIRED_SOURCES = (
+    'SideStore/AltStore/AppDelegate.swift',
+    'SideStore/SideStore/Core/Auth/AuthManager.swift',
+    'SideStore/SideStore/Core/Auth/DeveloperPortalProxy.swift',
+    'SideStore/SideStore/Utils/concurrency/TaskChainCoalescer.swift',
+    'SideStore/SideStore/Core/Anisette/AnisetteProvider.swift',
+    'SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
+    'SideSign/Sources/Anisette/ILoaderRemoteAnisette.swift',
+)
 SIGN = 'SideStore/Dependencies/SideSign'
 AUTH = SIGN + '/.ci/auth-request-diagnostics'
 ILOADER = SIGN + '/.ci/iloader-auth-parity'
@@ -30,6 +42,10 @@ ILOADER_OFFICIAL_REFERENCE = 'fc7a81a6de678aa707e05399ffafb8be0ad56921'
 PROFILE = SIGN + '/.ci/profile-provenance'
 WIRE = 'LiveContainer/.ci/comprehensive-diagnostics'
 REQUIRED_INPUTS = {
+    ONBOARDING + '/generate.py', ONBOARDING + '/test_source.py',
+    'SideStore/SideStore/Core/Auth/AuthManager.swift',
+    'SideStore/SideStore/Core/Auth/DeveloperPortalProxy.swift',
+    'SideStore/SideStore/Utils/concurrency/TaskChainCoalescer.swift',
     AUTH + '/generate.py', AUTH + '/test_source.py',
     ILOADER + '/generate.py', ILOADER + '/test_source.py',
     SIGN + '/Sources/Anisette/ILoaderRemoteAnisette.swift',
@@ -89,10 +105,14 @@ def load_contract(path):
         require(isinstance(name, str) and isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value),
                 'Malformed source hash')
     markers = contract.get('success_markers')
-    require(isinstance(markers, dict) and set(markers) == {'legacy', 'auth', 'iloader', 'profile', 'wire_service', 'wire_host'},
+    require(isinstance(markers, dict) and set(markers) == {'legacy', 'auth', 'iloader', 'onboarding', 'profile', 'wire_service', 'wire_host'},
             'Incomplete marker contract')
     require(all(isinstance(v, str) and v and '\n' not in v and 'PENDING' not in v for v in markers.values()),
             'Unbound or malformed success marker')
+    names = contract.get('onboarding_case_names')
+    require(isinstance(names, list) and names and
+            all(isinstance(name, str) and name and 'PENDING' not in name for name in names) and
+            len(names) == len(set(names)), 'Unbound or malformed Onboarding case contract')
     return contract
 
 
@@ -100,7 +120,7 @@ def source_inventory(root, contract):
     actual = {name: digest(regular(root, name).read_bytes()) for name in contract['input_sha256']}
     require(actual == contract['input_sha256'], 'Source input hash mismatch')
     # Hash all executable fixture inputs, not just selected known filenames.
-    for folder in (AUTH, ILOADER, PROFILE, WIRE):
+    for folder in (AUTH, ILOADER, ONBOARDING, PROFILE, WIRE):
         directory = root / folder
         require(directory.is_dir() and not directory.is_symlink(), 'Missing source-owned fixture directory')
         for path in directory.rglob('*'):
@@ -154,12 +174,25 @@ def iloader_exported_cases(path):
             'sha256': digest(path.read_bytes()), 'fake_only': True}
 
 
+def onboarding_exported_cases(path, expected_names):
+    value = json.loads(path.read_text())
+    require(isinstance(value, dict) and value.get('schema') == 'iloader-onboarding-scope-cases-v1' and
+            value.get('fake_only') is True, 'Onboarding case export schema or fake-only flag differs')
+    cases = value.get('cases')
+    require(isinstance(cases, list) and cases and all(isinstance(name, str) and name for name in cases) and
+            len(cases) == len(set(cases)), 'Onboarding case names are empty, malformed or duplicated')
+    require(sorted(cases) == sorted(expected_names), 'Onboarding case coverage differs from frozen source contract')
+    return {'schema': value['schema'], 'count': len(cases), 'names': cases,
+            'sha256': digest(path.read_bytes()), 'fake_only': True}
+
+
 def extraction_receipt(output, contract):
     """Require every generator's actual-source evidence, not just generated Swift."""
     manifests = {
         'legacy-response-core': 'legacy-response-core/fixture.sources.json',
         'auth-request': 'auth-request/source-evidence.json',
         'iloader-auth-parity': 'iloader-auth-parity/source-evidence.json',
+        'iloader-onboarding-scope': 'iloader-onboarding-scope/source-evidence.json',
         'profile-provenance': 'profile-provenance/sources.json',
         'wire-copy': 'wire-copy/sources.json',
     }
@@ -208,6 +241,29 @@ def extraction_receipt(output, contract):
     require(isinstance(boundaries, list) and boundaries and
             all(isinstance(item, str) and item for item in boundaries) and
             len(boundaries) == len(set(boundaries)), 'Missing or duplicate iLoader boundary receipt')
+    onboarding = values['iloader-onboarding-scope']
+    require(onboarding.get('schema') == 'iloader-onboarding-scope-source-evidence-v1',
+            'Onboarding extraction evidence schema differs')
+    for key in ('network', 'native_provider', 'swift_executed'):
+        require(onboarding.get(key) is False, 'Forbidden Onboarding generator execution claim: ' + key)
+    require(onboarding.get('output_closure') == list(ONBOARDING_FILES), 'Onboarding generated-source closure differs')
+    require(onboarding.get('outputs') == {name: digest(regular(output, 'iloader-onboarding-scope/' + name).read_bytes())
+                                         for name in ONBOARDING_FILES}, 'Onboarding generated-source hashes differ')
+    used = onboarding.get('inputs', {})
+    require(isinstance(used, dict) and set(ONBOARDING_REQUIRED_SOURCES) <= set(used),
+            'Missing actual queued onboarding extraction inputs')
+    for relative, value in used.items():
+        require(isinstance(relative, str) and relative.startswith(('SideStore/', 'SideSign/')),
+                'Onboarding extraction input lacks repository prefix')
+        name = 'SideStore/Dependencies/' + relative if relative.startswith('SideSign/') else relative
+        require(name in inputs and isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) and
+                inputs[name] == value, 'Onboarding extraction input hash differs: ' + relative)
+    require(all(used.get(relative) == value for relative, value in inputs.items()
+                if relative.startswith(ONBOARDING + '/')), 'Unrecorded Onboarding fixture input')
+    boundaries = onboarding.get('boundary_replacements')
+    require(isinstance(boundaries, list) and boundaries and
+            all(isinstance(item, str) and item for item in boundaries) and
+            len(boundaries) == len(set(boundaries)), 'Missing or duplicate Onboarding boundary receipt')
     profile = values['profile-provenance']
     used = profile.get('sources', {})
     require({'SideSign/Sources/Models/AuthenticationHeaderProvenance.swift',
@@ -292,7 +348,8 @@ def verify_receipt(path, contract_path=None):
         require(digest(logfile.read_bytes()) == row['stdout_sha256'], 'Command log hash mismatch')
     marks = contract['success_markers']
     by_name = {row['name']: row for row in commands}
-    for name, key in (('legacy-run','legacy'),('auth-run','auth'),('iloader-run','iloader'),('profile-run','profile'),
+    for name, key in (('legacy-run','legacy'),('auth-run','auth'),('iloader-run','iloader'),
+                      ('onboarding-run','onboarding'),('profile-run','profile'),
                       ('wire-service-run','wire_service'),('wire-host-run','wire_host')):
         row = by_name[name]
         require(row.get('success_marker') == marks[key], 'Success-marker receipt differs')
@@ -304,7 +361,10 @@ def verify_receipt(path, contract_path=None):
         marker = f"WIRE_IMPORTED_CASES schema={schema} producer_cases={export['count']} wire_cases={2 * export['count']}"
         require_marker(regular(path.parent, by_name['wire-service-run']['log']).read_text(), marker)
     export = iloader_exported_cases(regular(path.parent, 'iloader-auth-parity/cases.json'))
-    require(report.get('fixture_exports') == {'iloader-auth-parity': export}, 'iLoader fixture case receipt mismatch')
+    require(report.get('fixture_exports', {}).get('iloader-auth-parity') == export, 'iLoader fixture case receipt mismatch')
+    onboarding_export = onboarding_exported_cases(regular(path.parent, 'iloader-onboarding-scope/cases.json'), contract['onboarding_case_names'])
+    require(report.get('fixture_exports') == {'iloader-auth-parity': export, 'iloader-onboarding-scope': onboarding_export},
+            'Onboarding fixture case receipt mismatch')
     return report
 
 
@@ -373,6 +433,16 @@ def run(sources, swiftc, output, contract_path=None):
         runner.command('iloader-run', [iloader / 'fixture', iloader / 'cases.json'], marks['iloader'])
         report['fixture_exports']['iloader-auth-parity'] = iloader_exported_cases(iloader / 'cases.json')
         report['suites'].append('iloader-auth-parity')
+        onboarding = output / 'iloader-onboarding-scope'
+        onboarding_roots = ['--sidesign-root', sources / SIGN, '--sidestore-root', sources / 'SideStore']
+        runner.command('onboarding-source', python(ONBOARDING + '/test_source.py') + onboarding_roots)
+        runner.command('onboarding-generate', python(ONBOARDING + '/generate.py') +
+                       ['--output-dir', onboarding] + onboarding_roots)
+        require({p.name for p in onboarding.glob('*.swift')} == set(ONBOARDING_FILES), 'Onboarding three-file Swift closure differs')
+        compile_fixture('onboarding-compile', [onboarding / name for name in ONBOARDING_FILES], onboarding / 'fixture', library=True)
+        runner.command('onboarding-run', [onboarding / 'fixture', onboarding / 'cases.json'], marks['onboarding'])
+        report['fixture_exports']['iloader-onboarding-scope'] = onboarding_exported_cases(onboarding / 'cases.json', contract['onboarding_case_names'])
+        report['suites'].append('iloader-onboarding-scope')
         profile = output / 'profile-provenance'
         runner.command('profile-source', python(PROFILE + '/check_sources.py') + [
             '--sources', sources, '--report', profile / 'static.json'])

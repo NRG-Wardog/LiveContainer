@@ -27,7 +27,7 @@ class Controls(unittest.TestCase):
         self.swiftc = self.root / 'swiftc-control-double'
         self.swiftc.write_text('Never executed\n')
         self.contract = self.root / 'contract.json'
-        self.markers = {k: 'CONTROL_PASS_' + k for k in ('legacy','auth','iloader','profile','wire_service','wire_host')}
+        self.markers = {k: 'CONTROL_PASS_' + k for k in ('legacy','auth','iloader','onboarding','profile','wire_service','wire_host')}
         for name in gate.REQUIRED_INPUTS:
             path = self.sources / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -35,7 +35,7 @@ class Controls(unittest.TestCase):
         self.config = {'schema':'comprehensive-diagnostics-source-contract-v1',
             'source_inputs_bound':True, 'schemas':{'request':'ar1','profile':'hp2','provider':'ap1'},
             'input_sha256':{name:gate.digest((self.sources/name).read_bytes()) for name in sorted(gate.REQUIRED_INPUTS)},
-            'success_markers':self.markers}
+            'success_markers':self.markers, 'onboarding_case_names':['control-case-a']}
         self.save_contract()
         self.calls = []
 
@@ -80,6 +80,22 @@ class Controls(unittest.TestCase):
                 'outputs':{k:gate.digest((folder / k).read_bytes()) for k in gate.ILOADER_FILES},
                 'output_closure':list(gate.ILOADER_FILES), 'boundary_replacements':['control double boundary'],
                 'network':False, 'native_provider':False, 'swift_executed':False})
+        elif name == 'onboarding-generate':
+            folder = Path(argv[argv.index('--output-dir') + 1])
+            self.assertEqual(Path(argv[argv.index('--sidesign-root') + 1]), self.sources / gate.SIGN)
+            self.assertEqual(Path(argv[argv.index('--sidestore-root') + 1]), self.sources / 'SideStore')
+            for file in gate.ONBOARDING_FILES:
+                (folder / file).write_text('// generated control double')
+            used = {}
+            for relative in gate.ONBOARDING_REQUIRED_SOURCES:
+                key = 'SideStore/Dependencies/' + relative if relative.startswith('SideSign/') else relative
+                used[relative] = self.config['input_sha256'][key]
+            used.update({k:v for k,v in self.config['input_sha256'].items() if k.startswith(gate.ONBOARDING + '/')})
+            gate.write_json(folder / 'source-evidence.json', {
+                'schema':'iloader-onboarding-scope-source-evidence-v1', 'inputs':used,
+                'outputs':{k:gate.digest((folder / k).read_bytes()) for k in gate.ONBOARDING_FILES},
+                'output_closure':list(gate.ONBOARDING_FILES), 'boundary_replacements':['control double boundary'],
+                'network':False, 'native_provider':False, 'swift_executed':False})
         elif name == 'profile-generate':
             Path(argv[argv.index('--output')+1]).write_text('// generated control double')
             mappings = ['Sources/Models/AuthenticationHeaderProvenance.swift','Sources/Anisette/AnisetteDataManager.swift']
@@ -106,6 +122,10 @@ class Controls(unittest.TestCase):
             gate.write_json(Path(argv[-1]), {'schema':'iloader-auth-parity-cases-v1','fake_only':True,
                                           'cases':['control-case-a']})
             data = (self.markers['iloader'] + '\n').encode()
+        elif name == 'onboarding-run':
+            gate.write_json(Path(argv[-1]), {'schema':'iloader-onboarding-scope-cases-v1','fake_only':True,
+                                          'cases':['control-case-a']})
+            data = (self.markers['onboarding'] + '\n').encode()
         elif name == 'profile-run':
             gate.write_json(Path(argv[-1]), {'schema':'profile-provenance-cases-v1','producer':'control-only',
                                           'cases':[{'name':str(n)} for n in range(12)]})
@@ -222,7 +242,8 @@ class Controls(unittest.TestCase):
         self.assertEqual(report['status'], gate.STATUS)
         self.assertEqual([name for name,_ in self.calls].count('iloader-run'), 1)
         self.assertEqual(set(report['producer_exports']), {'auth-request', 'profile-provenance'})
-        self.assertEqual(set(report['fixture_exports']), {'iloader-auth-parity'})
+        self.assertEqual(set(report['fixture_exports']), {'iloader-auth-parity', 'iloader-onboarding-scope'})
+        self.assertEqual([name for name,_ in self.calls].count('onboarding-run'), 1)
         self.assertTrue(report['source_owned_fake_authentication_executed'])
         self.assertFalse(report['live_authentication_executed'])
         self.assertEqual(gate.verify_receipt(self.output/'report.json',self.contract), report)
@@ -428,6 +449,186 @@ class Controls(unittest.TestCase):
         gate.write_json(self.output/'report.json',report)
         with self.assertRaisesRegex(ValueError, 'iLoader fixture case receipt'):
             gate.verify_receipt(self.output/'report.json',self.contract)
+
+
+    def test_onboarding_source_arguments_are_explicit(self):
+        self.run_control()
+        argv = dict(self.calls)['onboarding-source']
+        self.assertEqual(Path(argv[argv.index('--sidestore-root') + 1]), self.sources / 'SideStore')
+        self.assertEqual(Path(argv[argv.index('--sidesign-root') + 1]), self.sources / gate.SIGN)
+
+    def test_onboarding_missing_generated_swift_stops_before_compile(self):
+        def missing(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'onboarding-generate':
+                (self.output/'iloader-onboarding-scope/CandidateOnboarding.swift').unlink()
+            return result
+        with self.assertRaisesRegex(ValueError, 'Onboarding three-file'):
+            self.run_control(missing)
+        self.assertNotIn('onboarding-compile', [name for name,_ in self.calls])
+
+    def test_onboarding_extra_generated_swift_stops_before_compile(self):
+        def extra(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'onboarding-generate':
+                (self.output/'iloader-onboarding-scope/Unexpected.swift').write_text('// unapproved')
+            return result
+        with self.assertRaisesRegex(ValueError, 'Onboarding three-file'):
+            self.run_control(extra)
+
+    def test_onboarding_missing_or_duplicate_marker_rejected(self):
+        for text in ('wrong', 'CONTROL_PASS_onboarding\nCONTROL_PASS_onboarding'):
+            with self.subTest(text=text):
+                probe = Controls('test_complete_control_order_and_case_interchange')
+                try:
+                    probe.setUp()
+                    def bad(argv, **kwargs):
+                        result = probe.control_process(argv, **kwargs)
+                        if probe.calls[-1][0] == 'onboarding-run':
+                            return subprocess.CompletedProcess(argv, 0, (text + '\n').encode())
+                        return result
+                    with self.assertRaisesRegex(ValueError, 'Missing or duplicate'):
+                        probe.run_control(bad)
+                finally:
+                    probe.doCleanups()
+
+    def test_onboarding_nonzero_exit_is_retained(self):
+        def fail(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'onboarding-run':
+                return subprocess.CompletedProcess(argv, 9, b'fake failure\n')
+            return result
+        with self.assertRaisesRegex(ValueError, 'exit=9'):
+            self.run_control(fail)
+        report = json.loads((self.output/'report.json').read_text())
+        self.assertEqual(report['status'], 'FAILED')
+        self.assertEqual(report['commands'][-1]['name'], 'onboarding-run')
+        self.assertEqual(report['commands'][-1]['exit_code'], 9)
+
+    def test_onboarding_unpinned_fixture_rejected(self):
+        (self.sources / gate.ONBOARDING / 'extra.py').write_text('unexpected')
+        with self.assertRaisesRegex(ValueError, 'Unpinned'):
+            self.run_control()
+        self.assertFalse(self.calls)
+
+    def test_onboarding_case_export_guards(self):
+        path = self.root/'onboarding-cases.json'
+        valid = {'schema':'iloader-onboarding-scope-cases-v1','fake_only':True,'cases':['a']}
+        for key,value in [('schema','wrong'),('fake_only',False),('cases',[]),('cases',['a','a']),('cases',[{'name':'a'}])]:
+            bad = {**valid,key:value}
+            gate.write_json(path,bad)
+            with self.subTest(key=key,value=value), self.assertRaises(ValueError):
+                gate.onboarding_exported_cases(path, self.config['onboarding_case_names'])
+
+    def test_onboarding_missing_manifest_rejected(self):
+        self.run_control()
+        (self.output/'iloader-onboarding-scope/source-evidence.json').unlink()
+        with self.assertRaisesRegex(ValueError, 'Missing'):
+            gate.verify_receipt(self.output/'report.json',self.contract)
+
+    def test_onboarding_wrong_extracted_source_rejected(self):
+        self.run_control()
+        path = self.output/'iloader-onboarding-scope/source-evidence.json'
+        value = json.loads(path.read_text())
+        value['inputs']['SideSign/Sources/Anisette/ILoaderRemoteAnisette.swift'] = '0'*64
+        gate.write_json(path,value)
+        with self.assertRaisesRegex(ValueError, 'Onboarding extraction input hash'):
+            gate.verify_receipt(self.output/'report.json',self.contract)
+
+    def test_onboarding_generator_execution_claim_rejected(self):
+        self.run_control()
+        path = self.output/'iloader-onboarding-scope/source-evidence.json'
+        value = json.loads(path.read_text()); value['network'] = True; gate.write_json(path,value)
+        with self.assertRaisesRegex(ValueError, 'Forbidden Onboarding'):
+            gate.verify_receipt(self.output/'report.json',self.contract)
+
+    def test_onboarding_missing_or_repeated_command_receipt_rejected(self):
+        original = self.run_control()
+        for duplicate in (False,True):
+            report = copy.deepcopy(original)
+            i = next(i for i,row in enumerate(report['commands']) if row['name']=='onboarding-run')
+            if duplicate: report['commands'].insert(i,copy.deepcopy(report['commands'][i]))
+            else: report['commands'].pop(i)
+            gate.write_json(self.output/'report.json',report)
+            with self.subTest(duplicate=duplicate), self.assertRaisesRegex(ValueError, 'command receipt'):
+                gate.verify_receipt(self.output/'report.json',self.contract)
+
+    def test_onboarding_export_receipt_tamper_rejected(self):
+        report = self.run_control()
+        report['fixture_exports']['iloader-onboarding-scope']['count'] += 1
+        gate.write_json(self.output/'report.json',report)
+        with self.assertRaisesRegex(ValueError, 'Onboarding fixture case receipt'):
+            gate.verify_receipt(self.output/'report.json',self.contract)
+
+
+    def test_onboarding_unbound_case_contract_stops_before_execution(self):
+        for names in (None, [], ['a', 'a'], ['__PENDING_CASES__']):
+            with self.subTest(names=names):
+                self.config['onboarding_case_names'] = names
+                self.save_contract()
+                with self.assertRaisesRegex(ValueError, 'Onboarding case contract'):
+                    self.run_control()
+                self.assertFalse(self.calls)
+
+    def test_onboarding_missing_expected_case_stops_before_following_suite(self):
+        base = self.control_process
+        def bad(argv, **kwargs):
+            result = base(argv, **kwargs)
+            if self.calls[-1][0] == 'onboarding-run':
+                gate.write_json(Path(argv[-1]), {'schema':'iloader-onboarding-scope-cases-v1',
+                                                'fake_only':True, 'cases':['unreviewed-replacement']})
+            return result
+        with self.assertRaisesRegex(ValueError, 'Onboarding case coverage'):
+            self.run_control(bad)
+        self.assertEqual(self.calls[-1][0], 'onboarding-run')
+        self.assertEqual(json.loads((self.output/'report.json').read_text())['status'], 'FAILED')
+
+    def test_onboarding_missing_proxy_or_fixture_input_rejected(self):
+        self.run_control()
+        path = self.output/'iloader-onboarding-scope/source-evidence.json'
+        original = json.loads(path.read_text())
+        for key, error in [('SideStore/SideStore/Core/Auth/DeveloperPortalProxy.swift', 'queued onboarding'),
+                           (gate.ONBOARDING + '/generate.py', 'Unrecorded Onboarding')]:
+            with self.subTest(key=key):
+                value = copy.deepcopy(original); del value['inputs'][key]; gate.write_json(path,value)
+                with self.assertRaisesRegex(ValueError,error):
+                    gate.extraction_receipt(self.output,self.config)
+
+    def test_onboarding_output_hash_and_closure_mismatch_rejected(self):
+        self.run_control()
+        path = self.output/'iloader-onboarding-scope/source-evidence.json'
+        original = json.loads(path.read_text())
+        value = copy.deepcopy(original); value['outputs']['CandidateOnboarding.swift'] = '0' * 64
+        gate.write_json(path,value)
+        with self.assertRaisesRegex(ValueError,'Onboarding generated-source hashes'):
+            gate.extraction_receipt(self.output,self.config)
+        value = copy.deepcopy(original); value['output_closure'].pop(); gate.write_json(path,value)
+        with self.assertRaisesRegex(ValueError,'Onboarding generated-source closure'):
+            gate.extraction_receipt(self.output,self.config)
+
+    def test_onboarding_boundary_receipt_empty_or_duplicated_rejected(self):
+        self.run_control()
+        path = self.output/'iloader-onboarding-scope/source-evidence.json'
+        original = json.loads(path.read_text())
+        for boundaries in ([], ['same', 'same'], [None]):
+            with self.subTest(boundaries=boundaries):
+                value = copy.deepcopy(original); value['boundary_replacements'] = boundaries
+                gate.write_json(path,value)
+                with self.assertRaisesRegex(ValueError,'Onboarding boundary receipt'):
+                    gate.extraction_receipt(self.output,self.config)
+
+    def test_onboarding_unqualified_source_input_rejected(self):
+        self.run_control()
+        path = self.output/'iloader-onboarding-scope/source-evidence.json'
+        value = json.loads(path.read_text()); value['inputs']['unqualified.swift'] = '0' * 64
+        gate.write_json(path,value)
+        with self.assertRaisesRegex(ValueError,'repository prefix'):
+            gate.extraction_receipt(self.output,self.config)
+        del value['inputs']['unqualified.swift']
+        value['inputs']['SideStore/unpinned.swift'] = None
+        gate.write_json(path,value)
+        with self.assertRaisesRegex(ValueError,'Onboarding extraction input hash'):
+            gate.extraction_receipt(self.output,self.config)
 
 
 if __name__ == '__main__':
