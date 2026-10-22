@@ -376,7 +376,16 @@ class Controls(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'argument closure differs'):
             gate.verify_receipt(self.output / 'report.json', self.contract_path)
 
+    def use_source_parent_alias(self):
+        # Reproduce macOS /var -> /private/var spelling on every platform.
+        alias = self.root / 'fixture-parent-alias'
+        alias.symlink_to(self.root.resolve(), target_is_directory=True)
+        self.sources = alias / 'sources'
+        self.assertFalse(self.sources.is_symlink())
+        self.assertNotEqual(self.sources, self.sources.resolve())
+
     def test_local_git_object_extractor_has_no_network_and_uses_nested_owner(self):
+        self.use_source_parent_alias()
         for owner in gate.BASELINE_OWNERS:
             (self.sources / owner / '.git').mkdir(parents=True)
         calls = []
@@ -386,7 +395,7 @@ class Controls(unittest.TestCase):
             self.assertEqual(kwargs['env']['GIT_NO_LAZY_FETCH'], '1')
             self.assertEqual(kwargs['env']['GIT_NO_REPLACE_OBJECTS'], '1')
             root = Path(argv[argv.index('-C') + 1])
-            owner = root.relative_to(self.sources).as_posix()
+            owner = root.relative_to(self.sources.resolve()).as_posix()
             action, argument = argv[-2:]
             self.assertIn(action, ['cat-file', 'rev-parse', 'show']) if action != '-t' else None
             if '-t' in argv:
@@ -403,13 +412,14 @@ class Controls(unittest.TestCase):
                                   self.output / 'delivered-baseline.json')
         gate.baseline_receipt(self.output, self.contract)
         self.assertEqual(len(calls), 6 + len(self.baseline_bytes))
-        self.assertTrue(any(str(self.sources / 'SideStore/Dependencies/SideSign') in call for call in calls))
+        self.assertTrue(any(str(self.sources.resolve() / 'SideStore/Dependencies/SideSign') in call for call in calls))
 
     def test_local_git_object_byte_mismatch_rejected_without_output(self):
+        self.use_source_parent_alias()
         for owner in gate.BASELINE_OWNERS:
             (self.sources / owner / '.git').mkdir(parents=True)
         def fake_git(argv, **kwargs):
-            owner = Path(argv[argv.index('-C') + 1]).relative_to(self.sources).as_posix()
+            owner = Path(argv[argv.index('-C') + 1]).relative_to(self.sources.resolve()).as_posix()
             data = b'commit\n' if '-t' in argv else ((gate.BASELINE_OWNERS[owner]['tree'] + '\n').encode()
                    if 'rev-parse' in argv else b'wrong delivered bytes')
             return subprocess.CompletedProcess(argv, 0, data)
