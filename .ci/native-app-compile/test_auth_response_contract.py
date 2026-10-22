@@ -19,7 +19,14 @@ def block(s,anchor):
 context=block(inputs['errors'],'public struct AuthenticationResponseContext:')
 errors=block(inputs['errors'],'public enum ServerError:')
 parser=block(inputs['auth'],'private func parsePlistOrJSON(').replace('private func','func',1)
-guard=block(inputs['auth'],'guard let responseDictionary = parsePlistOrJSON(data, observation: observation) else {')
+strict_parser=block(inputs['auth'],'private func parseILoaderPlist(').replace('private func','func',1)
+selector_start='        let decodedResponse = ILoaderRemoteAuthentication.current == nil'
+selector_end='        guard let responseDictionary = decodedResponse else {'
+if inputs['auth'].count(selector_end) != 1: raise ValueError('Unique anchor missing: '+selector_end)
+selector=selector_start+between(inputs['auth'],selector_start,selector_end)
+if selector.count('parsePlistOrJSON(data, observation: observation)') != 1 or selector.count('parseILoaderPlist(data, observation: observation)') != 1:
+    raise ValueError('Actual parser selection closure differs')
+guard=block(inputs['auth'],'guard let responseDictionary = decodedResponse else {')
 if 'rawPayload: "[redacted]"' not in guard: raise ValueError('Outer parse error is not redacted')
 enums=[]
 for name in ('AuthResponseMIME','AuthResponseShape'):
@@ -43,11 +50,11 @@ enum AuthenticationDiagnosticTrace {
  }
 }
 '''
-source='import Foundation\nimport CoreFoundation\n'+observer+context+'\n'+errors+'\n'+parser+'''
+source='import Foundation\nimport CoreFoundation\n'+observer+'enum ILoaderRemoteAuthentication { static let current: Int? = nil }\n'+context+'\n'+errors+'\n'+parser+'\n'+strict_parser+'''
 func outer(_ data: Data, _ statusCode: Int, _ mime: String?) throws -> [String: any Sendable] {
     let observation: AuthenticationDiagnosticTrace.Request? = nil
     struct Response { let mimeType: String? }; let response = Response(mimeType: mime)
-'''+guard+'''
+'''+selector+guard+'''
     return responseDictionary
 }
 struct V3AccountOperationError {

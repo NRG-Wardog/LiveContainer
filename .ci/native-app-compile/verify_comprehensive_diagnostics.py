@@ -10,21 +10,31 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 STATUS = 'SOURCE_OWNED_FAKE_DIAGNOSTICS_PASS_NOT_RUNTIME_VALIDATION'
-SUITES = ('legacy-response-core', 'auth-request', 'profile-provenance', 'wire-copy')
+SUITES = ('legacy-response-core', 'auth-request', 'iloader-auth-parity', 'profile-provenance', 'wire-copy')
 COMMANDS = ('legacy-generate', 'legacy-compile', 'legacy-run',
             'auth-source', 'auth-generate', 'auth-compile', 'auth-run',
+            'iloader-source', 'iloader-generate', 'iloader-compile', 'iloader-run',
             'profile-source', 'profile-generate', 'profile-compile', 'profile-run',
             'wire-source', 'wire-generate', 'wire-service-compile', 'wire-host-compile',
             'wire-service-run', 'wire-host-run')
 AUTH_FILES = ('CandidateAuthentication.swift', 'BaselineAuthentication.swift',
               'AuthenticationDiagnosticTrace.swift', 'Errors.swift', 'Types.swift',
               'BoundaryDoubles.swift', 'RuntimeTests.swift')
+ILOADER_FILES = ('CandidateAuthentication.swift', 'AuthenticationDiagnosticTrace.swift',
+                 'Errors.swift', 'Types.swift', 'BoundaryDoubles.swift',
+                 'ILoaderRemoteAnisette.swift', 'RuntimeTests.swift')
 SIGN = 'SideStore/Dependencies/SideSign'
 AUTH = SIGN + '/.ci/auth-request-diagnostics'
+ILOADER = SIGN + '/.ci/iloader-auth-parity'
+ILOADER_OFFICIAL_REFERENCE = 'fc7a81a6de678aa707e05399ffafb8be0ad56921'
 PROFILE = SIGN + '/.ci/profile-provenance'
 WIRE = 'LiveContainer/.ci/comprehensive-diagnostics'
 REQUIRED_INPUTS = {
     AUTH + '/generate.py', AUTH + '/test_source.py',
+    ILOADER + '/generate.py', ILOADER + '/test_source.py',
+    SIGN + '/Sources/Anisette/ILoaderRemoteAnisette.swift',
+    SIGN + '/Sources/DeveloperPortal/ILoaderAuthenticationPolicy.swift',
+    'SideStore/SideStore/Core/Anisette/AnisetteProvider.swift',
     PROFILE + '/generate_fixture.py', PROFILE + '/check_sources.py',
     WIRE + '/generate_wire_fixture.py', WIRE + '/test_generator.py',
     SIGN + '/Sources/DeveloperPortal/Authentication.swift',
@@ -79,7 +89,7 @@ def load_contract(path):
         require(isinstance(name, str) and isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value),
                 'Malformed source hash')
     markers = contract.get('success_markers')
-    require(isinstance(markers, dict) and set(markers) == {'legacy', 'auth', 'profile', 'wire_service', 'wire_host'},
+    require(isinstance(markers, dict) and set(markers) == {'legacy', 'auth', 'iloader', 'profile', 'wire_service', 'wire_host'},
             'Incomplete marker contract')
     require(all(isinstance(v, str) and v and '\n' not in v and 'PENDING' not in v for v in markers.values()),
             'Unbound or malformed success marker')
@@ -90,7 +100,7 @@ def source_inventory(root, contract):
     actual = {name: digest(regular(root, name).read_bytes()) for name in contract['input_sha256']}
     require(actual == contract['input_sha256'], 'Source input hash mismatch')
     # Hash all executable fixture inputs, not just selected known filenames.
-    for folder in (AUTH, PROFILE, WIRE):
+    for folder in (AUTH, ILOADER, PROFILE, WIRE):
         directory = root / folder
         require(directory.is_dir() and not directory.is_symlink(), 'Missing source-owned fixture directory')
         for path in directory.rglob('*'):
@@ -133,11 +143,23 @@ def exported_cases(path, schema, expected_count=None):
             'names': names, 'producer': value.get('producer')}
 
 
+def iloader_exported_cases(path):
+    value = json.loads(path.read_text())
+    require(isinstance(value, dict) and value.get('schema') == 'iloader-auth-parity-cases-v1' and
+            value.get('fake_only') is True, 'iLoader case export schema or fake-only flag differs')
+    cases = value.get('cases')
+    require(isinstance(cases, list) and cases and all(isinstance(name, str) and name for name in cases) and
+            len(cases) == len(set(cases)), 'iLoader case names are empty, malformed or duplicated')
+    return {'schema': value['schema'], 'count': len(cases), 'names': cases,
+            'sha256': digest(path.read_bytes()), 'fake_only': True}
+
+
 def extraction_receipt(output, contract):
     """Require every generator's actual-source evidence, not just generated Swift."""
     manifests = {
         'legacy-response-core': 'legacy-response-core/fixture.sources.json',
         'auth-request': 'auth-request/source-evidence.json',
+        'iloader-auth-parity': 'iloader-auth-parity/source-evidence.json',
         'profile-provenance': 'profile-provenance/sources.json',
         'wire-copy': 'wire-copy/sources.json',
     }
@@ -159,6 +181,33 @@ def extraction_receipt(output, contract):
         require(inputs.get(SIGN + '/' + relative) == value, 'Auth extraction input hash differs: ' + relative)
     require(auth.get('outputs') == {name: digest(regular(output, 'auth-request/' + name).read_bytes())
                                    for name in AUTH_FILES}, 'Auth generated-source hashes differ')
+    iloader = values['iloader-auth-parity']
+    require(iloader.get('schema') == 'iloader-auth-parity-source-evidence-v1' and
+            iloader.get('official_reference') == ILOADER_OFFICIAL_REFERENCE,
+            'iLoader extraction schema or official source reference differs')
+    require(iloader.get('baseline_commit') == auth.get('baseline_commit') and
+            isinstance(iloader.get('baseline_commit'), str) and
+            re.fullmatch('[0-9a-f]{40}', iloader['baseline_commit']), 'iLoader baseline reference differs')
+    for key in ('network', 'native_provider', 'swift_executed'):
+        require(iloader.get(key) is False, 'Forbidden iLoader generator execution claim: ' + key)
+    require(iloader.get('output_closure') == list(ILOADER_FILES), 'iLoader generated-source closure differs')
+    require(iloader.get('outputs') == {name: digest(regular(output, 'iloader-auth-parity/' + name).read_bytes())
+                                      for name in ILOADER_FILES}, 'iLoader generated-source hashes differ')
+    used = iloader.get('inputs', {})
+    require(isinstance(used, dict) and set(auth_inputs) <= set(used) and
+            {'Sources/Anisette/ILoaderRemoteAnisette.swift',
+             'Sources/DeveloperPortal/ILoaderAuthenticationPolicy.swift',
+             'SideStore/SideStore/Core/Anisette/AnisetteProvider.swift'} <= set(used),
+            'Missing actual iLoader extraction inputs')
+    for relative, value in used.items():
+        name = relative if relative.startswith('SideStore/') else SIGN + '/' + relative
+        require(inputs.get(name) == value, 'iLoader extraction input hash differs: ' + relative)
+    require(all(used.get(relative[len(SIGN) + 1:]) == value for relative, value in inputs.items()
+                if relative.startswith(ILOADER + '/')), 'Unrecorded iLoader fixture input')
+    boundaries = iloader.get('boundary_replacements')
+    require(isinstance(boundaries, list) and boundaries and
+            all(isinstance(item, str) and item for item in boundaries) and
+            len(boundaries) == len(set(boundaries)), 'Missing or duplicate iLoader boundary receipt')
     profile = values['profile-provenance']
     used = profile.get('sources', {})
     require({'SideSign/Sources/Models/AuthenticationHeaderProvenance.swift',
@@ -243,7 +292,7 @@ def verify_receipt(path, contract_path=None):
         require(digest(logfile.read_bytes()) == row['stdout_sha256'], 'Command log hash mismatch')
     marks = contract['success_markers']
     by_name = {row['name']: row for row in commands}
-    for name, key in (('legacy-run','legacy'),('auth-run','auth'),('profile-run','profile'),
+    for name, key in (('legacy-run','legacy'),('auth-run','auth'),('iloader-run','iloader'),('profile-run','profile'),
                       ('wire-service-run','wire_service'),('wire-host-run','wire_host')):
         row = by_name[name]
         require(row.get('success_marker') == marks[key], 'Success-marker receipt differs')
@@ -254,6 +303,8 @@ def verify_receipt(path, contract_path=None):
         require(report.get('producer_exports', {}).get(owner) == export, 'Producer case receipt mismatch')
         marker = f"WIRE_IMPORTED_CASES schema={schema} producer_cases={export['count']} wire_cases={2 * export['count']}"
         require_marker(regular(path.parent, by_name['wire-service-run']['log']).read_text(), marker)
+    export = iloader_exported_cases(regular(path.parent, 'iloader-auth-parity/cases.json'))
+    require(report.get('fixture_exports') == {'iloader-auth-parity': export}, 'iLoader fixture case receipt mismatch')
     return report
 
 
@@ -275,7 +326,7 @@ def run(sources, swiftc, output, contract_path=None):
               'source_inputs_after': {}, 'source_input_bytes_unchanged': False,
               'live_authentication_executed': False, 'guest_binary_executed': False,
               'native_provider_executed': False, 'native_linked_tests_executed': False,
-              'source_owned_fake_authentication_executed': False, 'producer_exports': {},
+              'source_owned_fake_authentication_executed': False, 'producer_exports': {}, 'fixture_exports': {},
               'commands': runner.commands}
     for directory in SUITES:
         (output / directory).mkdir()
@@ -313,6 +364,15 @@ def run(sources, swiftc, output, contract_path=None):
         report['source_owned_fake_authentication_executed'] = True
         report['producer_exports']['auth-request'] = exported_cases(auth / 'cases.json', 'auth-request-cases-v1')
         report['suites'].append('auth-request')
+        iloader = output / 'iloader-auth-parity'
+        runner.command('iloader-source', python(ILOADER + '/test_source.py') + ['--sidestore-root', sources / 'SideStore'])
+        runner.command('iloader-generate', python(ILOADER + '/generate.py') +
+                       ['--output-dir', iloader, '--sidestore-root', sources / 'SideStore'])
+        require({p.name for p in iloader.glob('*.swift')} == set(ILOADER_FILES), 'iLoader seven-file Swift closure differs')
+        compile_fixture('iloader-compile', [iloader / name for name in ILOADER_FILES], iloader / 'fixture', library=True)
+        runner.command('iloader-run', [iloader / 'fixture', iloader / 'cases.json'], marks['iloader'])
+        report['fixture_exports']['iloader-auth-parity'] = iloader_exported_cases(iloader / 'cases.json')
+        report['suites'].append('iloader-auth-parity')
         profile = output / 'profile-provenance'
         runner.command('profile-source', python(PROFILE + '/check_sources.py') + [
             '--sources', sources, '--report', profile / 'static.json'])

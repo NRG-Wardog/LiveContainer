@@ -27,7 +27,7 @@ class Controls(unittest.TestCase):
         self.swiftc = self.root / 'swiftc-control-double'
         self.swiftc.write_text('Never executed\n')
         self.contract = self.root / 'contract.json'
-        self.markers = {k: 'CONTROL_PASS_' + k for k in ('legacy','auth','profile','wire_service','wire_host')}
+        self.markers = {k: 'CONTROL_PASS_' + k for k in ('legacy','auth','iloader','profile','wire_service','wire_host')}
         for name in gate.REQUIRED_INPUTS:
             path = self.sources / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,9 +59,27 @@ class Controls(unittest.TestCase):
             for file in gate.AUTH_FILES:
                 (folder / file).write_text('// generated control double')
             mappings = ['Sources/DeveloperPortal/Authentication.swift','Sources/Models/AuthenticationDiagnosticTrace.swift','Sources/Models/Errors.swift']
-            gate.write_json(folder/'source-evidence.json', {'schema':'auth-request-source-evidence-v1',
+            gate.write_json(folder/'source-evidence.json', {'schema':'auth-request-source-evidence-v1','baseline_commit':'9' * 40,
                 'inputs':{k:self.config['input_sha256'][gate.SIGN+'/'+k] for k in mappings},
                 'outputs':{k:gate.digest((folder/k).read_bytes()) for k in gate.AUTH_FILES}})
+        elif name == 'iloader-generate':
+            folder = Path(argv[argv.index('--output-dir') + 1])
+            self.assertEqual(Path(argv[argv.index('--sidestore-root') + 1]), self.sources / 'SideStore')
+            for file in gate.ILOADER_FILES:
+                (folder / file).write_text('// generated control double')
+            mappings = ['Sources/DeveloperPortal/Authentication.swift','Sources/Models/AuthenticationDiagnosticTrace.swift',
+                        'Sources/Models/Errors.swift','Sources/Anisette/ILoaderRemoteAnisette.swift',
+                        'Sources/DeveloperPortal/ILoaderAuthenticationPolicy.swift',
+                        '.ci/iloader-auth-parity/generate.py','.ci/iloader-auth-parity/test_source.py']
+            inputs = {k:self.config['input_sha256'][gate.SIGN + '/' + k] for k in mappings}
+            factory = 'SideStore/SideStore/Core/Anisette/AnisetteProvider.swift'
+            inputs[factory] = self.config['input_sha256'][factory]
+            gate.write_json(folder / 'source-evidence.json', {
+                'schema':'iloader-auth-parity-source-evidence-v1', 'official_reference':gate.ILOADER_OFFICIAL_REFERENCE,
+                'baseline_commit':'9' * 40, 'inputs':inputs,
+                'outputs':{k:gate.digest((folder / k).read_bytes()) for k in gate.ILOADER_FILES},
+                'output_closure':list(gate.ILOADER_FILES), 'boundary_replacements':['control double boundary'],
+                'network':False, 'native_provider':False, 'swift_executed':False})
         elif name == 'profile-generate':
             Path(argv[argv.index('--output')+1]).write_text('// generated control double')
             mappings = ['Sources/Models/AuthenticationHeaderProvenance.swift','Sources/Anisette/AnisetteDataManager.swift']
@@ -84,6 +102,10 @@ class Controls(unittest.TestCase):
             gate.write_json(Path(argv[-1]), {'schema':'auth-request-cases-v1','producer':'control-only',
                                           'cases':[{'name':'case-a'}]})
             data = (self.markers['auth'] + '\n').encode()
+        elif name == 'iloader-run':
+            gate.write_json(Path(argv[-1]), {'schema':'iloader-auth-parity-cases-v1','fake_only':True,
+                                          'cases':['control-case-a']})
+            data = (self.markers['iloader'] + '\n').encode()
         elif name == 'profile-run':
             gate.write_json(Path(argv[-1]), {'schema':'profile-provenance-cases-v1','producer':'control-only',
                                           'cases':[{'name':str(n)} for n in range(12)]})
@@ -198,6 +220,9 @@ class Controls(unittest.TestCase):
         report = self.run_control()
         self.assertEqual([name for name,_ in self.calls], list(gate.COMMANDS))
         self.assertEqual(report['status'], gate.STATUS)
+        self.assertEqual([name for name,_ in self.calls].count('iloader-run'), 1)
+        self.assertEqual(set(report['producer_exports']), {'auth-request', 'profile-provenance'})
+        self.assertEqual(set(report['fixture_exports']), {'iloader-auth-parity'})
         self.assertTrue(report['source_owned_fake_authentication_executed'])
         self.assertFalse(report['live_authentication_executed'])
         self.assertEqual(gate.verify_receipt(self.output/'report.json',self.contract), report)
@@ -293,6 +318,116 @@ class Controls(unittest.TestCase):
         (self.output/'auth-request/Errors.swift').write_text('changed')
         with self.assertRaisesRegex(ValueError, 'Auth generated-source hashes'):
             gate.extraction_receipt(self.output,self.config)
+
+
+
+    def test_iloader_source_arguments_are_explicit(self):
+        self.run_control()
+        argv = dict(self.calls)['iloader-source']
+        self.assertEqual(Path(argv[argv.index('--sidestore-root') + 1]), self.sources / 'SideStore')
+
+    def test_iloader_missing_generated_swift_stops_before_compile(self):
+        def missing(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'iloader-generate':
+                (self.output/'iloader-auth-parity/ILoaderRemoteAnisette.swift').unlink()
+            return result
+        with self.assertRaisesRegex(ValueError, 'iLoader seven-file'):
+            self.run_control(missing)
+        self.assertNotIn('iloader-compile', [name for name,_ in self.calls])
+
+    def test_iloader_extra_generated_swift_stops_before_compile(self):
+        def extra(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'iloader-generate':
+                (self.output/'iloader-auth-parity/Unexpected.swift').write_text('// unapproved')
+            return result
+        with self.assertRaisesRegex(ValueError, 'iLoader seven-file'):
+            self.run_control(extra)
+
+    def test_iloader_missing_or_duplicate_marker_rejected(self):
+        for text in ('wrong', 'CONTROL_PASS_iloader\nCONTROL_PASS_iloader'):
+            with self.subTest(text=text):
+                probe = Controls('test_complete_control_order_and_case_interchange')
+                try:
+                    probe.setUp()
+                    def bad(argv, **kwargs):
+                        result = probe.control_process(argv, **kwargs)
+                        if probe.calls[-1][0] == 'iloader-run':
+                            return subprocess.CompletedProcess(argv, 0, (text + '\n').encode())
+                        return result
+                    with self.assertRaisesRegex(ValueError, 'Missing or duplicate'):
+                        probe.run_control(bad)
+                finally:
+                    probe.doCleanups()
+
+    def test_iloader_nonzero_exit_is_retained(self):
+        def fail(argv, **kwargs):
+            result = self.control_process(argv, **kwargs)
+            if self.calls[-1][0] == 'iloader-run':
+                return subprocess.CompletedProcess(argv, 9, b'fake failure\n')
+            return result
+        with self.assertRaisesRegex(ValueError, 'exit=9'):
+            self.run_control(fail)
+        report = json.loads((self.output/'report.json').read_text())
+        self.assertEqual(report['status'], 'FAILED')
+        self.assertEqual(report['commands'][-1]['name'], 'iloader-run')
+        self.assertEqual(report['commands'][-1]['exit_code'], 9)
+
+    def test_iloader_unpinned_fixture_rejected(self):
+        (self.sources / gate.ILOADER / 'extra.py').write_text('unexpected')
+        with self.assertRaisesRegex(ValueError, 'Unpinned'):
+            self.run_control()
+        self.assertFalse(self.calls)
+
+    def test_iloader_case_export_guards(self):
+        path = self.root/'iloader-cases.json'
+        valid = {'schema':'iloader-auth-parity-cases-v1','fake_only':True,'cases':['a']}
+        for key,value in [('schema','wrong'),('fake_only',False),('cases',[]),('cases',['a','a']),('cases',[{'name':'a'}])]:
+            bad = {**valid,key:value}
+            gate.write_json(path,bad)
+            with self.subTest(key=key,value=value), self.assertRaises(ValueError):
+                gate.iloader_exported_cases(path)
+
+    def test_iloader_missing_manifest_rejected(self):
+        self.run_control()
+        (self.output/'iloader-auth-parity/source-evidence.json').unlink()
+        with self.assertRaisesRegex(ValueError, 'Missing'):
+            gate.verify_receipt(self.output/'report.json',self.contract)
+
+    def test_iloader_wrong_extracted_source_rejected(self):
+        self.run_control()
+        path = self.output/'iloader-auth-parity/source-evidence.json'
+        value = json.loads(path.read_text())
+        value['inputs']['Sources/Anisette/ILoaderRemoteAnisette.swift'] = '0'*64
+        gate.write_json(path,value)
+        with self.assertRaisesRegex(ValueError, 'iLoader extraction input hash'):
+            gate.verify_receipt(self.output/'report.json',self.contract)
+
+    def test_iloader_generator_execution_claim_rejected(self):
+        self.run_control()
+        path = self.output/'iloader-auth-parity/source-evidence.json'
+        value = json.loads(path.read_text()); value['network'] = True; gate.write_json(path,value)
+        with self.assertRaisesRegex(ValueError, 'Forbidden iLoader'):
+            gate.verify_receipt(self.output/'report.json',self.contract)
+
+    def test_iloader_missing_or_repeated_command_receipt_rejected(self):
+        original = self.run_control()
+        for duplicate in (False,True):
+            report = copy.deepcopy(original)
+            i = next(i for i,row in enumerate(report['commands']) if row['name']=='iloader-run')
+            if duplicate: report['commands'].insert(i,copy.deepcopy(report['commands'][i]))
+            else: report['commands'].pop(i)
+            gate.write_json(self.output/'report.json',report)
+            with self.subTest(duplicate=duplicate), self.assertRaisesRegex(ValueError, 'command receipt'):
+                gate.verify_receipt(self.output/'report.json',self.contract)
+
+    def test_iloader_export_receipt_tamper_rejected(self):
+        report = self.run_control()
+        report['fixture_exports']['iloader-auth-parity']['count'] += 1
+        gate.write_json(self.output/'report.json',report)
+        with self.assertRaisesRegex(ValueError, 'iLoader fixture case receipt'):
+            gate.verify_receipt(self.output/'report.json',self.contract)
 
 
 if __name__ == '__main__':
