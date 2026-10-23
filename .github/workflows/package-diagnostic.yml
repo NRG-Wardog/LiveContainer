@@ -1,9 +1,9 @@
 # Inert template only. Native run/attempt and independently reviewed artifacts remain unbound.
 # Publish only after its success/artifact review. No native rebuild or public release.
-name: Package retained registration diagnostics experimental apps
+name: Package retained pairing and deferred setup experimental apps
 on:
   push:
-    branches: [validation/package-registration-diagnostics-20261022]
+    branches: [validation/package-host-bundle-repair-20261023]
     paths: ['.github/workflows/package-diagnostic.yml']
   workflow_dispatch:
 permissions:
@@ -11,23 +11,24 @@ permissions:
   actions: read
 jobs:
   package:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/package-registration-diagnostics-20261022'
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/package-host-bundle-repair-20261023'
     runs-on: macos-26
     timeout-minutes: 20
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       PYTHONOPTIMIZE: '0'
       PYTHONDONTWRITEBYTECODE: '1'
-      REVIEWED_NATIVE_RECEIPT_SHA256: 'dde21ffd6c96963358f08e45433842c9861093cd0e08276794c9112e5b97ada8'
-      REVIEWED_LIVECONTAINER_UNSIGNED_SHA256: '39a18da9596b2ad7e253c09fdba90da1790ab9dc10cda9a5cfb114e3ba1ff210'
-      REVIEWED_SIDESTORE_UNSIGNED_SHA256: '81cd72d49d4f6c996ec3b43cb07a4007de9e4637f52a97d08b9645b383b465e6'
-      REVIEWED_COMPREHENSIVE_REPORT_SHA256: '4428c48b708bb341d9bfadad335685b0a6a5a24af3255e188407aeee65a9476a'
+      REVIEWED_NATIVE_RECEIPT_SHA256: 'd03a0fa95e3ab87cd45070fc5ad0f589ffe2557031bc5ffff6dbd18ae8fe3959'
+      REVIEWED_LIVECONTAINER_UNSIGNED_SHA256: 'e96b16017ae5fbd943d5a91d0d45e2b69a7c7904a0de66044cba53ec50b46620'
+      REVIEWED_SIDESTORE_UNSIGNED_SHA256: '382e6a0efc5b72feb62ca48dcbc6add864f551f738794f32b72048c1e4eec6f4'
+      REVIEWED_COMPREHENSIVE_REPORT_SHA256: '52625402b6bce49bfdc76999171f29db0bb7d63a071d070474515a950ed63a22'
+      REVIEWED_SETUP_STATE_REPORT_SHA256: '2bec496ec2c19283f75644f1b4c396720e7c718a4c19e1ddadf4e36d361bd0a4'
     steps:
       - name: Require independently reviewed native artifact bindings
         shell: bash
         run: |
           set -euo pipefail
-          for key in REVIEWED_NATIVE_RECEIPT_SHA256 REVIEWED_LIVECONTAINER_UNSIGNED_SHA256 REVIEWED_SIDESTORE_UNSIGNED_SHA256 REVIEWED_COMPREHENSIVE_REPORT_SHA256; do
+          for key in REVIEWED_NATIVE_RECEIPT_SHA256 REVIEWED_LIVECONTAINER_UNSIGNED_SHA256 REVIEWED_SIDESTORE_UNSIGNED_SHA256 REVIEWED_COMPREHENSIVE_REPORT_SHA256 REVIEWED_SETUP_STATE_REPORT_SHA256; do
             [[ "${!key}" =~ ^[0-9a-f]{64}$ ]] || { echo "Native artifact review is still pending: $key" >&2; exit 1; }
           done
       - name: Fetch pinned existing packaging implementation
@@ -42,15 +43,24 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: NRG-Wardog/LiveContainer
-          ref: 0b98afc7ad5ea51dc97612466743a15baa9305ed
+          ref: a8be8bab654edcecef0ec52020e76f0809a5ecc2
           path: host
           persist-credentials: false
           submodules: false
+      - name: Fetch exact retained-evidence verifier contracts
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: NRG-Wardog/LiveContainer
+          ref: da061bda6ac5315722a16859401b7dbb3c7eb953
+          path: native-gates
+          persist-credentials: false
+          submodules: false
+          sparse-checkout: .ci/native-app-compile
       - name: Download only matching successful native artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          COMPILE_RUN: '39782439194'
-          COMPILE_COMMIT: 'ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f'
+          COMPILE_RUN: '40015948608'
+          COMPILE_COMMIT: 'da061bda6ac5315722a16859401b7dbb3c7eb953'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
@@ -62,10 +72,15 @@ jobs:
           python3 - <<'PY'
           import json, os
           r = json.load(open('package-evidence/compile-run.json'))
-          if (r['head_sha'] != os.environ['COMPILE_COMMIT'] or
+          if r.get('workflow_id') != 390741603:
+              raise ValueError('Wrong exact native workflow identity')
+          if (r['status'] != 'completed' or
+              r['repository']['full_name'] != 'NRG-Wardog/LiveContainer' or
+              r['head_commit']['tree_id'] != '6e06febf76c47cd244fb00d885b8a2c04dcb0d78' or
+              r['head_sha'] != os.environ['COMPILE_COMMIT'] or
               r['run_attempt'] != int(os.environ['COMPILE_ATTEMPT']) or
               r['conclusion'] != 'success' or r['path'] != '.github/workflows/native-app-compile.yml' or
-              r['head_branch'] != 'validation/native-registration-diagnostics-20261022'):
+              r['head_branch'] != 'validation/native-host-bundle-repair-20261023'):
               raise ValueError('Not the requested successful native compile')
           PY
           cat > package-evidence/zip_preflight.py <<'PY'
@@ -152,14 +167,14 @@ jobs:
           done
       - name: Verify retained native input identities and bytes
         env:
-          COMPILE_RUN: '39782439194'
-          COMPILE_COMMIT: 'ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f'
+          COMPILE_RUN: '40015948608'
+          COMPILE_COMMIT: 'da061bda6ac5315722a16859401b7dbb3c7eb953'
           COMPILE_ATTEMPT: '1'
         shell: bash
         run: |
           set -euo pipefail
           test "$(git -C builder rev-parse HEAD)" = 3edd9fa523a223bcd2898d5c960c5da7ff335be8
-          test "$(git -C host rev-parse HEAD)" = 0b98afc7ad5ea51dc97612466743a15baa9305ed
+          test "$(git -C host rev-parse HEAD)" = a8be8bab654edcecef0ec52020e76f0809a5ecc2
           test -z "$(git -C builder status --porcelain)"
           test -z "$(git -C host status --porcelain)"
           python3 - <<'PY'
@@ -187,7 +202,7 @@ jobs:
               ],
               "LiveContainer": [
                   "NRG-Wardog/LiveContainer",
-                  "0b98afc7ad5ea51dc97612466743a15baa9305ed"
+                  "a8be8bab654edcecef0ec52020e76f0809a5ecc2"
               ],
               "LiveContainer/OpenSSL": [
                   "krzyzanowskim/OpenSSL",
@@ -199,11 +214,11 @@ jobs:
               ],
               "SideStore": [
                   "NRG-Wardog/SideStore",
-                  "9071aa585fb39001c4f0e7357b3b33529cbcea2a"
+                  "7ff41a436cb6d1ee6465110b34b5a1cfded7952d"
               ],
               "SideStore/Dependencies/SideSign": [
                   "NRG-Wardog/SideSign",
-                  "d05efa30f37bad7c7ddaa50186fc1ac8ba703eca"
+                  "483c626d6e5004b45298518352307eb492fe1ccd"
               ],
               "SideStore/Dependencies/minimuxer": [
                   "NRG-Wardog/minimuxer",
@@ -257,6 +272,218 @@ jobs:
               diagnostic_report = json.loads(report.read_text())
               if diagnostic_report.get('status') != 'SOURCE_OWNED_FAKE_DIAGNOSTICS_PASS_NOT_RUNTIME_VALIDATION':
                   raise ValueError('Comprehensive diagnostic report is not passing')
+              # The exact independently reviewed report remains authoritative.
+              # Require the added narrow suites and their frozen case closure too;
+              # these are fake-boundary checks, never on-device sign-in evidence.
+              expected_suites = ['legacy-response-core', 'auth-request', 'iloader-auth-parity', 'iloader-onboarding-scope', 'profile-provenance', 'wire-copy', 'placed-pairing', 'deferred-device-setup']
+              expected_commands = ["legacy-generate", "legacy-compile", "legacy-run", "auth-source", "auth-generate", "auth-compile", "auth-run", "iloader-source", "iloader-generate", "iloader-compile", "iloader-run", "onboarding-source", "onboarding-generate", "onboarding-compile", "onboarding-run", "profile-source", "profile-generate", "profile-compile", "profile-run", "wire-source", "wire-generate", "wire-service-compile", "wire-host-compile", "wire-service-run", "wire-host-run", "refresh-generate", "refresh-compile", "refresh-run", "extension-generate", "extension-compile", "extension-run", "extension-negative-compile", "extension-negative-run", "pairing-source", "pairing-generate", "pairing-compile", "pairing-run", "recovery-source", "recovery-generate", "recovery-compile", "recovery-run", "deferred-prior-extract", "deferred-prior-generate", "deferred-prior-compile", "deferred-prior-run", "deferred-source", "deferred-generate", "deferred-compile", "deferred-run"]
+              expected_setup_cases = {"deferred-device-setup": ["background_retry_reauth_and_skip_modes_never_defer", "cancellation_before_or_during_activation_never_succeeds", "configured_success_registers_and_completes", "deferred_completion_skips_resign_and_postauth", "failed_activation_never_publishes_deferred_success", "fresh_pem_real_proof_finalization_terminal_and_export", "missing_pairing_defers_after_certificate_and_checked_activation", "network_udid_portal_and_certificate_failures_never_defer", "present_invalid_empty_and_unreadable_never_defer", "real_proof_rejects_wrong_malformed_and_truncated_keys", "reloaded_pkcs1_and_pkcs8_real_proof_finalization_terminal_and_export", "reset_pairing_defers_without_adopting_stale_record", "service_terminal_and_export_reject_mismatched_ownership", "stale_identity_wrong_team_or_key_never_activates", "wire_outcome_allowlist_preserves_incomplete_journal"], "placed-pairing": ["activation-gate-serializes", "actual-live-query-ready", "boot-and-status-preserve-reset", "cached-device-id-is-not-live-proof", "cancelled-probe-no-restart", "cancelled-startup-retains-adopted-file", "changed-destination-during-probe-no-ready", "changed-placement-after-commit-stops-transport", "changed-preference-after-commit-not-overwritten", "changed-preference-not-selected", "changed-receipt-during-probe-no-ready", "changed-source-during-probe-no-ready", "changed-source-not-selected", "changed-state-after-live-query-not-ready", "cleanup-uncertainty-retains-file-and-hold", "commit-cancellation-preserves-reset", "conflicting-destination-preserved", "diagnostics-do-not-contain-pairing-data", "different-live-device-not-ready", "directory-replacement-rejected", "failed-live-identity-retains-adopted-file", "failed-publication-cleanup-quarantines-leftover", "failed-startup-retains-adopted-file", "fresh-place-explicit-adoption", "invalid-placement-no-mutation", "malformed-selected-file-no-green", "missing-receipt-restarts-without-recommit", "oversized-file-rejected", "owner-change-during-probe-no-ready", "queued-boot-does-not-override-cleanup-uncertain", "queued-boot-does-not-retry-not-ready", "repeated-identical-selection-no-restart", "repeated-unready-selection-retains-file", "repeated-unready-selection-retries-without-commit", "reset-during-probe-no-ready", "reset-leftover-not-selected", "reset-with-no-file-preserved", "saved-selection-restores-from-safe-file", "selected-file-missing", "source-removed-saved-selection-retained", "stale-before-commit-no-adoption", "stale-start-cannot-revive-receipt", "symlink-directory-rejected", "symlink-placement-rejected", "transport-receipt-binds-input-and-protocol", "unknown-selection-never-green", "unsafe-selected-file-no-green", "verified-existing-copy-adopted", "view-reentry-file-only-status"]}
+              if (set(expected_setup_cases) != {'placed-pairing', 'deferred-device-setup'} or
+                  any(not isinstance(names, list) or not names or
+                      any(not isinstance(name, str) or not name for name in names) or
+                      len(names) != len(set(names)) for names in expected_setup_cases.values())):
+                  raise ValueError('Frozen setup case contract is incomplete')
+              if diagnostic_report.get('suites') != expected_suites:
+                  raise ValueError('Consolidated diagnostic suite closure differs')
+              commands = diagnostic_report.get('commands', [])
+              def command_passed(row):
+                  if row.get('name') == 'extension-negative-run':
+                      return (type(row.get('exit_code')) is int and row['exit_code'] != 0 and
+                              row.get('expected_failure_marker') == 'fresh-nil-local-empty-excess-prompts-and-selects: prompt count' and
+                              not row.get('timed_out') and not row.get('launch_error'))
+                  return row.get('exit_code') == 0 and 'expected_failure_marker' not in row
+              if ([row.get('name') for row in commands] != expected_commands or
+                  any(not command_passed(row) for row in commands)):
+                  raise ValueError('Consolidated diagnostic command closure differs')
+              for key in ('live_authentication_executed', 'guest_binary_executed',
+                          'native_provider_executed', 'native_linked_tests_executed'):
+                  if diagnostic_report.get(key) is not False:
+                      raise ValueError('Forbidden runtime claim in retained diagnostic report')
+              if (diagnostic_report.get('source_owned_fake_authentication_executed') is not True or
+                  diagnostic_report.get('source_input_bytes_unchanged') is not True or
+                  diagnostic_report.get('source_inputs_before') != diagnostic_report.get('source_inputs_after')):
+                  raise ValueError('Missing fake-only or source immutability evidence')
+              exports = diagnostic_report.get('fixture_exports', {})
+              if set(exports) != {'iloader-auth-parity', 'iloader-onboarding-scope',
+                                 'placed-pairing', 'deferred-device-setup'}:
+                  raise ValueError('Retained fixture export closure differs')
+              for suite, names in expected_setup_cases.items():
+                  path = report_dir / suite / 'cases.json'
+                  if path.is_symlink() or not path.is_file() or path.parent.is_symlink():
+                      raise ValueError('Missing or linked setup case export')
+                  case_bytes = path.read_bytes()
+                  value = json.loads(case_bytes)
+                  cases = value.get('cases')
+                  if (value.get('schema') != suite + '-cases-v1' or value.get('fake_only') is not True or
+                      not isinstance(cases, list) or any(not isinstance(name, str) for name in cases) or
+                      len(cases) != len(set(cases)) or sorted(cases) != sorted(names)):
+                      raise ValueError('Setup case export differs from frozen source contract')
+                  expected = {'schema': suite + '-cases-v1', 'fake_only': True, 'names': cases,
+                              'count': len(cases), 'sha256': hashlib.sha256(case_bytes).hexdigest()}
+                  if exports.get(suite) != expected:
+                      raise ValueError('Setup case receipt differs from retained bytes')
+              # Narrow recovery identities supplement the exact independently admitted report.
+              expected_recovery = json.loads(r'''{"baseline_store_sha256": "7f2e5adb99e4e990513152d59c2e7e931d871e4e3c5bbc9f32344a180b4ac19a", "contract_sha256": "8510f399b1f020b2c934d0faccdd10b2877f9d58e55599e8e1499440ff1125ab", "deferred_baseline": {"input_sha256": {"LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift": "9767154ceb1cb7c8ba55548554fd56c675bdd1946824f9480266e3c8f8f8b844", "LiveContainer/SideStoreSupport/SideStore.swift": "500c90f61be0f1b41c4e7ff785ff84080fff56f59a4392123ac8660a549c7b05", "SideStore/AltStore/AppDelegate.swift": "0d78665e470757d56ac1977fcb9d443fc1c43d1d0ed296a21092c02ec1fcac7f", "SideStore/AltStore/Core/Components/Keychain.swift": "9d617b70b9ab8f77e336a9788953eee837692738c08e7c2abae79b286e3265dd", "SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift": "e972f41a596e83602f1a6cec3914efb8ab044291abf2f2a31aedc4473f0550c4", "SideStore/SideStore/Core/Pairing/PairingFileManager.swift": "83320f94fcf086627c1f7c104469eacc8852ca4d328916c9a299cfadfb506274"}, "owners": {"LiveContainer": {"commit": "c20d8289bb72fdca07dd08506c37ead6d9da37da", "tree": "5e92e4275c0b59e48662be9966ef8c2a3f7e0e04"}, "SideStore": {"commit": "6c8ae29c0a9448a83ca710ea484d91d6b2d143cd", "tree": "f4955c1e4a510b10b0022f2dc7e81ae4002b56bd"}}}, "pairing_recovery_case_names": ["ack-cancel-retains-owner", "ack-cancelAfterResponse-retains-owner", "ack-epochChanged-retains-owner", "ack-fail-retains-owner", "ack-falseAck-retains-owner", "ack-serviceChanged-retains-owner", "ack-wrongTarget-retains-owner", "baseline-dispatched-snapshot-ack-stale-owner-reproduced", "certificate-import-safe-copy-and-stale-suffix", "cleanup-uncertainty-retains-durable-and-host-owner", "correlation-inner-no-request-context", "correlation-outer-no-request-context", "correlation-unallowlistedOperation-no-request-context", "exact-ack-plus-quiescent-snapshot-retires-owner", "failed-repeat-ack-retains-only-original-success-proof", "finite-recovery-refusal-causes-preserve-journal", "localized-command-recovery-deferred-en", "localized-command-recovery-deferred-he", "localized-command-recovery-deferred-zh-Hans", "localized-command-recovery-deferred-zh-Hant", "snapshot-activeMutation-retains-owner", "snapshot-busy-retains-owner", "snapshot-differentOperation-retains-owner", "snapshot-malformedDirect-retains-owner", "snapshot-missingAck-retains-owner", "snapshot-newerOwner-retains-owner", "snapshot-postAckEpochChanged-retains-owner", "snapshot-unreadable-retains-owner", "wire-classify-copy-directRecoveryInspect", "wire-classify-copy-directRecoveryReconcile", "wire-classify-copy-pairingUsePlaced"], "pairing_recovery_fixture_inputs": {"generate_pairing_recovery_fixture.py": "b21d547a1c8fd3abd615801d2596e6558f4e082847b68b277c3cd504d846e99e", "generate_wire_fixture.py": "eae2b298aa9c4a23b4aa8bacc0e72a0645ec6acdcae8d38c3391c7dc468c4683", "pairing_recovery_harness.swift": "894e33d965582853fd988ec0c82209b2abe0fc2ef7fd84f73fea5337acd6fa20", "test_pairing_recovery_contract.py": "37f051d2583fd6ccc14888f2d3251e4bf099a46b27f0d419a69a22ddd06a20d5"}, "pairing_recovery_input_sha256": {"catalog": "b28c367b2106668a8bbd42b0ad6b42590583947fa64322d42bb24a71c129e03b", "host": "7f10117e7cdd41f1ddf2729207105e569a1287f08ed4b5b8664ab077b57b5637", "localization": "72a3289af42296673237ffbf17e369c5ca9ba26c8e611087c8ebcb08278af673", "service": "ce9e1d78bc262fa9f3e018661dd5c1e9dc17e2188e5e47fd51c243c8614d142e", "settings": "53e9141cd2ef1e3aaccb74e099cddfed9ed8451b0dbbca0ac3c7a3b53fe0b84a", "ui": "21d9840462cdd4e66e2312c2d47b1cbf93256d5a4c66e404471685c1a590ec98"}, "pairing_recovery_outputs": ["fixture.swift", "TestLocalization.bundle/Info.plist", "TestLocalization.bundle/en.lproj/Localizable.strings", "TestLocalization.bundle/he.lproj/Localizable.strings", "TestLocalization.bundle/zh-Hans.lproj/Localizable.strings", "TestLocalization.bundle/zh-Hant.lproj/Localizable.strings"], "source_input_count": 131, "system_crypto_boundary": {"frameworks": ["Security", "CryptoKit"], "native_vendor_provider": false, "personal_keys_or_certificates": false, "platform": "darwin", "real_keychain_access": false, "synthetic_in_memory_identities_only": true}}''')
+              if (diagnostic_report.get('contract_sha256') != expected_recovery['contract_sha256'] or
+                  len(diagnostic_report.get('source_inputs_before', {})) != expected_recovery['source_input_count'] or
+                  diagnostic_report.get('system_crypto_synthetic_fixture_executed') is not True or
+                  diagnostic_report.get('system_crypto_boundary') != expected_recovery['system_crypto_boundary']):
+                  raise ValueError('Missing bounded synthetic Security/CryptoKit recovery evidence')
+              def retained_bytes(relative):
+                  path = report_dir / relative
+                  if not path.is_file() or path.is_symlink() or any(p.is_symlink() for p in path.parents):
+                      raise ValueError('Missing or linked recovery evidence: ' + relative)
+                  return path.read_bytes()
+              def retained_hash(relative):
+                  return hashlib.sha256(retained_bytes(relative)).hexdigest()
+              prior = diagnostic_report.get('deferred_prior_pem_rejection', {})
+              baseline = expected_recovery['deferred_baseline']
+              prior_path = 'deferred-prior-pem/baseline-sources.json'
+              prior_expected = {'schema': 'deferred-prior-pem-sources-v1', 'origin': 'exact-local-git-objects',
+                                'owners': baseline['owners'], 'input_sha256': baseline['input_sha256'],
+                                'network': False, 'target_execution': False}
+              if (json.loads(retained_bytes(prior_path)) != prior_expected or
+                  prior.get('source_receipt_path') != prior_path or prior.get('source_receipt_sha256') != retained_hash(prior_path) or
+                  prior.get('owners') != baseline['owners'] or prior.get('input_sha256') != baseline['input_sha256'] or
+                  prior.get('required_marker') != 'DEFERRED_PRIOR_PEM_REJECTION_REPRODUCED' or
+                  prior.get('system_crypto_boundary') != expected_recovery['system_crypto_boundary']):
+                  raise ValueError('Prior exact delivered PEM rejection receipt differs')
+              for name, digest in baseline['input_sha256'].items():
+                  if retained_hash('deferred-prior-pem/sources/' + name) != digest:
+                      raise ValueError('Prior delivered source bytes differ')
+              prior_extraction = 'deferred-prior-pem/deferred-device-setup/source-evidence.json'
+              if prior.get('extraction') != {'path': prior_extraction, 'sha256': retained_hash(prior_extraction)}:
+                  raise ValueError('Prior actual-source extraction receipt differs')
+              recovery_path = 'pairing-recovery/cases.json'
+              recovery = json.loads(retained_bytes(recovery_path))
+              names = recovery.get('cases')
+              if (recovery.get('schema') != 'pairing-recovery-cases-v1' or recovery.get('status') != 'pass' or
+                  recovery.get('fake_only') is not True or recovery.get('native_pairing_executed') is not False or
+                  not isinstance(names, list) or any(not isinstance(name, str) for name in names) or
+                  len(names) != len(set(names)) or sorted(names) != sorted(expected_recovery['pairing_recovery_case_names'])):
+                  raise ValueError('Actual pairing recovery case closure differs')
+              if diagnostic_report.get('pairing_recovery_cases') != {
+                      'schema': 'pairing-recovery-cases-v1', 'fake_only': True, 'names': names,
+                      'count': len(names), 'sha256': retained_hash(recovery_path)}:
+                  raise ValueError('Pairing recovery case receipt differs')
+              recovery_source_path = 'pairing-recovery/sources.json'
+              recovery_source = json.loads(retained_bytes(recovery_source_path))
+              outputs = {name: retained_hash('pairing-recovery/' + name) for name in expected_recovery['pairing_recovery_outputs']}
+              if (recovery_source.get('schema') != 'pairing-recovery-sources-v1' or
+                  recovery_source.get('status') != 'generated_not_compiled' or
+                  recovery_source.get('input_sha256') != expected_recovery['pairing_recovery_input_sha256'] or
+                  recovery_source.get('fixture_inputs') != expected_recovery['pairing_recovery_fixture_inputs'] or
+                  recovery_source.get('baseline_store_sha256') != expected_recovery['baseline_store_sha256'] or
+                  recovery_source.get('output_sha256') != outputs or recovery_source.get('fixture_sha256') != outputs['fixture.swift'] or
+                  sorted(recovery_source.get('case_names', [])) != sorted(names)):
+                  raise ValueError('Pairing recovery actual-source or generated closure differs')
+              if diagnostic_report.get('pairing_recovery_extraction') != {
+                      'path': recovery_source_path, 'sha256': retained_hash(recovery_source_path),
+                      'output_sha256': outputs, 'baseline_store_sha256': expected_recovery['baseline_store_sha256']}:
+                  raise ValueError('Pairing recovery extraction receipt differs')
+              by_name = {row['name']: row for row in commands}
+              for command in ('deferred-prior-compile', 'deferred-compile'):
+                  argv = by_name[command]['argv']
+                  if [argv[i + 1] for i, value in enumerate(argv[:-1]) if value == '-framework'] != ['Security', 'CryptoKit']:
+                      raise ValueError('Synthetic cryptographic framework closure differs')
+              for command, marker in (('deferred-prior-run', 'DEFERRED_PRIOR_PEM_REJECTION_REPRODUCED'),
+                                      ('recovery-run', 'PAIRING_RECOVERY_BOUNDARY_PASS'),
+                                      ('deferred-run', 'DEFERRED_DEVICE_SETUP_FIXTURE_PASS')):
+                  row = by_name[command]
+                  raw = retained_bytes(row['log'])
+                  if (row.get('success_marker') != marker or hashlib.sha256(raw).hexdigest() != row['stdout_sha256'] or
+                      raw.decode('utf-8').splitlines().count(marker) != 1):
+                      raise ValueError('Required source-extracted recovery success marker differs')
+              # Actual refresh-chain receipts extend, never replace, inherited admission guards.
+              expected_refresh = json.loads(r'''{"case_names": ["actual_manifest_callback_ledger_copy", "certificate_accountLookup", "certificate_authenticate", "certificate_fetchCertificate", "concrete_transport_retained", "contradictory_handoff", "copy_kind_omission_reproduced", "copy_structured_snapshot_preserved", "delivered_generic_wrapper_reproduced", "duplicate_target", "finite_boundary_invariants", "incomplete_manifest", "invalid_failure", "invalid_plist", "invalid_refresh_failure_kind", "malformed_boolean", "missing_failure_no_raw_fallback", "missing_ledger", "missing_payload", "oversized_payload", "secret_canary_and_copy_identity", "source_certificateSelection", "source_provisioningProfileInstallation", "source_refreshApplication", "source_refreshMetadataCache", "source_refreshRecordUpdate", "stale_manifest", "terminal_ledger", "untyped_outer_retained", "wrong_active_request", "wrong_active_run", "wrong_callback_run_ignored", "wrong_expected_run", "wrong_failure_operation", "wrong_failure_run", "wrong_launch_ignored"], "generated_sha256": "5124c43f3242d72bfa05cf8472afd41b0f5cc976a344b28eb4dd20225c662b3f", "inputs_sha256": {"app_operation": "1d078ee70af9870e86ffdeea713d1410163eeb7990bdf264c245fa6b39f9b9eb", "certificate_boundary_cases": "ffc022ecef1371fd3fc83202be8490f8c9364738ef1d61092f1969ef7c1c38ee", "client": "9e03646c42531af98b150c7866a6b1bb8297b5d8cb285b7a5da739dce985aed5", "error_title": "eca209ba021071d4d0daf351ccf338559de0fb6b1fae5631f7e2655989b7e516", "generate_refresh_failure_fixture.py": "8c9162f016a01edb25300855d3297a6b651fbf695c33cb5517a1303740fe2752", "generate_wire_fixture.py": "eae2b298aa9c4a23b4aa8bacc0e72a0645ec6acdcae8d38c3391c7dc468c4683", "host": "7f10117e7cdd41f1ddf2729207105e569a1287f08ed4b5b8664ab077b57b5637", "intent": "f1bbc0093e1349be884bd33785f204b529a63e5c7e509e8a9806990c877fd055", "manager": "f3ca3e6f5a9165e3bbea747bc09f5e526ad1ad68286be03f6a3b932d70c8d1f9", "operation_error": "0df82c2b27c8f7da6147bf4b2856609decd7e3be59370f45851018d2a2fe70e2", "pipeline": "b79b429cbd8d7ac38f7435b0cc02536c939bd07a226aa601193cf8e01eba156b", "pipeline_steps": "2293b15da7ee02363b9d25b05760d2756a206b539814a108e00a0c9c541ed398", "producer": "bf9869aaa643040610a722163160dc3032a1e63e81b06cac46bceb0d3ed41776", "refresh_boundary_assertions": "e25ea5dd6934ac3622c7681686e5084d66ca847e1669360c4feec8f0188ee7db", "refresh_boundary_cases": "2f79d48a1667b7329fbdecd04a1ca4ba9af71f74db684eb66cdcc5cb066c0f4b", "refresh_completed_baseline.swift": "ee3b15d62a73e64e22c3c472bd2e592e68339b2f806474b4936ffb28aea40773", "refresh_contract": "cff440727b910c11f9e0af07d1f9e2f4d59d458fce71d19e394d680853a9cd96", "refresh_copy_baseline.swift": "2d45d1ba75b40aef7445c3025c4006471a3d18c3440c566f59c5f65e3d28edd0", "refresh_failure_doubles.swift": "8e06e580da33ec1da18833413bbcf3a8d3dd6a2a69501ddb137d637fe78e088f", "refresh_failure_harness.swift": "31e2bef7536c32339c931a2ce94598a9e574e02ee6f5b24a6ce1fc5ee129b336", "refresh_handler_doubles.swift": "9f8ce339b58daf9e45f354305a69f5b615d4a19390831c3918f5dd400a7f62be", "refresh_operation": "1c7508581ea98db77db3210a25fa615e7fd8a342dec6898fd24de6aca02d8bc2", "scheduler": "2365cb6116da0cd280fd7ce93c5b7973f280711161dff4fae5356402e0040faf", "service": "ce9e1d78bc262fa9f3e018661dd5c1e9dc17e2188e5e47fd51c243c8614d142e", "service_boundary_doubles": "5fd5b3c4af23f49806a06bb40e464b1518ca79f267ca42f8d4d4d3d11cb54875", "test_refresh_failure_contract.py": "3252ff9b26c02989d61d8d33179864b35129d9378418ce89c78596a079ebfdfa", "ui": "21d9840462cdd4e66e2312c2d47b1cbf93256d5a4c66e404471685c1a590ec98", "wrapped_error": "7c256bc94613109a34bf603397ef5f4d59e83871a57f3e98600dec6ad477fec0"}}''')
+              refresh_source_path = 'refresh-failure/sources.json'
+              refresh_source = json.loads(retained_bytes(refresh_source_path))
+              if (refresh_source.get('schema') != 'refresh-failure-sources-v1' or
+                  refresh_source.get('status') != 'generated_not_compiled' or
+                  refresh_source.get('inputs_sha256') != expected_refresh['inputs_sha256'] or
+                  refresh_source.get('generated_sha256') != retained_hash('refresh-failure/refresh-failure.swift') or
+                  refresh_source.get('generated_sha256') != expected_refresh['generated_sha256'] or
+                  sorted(refresh_source.get('case_names', [])) != sorted(expected_refresh['case_names']) or
+                  any(refresh_source.get(key) is not False for key in ('native_provider_executed', 'network_executed', 'swift_executed'))):
+                  raise ValueError('Refresh actual-source/generation receipt differs')
+              if diagnostic_report.get('refresh_failure_extraction') != {
+                      'path': refresh_source_path, 'sha256': retained_hash(refresh_source_path),
+                      'generated_sha256': expected_refresh['generated_sha256'],
+                      'input_count': len(expected_refresh['inputs_sha256'])}:
+                  raise ValueError('Refresh source-extraction receipt differs')
+              refresh_case_path = 'refresh-failure/cases.json'
+              refresh = json.loads(retained_bytes(refresh_case_path))
+              refresh_names = refresh.get('cases')
+              if (refresh.get('schema') != 'refresh-failure-cases-v1' or refresh.get('status') != 'pass' or
+                  refresh.get('fake_only') is not True or refresh.get('native_provider_executed') is not False or
+                  not isinstance(refresh_names, list) or any(not isinstance(n, str) for n in refresh_names) or
+                  len(refresh_names) != len(set(refresh_names)) or refresh.get('case_count') != len(refresh_names) or
+                  sorted(refresh_names) != sorted(expected_refresh['case_names'])):
+                  raise ValueError('Refresh runtime finite-case closure differs')
+              if diagnostic_report.get('refresh_failure_cases') != {
+                      'schema': 'refresh-failure-cases-v1', 'fake_only': True, 'names': refresh_names,
+                      'count': len(refresh_names), 'sha256': retained_hash(refresh_case_path)}:
+                  raise ValueError('Refresh runtime case receipt differs')
+              refresh_row = by_name['refresh-run']
+              refresh_raw = retained_bytes(refresh_row['log'])
+              refresh_marker = 'PASS refresh_failure_actual_source_chain cases=' + str(len(refresh_names))
+              if (refresh_row.get('success_marker') != refresh_marker or
+                  hashlib.sha256(refresh_raw).hexdigest() != refresh_row['stdout_sha256'] or
+                  refresh_raw.decode('utf-8').splitlines().count(refresh_marker) != 1):
+                  raise ValueError('Refresh actual-source runtime marker differs')
+              # Issue48 actual prompt/removal path and negative mutation remain within wire-copy.
+              expected_extension = json.loads(r'''{"case_names": ["cancel-no-files-removed", "empty-selection-no-files-removed", "fresh-nil-local-empty-excess-prompts-and-selects", "fresh-target-also-passed-as-local-empty-excess", "keep-all-main-profile", "keep-all-register-individually", "no-extensions-no-prompt", "preset-keep-no-prompt", "preset-main-profile-no-prompt", "preset-remove-no-prompt", "reinstall-matching-extensions", "remove-all-explicit", "remove-multiple-keeps-required", "unknown-selection-no-files-removed", "update-added-extension-reviews-all", "update-matching-extensions", "update-no-previous-extensions"], "fixture_files_sha256": {"Cases.swift": "2aa097bfd619c67c72d4256956ccdabd8cd460c939f9336ba63f49ebcc6adced", "Doubles.swift": "45ceeddac04bb9bc857fc3bbb8c55a0d5b7af1aa6f534a17ffea671d6c88808b", "generate_fixture.py": "2c05b12eb20b72275632d9ca93d52b403263d295a82b37c8c2a453ad95ba9911", "run.sh": "bc5100d074721d18d72871bf7581b60a6954529c1e6593753abf8d0612e20ad5"}, "generated_sha256": {"Fixture.swift": "15dfb2194cd682dbaac1cd56685debef5e7802c6db2d36f49059b185bcef4b73", "NegativeControl.swift": "aa6be2ba2efc6fbfb996ea203862da8025f15a29dc2c52c4380e8bd02aeee544"}, "negative_marker": "fresh-nil-local-empty-excess-prompts-and-selects: prompt count", "source_sha256": {"executor": "b79b429cbd8d7ac38f7435b0cc02536c939bd07a226aa601193cf8e01eba156b", "install": "dbffabe937e0a653f771b086f963fc401fc6af03983b5c71066aef70079f05e8", "profiles": "127665cabcd7c673493c0cea06fbb2ae8e8f0e4c49c735cb5273fc467260af7b", "removal": "4c0f4af18c9b72facae793981ec69497e22c340640f9f37cd86d0d0f2c8e6751", "runner": "4e139e9d643f59fb6990fdc246ecfa9aaa32acbc4595ea839b38bd9c4199522e", "service": "ce9e1d78bc262fa9f3e018661dd5c1e9dc17e2188e5e47fd51c243c8614d142e", "steps": "3465435df1449714541612e84a544350258320da02bdd5ec210a03f0dc3ce128", "ui": "21d9840462cdd4e66e2312c2d47b1cbf93256d5a4c66e404471685c1a590ec98"}, "success_marker": "PASS 17 source-path extension-selection cases; platform models and prompt transport are doubles. No signing or device install performed."}''')
+              extension_source_path = 'extension-selection/source-receipt.json'
+              extension_source = json.loads(retained_bytes(extension_source_path))
+              if (extension_source.get('schema') != 2 or extension_source.get('static_wiring_checks') != 'passed' or
+                  extension_source.get('swift_execution') != 'not-run-by-generator' or
+                  extension_source.get('native_signing_device_install') != 'not-run' or
+                  extension_source.get('source_sha256') != expected_extension['source_sha256'] or
+                  extension_source.get('fixture_files_sha256') != expected_extension['fixture_files_sha256'] or
+                  sorted(extension_source.get('case_names', [])) != sorted(expected_extension['case_names']) or
+                  extension_source.get('generated_sha256') != expected_extension['generated_sha256'] or
+                  extension_source.get('fixture_sha256') != expected_extension['generated_sha256']['Fixture.swift']):
+                  raise ValueError('Extension actual-source generation receipt differs')
+              for name, expected_hash in expected_extension['generated_sha256'].items():
+                  if retained_hash('extension-selection/' + name) != expected_hash:
+                      raise ValueError('Extension generated positive/negative source differs')
+              positive_source = retained_bytes('extension-selection/Fixture.swift')
+              negative_source = retained_bytes('extension-selection/NegativeControl.swift')
+              old_argument = b'targetExtensions: appBundle.appExtensions,'
+              if (positive_source.count(old_argument) != 1 or negative_source !=
+                  positive_source.replace(old_argument, b'targetExtensions: excessExtensions,')):
+                  raise ValueError('Extension mutation is not exact actual-handler regression')
+              if diagnostic_report.get('extension_selection_extraction') != {
+                      'path': extension_source_path, 'sha256': retained_hash(extension_source_path),
+                      'generated_sha256': expected_extension['generated_sha256'],
+                      'input_count': len(expected_extension['source_sha256']) + len(expected_extension['fixture_files_sha256'])}:
+                  raise ValueError('Extension source-extraction receipt differs')
+              extension_case_path = 'extension-selection/cases.json'
+              extension_cases = json.loads(retained_bytes(extension_case_path))
+              extension_names = extension_cases.get('passed_cases')
+              if (extension_cases.get('schema') != 1 or extension_cases.get('count') != 17 or
+                  extension_cases.get('native_signing_device_install') != 'not-run' or
+                  not isinstance(extension_names, list) or any(not isinstance(n, str) for n in extension_names) or
+                  sorted(extension_names) != sorted(expected_extension['case_names'])):
+                  raise ValueError('Extension actual runtime case closure differs')
+              if diagnostic_report.get('extension_selection_cases') != {
+                      'schema': 1, 'count': 17, 'names': extension_names,
+                      'sha256': retained_hash(extension_case_path), 'native_signing_device_install': 'not-run'}:
+                  raise ValueError('Extension runtime case receipt differs')
+              extension_row = by_name['extension-run']
+              extension_raw = retained_bytes(extension_row['log'])
+              if (extension_row.get('success_marker') != expected_extension['success_marker'] or
+                  hashlib.sha256(extension_raw).hexdigest() != extension_row['stdout_sha256'] or
+                  extension_raw.decode('utf-8').splitlines().count(expected_extension['success_marker']) != 1):
+                  raise ValueError('Extension actual runtime success marker differs')
+              negative_row = by_name['extension-negative-run']
+              negative_raw = retained_bytes(negative_row['log'])
+              if (not command_passed(negative_row) or
+                  negative_row.get('expected_failure_marker') != expected_extension['negative_marker'] or
+                  hashlib.sha256(negative_raw).hexdigest() != negative_row['stdout_sha256'] or
+                  expected_extension['negative_marker'] not in negative_raw.decode('utf-8') or
+                  (report_dir / 'extension-selection/negative-cases.json').exists()):
+                  raise ValueError('Extension negative control did not reproduce exact fresh prompt-count failure')
               actual_artifacts = {}
               for path in sorted(report_dir.rglob('*')):
                   if path.is_symlink(): raise ValueError('Symlinked comprehensive diagnostic artifact')
@@ -283,6 +510,69 @@ jobs:
                   raise ValueError('Retained native receipt checksum differs from independent review')
           pathlib.Path('package-evidence/native-receipt.json').write_text(json.dumps(receipts[0], indent=2))
           PY
+      - name: Admit retained setup-state and inherited evidence without rerunning fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C native-gates rev-parse HEAD)" = 'da061bda6ac5315722a16859401b7dbb3c7eb953'
+          test -z "$(git -C native-gates status --porcelain --untracked-files=all)"
+          python3 - <<'PYSETUP'
+          import hashlib, importlib.util, json, os, pathlib, shutil, sys
+          sys.dont_write_bytecode = True
+          gates = pathlib.Path('native-gates/.ci/native-app-compile')
+          frozen = {'verify_comprehensive_diagnostics.py': '28dd198df0ea35380741ee93eb67c16d82290c971f06a8633db600326a9b2dff', 'comprehensive-diagnostics-contract.json': '8510f399b1f020b2c934d0faccdd10b2877f9d58e55599e8e1499440ff1125ab', 'verify_setup_state_recovery.py': '18e8637e35ed00b56e539ca69a75cfe61af42bb71dab00084f5b3b75409c83b1', 'setup-state-recovery-contract.json': '2b0857b74baa766e2502216d25b72d6c77c17003addc86bab862db6f776346a0'}
+          def require(ok, reason):
+              if not ok: raise ValueError(reason)
+          def regular(path):
+              require(path.is_file() and not path.is_symlink() and not any(p.is_symlink() for p in path.parents), 'Missing or linked retained file: ' + str(path))
+              return path.read_bytes()
+          def digest(path): return hashlib.sha256(regular(path)).hexdigest()
+          for name, expected in frozen.items():
+              require(digest(gates / name) == expected, 'Frozen retained-evidence verifier changed: ' + name)
+          sys.path.insert(0, str(gates.resolve()))
+          import verify_comprehensive_diagnostics as inherited
+          import verify_setup_state_recovery as setup
+          retained = []
+          closures = []
+          for owner in ('LiveContainer', 'SideStore'):
+              evidence = pathlib.Path('unpacked') / owner / ('native-transfer-' + owner) / 'evidence'
+              receipt = json.loads(regular(evidence / 'receipt.json'))
+              require(digest(evidence / 'receipt.json') == os.environ['REVIEWED_NATIVE_RECEIPT_SHA256'], 'Retained receipt differs from independent admission')
+              require(digest(evidence / 'setup-state-recovery/report.json') == receipt.get('setup_state_recovery_report_sha256') == os.environ['REVIEWED_SETUP_STATE_REPORT_SHA256'], 'Setup report differs from independent admission')
+              require(digest(evidence / 'comprehensive-diagnostics/report.json') == receipt.get('comprehensive_diagnostics_report_sha256') == os.environ['REVIEWED_COMPREHENSIVE_REPORT_SHA256'], 'Inherited report differs from independent admission')
+              # Pure receipt parsers only. Never call run(), generators, compilers or fixtures.
+              inherited_report = inherited.verify_receipt(evidence / 'comprehensive-diagnostics/report.json', gates / 'comprehensive-diagnostics-contract.json')
+              setup_report = setup.verify_receipt(evidence / 'setup-state-recovery/report.json', gates / 'setup-state-recovery-contract.json')
+              closure = {}
+              for folder in ('comprehensive-diagnostics', 'setup-state-recovery'):
+                  root = evidence / folder
+                  for path in sorted(root.rglob('*')):
+                      require(not path.is_symlink(), 'Linked retained evidence')
+                      if path.is_dir(): continue
+                      relative = path.relative_to(evidence).as_posix()
+                      closure[relative] = digest(path)
+              closures.append(closure)
+              retained.append({'owner': owner, 'setup_state_report_sha256': digest(evidence / 'setup-state-recovery/report.json'),
+                  'setup_state_artifact_sha256': setup_report['artifact_sha256'],
+                  'inherited_report_sha256': digest(evidence / 'comprehensive-diagnostics/report.json'),
+                  'inherited_artifact_sha256': inherited_report['artifact_sha256']})
+          require(closures[0] == closures[1], 'The two retained report closures differ')
+          for folder in ('comprehensive-diagnostics', 'setup-state-recovery'):
+              source = pathlib.Path('unpacked/LiveContainer/native-transfer-LiveContainer/evidence') / folder
+              destination = pathlib.Path('package-evidence') / folder
+              require(not destination.exists(), 'Refusing existing retained evidence destination')
+              shutil.copytree(source, destination)
+          for relative, expected in closures[0].items():
+              require(digest(pathlib.Path('package-evidence') / relative) == expected, 'Copied evidence byte changed')
+          inherited.verify_receipt(pathlib.Path('package-evidence/comprehensive-diagnostics/report.json'), gates / 'comprehensive-diagnostics-contract.json')
+          setup.verify_receipt(pathlib.Path('package-evidence/setup-state-recovery/report.json'), gates / 'setup-state-recovery-contract.json')
+          admission = {'schema': 'setup-state-package-retained-admission-v1',
+              'status': 'EXACT_RETAINED_REPORTS_ADMITTED_NOT_DEVICE_VALIDATION',
+              'frozen_gate_sha256': frozen, 'retained_copies': retained,
+              'fixtures_rerun': False, 'native_authentication': False, 'device_validation': False,
+              'inherited_cydiasubstrate_caveat': 'Inherited CydiaSubstrate signature-page inconsistency remains disclosed; static-only evidence; ordinary re-signing is not a verified remedy.'}
+          pathlib.Path('package-evidence/setup-state-admission.json').write_text(json.dumps(admission, sort_keys=True, indent=2) + '\n')
+          PYSETUP
       - name: Package using existing verified combined wrapper
         shell: bash
         run: |
@@ -344,7 +634,7 @@ jobs:
           # Intentional packaging metadata only, after retained input verification.
           python3 - <<'PY'
           import hashlib, json, os, pathlib, plistlib, re
-          commit = 'ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f'
+          commit = 'da061bda6ac5315722a16859401b7dbb3c7eb953'
           if not re.fullmatch('[0-9a-f]{40}', commit):
               raise ValueError('Invalid native builder commit')
           records = []
@@ -376,7 +666,7 @@ jobs:
           label = {
               'product_version': '6.0',
               'channel': 'experimental',
-              'label': '6.0 registration diagnostics experimental',
+              'label': '6.0 pairing and deferred setup experimental',
               'native_compile_run': str(receipt['run_id']),
               'native_compile_attempt': str(receipt['run_attempt']),
               'native_workflow_commit': commit,
@@ -394,9 +684,9 @@ jobs:
             --root host \
             --host unpacked/LiveContainer/native-transfer-LiveContainer/Products/LiveContainer.app \
             --side unpacked/SideStore/native-transfer-SideStore/Products/SideStore.app \
-            --output diagnostic/LiveContainer-SideStore-6.0-registration-diagnostics-experimental.ipa 2>&1 | tee package-evidence/packaging.log
-          shasum -a 256 diagnostic/LiveContainer-SideStore-6.0-registration-diagnostics-experimental.ipa > diagnostic/SHA256SUMS
-          stat -f%z diagnostic/LiveContainer-SideStore-6.0-registration-diagnostics-experimental.ipa > diagnostic/size-bytes.txt
+            --output diagnostic/LiveContainer-SideStore-6.0-refresh-diagnostics-experimental.ipa 2>&1 | tee package-evidence/packaging.log
+          shasum -a 256 diagnostic/LiveContainer-SideStore-6.0-refresh-diagnostics-experimental.ipa > diagnostic/SHA256SUMS
+          stat -f%z diagnostic/LiveContainer-SideStore-6.0-refresh-diagnostics-experimental.ipa > diagnostic/size-bytes.txt
           test "$(cat diagnostic/size-bytes.txt)" -lt 524288000
           # Wrapper itself checks conversion, entitlements, identities and resources.
           # This is a diagnostic candidate, not proof that sign-in works on device.
