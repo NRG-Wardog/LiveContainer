@@ -39,7 +39,37 @@ def block(source, anchor):
 def read_sources(root):
     return {key: (root / path).read_text() for key, path in SOURCE_PATHS.items()}
 
-def coverage(s):
+CONNECTION_COPY_ANCHOR = 'enum V3SetupConnectionCopy: String, CaseIterable {'
+CONNECTION_LABELS = ['Verified', 'Detected', 'Not checked']
+LOCAL_REFRESH_ANCHORS = ['private var localRefreshMessage: String?', 'private var localRefreshRecovery: String?', 'private var localDevVPNActivationMessage: String?']
+RETAINED_BASELINE_KEYS = {
+    'Checked after a successful refresh',
+    'Tunnel interface present (not a CoreDevice proof)',
+    'Tunnel not present',
+    'Verified by successful refresh',
+}
+
+def connection_keys(s):
+    if CONNECTION_COPY_ANCHOR not in s['ui']:
+        return set()
+    keys = set(re.findall(r'case \w+ = "([^"]+)"', block(s['ui'], CONNECTION_COPY_ANCHOR)))
+    assert len(keys) == 11, 'Exact finite setup connection copy inventory'
+    return keys | set(CONNECTION_LABELS)
+
+def local_refresh_keys(s):
+    if LOCAL_REFRESH_ANCHORS[0] not in s['identity_diagnostics']:
+        return set()
+    source = '\n'.join(block(s['identity_diagnostics'], anchor) for anchor in LOCAL_REFRESH_ANCHORS)
+    keys = set(re.findall(r'return "([^"]+)"', source))
+    assert len(keys) == 13, 'Exact finite local refresh formatter inventory'
+    return keys
+
+def overlay_keys(s):
+    keys = connection_keys(s) | local_refresh_keys(s)
+    assert not keys or len(keys) == 27, 'Exact narrow status/profile overlay copy inventory'
+    return keys
+
+def coverage(s, retained_baseline=None):
     ui, localization = s['ui'], s['localization']
     view = block(ui, 'struct V3SetupAssistantView: View {')
     store = block(ui, 'final class V3SetupStore: ObservableObject {')
@@ -100,10 +130,28 @@ def coverage(s):
         assert 'V3LocalizedText("' + PAIRING_KEYS[7] + '")' in pairing_view
         assert 'V3LocalizedText(V3PairingSelectionPresentation.detail(' in pairing_view
         by_section['pairing_saved_selection_and_live_evidence'] = sorted(PAIRING_KEYS)
+    if connection_keys(s):
+        by_section['connection_detection_and_readiness'] = sorted(connection_keys(s))
+    if local_refresh_keys(s):
+        by_section['finite_local_refresh_diagnostics'] = sorted(local_refresh_keys(s))
+    retained_copy = {}
+    if retained_baseline is not None:
+        historical = coverage(retained_baseline)
+        current_keys = set().union(*map(set, by_section.values()))
+        retained_keys = set(historical['keys']) - current_keys
+        assert retained_keys == RETAINED_BASELINE_KEYS, retained_keys
+        by_section['retained_baseline_copy'] = sorted(retained_keys)
+        retained_copy = {
+            key: {'source': SOURCE_PATHS['ui'],
+                  'source_sha256': digest(retained_baseline['ui'].encode()),
+                  'baseline_sections': sorted(section for section, keys in historical['by_section'].items() if key in keys),
+                  'emitted_by_current_ui': False}
+            for key in sorted(retained_keys)}
     keys = sorted(set().union(*map(set, by_section.values())))
     catalog = json.loads(s['catalog'])['strings']
     missing = catalog_missing(keys, catalog)
     return {'keys': keys, 'by_section': by_section, 'missing': missing,
+            'retained_baseline_copy': retained_copy,
             'title_cases': titles, 'key_count': len(keys),
             'localized_value_count': len(keys) * len(LANGUAGES)}
 
@@ -160,7 +208,8 @@ def expected_case_names(inventory):
 
 def generate(root, out, baseline=None):
     s = read_sources(root)
-    inventory = coverage(s)
+    original = read_sources(baseline) if baseline else None
+    inventory = coverage(s, original)
     assert not inventory['missing'], inventory['missing']
     assert inventory['title_cases'], 'Typed setup titles are required'
     out.mkdir(parents=True, exist_ok=True)
@@ -184,9 +233,7 @@ def generate(root, out, baseline=None):
     bundle_outputs = []
     for name, entries in variants.items():
         bundle_outputs.extend(write_bundle(out, name, entries))
-    original = None
     if baseline:
-        original = read_sources(baseline)
         original_inventory = coverage(original)
         assert {r['key'] for r in original_inventory['missing']} <= {'JIT-Less', 'Wi-Fi', 'CoreDevice'}
         baseline_catalog = json.loads(original['catalog'])['strings']
@@ -215,6 +262,7 @@ def generate(root, out, baseline=None):
         'fixture_inputs': {name: digest((HERE / name).read_bytes()) for name in [
             'generate_setup_localization_fixture.py', 'setup_localization_harness.swift', 'test_setup_localization_contract.py']},
         'key_count': inventory['key_count'], 'localized_value_count': inventory['localized_value_count'],
+        'retained_baseline_copy': inventory['retained_baseline_copy'],
         'expected_native_case_count': len(expected_case_names(inventory)),
         'expected_case_names': expected_case_names(inventory),
         'output_sha256': {str(path.relative_to(out)): digest(path.read_bytes())

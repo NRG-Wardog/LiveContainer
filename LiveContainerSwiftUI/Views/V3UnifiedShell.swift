@@ -16520,6 +16520,119 @@ struct V3SetupStepState: Equatable {
     var detailIsOpaque = false
 }
 
+// V3_SETUP_CONNECTION_EVIDENCE_V1: interface presence is detection only.
+// The existing correlated run ledger owns readiness evidence. No probe, timer,
+// pairing-state mutation, or inferred provider identity is introduced here.
+// Only these compile-time-owned details may use the existing English fallback.
+// Arbitrary provider text cannot enter this exact enum.
+enum V3SetupConnectionCopy: String, CaseIterable {
+    case notDetected = "No tunnel interface detected. Enable LocalDevVPN before testing refresh."
+    case detected = "Tunnel interface detected. LocalDevVPN and device readiness are not verified."
+    case checking = "Refresh is still being checked. Tunnel readiness is not verified."
+    case vpnNotReady = "The latest refresh could not use the VPN connection. Enable LocalDevVPN, return here, and retry."
+    case readinessFailed = "Device connection readiness failed during the latest refresh. Copy Diagnostics for details."
+    case verified = "Device connection verified by the latest successful refresh. This is not a live VPN check."
+    case coreDeviceTransportUnrecorded = "Refresh verified; CoreDevice transport was not independently recorded."
+    case coreDeviceReadinessFailed = "Not verified: device connection readiness failed during the latest refresh."
+    case waiting = "Waiting for a verified refresh result."
+    case coreDeviceNotChecked = "Not checked. A detected tunnel interface does not verify device readiness."
+    case wifiRequired = "Connect to Wi-Fi, then test refresh to verify device readiness."
+}
+
+enum V3SetupConnectionEvidencePolicy {
+    enum Evidence: String {
+        case notDetected, detected, checking, vpnNotReady, readinessFailed, verified
+    }
+
+    struct Observation {
+        let evidence: Evidence
+        let runID: String?
+        var isVerified: Bool { evidence == .verified }
+
+        var tunnelStep: V3SetupStepState {
+            switch evidence {
+            case .notDetected:
+                return V3SetupStepState(state: "actionRequired", detail: V3SetupConnectionCopy.notDetected.rawValue)
+            case .detected:
+                return V3SetupStepState(state: "detected", detail: V3SetupConnectionCopy.detected.rawValue)
+            case .checking:
+                return V3SetupStepState(state: "checking", detail: V3SetupConnectionCopy.checking.rawValue)
+            case .vpnNotReady:
+                return V3SetupStepState(state: "failed", detail: V3SetupConnectionCopy.vpnNotReady.rawValue)
+            case .readinessFailed:
+                return V3SetupStepState(state: "failed", detail: V3SetupConnectionCopy.readinessFailed.rawValue)
+            case .verified:
+                return V3SetupStepState(state: "verified", detail: V3SetupConnectionCopy.verified.rawValue)
+            }
+        }
+
+        var coreDeviceStep: V3SetupStepState {
+            switch evidence {
+            case .verified:
+                return V3SetupStepState(state: "notChecked", detail: V3SetupConnectionCopy.coreDeviceTransportUnrecorded.rawValue)
+            case .vpnNotReady, .readinessFailed:
+                return V3SetupStepState(state: "failed", detail: V3SetupConnectionCopy.coreDeviceReadinessFailed.rawValue)
+            case .checking:
+                return V3SetupStepState(state: "checking", detail: V3SetupConnectionCopy.waiting.rawValue)
+            case .notDetected, .detected:
+                return V3SetupStepState(state: "notChecked", detail: V3SetupConnectionCopy.coreDeviceNotChecked.rawValue)
+            }
+        }
+    }
+
+    // Reject missing/ambiguous ordering rather than falling back to an older
+    // green result. Run identity must agree with the dictionary owner key.
+    private static func latestRecord(in ledger: [String: Any]) -> (String, [String: Any])? {
+        var latest: (id: String, record: [String: Any], started: Double)?
+        var ambiguous = false
+        for (id, value) in ledger {
+            guard UUID(uuidString: id) != nil,
+                  let record = value as? [String: Any], record["run_id"] as? String == id,
+                  let started = record["started_at"] as? NSNumber,
+                  CFGetTypeID(started) != CFBooleanGetTypeID(),
+                  started.doubleValue.isFinite, started.doubleValue > 0 else { return nil }
+            if latest == nil || started.doubleValue > latest!.started {
+                latest = (id, record, started.doubleValue)
+                ambiguous = false
+            } else if started.doubleValue == latest!.started { ambiguous = true }
+        }
+        guard let latest, !ambiguous else { return nil }
+        return (latest.id, latest.record)
+    }
+
+    static func observe(interfacePresent: Bool, ledger: [String: Any],
+                        activeRunID: String?, hostHandoffPending: Bool,
+                        uncertainMutationRunID: String?) -> Observation {
+        guard activeRunID?.isEmpty != false, !hostHandoffPending,
+              uncertainMutationRunID?.isEmpty != false else {
+            return Observation(evidence: .checking, runID: nil)
+        }
+        let unverified: Evidence = interfacePresent ? .detected : .notDetected
+        guard let (runID, record) = latestRecord(in: ledger) else {
+            return Observation(evidence: unverified, runID: nil)
+        }
+        if ["running", "verifying", "failing"].contains(record["state"] as? String ?? "") {
+            return Observation(evidence: .checking, runID: runID)
+        }
+        if record["state"] as? String == "failed",
+           let wire = record["failure"] as? [String: Any],
+           let failure = CombinedFailure.decode(wire, expectedID: runID),
+           failure.operation == "refresh", failure.code == .failed,
+           failure.sourceStep == .refreshReadiness {
+            let kind = failure.signingContext["refresh_failure_kind"]
+            let evidence: Evidence = ["invalidVPN", "noVPN"].contains(kind ?? "") ? .vpnNotReady : .readinessFailed
+            return Observation(evidence: evidence, runID: runID)
+        }
+        // Only the established full terminal-summary predicate may verify.
+        // A newer signing failure is not a success receipt for this policy.
+        if interfacePresent, V3RefreshAllTerminalEvidencePolicy.verifiedSummary(
+            record["manifest_summary"] as? [String: Any], record: record, runID: runID) {
+            return Observation(evidence: .verified, runID: runID)
+        }
+        return Observation(evidence: unverified, runID: runID)
+    }
+}
+
 @MainActor
 final class V3SetupStore: ObservableObject {
     @Published var device = V3SetupStepState()
@@ -16529,6 +16642,8 @@ final class V3SetupStore: ObservableObject {
     @Published var jitlessHasActiveCertificate = false
     @Published var network = V3SetupStepState()
     @Published var tunnel = V3SetupStepState()
+    @Published private(set) var coreDevice = V3SetupStepState()
+    @Published private(set) var connectionVerified = false
     @Published var background = V3SetupStepState()
     @Published var schedule = V3SetupStepState()
     @Published private(set) var scheduleDeadline: Date?
@@ -16615,7 +16730,7 @@ final class V3SetupStore: ObservableObject {
                 osMajor: ProcessInfo.processInfo.operatingSystemVersion.majorVersion),
             jitlessComplete: V3JITLessCompletionPolicy.isComplete(status.jitlessReadiness),
             networkComplete: network.state == "complete",
-            tunnelComplete: tunnel.state == "complete",
+            tunnelComplete: connectionVerified,
             backgroundRefreshAvailable: background.state == "complete",
             scheduleEnabled: schedule.state == "complete",
             verifiedRefreshPresent: verification.state == "complete",
@@ -16682,6 +16797,7 @@ final class V3SetupStore: ObservableObject {
         account = V3SetupStepState(state: "checking", detail: "Sign-in status was not refreshed. Retry to check.")
         pairing = V3SetupStepState(state: "checking", detail: "Pairing status was not refreshed. Retry to check.")
         jitless = V3SetupStepState(state: "checking", detail: "Certificate status was not refreshed. Retry to check.")
+        refreshConnectionEvidence()
     }
 
     func recalculate(status: V3SideStoreStatusStore) async {
@@ -16792,17 +16908,13 @@ final class V3SetupStore: ObservableObject {
         if !wifi {
             network = V3SetupStepState(state: "failed", detail: "Wi-Fi unavailable" + "\nError ID: SS-NET-D096")
             tunnel = V3SetupStepState(state: "unavailable", detail: "Needs Wi-Fi first")
+            coreDevice = V3SetupStepState(state: "notChecked", detail: V3SetupConnectionCopy.wifiRequired.rawValue)
+            connectionVerified = false
             NSLog("[V3_SETUP] STATUS step=network state=failed")
         } else {
             network = V3SetupStepState(state: "complete", detail: "Wi-Fi available")
             NSLog("[V3_SETUP] STATUS step=network state=ready")
-            if LiveContainerNetworkPreflight.hasTunnelInterface() {
-                tunnel = V3SetupStepState(state: "complete", detail: "Tunnel interface present (not a CoreDevice proof)")
-                NSLog("[V3_SETUP] STATUS step=tunnel state=ready")
-            } else {
-                tunnel = V3SetupStepState(state: "actionRequired", detail: "Tunnel not present")
-                NSLog("[V3_SETUP] STATUS step=tunnel state=action_required")
-            }
+            refreshConnectionEvidence()
         }
         switch UIApplication.shared.backgroundRefreshStatus {
         case .available:
@@ -16831,6 +16943,19 @@ final class V3SetupStore: ObservableObject {
         NSLog("[V3_SETUP] STATUS step=schedule state=\(schedule.state)")
         refreshVerificationRow()
         NSLog("[V3_SETUP] STATUS step=account state=\(account.state) step=pairing state=\(pairing.state)")
+    }
+
+    func refreshConnectionEvidence() {
+        let observation = V3SetupConnectionEvidencePolicy.observe(
+            interfacePresent: LiveContainerNetworkPreflight.hasTunnelInterface(),
+            ledger: groupDefaults?.dictionary(forKey: "liveContainerAutoRefreshRunLedger") ?? [:],
+            activeRunID: groupDefaults?.string(forKey: "liveContainerAutoRefreshActiveRunID"),
+            hostHandoffPending: groupDefaults?.bool(forKey: "liveContainerAutoRefreshHostHandoff") ?? false,
+            uncertainMutationRunID: groupDefaults?.string(forKey: "liveContainerAutoRefreshUncertainMutationRunID"))
+        tunnel = observation.tunnelStep
+        coreDevice = observation.coreDeviceStep
+        connectionVerified = observation.isVerified
+        NSLog("[V3_SETUP] STATUS step=tunnel evidence=%@", observation.evidence.rawValue)
     }
 
     private func verificationManifest() -> [String: Any]? {
@@ -17035,6 +17160,7 @@ final class V3SetupStore: ObservableObject {
         testRunID = runID
         let runState = runRecord["state"] as? String ?? ""
         testLedgerState = runState
+        refreshConnectionEvidence()
         guard runState == "completed" || runState == "failed" else { return false }
         let manifest = runRecord["manifest"] as? [String: Any]
         let verifiedManifest = manifest.map {
@@ -17179,7 +17305,8 @@ final class V3SetupStore: ObservableObject {
         lines.append("Team: " + status.team)
         lines.append("Wi-Fi: " + (network.state == "failed" ? "unavailable" : "available"))
         lines.append("VPN interface: " + (LiveContainerNetworkPreflight.hasTunnelInterface() ? "present" : "absent"))
-        lines.append("CoreDevice: " + (verification.state == "complete" ? "verified" : "not checked"))
+        lines.append("Connection readiness: " + tunnel.state)
+        lines.append("CoreDevice: " + coreDevice.state)
         switch UIApplication.shared.backgroundRefreshStatus {
         case .available: lines.append("Background App Refresh: available")
         case .denied: lines.append("Background App Refresh: denied")
@@ -17308,7 +17435,7 @@ struct V3SetupAssistantView: View {
                          state: setup.network, destination: nil)
                 setupRow(icon: "network", title: .vpnTunnel,
                          state: setup.tunnel, destination: nil)
-                if setup.tunnel.state == "actionRequired" {
+                if ["actionRequired", "detected", "failed"].contains(setup.tunnel.state) {
                     Button {
                         openLocalVPN()
                     } label: {
@@ -17451,6 +17578,9 @@ struct V3SetupAssistantView: View {
             // over from a previous session.
             await setup.reloadAndRecalculate(status: status)
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name(LiveContainerAutoRefreshScheduler.runStateChangedNotification))) { _ in
+            setup.refreshConnectionEvidence()
+        }
         .onChange(of: setup.testRunning) { running in
             guard !running else { return }
             // A refresh mutation invalidates local signing observations. Once
@@ -17486,12 +17616,7 @@ struct V3SetupAssistantView: View {
             if setup.testRunning { setup.cancelTest() }
         }
     }
-    private func coredeviceState() -> V3SetupStepState {
-        if setup.verification.state == "complete" {
-            return V3SetupStepState(state: "complete", detail: "Verified by successful refresh")
-        }
-        return V3SetupStepState(state: "unavailable", detail: "Checked after a successful refresh")
-    }
+    private func coredeviceState() -> V3SetupStepState { setup.coreDevice }
     @ViewBuilder
     private func setupRow(icon: String, title: V3SetupTitle, state: V3SetupStepState, destination: AnyView?) -> some View {
         if let destination {
@@ -17518,7 +17643,9 @@ struct V3SetupAssistantView: View {
                 Text(verbatim: title.localized(language: .resolve(dateLocale.identifier))).font(.headline)
                 Group {
                     if state.detailIsOpaque { Text(state.detail) }
-                    else { V3LocalizedText(state.detail.isEmpty ? stateLabel(state.state) : state.detail) }
+                    else if let owned = V3SetupConnectionCopy(rawValue: state.detail) {
+                        Text(verbatim: V3Localization.string(owned.rawValue, language: .resolve(dateLocale.identifier)))
+                    } else { V3LocalizedText(state.detail.isEmpty ? stateLabel(state.state) : state.detail) }
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -17531,11 +17658,11 @@ struct V3SetupAssistantView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(V3Localization.format("%@, %@", title.localized(language: .resolve(dateLocale.identifier)), V3Localization.prose(stateLabel(state.state), language: .resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
+        .accessibilityLabel(V3Localization.format("%@, %@", title.localized(language: .resolve(dateLocale.identifier)), V3Localization.string(stateLabel(state.state), language: .resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
     }
     private func stateIcon(_ state: String) -> String {
         switch state {
-        case "complete": return "checkmark.circle.fill"
+        case "complete", "verified": return "checkmark.circle.fill"
         case "actionRequired": return "exclamationmark.circle.fill"
         case "checking", "running": return "clock.arrow.circlepath"
         case "warning": return "exclamationmark.triangle.fill"
@@ -17545,7 +17672,7 @@ struct V3SetupAssistantView: View {
     }
     private func stateColor(_ state: String) -> Color {
         switch state {
-        case "complete": return .green
+        case "complete", "verified": return .green
         case "actionRequired": return .orange
         case "warning": return .yellow
         case "failed": return .red
@@ -17555,6 +17682,9 @@ struct V3SetupAssistantView: View {
     private func stateLabel(_ state: String) -> String {
         switch state {
         case "complete": return "Ready"
+        case "verified": return "Verified"
+        case "detected": return "Detected"
+        case "notChecked": return "Not checked"
         case "actionRequired": return "Action required"
         case "checking": return "Checking"
         case "running": return "Running"
@@ -17730,7 +17860,12 @@ private struct V3HomeView: View {
             // while the assistant showed the item complete.
             jitlessComplete: V3JITLessCompletionPolicy.isComplete(status.jitlessReadiness),
             networkComplete: status.wifiAvailable == true,
-            tunnelComplete: LiveContainerNetworkPreflight.hasTunnelInterface(),
+            tunnelComplete: V3SetupConnectionEvidencePolicy.observe(
+                interfacePresent: LiveContainerNetworkPreflight.hasTunnelInterface(),
+                ledger: defaults?.dictionary(forKey: "liveContainerAutoRefreshRunLedger") ?? [:],
+                activeRunID: defaults?.string(forKey: "liveContainerAutoRefreshActiveRunID"),
+                hostHandoffPending: defaults?.bool(forKey: "liveContainerAutoRefreshHostHandoff") ?? false,
+                uncertainMutationRunID: defaults?.string(forKey: "liveContainerAutoRefreshUncertainMutationRunID")).isVerified,
             backgroundRefreshAvailable: UIApplication.shared.backgroundRefreshStatus == .available,
             scheduleEnabled: defaults?.bool(forKey: "liveContainerAutoRefreshEnabled") ?? false,
             verifiedRefreshPresent: verifiedRefresh,

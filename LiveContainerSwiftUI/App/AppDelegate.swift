@@ -298,6 +298,74 @@ enum LiveContainerVPNReturnMarkerPolicy {
 }
 // V3_VPN_HANDOFF_OWNER_END
 
+// V3_VPN_REFRESH_RECOVERY_V1: interface presence is only an observation.
+// A retry needs complete pre-mutation evidence from the real refresh pipeline;
+// never infer a recoverable VPN failure from arbitrary native error text here.
+enum LiveContainerVPNRefreshRecoveryPolicy {
+    static func eligibleFailure(_ failure: CombinedFailure, runID: String) -> Bool {
+        guard failure.operation == "refresh", failure.correlationID == runID,
+              failure.stage == .command, failure.code == .failed,
+              failure.sourceStep == .refreshReadiness, failure.safeCause == nil,
+              failure.retryable != false else { return false }
+        let kind = failure.signingContext["refresh_failure_kind"]
+        let reason = failure.signingContext["refresh_readiness_reason"]
+        return (kind == "noVPN" && reason == "vpnUnavailable") ||
+            (kind == "invalidVPN" && reason == "peerProbeFailed")
+    }
+
+    static func permitsRecovery(error: Error, runID: String, source: String,
+                                hasBackgroundTask: Bool, activationAlreadyAttempted: Bool,
+                                activeRunID: String?, expectedRunID: String?,
+                                requestID: String?, activeRequestID: String?, record: [String: Any]?,
+                                hostHandoffPending: Bool, uncertainMutationRunID: String?,
+                                manifest: [String: Any]?) -> Bool {
+        guard source == "manual", !hasBackgroundTask,
+              !activationAlreadyAttempted, activeRunID == runID, expectedRunID == runID,
+              let requestID, UUID(uuidString: requestID)?.uuidString == requestID,
+              activeRequestID == requestID, let record,
+              record["run_id"] as? String == runID, record["request_id"] as? String == requestID,
+              record["state"] as? String == "running",
+              !hostHandoffPending, uncertainMutationRunID == nil,
+              let failure = error as? CombinedFailure, eligibleFailure(failure, runID: runID),
+              let manifest, CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+              manifest["host_handoff"] as? Bool != true,
+              let entries = manifest["results"] as? [[String: Any]] else { return false }
+        // A selected batch error alone cannot prove that another app was not
+        // installed. Every attempted app must have the same safe early boundary.
+        return entries.allSatisfy { entry in
+            guard entry["success"] as? Bool == false,
+                  let wire = entry["failure"] as? [String: Any],
+                  wire["correlationID"] as? String == runID,
+                  let failure = CombinedFailure.decode(wire, expectedID: runID) else { return false }
+            return eligibleFailure(failure, runID: runID)
+        }
+    }
+
+    // The actual scheduler uses this one-shot orchestration. Fixture closures
+    // replace only external effects, not retry/cancellation decisions.
+    @MainActor
+    static func run(attempt: () async throws -> Void,
+                    mayRecover: (Error) -> Bool,
+                    activate: () async throws -> Void,
+                    settle: () async throws -> Void,
+                    prepareRetry: () throws -> Void) async throws {
+        try Task.checkCancellation()
+        do { try await attempt() }
+        catch {
+            try Task.checkCancellation()
+            guard mayRecover(error) else { throw error }
+            try await activate()
+            try Task.checkCancellation()
+            try await settle()
+            try Task.checkCancellation()
+            try prepareRetry()
+            // Deliberately outside a retry loop. A second failure is final for
+            // this attempt, regardless of whether it still describes the VPN.
+            try await attempt()
+        }
+    }
+}
+
 // One-shot checks owned by an actual refresh run. No idle monitoring.
 @MainActor
 enum LiveContainerNetworkPreflight {
@@ -363,16 +431,20 @@ enum LiveContainerNetworkPreflight {
         return false
     }
 
-    private static func enableInForeground(runID: String) async throws -> Bool {
+    static func enableInForeground(runID: String) async throws {
+        try Task.checkCancellation()
+        guard UUID(uuidString: runID)?.uuidString == runID else { throw CancellationError() }
         guard UIApplication.shared.applicationState == .active,
-              let scheme = UserDefaults.lcAppUrlScheme(), !scheme.isEmpty,
-              UUID(uuidString: runID)?.uuidString == runID else { return false }
+              let scheme = UserDefaults.lcAppUrlScheme(), !scheme.isEmpty else {
+            print("[AUTO_REFRESH] LOCALDEVVPN_ACTIVATION_FAILED reason=foreground_or_callback_unavailable")
+            throw failure(3, "Open LiveContainer in the foreground, then enable LocalDevVPN and retry refresh.")
+        }
         var components = URLComponents(string: "localdevvpn://enable")!
         components.queryItems = [URLQueryItem(name: "scheme", value: scheme)]
-        guard let url = components.url else { return false }
+        guard let url = components.url else { throw failure(3, "The LocalDevVPN activation link is unavailable.") }
         try Task.checkCancellation()
         guard let marker = LiveContainerVPNReturnMarkerPolicy.marker(runID: runID, requestedAt: Date()) else {
-            return false
+            throw CancellationError()
         }
         defaults.set(marker, forKey: pendingKey)
         var observers: [NSObjectProtocol] = []
@@ -415,8 +487,13 @@ enum LiveContainerNetworkPreflight {
             throw CancellationError()
         }
         switch outcome {
-        case .returned: return true
-        case .openFailed, .timedOut: return false
+        case .returned: return
+        case .openFailed:
+            print("[AUTO_REFRESH] LOCALDEVVPN_ACTIVATION_FAILED reason=open_failed")
+            throw failure(3, "LiveContainer could not open LocalDevVPN. Open it, enable the connection, then retry refresh.")
+        case .timedOut:
+            print("[AUTO_REFRESH] LOCALDEVVPN_ACTIVATION_FAILED reason=return_timed_out")
+            throw failure(4, "LocalDevVPN did not return before the activation wait ended. Return to LiveContainer and retry after enabling it.")
         case .cancelled: throw CancellationError()
         }
     }
@@ -427,7 +504,22 @@ enum LiveContainerNetworkPreflight {
         defaults.removeObject(forKey: pendingKey)
     }
 
-    static func check(allowForegroundActivation: Bool, runID: String) async throws {
+    static func settleAfterActivation() async throws {
+        // One bounded grace period for the provider after returning. Interface
+        // re-observation below is not a live transport proof; the real pipeline
+        // still performs its own device-readiness check before any mutation.
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        try Task.checkCancellation()
+        guard await wifiAvailable() else {
+            throw failure(1, "Wi-Fi was lost while enabling LocalDevVPN. Reconnect and retry.")
+        }
+        try Task.checkCancellation()
+        guard hasTunnelInterface() else {
+            throw failure(2, "No tunnel interface appeared after enabling LocalDevVPN. Open LocalDevVPN and retry refresh.")
+        }
+    }
+
+    static func check(allowForegroundActivation: Bool, runID: String) async throws -> Bool {
         guard UUID(uuidString: runID)?.uuidString == runID else { throw CancellationError() }
         guard await wifiAvailable() else {
             print("[AUTO_REFRESH] WIFI_PREFLIGHT_FAIL reason=no_wifi_path")
@@ -435,15 +527,11 @@ enum LiveContainerNetworkPreflight {
         }
         try Task.checkCancellation()
         print("[AUTO_REFRESH] WIFI_PREFLIGHT_PASS")
+        var activationAttempted = false
         if !hasTunnelInterface(), allowForegroundActivation {
-            guard try await enableInForeground(runID: runID) else {
-                throw failure(2, "LocalDevVPN activation did not return. Enable LocalDevVPN and retry refresh.")
-            }
-            try Task.checkCancellation()
-            guard await wifiAvailable() else {
-                print("[AUTO_REFRESH] WIFI_PREFLIGHT_FAIL reason=wifi_lost_during_activation")
-                throw failure(1, "Wi-Fi was lost while enabling LocalDevVPN. Reconnect and retry.")
-            }
+            activationAttempted = true
+            try await enableInForeground(runID: runID)
+            try await settleAfterActivation()
         }
         guard hasTunnelInterface() else {
             if !allowForegroundActivation { print("[AUTO_REFRESH] VPN_UNAVAILABLE_BACKGROUND") }
@@ -452,6 +540,7 @@ enum LiveContainerNetworkPreflight {
         }
         // Interface presence is not proof of provider identity or CoreDevice readiness.
         print("[AUTO_REFRESH] VPN_INTERFACE_PRESENT readiness=requires_coredevice_verification")
+        return activationAttempted
     }
 }
 
@@ -807,6 +896,50 @@ enum LiveContainerAutoRefreshScheduler {
         print("[LIVE_CONTAINER_REFRESH] REFRESH_PIPELINE_RETURNED run_id=\(runID.uuidString)")
     }
 
+    private static func performRefreshWithVPNRecovery(runID: UUID, source: String,
+                                                       hasBackgroundTask: Bool,
+                                                       activationAlreadyAttempted: Bool,
+                                                       requestID: String?) async throws {
+        try await LiveContainerVPNRefreshRecoveryPolicy.run(attempt: {
+            try await performRefresh(runID: runID)
+            // Some canonical refresh failures are returned in the terminal
+            // manifest rather than thrown by the AppIntent wrapper.
+            let verification = verifyRefreshManifest(runID: runID.uuidString)
+            if !verification.hostHandoff, let failure = verification.failure { throw failure }
+        }, mayRecover: { error in
+            LiveContainerVPNRefreshRecoveryPolicy.permitsRecovery(error: error,
+                runID: runID.uuidString, source: source, hasBackgroundTask: hasBackgroundTask,
+                activationAlreadyAttempted: activationAlreadyAttempted,
+                activeRunID: activeRun?.uuidString == runID.uuidString
+                    ? defaults.string(forKey: activeRunKey) : nil,
+                expectedRunID: defaults.string(forKey: expectedRunKey),
+                requestID: requestID, activeRequestID: defaults.string(forKey: activeManualRequestKey),
+                record: runLedger()[runID.uuidString],
+                hostHandoffPending: defaults.bool(forKey: hostHandoffKey),
+                uncertainMutationRunID: defaults.string(forKey: uncertainMutationKey),
+                manifest: defaults.dictionary(forKey: verificationKey))
+        }, activate: {
+            print("[LIVE_CONTAINER_REFRESH] VPN_RECOVERY_BEGIN run_id=\(runID.uuidString) reason=proven_pre_mutation_readiness")
+            try await LiveContainerNetworkPreflight.enableInForeground(runID: runID.uuidString)
+        }, settle: {
+            try await LiveContainerNetworkPreflight.settleAfterActivation()
+        }, prepareRetry: {
+            // Ownership may change across the external handoff. Never reuse an
+            // old failure as evidence for a new run or an uncertain mutation.
+            guard activeRun == runID, defaults.string(forKey: activeRunKey) == runID.uuidString,
+                  defaults.string(forKey: expectedRunKey) == runID.uuidString,
+                  defaults.string(forKey: activeManualRequestKey) == requestID,
+                  let record = runLedger()[runID.uuidString],
+                  record["run_id"] as? String == runID.uuidString,
+                  record["request_id"] as? String == requestID,
+                  record["state"] as? String == "running",
+                  !defaults.bool(forKey: hostHandoffKey),
+                  defaults.string(forKey: uncertainMutationKey) == nil else { throw CancellationError() }
+            defaults.removeObject(forKey: verificationKey)
+            print("[LIVE_CONTAINER_REFRESH] VPN_RECOVERY_RECHECK run_id=\(runID.uuidString) retry=1")
+        })
+    }
+
     private static func verifyRefreshManifest(runID: String) -> (verified: Bool, hostHandoff: Bool, reason: String, failure: CombinedFailure?) {
         let pending = defaults.bool(forKey: hostHandoffKey) && !defaults.bool(forKey: hostVerifiedKey)
         if let manifest = defaults.dictionary(forKey: verificationKey), manifest["run_id"] as? String == runID {
@@ -865,7 +998,9 @@ enum LiveContainerAutoRefreshScheduler {
         let native = error as NSError
         if native.domain == "LiveContainerRefresh.Network" {
             let cause: CombinedFailure.SafeCause = native.code == 1 ? .wifiUnavailable : .localDevVPNUnavailable
-            return CombinedFailure(operation: "refresh", stage: .network, id: runID,
+            let code: CombinedFailure.Code = native.code == 3 ? .unavailable :
+                (native.code == 4 ? .timedOut : .failed)
+            return CombinedFailure(operation: "refresh", stage: .network, code: code, id: runID,
                                    underlying: native, retryable: true, safeCause: cause)
         }
         if native.domain == "LiveContainerRefresh.Verification" {
@@ -1207,12 +1342,14 @@ enum LiveContainerAutoRefreshScheduler {
         }
         do {
             print("[LIVE_CONTAINER_REFRESH] NETWORK_PREFLIGHT_START run_id=\(runID.uuidString) request_id=\(correlatedRequestID ?? "none") origin=\(correlatedOrigin ?? "unknown") source=\(source)")
-            try await LiveContainerNetworkPreflight.check(
+            let activationAttempted = try await LiveContainerNetworkPreflight.check(
                 allowForegroundActivation: manual && source != "vpn_return" && task == nil,
                 runID: runID.uuidString)
             recordNetworkPreflight("passed", runID: runID.uuidString)
             print("[LIVE_CONTAINER_REFRESH] NETWORK_PREFLIGHT_PASS run_id=\(runID.uuidString) request_id=\(correlatedRequestID ?? "none") origin=\(correlatedOrigin ?? "unknown")")
-            try await performRefresh(runID: runID)
+            try await performRefreshWithVPNRecovery(runID: runID, source: source,
+                hasBackgroundTask: task != nil, activationAlreadyAttempted: activationAttempted,
+                requestID: correlatedRequestID)
             markRunVerifying(runID: runID.uuidString,
                              manifest: defaults.dictionary(forKey: verificationKey))
             let verification = verifyRefreshManifest(runID: runID.uuidString)

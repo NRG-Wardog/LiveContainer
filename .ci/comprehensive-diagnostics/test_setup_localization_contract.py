@@ -15,17 +15,23 @@ spec.loader.exec_module(g)
 
 def check(root, baseline, output):
     s, old = g.read_sources(root), g.read_sources(baseline)
-    current, previous = g.coverage(s), g.coverage(old)
+    current, previous = g.coverage(s, old), g.coverage(old)
     assert not current['missing'], current['missing']
     assert {row['key'] for row in previous['missing']} <= {'JIT-Less', 'Wi-Fi', 'CoreDevice'}
-    assert set(current['keys']) - set(previous['keys']) <= set(g.PAIRING_KEYS)
+    overlay_keys = g.overlay_keys(s)
+    assert len(overlay_keys) == 27
+    assert set(current['retained_baseline_copy']) == g.RETAINED_BASELINE_KEYS
+    assert set(previous['keys']) <= set(current['keys'])
+    assert not set(current['retained_baseline_copy']) & set(g.coverage(s)['keys'])
+    assert set(current['keys']) - set(previous['keys']) <= set(g.PAIRING_KEYS) | overlay_keys
+    assert overlay_keys <= set(current['keys'])
     assert set(g.PAIRING_KEYS) <= set(current['keys'])
     assert set(current['title_cases'].values()) == set(previous['by_section']['row_titles'])
     view = g.block(s['ui'], 'struct V3SetupAssistantView: View {')
     old_view = g.block(old['ui'], 'struct V3SetupAssistantView: View {')
-    # Pairing/portal work can legitimately change other UI and setup-store
-    # producers. The localization patch must not change any Setup Assistant
-    # state, rendering, routing, copy, or control body beyond typed row titles.
+    # The typed-title patch and the bounded connection-evidence overlay own
+    # only the exact snippets below. Every remaining Setup Assistant byte must
+    # still match baseline; no broad method deletion or wildcard normalization.
     def normalize_owned_titles(source):
         for case, title in current['title_cases'].items():
             source = source.replace('title: .' + case + ',', 'title: "' + title + '",')
@@ -33,7 +39,31 @@ def check(root, baseline, output):
         source = source.replace('Text(verbatim: title.localized(language: .resolve(dateLocale.identifier))).font(.headline)', 'V3LocalizedText(title).font(.headline)')
         source = source.replace('V3Localization.format("%@, %@", title.localized(language: .resolve(dateLocale.identifier)), V3Localization.prose(stateLabel(state.state), language: .resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier))', 'V3Localization.format("%@, %@", V3Localization.prose(title), V3Localization.prose(stateLabel(state.state)))')
         return source
-    assert normalize_owned_titles(view) == normalize_owned_titles(old_view)
+    def normalize_connection_evidence(source):
+        def replace_once(current, old):
+            nonlocal source
+            assert source.count(current) == 1, current
+            source = source.replace(current, old, 1)
+        replace_once('        .onReceive(NotificationCenter.default.publisher(for: Notification.Name(LiveContainerAutoRefreshScheduler.runStateChangedNotification))) { _ in\n            setup.refreshConnectionEvidence()\n        }\n', '')
+        replace_once('if ["actionRequired", "detected", "failed"].contains(setup.tunnel.state) {',
+                     'if setup.tunnel.state == "actionRequired" {')
+        expected_core = 'private func coredeviceState() -> V3SetupStepState { setup.coreDevice }'
+        assert g.block(source, 'private func coredeviceState()') == expected_core
+        replace_once(expected_core, g.block(old_view, 'private func coredeviceState()'))
+        replace_once('                    else if let owned = V3SetupConnectionCopy(rawValue: state.detail) {\n                        Text(verbatim: V3Localization.string(owned.rawValue, language: .resolve(dateLocale.identifier)))\n                    } else { V3LocalizedText(state.detail.isEmpty ? stateLabel(state.state) : state.detail) }', '                    else { V3LocalizedText(state.detail.isEmpty ? stateLabel(state.state) : state.detail) }')
+        replace_once('V3Localization.string(stateLabel(state.state), language: .resolve(dateLocale.identifier))',
+                     'V3Localization.prose(stateLabel(state.state), language: .resolve(dateLocale.identifier))')
+        replace_once('case "complete", "verified": return "checkmark.circle.fill"',
+                     'case "complete": return "checkmark.circle.fill"')
+        replace_once('case "complete", "verified": return .green', 'case "complete": return .green')
+        replace_once('        case "verified": return "Verified"\n        case "detected": return "Detected"\n        case "notChecked": return "Not checked"\n', '')
+        return source
+    normalized = normalize_owned_titles(normalize_connection_evidence(view))
+    assert normalized == normalize_owned_titles(old_view)
+    # Prove unrelated mutations are not erased by the narrow normalizer.
+    assert normalize_owned_titles(normalize_connection_evidence(view.replace(
+        'if setup.testRunning { setup.cancelTest() }', 'if setup.testRunning { }', 1))) != normalize_owned_titles(old_view)
+
     assert s['display'] == old['display']
     for anchor in ['enum V3Localization {', 'extension V3Localization {', 'struct V3DisplayMessage: LocalizedError, @unchecked Sendable {']:
         # Two separate V3Localization extensions exist; compare full suffix below.
@@ -59,7 +89,7 @@ def check(root, baseline, output):
     identity_keys = set(['The saved remote provider identity is invalid. It was not replaced.', 'The saved remote provider identity could not be verified in protected storage.', 'The active account or remote provider identity changed during this request.', 'This saved session needs one manual sign-in to confirm its provider identity.', 'Keep the saved identity unchanged and copy Diagnostics before retrying.', 'Open Account & Signing and sign in again. The local pairing file and certificates are kept.'])
     identity_producers = g.block(s['identity_diagnostics'], 'static func remoteIdentityMessage(') + g.block(s['identity_diagnostics'], 'static func remoteIdentityRecovery(')
     assert set(re.findall(r'return "([^"]+)"', identity_producers)) == identity_keys
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     assert {row['key'] for row in negative} == added & set(current['keys'])
@@ -75,6 +105,11 @@ def check(root, baseline, output):
                 assert unit['value'] == key
             else:
                 assert unit['value'] != key
+    # Russian is present in the catalog schema, although the in-app language
+    # enum currently exposes only the four renderer locales in g.LANGUAGES.
+    for key in overlay_keys:
+        unit = catalog['strings'][key]['localizations']['ru']['stringUnit']
+        assert unit['state'] == 'translated' and unit['value'] and unit['value'] != key
     # Fail closed if a real source title/body loses ANY supported translation.
     mutation_checks = []
     for key in current['keys']:
@@ -87,7 +122,10 @@ def check(root, baseline, output):
             mutation_checks.append(key + '|' + language)
     manifest = g.generate(root, output, baseline)
     assert len(manifest['expected_case_names']) == len(set(manifest['expected_case_names'])) == manifest['expected_native_case_count']
-    assert set(manifest['expected_case_names']) == set(g.expected_case_names(g.coverage(s) | {'baseline_missing': negative}))
+    assert set(manifest['expected_case_names']) == set(g.expected_case_names(current | {'baseline_missing': negative}))
+    inherited_copy_cases = {'actual-source-copy-' + language + '-' + key
+        for language in g.LANGUAGES for key in previous['keys']}
+    assert inherited_copy_cases <= set(manifest['expected_case_names'])
     fixture = (output / 'fixture.swift').read_text()
     assert fixture.startswith(s['localization'] + '\n')
     for token in ['URLSession.shared', 'import UIKit', 'import SwiftUI', 'dlopen(', 'SRPClient(']:
@@ -101,7 +139,11 @@ def check(root, baseline, output):
         'schema': 'setup-localization-static-contract-v1', 'status': 'pass',
         'baseline_key_coverage': 'fail_as_expected', 'baseline_missing': negative,
         'baseline_existing_source_missing': previous['missing'],
-        'setup_view_except_typed_titles': 'byte_for_byte_unchanged',
+        'setup_view_except_typed_titles_and_exact_connection_overlay': 'byte_for_byte_unchanged',
+        'exact_connection_scope_negative_control': 'unrelated_cancel_mutation_rejected',
+        'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': 27,
+        'retained_baseline_copy': current['retained_baseline_copy'],
+        'inherited_source_copy_cases_retained': len(inherited_copy_cases),
         'pairing_keys': g.PAIRING_KEYS, 'identity_diagnostic_keys': sorted(identity_keys),
         'candidate_key_coverage': 'pass', 'key_count': current['key_count'],
         'localized_value_count': current['localized_value_count'],
