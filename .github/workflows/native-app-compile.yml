@@ -1,3 +1,4 @@
+# Explicit contents-API push trigger for this validation run; source pins and workflow semantics unchanged.
 name: Exact native app compile evidence (not release admission)
 on:
   push:
