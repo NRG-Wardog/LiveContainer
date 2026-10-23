@@ -182,7 +182,8 @@ class Controls(unittest.TestCase):
             if suite == 'profile-preconditions':
                 value.update(check_count=25, checks=['profile-check-' + str(i) for i in range(25)])
             if suite == 'host-refresh-bundle':
-                self.assertEqual(Path(argv[argv.index('--candidate-root') + 1]), self.sources / 'SideStore')
+                self.assertEqual(Path(argv[argv.index('--candidate-root') + 1]).resolve(strict=True),
+                                 (self.sources / 'SideStore').resolve(strict=True))
                 value = {'schema': spec['source_schema'], 'pass': True,
                     'swift_executed': False, 'network_executed': False, 'provider_executed': False,
                     'device_executed': False, 'source_assertion_count': 34,
@@ -263,6 +264,24 @@ class Controls(unittest.TestCase):
         self.assertFalse(report['native_provider_executed'])
         gate.verify_receipt(self.output / 'report.json', self.contract_path)
 
+
+    def test_host_bundle_accepts_canonical_parent_symlink_alias(self):
+        # macOS temp roots can be spelled /var/... or /private/var/....
+        # Only the parent is aliased; direct symlink source roots remain denied.
+        alias = self.root / 'parent-alias'
+        alias.symlink_to(self.root, target_is_directory=True)
+        self.sources = alias / 'sources'
+        self.output = alias / 'output'
+        self.swiftc = alias / 'inert-compiler'
+        self.contract_path = alias / 'contract.json'
+        self.assertNotEqual(self.sources, self.sources.resolve(strict=True))
+        self.assertFalse(self.sources.is_symlink())
+        report = self.run_gate()
+        self.assertEqual(report['status'], gate.STATUS)
+        self.assertEqual(self.command_names, list(gate.COMMANDS))
+        source = next(r for r in report['commands'] if r['name'] == 'host-refresh-bundle-source')
+        actual = Path(source['argv'][source['argv'].index('--candidate-root') + 1])
+        self.assertEqual(actual, (self.sources / 'SideStore').resolve(strict=True))
 
     def test_host_bundle_exact_compile_and_stdout_interface(self):
         report = self.run_gate()
