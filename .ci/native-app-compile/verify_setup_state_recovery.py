@@ -20,12 +20,26 @@ BASELINE_OWNERS = {
     'SideStore': {'commit': '638fa62ce2a540efe6c92dd20c282c32ddc0b2e6',
                   'tree': '99d6650e20b29b5c061b2c1ea04f746b51417537'},
 }
-SUITES = ('setup-localization', 'early-refresh-boundaries', 'certificate-portal-evidence', 'remote-identity-reuse')
+SUITES = ('setup-localization',
+ 'early-refresh-boundaries',
+ 'certificate-portal-evidence',
+ 'remote-identity-reuse',
+ 'setup-connection-evidence',
+ 'profile-preconditions',
+ 'vpn-refresh-recovery')
 LOCALIZATION = 'LiveContainer/.ci/comprehensive-diagnostics'
 EARLY = 'LiveContainer/.ci/early-refresh-boundaries'
 PORTAL = 'LiveContainer/.ci/certificate-portal-evidence'
 IDENTITY = 'SideStore/.ci/remote-identity-reuse'
 IDENTITY_CASE_COUNT = 55
+CONNECTION = 'LiveContainer/.ci/setup-connection-evidence'
+VPN_RECOVERY = 'LiveContainer/.ci/vpn-refresh-recovery'
+ACTIVATION_NEGATIVE_MUTATIONS = ('cause', 'code', 'generic_timeout_precedence', 'missing_override',
+                                 'operation', 'raw_provider_copy', 'stage')
+LOCALIZATION_CASE_COUNT = 1292
+LOCALIZATION_KEY_COUNT = 184
+LOCALIZATION_VALUE_COUNT = 736
+LOCALIZATION_BASELINE_MISSING = 160
 IDENTITY_SOURCE_WIRING = ('signin_returns_actual_attempt_handoff', 'signin_credential_transactions_record_selected_route', 'both_verified_terminal_paths_commit_identity', 'full_terminal_commit_precedes_journal_persist', 'headless_admission_captured_before_driver', 'profile_coalescers_use_scoped_admission', 'app_id_coalescer_uses_scoped_admission', 'portal_transport_checks_scoped_context', 'outer_sync_app_ids_captures_before_detached', 'outer_refresh_captures_before_detached', 'outer_background_refresh_captures_before_detached', 'background_callback_installed_before_enqueue_and_cancellation_checked', 'app_manager_completion_after_successful_admission_scope', 'pipeline_completion_after_successful_admission_scope', 'heavy_pipeline_does_not_publish_terminal_callback')
 IDENTITY_SWIFT = ('CandidateCore.swift', 'BoundaryDoubles.swift', 'CoreCases.swift',
                   'CandidateRuntime.swift', 'RuntimeDoubles.swift', 'RuntimeCases.swift')
@@ -38,14 +52,37 @@ LOCALIZATION_INPUTS = {
 }
 LOCALIZATION_FILES = ('generate_setup_localization_fixture.py', 'setup_localization_harness.swift',
                       'test_setup_localization_contract.py')
-COMMANDS = ('delivered-baseline-extract', 'localization-source', 'early-source', 'portal-source',
-            'identity-controls', 'identity-source',
-            'localization-compile', 'early-baseline-compile', 'early-candidate-compile',
-            'portal-baseline-compile', 'portal-baseline-host-compile',
-            'portal-candidate-compile', 'portal-candidate-host-compile', 'identity-compile',
-            'localization-run', 'early-baseline-run', 'early-candidate-run',
-            'portal-baseline-run', 'portal-baseline-host-run',
-            'portal-candidate-run', 'portal-candidate-host-run', 'identity-run')
+COMMANDS = ('delivered-baseline-extract',
+ 'localization-source',
+ 'early-source',
+ 'portal-source',
+ 'identity-controls',
+ 'identity-source',
+ 'connection-source',
+ 'profile-preconditions-source',
+ 'vpn-recovery-source',
+ 'localization-compile',
+ 'early-baseline-compile',
+ 'early-candidate-compile',
+ 'portal-baseline-compile',
+ 'portal-baseline-host-compile',
+ 'portal-candidate-compile',
+ 'portal-candidate-host-compile',
+ 'identity-compile',
+ 'connection-compile',
+ 'profile-preconditions-compile',
+ 'vpn-recovery-compile',
+ 'localization-run',
+ 'early-baseline-run',
+ 'early-candidate-run',
+ 'portal-baseline-run',
+ 'portal-baseline-host-run',
+ 'portal-candidate-run',
+ 'portal-candidate-host-run',
+ 'identity-run',
+ 'connection-run',
+ 'profile-preconditions-run',
+ 'vpn-recovery-run')
 COMPILE_COMMANDS = tuple(name for name in COMMANDS if name.endswith('-compile'))
 
 
@@ -124,6 +161,69 @@ SUITE_INPUTS['remote-identity-reuse'] = {'production': ['SideStore/AltStore/AppD
              'SideStore/.ci/remote-identity-reuse/README.md',
              'SideStore/.ci/remote-identity-reuse/test_generator.py']}
 
+# Candidate-only suites do not redefine or widen the retained delivered baseline.
+ADDITIVE_SUITE_INPUTS = {'setup-connection-evidence': {'production': ['LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
+                                              'LiveContainer/SideStoreSupport/SideStore.swift',
+                                              'SideStore/AltStore/AppDelegate.swift',
+                                              'LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py',
+                                              'LiveContainer/Resources/Localizable.xcstrings'],
+                               'support': [],
+                               'fixture': ['LiveContainer/.ci/setup-connection-evidence/generate_fixture.py',
+                                           'LiveContainer/.ci/setup-connection-evidence/cases.swift'],
+                               'other': ['LiveContainer/.ci/setup-connection-evidence/README.md']},
+ 'profile-preconditions': {'production': ['LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift',
+                                          'LiveContainer/LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
+                                          'LiveContainer/SideStoreSupport/SideStore.swift',
+                                          'LiveContainer/SideStoreSupport/SideStoreClient.swift',
+                                          'SideStore/AltStore/AppDelegate.swift',
+                                          'SideStore/AltStore/Intents/App Intents/RefreshAllAppsIntent.swift',
+                                          'SideStore/AltStore/Managing Apps/AppManager.swift',
+                                          'SideStore/Shared/Errors/ALTWrappedError.swift',
+                                          'SideStore/Shared/Extensions/NSError+AltStore.swift',
+                                          'SideStore/SideStore/Core/Operations/AppOperation.swift',
+                                          'SideStore/SideStore/Core/Operations/Errors/OperationError.swift',
+                                          'SideStore/SideStore/Core/Operations/OperationStep.swift',
+                                          'SideStore/SideStore/Core/Operations/PipelineExecutor.swift',
+                                          'SideStore/SideStore/Core/Operations/PipelineRunner.swift',
+                                          'SideStore/SideStore/Core/Operations/StandaloneOperations/BackgroundRefreshAppsOperation.swift'],
+                           'support': ['LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py',
+                                       'LiveContainer/.ci/comprehensive-diagnostics/refresh_failure_doubles.swift',
+                                       'LiveContainer/.ci/comprehensive-diagnostics/refresh_handler_doubles.swift',
+                                       'LiveContainer/.ci/comprehensive-diagnostics/refresh_failure_harness.swift',
+                                       'SideStore/tests/refresh_failure/pipeline_harness.swift',
+                                       'LiveContainer/.ci/early-refresh-boundaries/generate_regression.py',
+                                       'LiveContainer/.ci/early-refresh-boundaries/early_doubles.swift'],
+                           'fixture': ['LiveContainer/.ci/early-refresh-boundaries/generate_profile_regression.py',
+                                       'LiveContainer/.ci/early-refresh-boundaries/profile_cases.swift',
+                                       'LiveContainer/.ci/early-refresh-boundaries/PROFILE-PRECONDITIONS.md'],
+                           'other': []},
+ 'vpn-refresh-recovery': {'production': ['LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift',
+                                         'LiveContainer/SideStoreSupport/SideStore.swift',
+                                         'SideStore/SideStore/Core/Operations/PipelineExecutor.swift',
+                                         'SideStore/SideStore/Core/Operations/Errors/OperationError.swift',
+                                         'LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py',
+                                         'LiveContainer/SideStoreSupport/XPCClient.m',
+                                         'SideStore/AltStore/AppDelegate.swift'],
+                          'support': [],
+                          'fixture': ['LiveContainer/.ci/vpn-refresh-recovery/generate_fixture.py',
+                                      'LiveContainer/.ci/vpn-refresh-recovery/cases.swift'],
+                          'other': ['LiveContainer/.ci/vpn-refresh-recovery/README.md']}}
+ADDITIVE_SPECS = {
+    'setup-connection-evidence': {'prefix': 'connection', 'folder': CONNECTION,
+        'generator': 'generate_fixture.py', 'receipt': 'sources.json',
+        'source_schema': 'setup-connection-sources-v1', 'swift': 'setup-connection.swift',
+        'cases_schema': 'setup-connection-cases-v1', 'case_count': 25},
+    'profile-preconditions': {'prefix': 'profile-preconditions', 'folder': EARLY,
+        'generator': 'generate_profile_regression.py', 'receipt': 'profile-sources.json',
+        'source_schema': 'profile-preconditions-source-extraction-v1', 'swift': 'profile-preconditions.swift',
+        'cases_schema': 'profile-preconditions-cases-v1', 'case_count': 25},
+    'vpn-refresh-recovery': {'prefix': 'vpn-recovery', 'folder': VPN_RECOVERY,
+        'generator': 'generate_fixture.py', 'receipt': 'sources.json',
+        'source_schema': 'vpn-refresh-recovery-sources-v1', 'swift': 'vpn-refresh-recovery.swift',
+        'cases_schema': 'vpn-refresh-recovery-cases-v1', 'case_count': 49},
+}
+
+
 def load_contract(path):
     value = json.loads(path.read_text())
     require(value.get('schema') == 'setup-state-recovery-contract-v1', 'Setup contract schema differs')
@@ -136,6 +236,10 @@ def load_contract(path):
     for spec in SUITE_INPUTS.values():
         for paths in spec.values():
             required.update(paths)
+    for spec in ADDITIVE_SUITE_INPUTS.values():
+        for paths in spec.values():
+            required.update(paths)
+    require(value.get('additive_suite_inputs') == ADDITIVE_SUITE_INPUTS, 'Additive exact source path closure differs')
     require(value.get('suite_inputs') == SUITE_INPUTS, 'Setup exact source path closure differs')
     for key in ('input_sha256',):
         hashes = value.get(key)
@@ -148,8 +252,9 @@ def load_contract(path):
     require(all(isinstance(k, str) and k.split('/', 1)[0] in BASELINE_OWNERS and
                 isinstance(v, str) and re.fullmatch('[0-9a-f]{64}', v) for k, v in baseline.items()),
             'Malformed delivered baseline source hashes')
-    for suite, count in [('setup-localization', 1076), ('early-refresh-boundaries', 24),
-                         ('certificate-portal-evidence', 19), ('remote-identity-reuse', IDENTITY_CASE_COUNT)]:
+    for suite, count in [('setup-localization', LOCALIZATION_CASE_COUNT), ('early-refresh-boundaries', 24),
+                         ('certificate-portal-evidence', 19), ('remote-identity-reuse', IDENTITY_CASE_COUNT),
+                         *((suite, spec['case_count']) for suite, spec in ADDITIVE_SPECS.items())]:
         names = value.get('case_names', {}).get(suite)
         require(isinstance(names, list) and len(names) == count and len(set(names)) == count and
                 all(isinstance(n, str) and n for n in names), 'Invalid exact case closure: ' + suite)
@@ -159,7 +264,7 @@ def load_contract(path):
 def inventory(sources, contract):
     actual = {p: digest(regular(sources, p).read_bytes()) for p in contract['input_sha256']}
     require(actual == contract['input_sha256'], 'Setup candidate source hashes differ')
-    for folder in (EARLY, PORTAL, IDENTITY):
+    for folder in (EARLY, PORTAL, IDENTITY, CONNECTION, VPN_RECOVERY):
         root = sources / folder
         require(root.is_dir() and not root.is_symlink(), 'Missing setup fixture package')
         for p in root.rglob('*'):
@@ -238,6 +343,16 @@ def exact_cases(path, schema, expected, **attributes):
     return value
 
 
+def retained_baseline_copy(contract):
+    sections = {'Checked after a successful refresh': 'assistant',
+                'Tunnel interface present (not a CoreDevice proof)': 'setup_store',
+                'Tunnel not present': 'setup_store', 'Verified by successful refresh': 'assistant'}
+    return {key: {'source': 'LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
+                  'source_sha256': contract['delivered_baseline']['input_sha256'][LOCALIZATION_INPUTS['ui']],
+                  'baseline_sections': [section], 'emitted_by_current_ui': False}
+            for key, section in sections.items()}
+
+
 def localization_extraction(output, contract):
     root = output / 'setup-localization'
     value = json.loads(regular(root, 'sources.json').read_text())
@@ -250,10 +365,12 @@ def localization_extraction(output, contract):
             'Localization baseline-source extraction differs')
     require(value.get('fixture_inputs') == {n: contract['input_sha256'][LOCALIZATION + '/' + n]
                                           for n in LOCALIZATION_FILES}, 'Localization fixture hashes differ')
-    require(value.get('key_count') == 157 and value.get('localized_value_count') == 628 and
-            value.get('expected_native_case_count') == 1076 and
+    require(value.get('key_count') == LOCALIZATION_KEY_COUNT and value.get('localized_value_count') == LOCALIZATION_VALUE_COUNT and
+            value.get('expected_native_case_count') == LOCALIZATION_CASE_COUNT and
             value.get('expected_case_names') == contract['case_names']['setup-localization'],
             'Localization exact case contract differs')
+    require(value.get('retained_baseline_copy') == retained_baseline_copy(contract),
+            'Inherited baseline copy provenance differs')
     hashes = value.get('output_sha256')
     require(isinstance(hashes, dict) and 'fixture.swift' in hashes and 'baseline_missing_keys.json' in hashes,
             'Localization generated closure absent')
@@ -263,13 +380,16 @@ def localization_extraction(output, contract):
     static = json.loads(regular(root, 'static-contract.json').read_text())
     require(static.get('schema') == 'setup-localization-static-contract-v1' and static.get('status') == 'pass' and
             static.get('candidate_key_coverage') == 'pass' and static.get('baseline_key_coverage') == 'fail_as_expected' and
-            len(static.get('baseline_missing', [])) == 52 and
-            static.get('missing_translation_mutation_cases') == 628 and
+            len(static.get('baseline_missing', [])) == LOCALIZATION_BASELINE_MISSING and
+            static.get('missing_translation_mutation_cases') == LOCALIZATION_VALUE_COUNT and
             isinstance(static.get('identity_diagnostic_keys'), list) and
             len(set(static['identity_diagnostic_keys'])) == len(static['identity_diagnostic_keys']) == 6 and
             static.get('source_sha256') == value['source_sha256'] and
             static.get('baseline_sha256') == value['baseline_sha256'],
             'Localization static/negative-control receipt differs')
+    require(static.get('retained_baseline_copy') == retained_baseline_copy(contract) and
+            static.get('exact_connection_scope_negative_control') == 'unrelated_cancel_mutation_rejected',
+            'Localization deliberate-scope negative control differs')
     return value
 
 
@@ -375,6 +495,43 @@ def identity_extraction(output, contract):
     return value
 
 
+def additive_extraction(output, contract, suite):
+    spec, inputs = ADDITIVE_SPECS[suite], ADDITIVE_SUITE_INPUTS[suite]
+    root = output / suite
+    value = json.loads(regular(root, spec['receipt']).read_text())
+    require(value.get('schema') == spec['source_schema'] and
+            value.get('status') == 'STATIC_PASS_GENERATED_NOT_COMPILED_NOT_RUN',
+            'Additive extraction identity differs: ' + suite)
+    for key in ('swift_compiled', 'swift_executed', 'native_provider_executed', 'network_executed'):
+        require(value.get(key) is False, 'Unbounded additive generation: ' + key)
+    require(value.get('expected_case_names') == contract['case_names'][suite] and
+            value.get('expected_case_count') == spec['case_count'], 'Additive exact source case closure differs')
+    require(value.get('inputs_sha256') == {p: contract['input_sha256'][p] for p in inputs['production']},
+            'Additive production source hashes differ')
+    require(value.get('support_inputs_sha256', {}) == {p: contract['input_sha256'][p] for p in inputs['support']},
+            'Additive support source hashes differ')
+    require(value.get('fixture_inputs_sha256') == {Path(p).name: contract['input_sha256'][p] for p in inputs['fixture']},
+            'Additive fixture source hashes differ')
+    require({p.name for p in root.glob('*.swift')} == {spec['swift']} and
+            digest(regular(root, spec['swift']).read_bytes()) == value.get('generated_sha256'),
+            'Additive generated Swift closure or bytes differ')
+    if suite == 'setup-connection-evidence':
+        require(value.get('host_activation_message_contract') == 'exact_finite_guard_both_mirrors_before_generic_timeout' and
+                value.get('host_activation_negative_static_mutations') == list(ACTIVATION_NEGATIVE_MUTATIONS),
+                'Connection finite activation negative controls differ')
+    if suite == 'profile-preconditions':
+        require(value.get('check_count') == len(value.get('checks', [])) == 25 and
+                len(set(value['checks'])) == 25, 'Profile static controls differ')
+    return value
+
+
+def additive_cases(output, contract, suite):
+    value = exact_cases(regular(output, suite + '/cases.json'), ADDITIVE_SPECS[suite]['cases_schema'],
+                        contract['case_names'][suite], network_executed=False, native_provider_executed=False)
+    require(value['cases'] == contract['case_names'][suite], 'Additive ordered case closure differs')
+    return value
+
+
 def all_evidence(output, contract):
     evidence = {'baseline': baseline_receipt(output, contract),
                 'localization': localization_extraction(output, contract), 'variants': {}, 'cases': {}}
@@ -412,11 +569,16 @@ def all_evidence(output, contract):
         regular(output, 'remote-identity-reuse/cases.json'), 'remote-identity-reuse-cases-v1',
         contract['case_names']['remote-identity-reuse'], fake_only=True,
         network_executed=False, native_provider_executed=False, native_keychain_executed=False)
+    evidence['additive'] = {suite: additive_extraction(output, contract, suite) for suite in ADDITIVE_SPECS}
+    for suite in ADDITIVE_SPECS:
+        evidence['cases'][suite] = additive_cases(output, contract, suite)
     return evidence
 
 
 def markers():
-    result = {'localization-run': 'SETUP_LOCALIZATION_RENDERER_PASS cases=1076',
+    result = {'localization-run': 'SETUP_LOCALIZATION_RENDERER_PASS cases=' + str(LOCALIZATION_CASE_COUNT),
+              'connection-run': 'SETUP_CONNECTION_EVIDENCE_PASS cases=25',
+              'vpn-recovery-run': 'VPN_REFRESH_RECOVERY_PASS cases=49',
               'identity-controls': 'OK',
               'identity-run': 'REMOTE_IDENTITY_REUSE_RUNTIME_PASS cases=' + str(IDENTITY_CASE_COUNT)}
     for variant in ('baseline', 'candidate'):
@@ -432,6 +594,7 @@ def verify_receipt(path, contract_path=None):
     report = json.loads(path.read_text())
     require(report.get('schema') == 'setup-state-recovery-run-v1' and report.get('status') == STATUS and
             report.get('suites') == list(SUITES), 'Setup-state fixtures did not pass')
+    require(not report.get('source_failures'), 'Setup source generation failures remain')
     require(not report.get('runtime_failures') and not report.get('blocked_runtime_dependencies'),
             'Setup runtime failures or blocked dependencies remain')
     require(report.get('contract_sha256') == digest(contract_path.read_bytes()), 'Setup contract receipt differs')
@@ -506,7 +669,7 @@ def run(sources, swiftc, output, contract_path=None):
     runtime_failures, blocked_dependencies = [], []
     def runtime(name, argv):
         try:
-            runner.command(name, argv, markers()[name])
+            runner.command(name, argv, markers().get(name))
         except ValueError as error:
             # Runner retains the real exit/timeout/launch/log row before raising.
             # Keep marker failures too, without making a failed command successful.
@@ -520,29 +683,40 @@ def run(sources, swiftc, output, contract_path=None):
             '--receipt', output / 'delivered-baseline.json'])
         baseline_receipt(output, contract)
         localization = output / 'setup-localization'
-        runner.command('localization-source', python(LOCALIZATION + '/test_setup_localization_contract.py') +
-            ['--candidate-root', sources / 'LiveContainer', '--baseline-root', baseline / 'LiveContainer',
-             '--output', localization])
-        localization_extraction(output, contract)
         early = output / 'early-refresh-boundaries'
-        runner.command('early-source', python(EARLY + '/test_contract.py') +
-            ['--candidate-root', sources, '--baseline-root', baseline, '--output', early])
-        for variant in ('baseline', 'candidate'):
-            variant_extraction(output, contract, 'early-refresh-boundaries', variant)
         portal = output / 'certificate-portal-evidence'
-        runner.command('portal-source', python(PORTAL + '/test_generator.py') +
-            ['--candidate-root', sources, '--baseline-root', baseline, '--output', portal])
-        for variant in ('baseline', 'candidate'):
-            variant_extraction(output, contract, 'certificate-portal-evidence', variant)
         identity = output / 'remote-identity-reuse'
-        runner.command('identity-controls', python(IDENTITY + '/test_generator.py'), markers()['identity-controls'])
-        runner.command('identity-source', python(IDENTITY + '/generate_fixture.py') +
-            ['--candidate-root', sources, '--baseline-root', baseline, '--output', identity])
-        identity_extraction(output, contract)
+        source_failures = []
+        def generate(name, argv, validate, marker=None):
+            try:
+                runner.command(name, argv, marker)
+                validate()
+            except Exception as error:
+                source_failures.append({'name': name, 'failure': str(error)})
+        generate('localization-source', python(LOCALIZATION + '/test_setup_localization_contract.py') +
+            ['--candidate-root', sources / 'LiveContainer', '--baseline-root', baseline / 'LiveContainer',
+             '--output', localization], lambda: localization_extraction(output, contract))
+        generate('early-source', python(EARLY + '/test_contract.py') +
+            ['--candidate-root', sources, '--baseline-root', baseline, '--output', early],
+            lambda: [variant_extraction(output, contract, 'early-refresh-boundaries', v) for v in ('baseline', 'candidate')])
+        generate('portal-source', python(PORTAL + '/test_generator.py') +
+            ['--candidate-root', sources, '--baseline-root', baseline, '--output', portal],
+            lambda: [variant_extraction(output, contract, 'certificate-portal-evidence', v) for v in ('baseline', 'candidate')])
+        generate('identity-controls', python(IDENTITY + '/test_generator.py'), lambda: None, markers()['identity-controls'])
+        generate('identity-source', python(IDENTITY + '/generate_fixture.py') +
+            ['--candidate-root', sources, '--baseline-root', baseline, '--output', identity],
+            lambda: identity_extraction(output, contract))
+        for suite, spec in ADDITIVE_SPECS.items():
+            generate(spec['prefix'] + '-source', python(spec['folder'] + '/' + spec['generator']) +
+                ['--candidate-root', sources, '--output', output / suite],
+                lambda suite=suite: additive_extraction(output, contract, suite))
+        if source_failures:
+            report['source_failures'] = source_failures
+            require(False, 'Setup source commands failed: ' + '; '.join(row['failure'] for row in source_failures))
         identity_files = [regular(identity, name) for name in IDENTITY_SWIFT]
 
-        # The four families are independent until runtime. Compile each closure once,
-        # retaining every compiler failure; no fixture may run until all eight pass.
+        # The independent source families compile once each, retaining every compiler
+        # failure. No fixture may run until the complete compile closure passes.
         compile('localization-compile', localization / 'fixture.swift', localization / 'fixture')
         for variant in ('baseline', 'candidate'):
             folder = early / variant
@@ -554,6 +728,9 @@ def run(sources, swiftc, output, contract_path=None):
             compile(prefix + '-host-compile', folder / 'host.swift', folder / 'host')
         runner.command('identity-compile', [swiftc, '-swift-version', '5', '-parse-as-library',
             '-framework', 'Security', *identity_files, '-o', identity / 'fixture'], collect_compile_failure=True)
+        for suite, spec in ADDITIVE_SPECS.items():
+            folder = output / suite
+            compile(spec['prefix'] + '-compile', folder / spec['swift'], folder / 'fixture')
         compiled = [row for row in runner.commands if row['name'] in COMPILE_COMMANDS]
         require([row['name'] for row in compiled] == list(COMPILE_COMMANDS), 'Setup compile closure differs')
         failed = [row['name'] for row in compiled if type(row['exit_code']) is not int or
@@ -574,6 +751,9 @@ def run(sources, swiftc, output, contract_path=None):
                 blocked_dependencies.append({'name': prefix + '-host-run', 'dependency': prefix + '-run',
                                              'reason': 'Service command or required success marker failed'})
         runtime('identity-run', [identity / 'fixture', '--cases-output', identity / 'cases.json'])
+        for suite, spec in ADDITIVE_SPECS.items():
+            folder = output / suite
+            runtime(spec['prefix'] + '-run', [folder / 'fixture', folder / 'cases.json'])
         if runtime_failures:
             report.update(runtime_failures=runtime_failures, blocked_runtime_dependencies=blocked_dependencies)
             require(False, 'Setup runtime commands failed: ' + '; '.join(
