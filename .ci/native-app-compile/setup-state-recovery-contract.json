@@ -1645,7 +1645,7 @@
     "LiveContainer/.ci/comprehensive-diagnostics/refresh_failure_doubles.swift": "8e06e580da33ec1da18833413bbcf3a8d3dd6a2a69501ddb137d637fe78e088f",
     "LiveContainer/.ci/comprehensive-diagnostics/refresh_failure_harness.swift": "31e2bef7536c32339c931a2ce94598a9e574e02ee6f5b24a6ce1fc5ee129b336",
     "LiveContainer/.ci/comprehensive-diagnostics/refresh_handler_doubles.swift": "9f8ce339b58daf9e45f354305a69f5b615d4a19390831c3918f5dd400a7f62be",
-    "LiveContainer/.ci/comprehensive-diagnostics/setup_localization_harness.swift": "4bc43f170356bd35d0909d69544dfd28bff93c0e9bd98d821fb71fb3f7c86e3e",
+    "LiveContainer/.ci/comprehensive-diagnostics/setup_localization_harness.swift": "ecec818a95fe7f22f525c4ed3482f0fbb168bdc0336c21d6cc86007281a6e6a4",
     "LiveContainer/.ci/comprehensive-diagnostics/test_setup_localization_contract.py": "7c958debada0e2568276c436306ebda5ec88cdd3272af9c22ee0d4bb08383c9d",
     "LiveContainer/.ci/early-refresh-boundaries/PROFILE-PRECONDITIONS.md": "388b1d93c0eb35829a82ed02aff24f70560c15901d0bfc2088fc3b289954666f",
     "LiveContainer/.ci/early-refresh-boundaries/README.md": "bc3acf89a11e21e041f8fac4013d8f73979e234ddd5d1ac36614c962e4820b13",

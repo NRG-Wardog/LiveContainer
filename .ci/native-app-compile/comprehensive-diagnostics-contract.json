@@ -73,7 +73,7 @@
     "LiveContainer/.ci/comprehensive-diagnostics/refresh_failure_harness.swift": "31e2bef7536c32339c931a2ce94598a9e574e02ee6f5b24a6ce1fc5ee129b336",
     "LiveContainer/.ci/comprehensive-diagnostics/refresh_handler_doubles.swift": "9f8ce339b58daf9e45f354305a69f5b615d4a19390831c3918f5dd400a7f62be",
     "LiveContainer/.ci/comprehensive-diagnostics/service_harness.swift": "8aaa627370313dc04d6a31d13e3da24b3076d37c017ec4a46e564fe49fde1efe",
-    "LiveContainer/.ci/comprehensive-diagnostics/setup_localization_harness.swift": "4bc43f170356bd35d0909d69544dfd28bff93c0e9bd98d821fb71fb3f7c86e3e",
+    "LiveContainer/.ci/comprehensive-diagnostics/setup_localization_harness.swift": "ecec818a95fe7f22f525c4ed3482f0fbb168bdc0336c21d6cc86007281a6e6a4",
     "LiveContainer/.ci/comprehensive-diagnostics/test_generator.py": "aff4d4cd0d5ccdd59d1afb471f557880effd67fc9a1adf4d4b2174156a71d640",
     "LiveContainer/.ci/comprehensive-diagnostics/test_pairing_recovery_contract.py": "37f051d2583fd6ccc14888f2d3251e4bf099a46b27f0d419a69a22ddd06a20d5",
     "LiveContainer/.ci/comprehensive-diagnostics/test_refresh_failure_contract.py": "3252ff9b26c02989d61d8d33179864b35129d9378418ce89c78596a079ebfdfa",
