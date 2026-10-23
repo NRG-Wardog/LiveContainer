@@ -71,8 +71,28 @@ struct SetupLocalizationHarness {
             }
             if FileManager.default.fileExists(atPath: root.appendingPathComponent("baseline.bundle").path) {
                 let missingKeys = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("baseline_missing_keys.json"))) as! [String]
+                let baseline = bundle("baseline")
+                guard let path = baseline.path(forResource: code, ofType: "lproj"), let selected = Bundle(path: path) else {
+                    fatalError("Missing baseline locale: " + code)
+                }
+                let missing = "__SETUP_BASELINE_MISSING__"
                 for key in missingKeys {
-                    check(V3DisplayMessage.raw(key).rendered(language: language, bundle: bundle("baseline")) == unavailable, "baseline-reproduces-missing-owned-copy-" + code + "-" + key)
+                    let exact = selected.localizedString(forKey: key, value: missing, table: nil)
+                    let wanted: String
+                    switch key {
+                    case "Refresh is still being checked. Tunnel readiness is not verified.",
+                         "Refresh verified; CoreDevice transport was not independently recorded.":
+                        // Missing exact copy can still match the unchanged, reviewed
+                        // "Refresh %@" format. Pin only these two known collisions;
+                        // do not mistake that inherited fallback for a translated key.
+                        let format = selected.localizedString(forKey: "Refresh %@", value: missing, table: nil)
+                        precondition(format != missing && !format.isEmpty, "Missing baseline Refresh format: " + code)
+                        wanted = String(format: format, locale: Locale(identifier: code), arguments: [String(key.dropFirst("Refresh ".count))])
+                        precondition(language == .english || wanted != expected[code]![key]!, "Baseline format must not stand in for the translated copy: " + code + "-" + key)
+                    default:
+                        wanted = unavailable
+                    }
+                    check(exact == missing && V3DisplayMessage.raw(key).rendered(language: language, bundle: baseline) == wanted, "baseline-reproduces-missing-owned-copy-" + code + "-" + key)
                 }
             }
         }
