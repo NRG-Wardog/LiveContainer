@@ -1,5 +1,19 @@
 {
   "additive_suite_inputs": {
+    "host-refresh-bundle": {
+      "fixture": [
+        "SideStore/tests/host_refresh_bundle/BoundaryDoubles.swift",
+        "SideStore/tests/host_refresh_bundle/Cases.swift",
+        "SideStore/tests/host_refresh_bundle/test_contract.py",
+        "SideStore/tests/host_refresh_bundle/generate_fixture.py"
+      ],
+      "other": [],
+      "production": [
+        "SideStore/SideStore/Core/Operations/PipelineRunner.swift",
+        "SideStore/SideStore/Utils/common/AppBundleFingerprint.swift"
+      ],
+      "support": []
+    },
     "profile-preconditions": {
       "fixture": [
         "LiveContainer/.ci/early-refresh-boundaries/generate_profile_regression.py",
@@ -118,6 +132,38 @@
       "success_both_checks_retained",
       "cellular_existing_policy",
       "cached_team_existing_policy"
+    ],
+    "host-refresh-bundle": [
+      "baseline_missing_cache_has_nil_target",
+      "canonical_host_recovers_without_mutating_source",
+      "success_cleanup_preserves_unowned_files",
+      "original_identity_mismatch_rejected",
+      "resigned_identity_mismatch_rejected",
+      "active_identity_mismatch_rejected",
+      "missing_active_bundle_rejected",
+      "missing_profile_rejected",
+      "missing_extension_record_rejected",
+      "extra_extension_record_rejected",
+      "duplicate_extension_record_rejected",
+      "extension_suffix_mismatch_rejected",
+      "unsupported_symlink_still_rejected",
+      "source_changed_during_copy_rejected_and_cleaned",
+      "corrupted_copy_rejected_and_cleaned",
+      "cancellation_checkpoint_1_preserved_and_cleaned",
+      "cancellation_checkpoint_2_preserved_and_cleaned",
+      "cancellation_checkpoint_3_preserved_and_cleaned",
+      "cancellation_checkpoint_4_preserved_and_cleaned",
+      "cancellation_checkpoint_5_preserved_and_cleaned",
+      "revoked_admission_preserved_and_cleaned",
+      "repeated_refresh_has_independent_owned_copies",
+      "concurrent_refresh_owners_do_not_collide",
+      "integration_refresh_missing_cache_prepares_and_cleans",
+      "integration_nonrefresh_does_not_recover",
+      "integration_nonself_does_not_recover",
+      "integration_valid_cache_is_preserved",
+      "integration_pipeline_failure_cleans_copy",
+      "integration_pipeline_cancellation_cleans_copy",
+      "all_terminal_paths_preserve_source_and_cleanup"
     ],
     "profile-preconditions": [
       "missingTargetAppBundle",
@@ -1704,12 +1750,17 @@
     "SideStore/SideStore/Core/Operations/PipelineExecutor.swift": "b79b429cbd8d7ac38f7435b0cc02536c939bd07a226aa601193cf8e01eba156b",
     "SideStore/SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift": "127665cabcd7c673493c0cea06fbb2ae8e8f0e4c49c735cb5273fc467260af7b",
     "SideStore/SideStore/Core/Operations/PipelineOperations/PreflightChecksOperation.swift": "4c68e6a1eac9e56cb3b654c281e930611bce292b59e97057da1f95aca5ee331a",
-    "SideStore/SideStore/Core/Operations/PipelineRunner.swift": "be9486c83d58305ccdfec55fa4e36a28d4708db9e101c1ffbcdd238a4bc2644b",
+    "SideStore/SideStore/Core/Operations/PipelineRunner.swift": "4e139e9d643f59fb6990fdc246ecfa9aaa32acbc4595ea839b38bd9c4199522e",
     "SideStore/SideStore/Core/Operations/RefreshGroup.swift": "525c6485dc55c325459ff6d611fc1da594e38b2f197fe0623eeaecea569ca91f",
     "SideStore/SideStore/Core/Operations/StandaloneOperations/BackgroundRefreshAppsOperation.swift": "bf9869aaa643040610a722163160dc3032a1e63e81b06cac46bceb0d3ed41776",
     "SideStore/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift": "9f6042c71cf7c397d33d4cd41f51781fb028ac169a761e0ef3728075c9d6622f",
     "SideStore/SideStore/Core/Operations/StandaloneOperations/SyncAppIDsOperation.swift": "fc665b979d8cc984367bcbaf948fba7f3a7ba78e3d97198778ae4998df54b0df",
+    "SideStore/SideStore/Utils/common/AppBundleFingerprint.swift": "c73ec2bfa43d56be919dac7fb824c0dc62a46f1830569d2b42697b52cd64ff67",
     "SideStore/SideStore/Utils/concurrency/TaskChainCoalescer.swift": "9cbd155acef7d25b17ef8f593d718ab5edce47d0c4ba29a502ae7a916a435fae",
+    "SideStore/tests/host_refresh_bundle/BoundaryDoubles.swift": "37a42d6c9ba086f8fdafb0fb7bd695b7e65cc5321e255d3870b3f685eda7cbf5",
+    "SideStore/tests/host_refresh_bundle/Cases.swift": "7a240fc300b158a586379a396a44745e1414721b2847b86743b2cb057933673a",
+    "SideStore/tests/host_refresh_bundle/generate_fixture.py": "bfb3a4113aefdf93aaa45ef71bcaffbd662db2c9d6d112a98db0b71bd8b07ed4",
+    "SideStore/tests/host_refresh_bundle/test_contract.py": "f12dd2cde0884db61f17bca0c014765fed58c4bcbbe37f863af7a9ab1a3bfda0",
     "SideStore/tests/refresh_failure/pipeline_harness.swift": "5fd5b3c4af23f49806a06bb40e464b1518ca79f267ca42f8d4d4d3d11cb54875"
   },
   "note": "Exact source-owned synthetic fixtures. Native/device/root-cause validation is not implied.",
@@ -1816,6 +1867,7 @@
     "remote-identity-reuse",
     "setup-connection-evidence",
     "profile-preconditions",
-    "vpn-refresh-recovery"
+    "vpn-refresh-recovery",
+    "host-refresh-bundle"
   ]
 }

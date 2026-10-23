@@ -26,7 +26,8 @@ SUITES = ('setup-localization',
  'remote-identity-reuse',
  'setup-connection-evidence',
  'profile-preconditions',
- 'vpn-refresh-recovery')
+ 'vpn-refresh-recovery',
+ 'host-refresh-bundle')
 LOCALIZATION = 'LiveContainer/.ci/comprehensive-diagnostics'
 EARLY = 'LiveContainer/.ci/early-refresh-boundaries'
 PORTAL = 'LiveContainer/.ci/certificate-portal-evidence'
@@ -34,6 +35,7 @@ IDENTITY = 'SideStore/.ci/remote-identity-reuse'
 IDENTITY_CASE_COUNT = 55
 CONNECTION = 'LiveContainer/.ci/setup-connection-evidence'
 VPN_RECOVERY = 'LiveContainer/.ci/vpn-refresh-recovery'
+HOST_BUNDLE = 'SideStore/tests/host_refresh_bundle'
 ACTIVATION_NEGATIVE_MUTATIONS = ('cause', 'code', 'generic_timeout_precedence', 'missing_override',
                                  'operation', 'raw_provider_copy', 'stage')
 LOCALIZATION_CASE_COUNT = 1292
@@ -61,6 +63,7 @@ COMMANDS = ('delivered-baseline-extract',
  'connection-source',
  'profile-preconditions-source',
  'vpn-recovery-source',
+ 'host-refresh-bundle-source',
  'localization-compile',
  'early-baseline-compile',
  'early-candidate-compile',
@@ -72,6 +75,7 @@ COMMANDS = ('delivered-baseline-extract',
  'connection-compile',
  'profile-preconditions-compile',
  'vpn-recovery-compile',
+ 'host-refresh-bundle-compile',
  'localization-run',
  'early-baseline-run',
  'early-candidate-run',
@@ -82,7 +86,8 @@ COMMANDS = ('delivered-baseline-extract',
  'identity-run',
  'connection-run',
  'profile-preconditions-run',
- 'vpn-recovery-run')
+ 'vpn-recovery-run',
+ 'host-refresh-bundle-run')
 COMPILE_COMMANDS = tuple(name for name in COMMANDS if name.endswith('-compile'))
 
 
@@ -208,6 +213,13 @@ ADDITIVE_SUITE_INPUTS = {'setup-connection-evidence': {'production': ['LiveConta
                           'fixture': ['LiveContainer/.ci/vpn-refresh-recovery/generate_fixture.py',
                                       'LiveContainer/.ci/vpn-refresh-recovery/cases.swift'],
                           'other': ['LiveContainer/.ci/vpn-refresh-recovery/README.md']}}
+ADDITIVE_SUITE_INPUTS['host-refresh-bundle'] = {
+    'production': ['SideStore/SideStore/Core/Operations/PipelineRunner.swift',
+                   'SideStore/SideStore/Utils/common/AppBundleFingerprint.swift'],
+    'support': [],
+    'fixture': [HOST_BUNDLE + '/' + name for name in
+                ('BoundaryDoubles.swift', 'Cases.swift', 'test_contract.py', 'generate_fixture.py')],
+    'other': []}
 ADDITIVE_SPECS = {
     'setup-connection-evidence': {'prefix': 'connection', 'folder': CONNECTION,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
@@ -221,6 +233,10 @@ ADDITIVE_SPECS = {
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
         'source_schema': 'vpn-refresh-recovery-sources-v1', 'swift': 'vpn-refresh-recovery.swift',
         'cases_schema': 'vpn-refresh-recovery-cases-v1', 'case_count': 49},
+    'host-refresh-bundle': {'prefix': 'host-refresh-bundle', 'folder': HOST_BUNDLE,
+        'generator': 'generate_fixture.py', 'receipt': 'sources.json',
+        'source_schema': 'v3-host-refresh-bundle-source-v1', 'swift': 'host-refresh-bundle.swift',
+        'cases_schema': 'v3-host-refresh-bundle-runtime-v1', 'case_count': 30},
 }
 
 
@@ -264,7 +280,7 @@ def load_contract(path):
 def inventory(sources, contract):
     actual = {p: digest(regular(sources, p).read_bytes()) for p in contract['input_sha256']}
     require(actual == contract['input_sha256'], 'Setup candidate source hashes differ')
-    for folder in (EARLY, PORTAL, IDENTITY, CONNECTION, VPN_RECOVERY):
+    for folder in (EARLY, PORTAL, IDENTITY, CONNECTION, VPN_RECOVERY, HOST_BUNDLE):
         root = sources / folder
         require(root.is_dir() and not root.is_symlink(), 'Missing setup fixture package')
         for p in root.rglob('*'):
@@ -499,6 +515,24 @@ def additive_extraction(output, contract, suite):
     spec, inputs = ADDITIVE_SPECS[suite], ADDITIVE_SUITE_INPUTS[suite]
     root = output / suite
     value = json.loads(regular(root, spec['receipt']).read_text())
+    if suite == 'host-refresh-bundle':
+        require(value.get('schema') == spec['source_schema'] and value.get('pass') is True,
+                'Host bundle source extraction did not pass')
+        for key in ('swift_executed', 'network_executed', 'provider_executed', 'device_executed'):
+            require(value.get(key) is False, 'Unbounded host bundle generation: ' + key)
+        require(value.get('source_assertion_count') == 34 and
+                value.get('expected_case_names') == contract['case_names'][suite] and
+                value.get('expected_case_count') == spec['case_count'],
+                'Host bundle static assertion or case closure differs')
+        for key, paths in (('inputs', inputs['production']), ('support', inputs['fixture'])):
+            require(value.get(key) == [{'path': p.removeprefix('SideStore/'),
+                    'sha256': contract['input_sha256'][p]} for p in paths],
+                    'Host bundle exact source path or hash closure differs: ' + key)
+        require({p.name for p in root.glob('*.swift')} == {spec['swift']} and
+                value.get('generated_source') == {'path': spec['swift'],
+                    'sha256': digest(regular(root, spec['swift']).read_bytes())},
+                'Host bundle generated source closure or bytes differ')
+        return value
     require(value.get('schema') == spec['source_schema'] and
             value.get('status') == 'STATIC_PASS_GENERATED_NOT_COMPILED_NOT_RUN',
             'Additive extraction identity differs: ' + suite)
@@ -526,6 +560,17 @@ def additive_extraction(output, contract, suite):
 
 
 def additive_cases(output, contract, suite):
+    if suite == 'host-refresh-bundle':
+        # The source-owned executable emits one JSON document to stdout, without
+        # accepting an output-path argument. Retain and verify that exact log.
+        value = json.loads(regular(output, 'commands/host-refresh-bundle-run.log').read_text())
+        require(value.get('schema') == ADDITIVE_SPECS[suite]['cases_schema'] and value.get('pass') is True,
+                'Host bundle runtime did not pass')
+        require(type(value.get('case_count')) is int and value['case_count'] == 30 and
+                value.get('cases') == contract['case_names'][suite], 'Host bundle ordered case closure differs')
+        for key in ('network_executed', 'provider_executed', 'device_executed'):
+            require(value.get(key) is False, 'Forbidden host bundle runtime boundary: ' + key)
+        return value
     value = exact_cases(regular(output, suite + '/cases.json'), ADDITIVE_SPECS[suite]['cases_schema'],
                         contract['case_names'][suite], network_executed=False, native_provider_executed=False)
     require(value['cases'] == contract['case_names'][suite], 'Additive ordered case closure differs')
@@ -612,6 +657,8 @@ def verify_receipt(path, contract_path=None):
         if row['name'].endswith('-compile'):
             args = row.get('argv', [])
             expected = ['-swift-version', '5', '-parse-as-library']
+            if row['name'] == 'host-refresh-bundle-compile':
+                expected = ['-swift-version', '5', '-framework', 'CryptoKit']
             if row['name'].startswith('portal-') and '-host-' not in row['name']:
                 expected += ['-module-name', 'SideSign']
             if row['name'] == 'identity-compile':
@@ -662,6 +709,8 @@ def run(sources, swiftc, output, contract_path=None):
         require(file.is_file() and not file.is_symlink() and file.resolve().is_relative_to(output),
                 'Unsafe generated setup source')
         args = [swiftc, '-swift-version', '5', '-parse-as-library']
+        if name == 'host-refresh-bundle-compile':
+            args = [swiftc, '-swift-version', '5', '-framework', 'CryptoKit']
         if module:
             require(module == 'SideSign', 'Unexpected setup fixture module')
             args += ['-module-name', module]
@@ -708,7 +757,8 @@ def run(sources, swiftc, output, contract_path=None):
             lambda: identity_extraction(output, contract))
         for suite, spec in ADDITIVE_SPECS.items():
             generate(spec['prefix'] + '-source', python(spec['folder'] + '/' + spec['generator']) +
-                ['--candidate-root', sources, '--output', output / suite],
+                ['--candidate-root', sources / 'SideStore' if suite == 'host-refresh-bundle' else sources,
+                 '--output', output / suite],
                 lambda suite=suite: additive_extraction(output, contract, suite))
         if source_failures:
             report['source_failures'] = source_failures
@@ -753,7 +803,8 @@ def run(sources, swiftc, output, contract_path=None):
         runtime('identity-run', [identity / 'fixture', '--cases-output', identity / 'cases.json'])
         for suite, spec in ADDITIVE_SPECS.items():
             folder = output / suite
-            runtime(spec['prefix'] + '-run', [folder / 'fixture', folder / 'cases.json'])
+            argv = [folder / 'fixture'] if suite == 'host-refresh-bundle' else [folder / 'fixture', folder / 'cases.json']
+            runtime(spec['prefix'] + '-run', argv)
         if runtime_failures:
             report.update(runtime_failures=runtime_failures, blocked_runtime_dependencies=blocked_dependencies)
             require(False, 'Setup runtime commands failed: ' + '; '.join(

@@ -181,13 +181,31 @@ class Controls(unittest.TestCase):
                              host_activation_negative_static_mutations=list(gate.ACTIVATION_NEGATIVE_MUTATIONS))
             if suite == 'profile-preconditions':
                 value.update(check_count=25, checks=['profile-check-' + str(i) for i in range(25)])
+            if suite == 'host-refresh-bundle':
+                self.assertEqual(Path(argv[argv.index('--candidate-root') + 1]), self.sources / 'SideStore')
+                value = {'schema': spec['source_schema'], 'pass': True,
+                    'swift_executed': False, 'network_executed': False, 'provider_executed': False,
+                    'device_executed': False, 'source_assertion_count': 34,
+                    'expected_case_names': self.contract['case_names'][suite], 'expected_case_count': 30,
+                    'inputs': [{'path': p.removeprefix('SideStore/'), 'sha256': self.contract['input_sha256'][p]}
+                               for p in inputs['production']],
+                    'support': [{'path': p.removeprefix('SideStore/'), 'sha256': self.contract['input_sha256'][p]}
+                                for p in inputs['fixture']],
+                    'generated_source': {'path': spec['swift'],
+                        'sha256': gate.digest((folder / spec['swift']).read_bytes())}}
             gate.write_json(folder / spec['receipt'], value)
         elif name in [spec['prefix'] + '-run' for spec in gate.ADDITIVE_SPECS.values()]:
             suite, spec = next((suite, spec) for suite, spec in gate.ADDITIVE_SPECS.items()
                                if spec['prefix'] + '-run' == name)
-            gate.write_json(Path(argv[-1]), {'schema': spec['cases_schema'], 'status': 'pass',
-                'cases': self.contract['case_names'][suite], 'case_count': spec['case_count'],
-                'network_executed': False, 'native_provider_executed': False})
+            if suite == 'host-refresh-bundle':
+                self.assertEqual(len(argv), 1)
+                data = json.dumps({'schema': spec['cases_schema'], 'pass': True,
+                    'cases': self.contract['case_names'][suite], 'case_count': spec['case_count'],
+                    'network_executed': False, 'provider_executed': False, 'device_executed': False}).encode() + b'\n'
+            else:
+                gate.write_json(Path(argv[-1]), {'schema': spec['cases_schema'], 'status': 'pass',
+                    'cases': self.contract['case_names'][suite], 'case_count': spec['case_count'],
+                    'network_executed': False, 'native_provider_executed': False})
         elif name.endswith('-compile'):
             if name.startswith('portal-') and '-host-' not in name:
                 self.assertEqual(argv[argv.index('-module-name') + 1], 'SideSign')
@@ -227,15 +245,15 @@ class Controls(unittest.TestCase):
         report = self.run_gate()
         self.assertEqual(self.command_names, list(gate.COMMANDS))
         self.assertEqual(len(set(self.command_names)), len(gate.COMMANDS))
-        self.assertEqual(len(self.command_names), 31)
-        self.assertEqual(self.command_names[:9], ['delivered-baseline-extract', 'localization-source',
+        self.assertEqual(len(self.command_names), 34)
+        self.assertEqual(self.command_names[:10], ['delivered-baseline-extract', 'localization-source',
             'early-source', 'portal-source', 'identity-controls', 'identity-source',
-            'connection-source', 'profile-preconditions-source', 'vpn-recovery-source'])
-        self.assertEqual(self.command_names[9:20], ['localization-compile', 'early-baseline-compile',
+            'connection-source', 'profile-preconditions-source', 'vpn-recovery-source', 'host-refresh-bundle-source'])
+        self.assertEqual(self.command_names[10:22], ['localization-compile', 'early-baseline-compile',
             'early-candidate-compile', 'portal-baseline-compile', 'portal-baseline-host-compile',
             'portal-candidate-compile', 'portal-candidate-host-compile', 'identity-compile',
-            'connection-compile', 'profile-preconditions-compile', 'vpn-recovery-compile'])
-        self.assertTrue(all(name.endswith('-run') for name in self.command_names[20:]))
+            'connection-compile', 'profile-preconditions-compile', 'vpn-recovery-compile', 'host-refresh-bundle-compile'])
+        self.assertTrue(all(name.endswith('-run') for name in self.command_names[22:]))
         for variant in ('baseline', 'candidate'):
             self.assertLess(self.command_names.index('portal-' + variant + '-run'),
                             self.command_names.index('portal-' + variant + '-host-run'))
@@ -244,6 +262,53 @@ class Controls(unittest.TestCase):
         self.assertNotIn('blocked_runtime_dependencies', report)
         self.assertFalse(report['native_provider_executed'])
         gate.verify_receipt(self.output / 'report.json', self.contract_path)
+
+
+    def test_host_bundle_exact_compile_and_stdout_interface(self):
+        report = self.run_gate()
+        row = next(r for r in report['commands'] if r['name'] == 'host-refresh-bundle-compile')
+        self.assertEqual(row['argv'][1:5], ['-swift-version', '5', '-framework', 'CryptoKit'])
+        self.assertNotIn('-parse-as-library', row['argv'])
+        row = next(r for r in report['commands'] if r['name'] == 'host-refresh-bundle-run')
+        self.assertEqual(len(row['argv']), 1)
+        self.assertEqual(report['evidence']['cases']['host-refresh-bundle']['case_count'], 30)
+
+    def test_host_bundle_rejects_absolute_source_override(self):
+        def mutate(name, argv, data):
+            if name == 'host-refresh-bundle-source':
+                self.rewrite_json(self.output / 'host-refresh-bundle/sources.json',
+                    lambda value: value['inputs'][1].update(path='/tmp/fingerprint.swift'))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'exact source path or hash closure'):
+            self.run_gate()
+        self.assertFalse(any(n.endswith('-compile') for n in self.command_names))
+
+    def test_host_bundle_rejects_missing_static_assertion(self):
+        def mutate(name, argv, data):
+            if name == 'host-refresh-bundle-source':
+                self.rewrite_json(self.output / 'host-refresh-bundle/sources.json',
+                    lambda value: value.update(source_assertion_count=33))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'static assertion or case closure'):
+            self.run_gate()
+
+    def test_host_bundle_rejects_runtime_provider_execution(self):
+        def mutate(name, argv, data):
+            if name == 'host-refresh-bundle-run':
+                value = json.loads(data); value['provider_executed'] = True
+                return subprocess.CompletedProcess(argv, 0, json.dumps(value).encode())
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Forbidden host bundle runtime boundary'):
+            self.run_gate()
+
+    def test_host_bundle_rejects_runtime_case_omission(self):
+        def mutate(name, argv, data):
+            if name == 'host-refresh-bundle-run':
+                value = json.loads(data); value['cases'].pop()
+                return subprocess.CompletedProcess(argv, 0, json.dumps(value).encode())
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'ordered case closure'):
+            self.run_gate()
 
     def test_unbound_contract_stops_before_subprocess(self):
         self.contract['source_inputs_bound'] = False; self.save_contract()
@@ -359,8 +424,8 @@ class Controls(unittest.TestCase):
         self.mutation = mutate
         with self.assertRaisesRegex(ValueError, 'Setup compile commands failed'):
             self.run_gate()
-        self.assertEqual(self.command_names, list(gate.COMMANDS[:20]))
-        self.assertEqual(len(set(self.command_names)), 20)
+        self.assertEqual(self.command_names, list(gate.COMMANDS[:22]))
+        self.assertEqual(len(set(self.command_names)), 22)
         self.assertFalse(any(name.endswith('-run') for name in self.command_names))
         report = json.loads((self.output / 'report.json').read_text())
         self.assertEqual(report['status'], 'FAILED')
@@ -558,7 +623,7 @@ class Controls(unittest.TestCase):
         self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, failures[n], b'failed source') if n in failures else None
         with self.assertRaisesRegex(ValueError, 'Setup source commands failed'):
             self.run_gate()
-        self.assertEqual(self.command_names, list(gate.COMMANDS[:9]))
+        self.assertEqual(self.command_names, list(gate.COMMANDS[:10]))
         report = json.loads((self.output / 'report.json').read_text())
         self.assertEqual([row['name'] for row in report['source_failures']], list(failures))
         self.assertEqual(report['status'], 'FAILED')
@@ -569,7 +634,7 @@ class Controls(unittest.TestCase):
         self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, failures[n], b'failed compile') if n in failures else None
         with self.assertRaisesRegex(ValueError, 'Setup compile commands failed'):
             self.run_gate()
-        self.assertEqual(self.command_names, list(gate.COMMANDS[:20]))
+        self.assertEqual(self.command_names, list(gate.COMMANDS[:22]))
         report = json.loads((self.output / 'report.json').read_text())
         self.assertTrue(all(n in report['failure'] for n in failures))
         self.assertEqual(report['status'], 'FAILED')
