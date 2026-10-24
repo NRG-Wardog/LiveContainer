@@ -195,7 +195,7 @@ class Controls(unittest.TestCase):
                     'generated_source': {'path': spec['swift'],
                         'sha256': gate.digest((folder / spec['swift']).read_bytes())}}
             if suite == 'cache-compatibility':
-                value.update({key: True for key in ('strict_compute_byte_identical', 'host_pipeline_byte_identical', 'execute_and_pruning_byte_identical', 'original_cache_key_byte_identical_except_symbol', 'original_cache_flow_except_retained_safety_boundaries_symbol_and_logs', 'copy_helper_overwrite_disabled', 'cache_components_lstat_no_follow', 'production_darwin_import_present')})
+                value.update({key: True for key in ('strict_compute_byte_identical', 'host_pipeline_byte_identical', 'execute_and_pruning_byte_identical', 'original_cache_key_byte_identical_except_symbol', 'original_cache_flow_except_retained_safety_boundaries_symbol_and_logs', 'copy_helper_overwrite_disabled', 'cache_components_lstat_no_follow', 'production_darwin_import_present', 'trusted_apps_root_canonicalized_once', 'alias_regression_uses_production_getter', 'alias_before_reference_byte_identical')})
             gate.write_json(folder / spec['receipt'], value)
         elif name in [spec['prefix'] + '-run' for spec in gate.ADDITIVE_SPECS.values()]:
             suite, spec = next((suite, spec) for suite, spec in gate.ADDITIVE_SPECS.items()

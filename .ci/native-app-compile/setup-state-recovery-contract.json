@@ -5,7 +5,8 @@
         "SideStore/tests/cache_compatibility/Cases.swift",
         "SideStore/tests/cache_compatibility/OriginalAppBundleFingerprint.swift",
         "SideStore/tests/cache_compatibility/OriginalCacheAppOperation.swift",
-        "SideStore/tests/cache_compatibility/generate_fixture.py"
+        "SideStore/tests/cache_compatibility/generate_fixture.py",
+        "SideStore/tests/cache_compatibility/BeforeCanonicalAnchorCacheAppOperation.swift"
       ],
       "other": [],
       "production": [
@@ -128,7 +129,8 @@
       "destination_dangling_symlink_rejected",
       "destination_existing_symlink_rejected",
       "copy_helper_refuses_existing_destination",
-      "source_is_unchanged_after_cache_copy"
+      "source_is_unchanged_after_cache_copy",
+      "trusted_root_alias_before_fails_after_passes"
     ],
     "certificate-portal-evidence": [
       "empty_body_preserved",
@@ -1794,7 +1796,7 @@
     "SideStore/SideStore/Core/Operations/Errors/OperationError.swift": "0df82c2b27c8f7da6147bf4b2856609decd7e3be59370f45851018d2a2fe70e2",
     "SideStore/SideStore/Core/Operations/OperationStep.swift": "2293b15da7ee02363b9d25b05760d2756a206b539814a108e00a0c9c541ed398",
     "SideStore/SideStore/Core/Operations/PipelineExecutor.swift": "b79b429cbd8d7ac38f7435b0cc02536c939bd07a226aa601193cf8e01eba156b",
-    "SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift": "c64a34702920a946be4995be713f8c02f929fffcbfc4a196a245be2610b4417b",
+    "SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift": "781d7e9bed0b846b8774cd8aa8addb91c42ad694b92a3ba3938552b3e5c6ab5c",
     "SideStore/SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift": "127665cabcd7c673493c0cea06fbb2ae8e8f0e4c49c735cb5273fc467260af7b",
     "SideStore/SideStore/Core/Operations/PipelineOperations/PreflightChecksOperation.swift": "4c68e6a1eac9e56cb3b654c281e930611bce292b59e97057da1f95aca5ee331a",
     "SideStore/SideStore/Core/Operations/PipelineRunner.swift": "4e139e9d643f59fb6990fdc246ecfa9aaa32acbc4595ea839b38bd9c4199522e",
@@ -1804,10 +1806,11 @@
     "SideStore/SideStore/Core/Operations/StandaloneOperations/SyncAppIDsOperation.swift": "fc665b979d8cc984367bcbaf948fba7f3a7ba78e3d97198778ae4998df54b0df",
     "SideStore/SideStore/Utils/common/AppBundleFingerprint.swift": "8340287850ef442e63c4d93665ad65e64997914d81c983ccd5aede146bcc7fa2",
     "SideStore/SideStore/Utils/concurrency/TaskChainCoalescer.swift": "9cbd155acef7d25b17ef8f593d718ab5edce47d0c4ba29a502ae7a916a435fae",
-    "SideStore/tests/cache_compatibility/Cases.swift": "88ed47d60c49cb3763e6c6e3b2d3c6a562ceb5041cada0d4ac689bf627c729fc",
+    "SideStore/tests/cache_compatibility/BeforeCanonicalAnchorCacheAppOperation.swift": "c64a34702920a946be4995be713f8c02f929fffcbfc4a196a245be2610b4417b",
+    "SideStore/tests/cache_compatibility/Cases.swift": "89db632cead7b21bd44a49766672c6a928ac0c0c9408b221f2a58a45eabb1900",
     "SideStore/tests/cache_compatibility/OriginalAppBundleFingerprint.swift": "215f5c16cd4d2a5ecddd8a1983e22e3a9851908159b1fb272260c1eb8cfed2e6",
     "SideStore/tests/cache_compatibility/OriginalCacheAppOperation.swift": "c1b7b1b0c3a08f1c5501461561a299b5dc1570e54c241c3c847c64c992b418da",
-    "SideStore/tests/cache_compatibility/generate_fixture.py": "3ac136ff06ba7ff847e484ac2c42022f7987afff04cf23a6c504dcff0bd11018",
+    "SideStore/tests/cache_compatibility/generate_fixture.py": "33fc0502bcd51a1467d4838e63f8e0a7d262ae2d5bca58580ca88ee6e46c2b7d",
     "SideStore/tests/host_refresh_bundle/BoundaryDoubles.swift": "37a42d6c9ba086f8fdafb0fb7bd695b7e65cc5321e255d3870b3f685eda7cbf5",
     "SideStore/tests/host_refresh_bundle/Cases.swift": "7a240fc300b158a586379a396a44745e1414721b2847b86743b2cb057933673a",
     "SideStore/tests/host_refresh_bundle/generate_fixture.py": "bfb3a4113aefdf93aaa45ef71bcaffbd662db2c9d6d112a98db0b71bd8b07ed4",

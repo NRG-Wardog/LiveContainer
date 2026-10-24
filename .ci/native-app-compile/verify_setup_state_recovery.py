@@ -225,7 +225,7 @@ ADDITIVE_SUITE_INPUTS['host-refresh-bundle'] = {
     'fixture': [HOST_BUNDLE + '/' + name for name in
                 ('BoundaryDoubles.swift', 'Cases.swift', 'test_contract.py', 'generate_fixture.py')],
     'other': []}
-ADDITIVE_SUITE_INPUTS['cache-compatibility'] = {'production': ['SideStore/AltStore/Core/Model/InstalledApp.swift', 'SideStore/AltStore/Extensions/FileManager+URLs.swift', 'SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift', 'SideStore/SideStore/Core/Operations/PipelineRunner.swift', 'SideStore/SideStore/Utils/common/AppBundleFingerprint.swift'], 'support': [], 'fixture': ['SideStore/tests/cache_compatibility/Cases.swift', 'SideStore/tests/cache_compatibility/OriginalAppBundleFingerprint.swift', 'SideStore/tests/cache_compatibility/OriginalCacheAppOperation.swift', 'SideStore/tests/cache_compatibility/generate_fixture.py'], 'other': []}
+ADDITIVE_SUITE_INPUTS['cache-compatibility'] = {'production': ['SideStore/AltStore/Core/Model/InstalledApp.swift', 'SideStore/AltStore/Extensions/FileManager+URLs.swift', 'SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift', 'SideStore/SideStore/Core/Operations/PipelineRunner.swift', 'SideStore/SideStore/Utils/common/AppBundleFingerprint.swift'], 'support': [], 'fixture': ['SideStore/tests/cache_compatibility/Cases.swift', 'SideStore/tests/cache_compatibility/OriginalAppBundleFingerprint.swift', 'SideStore/tests/cache_compatibility/OriginalCacheAppOperation.swift', 'SideStore/tests/cache_compatibility/generate_fixture.py', 'SideStore/tests/cache_compatibility/BeforeCanonicalAnchorCacheAppOperation.swift'], 'other': []}
 ADDITIVE_SPECS = {
     'setup-connection-evidence': {'prefix': 'connection', 'folder': CONNECTION,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
@@ -243,7 +243,7 @@ ADDITIVE_SPECS = {
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
         'source_schema': 'v3-host-refresh-bundle-source-v1', 'swift': 'host-refresh-bundle.swift',
         'cases_schema': 'v3-host-refresh-bundle-runtime-v1', 'case_count': 30},
-    'cache-compatibility': {'prefix': 'cache-compatibility', 'folder': 'SideStore/tests/cache_compatibility', 'generator': 'generate_fixture.py', 'receipt': 'sources.json', 'source_schema': 'cache-compatibility-source-v1', 'swift': 'cache-compatibility.swift', 'cases_schema': 'cache-compatibility-cases-v1', 'case_count': 25},
+    'cache-compatibility': {'prefix': 'cache-compatibility', 'folder': 'SideStore/tests/cache_compatibility', 'generator': 'generate_fixture.py', 'receipt': 'sources.json', 'source_schema': 'cache-compatibility-source-v1', 'swift': 'cache-compatibility.swift', 'cases_schema': 'cache-compatibility-cases-v1', 'case_count': 26},
 }
 
 
@@ -557,7 +557,7 @@ def additive_extraction(output, contract, suite):
             digest(regular(root, spec['swift']).read_bytes()) == value.get('generated_sha256'),
             'Additive generated Swift closure or bytes differ')
     if suite == 'cache-compatibility':
-        require(all(value.get(key) is True for key in ('strict_compute_byte_identical', 'host_pipeline_byte_identical', 'execute_and_pruning_byte_identical', 'original_cache_key_byte_identical_except_symbol', 'original_cache_flow_except_retained_safety_boundaries_symbol_and_logs', 'copy_helper_overwrite_disabled', 'cache_components_lstat_no_follow', 'production_darwin_import_present')),
+        require(all(value.get(key) is True for key in ('strict_compute_byte_identical', 'host_pipeline_byte_identical', 'execute_and_pruning_byte_identical', 'original_cache_key_byte_identical_except_symbol', 'original_cache_flow_except_retained_safety_boundaries_symbol_and_logs', 'copy_helper_overwrite_disabled', 'cache_components_lstat_no_follow', 'production_darwin_import_present', 'trusted_apps_root_canonicalized_once', 'alias_regression_uses_production_getter', 'alias_before_reference_byte_identical')),
                 'Cache compatibility static proof differs')
     if suite == 'setup-connection-evidence':
         require(value.get('host_activation_message_contract') == 'exact_finite_guard_both_mirrors_before_generic_timeout' and
