@@ -194,6 +194,8 @@ class Controls(unittest.TestCase):
                                 for p in inputs['fixture']],
                     'generated_source': {'path': spec['swift'],
                         'sha256': gate.digest((folder / spec['swift']).read_bytes())}}
+            if suite == 'cache-compatibility':
+                value.update({key: True for key in ('strict_compute_byte_identical', 'host_pipeline_byte_identical', 'execute_and_pruning_byte_identical', 'original_cache_key_byte_identical_except_symbol', 'original_cache_flow_except_retained_safety_boundaries_symbol_and_logs', 'copy_helper_overwrite_disabled')})
             gate.write_json(folder / spec['receipt'], value)
         elif name in [spec['prefix'] + '-run' for spec in gate.ADDITIVE_SPECS.values()]:
             suite, spec = next((suite, spec) for suite, spec in gate.ADDITIVE_SPECS.items()
@@ -205,6 +207,7 @@ class Controls(unittest.TestCase):
                     'network_executed': False, 'provider_executed': False, 'device_executed': False}).encode() + b'\n'
             else:
                 gate.write_json(Path(argv[-1]), {'schema': spec['cases_schema'], 'status': 'pass',
+                'fake_only': True, 'foundation_crypto_real': True,
                     'cases': self.contract['case_names'][suite], 'case_count': spec['case_count'],
                     'network_executed': False, 'native_provider_executed': False})
         elif name.endswith('-compile'):
@@ -246,15 +249,15 @@ class Controls(unittest.TestCase):
         report = self.run_gate()
         self.assertEqual(self.command_names, list(gate.COMMANDS))
         self.assertEqual(len(set(self.command_names)), len(gate.COMMANDS))
-        self.assertEqual(len(self.command_names), 34)
-        self.assertEqual(self.command_names[:10], ['delivered-baseline-extract', 'localization-source',
+        self.assertEqual(len(self.command_names), 37)
+        self.assertEqual(self.command_names[:11], ['delivered-baseline-extract', 'localization-source',
             'early-source', 'portal-source', 'identity-controls', 'identity-source',
-            'connection-source', 'profile-preconditions-source', 'vpn-recovery-source', 'host-refresh-bundle-source'])
-        self.assertEqual(self.command_names[10:22], ['localization-compile', 'early-baseline-compile',
+            'connection-source', 'profile-preconditions-source', 'vpn-recovery-source', 'host-refresh-bundle-source', 'cache-compatibility-source'])
+        self.assertEqual(self.command_names[11:24], ['localization-compile', 'early-baseline-compile',
             'early-candidate-compile', 'portal-baseline-compile', 'portal-baseline-host-compile',
             'portal-candidate-compile', 'portal-candidate-host-compile', 'identity-compile',
-            'connection-compile', 'profile-preconditions-compile', 'vpn-recovery-compile', 'host-refresh-bundle-compile'])
-        self.assertTrue(all(name.endswith('-run') for name in self.command_names[22:]))
+            'connection-compile', 'profile-preconditions-compile', 'vpn-recovery-compile', 'host-refresh-bundle-compile', 'cache-compatibility-compile'])
+        self.assertTrue(all(name.endswith('-run') for name in self.command_names[24:]))
         for variant in ('baseline', 'candidate'):
             self.assertLess(self.command_names.index('portal-' + variant + '-run'),
                             self.command_names.index('portal-' + variant + '-host-run'))
@@ -328,6 +331,62 @@ class Controls(unittest.TestCase):
         self.mutation = mutate
         with self.assertRaisesRegex(ValueError, 'ordered case closure'):
             self.run_gate()
+
+    def test_cache_exact_source_compile_and_runtime_interface(self):
+        report = self.run_gate()
+        source = next(r for r in report['commands'] if r['name'] == 'cache-compatibility-source')
+        actual = Path(source['argv'][source['argv'].index('--candidate-root') + 1])
+        self.assertEqual(actual, (self.sources / 'SideStore').resolve(strict=True))
+        row = next(r for r in report['commands'] if r['name'] == 'cache-compatibility-compile')
+        self.assertEqual(row['argv'][1:5], ['-swift-version', '5', '-framework', 'CryptoKit'])
+        self.assertNotIn('-parse-as-library', row['argv'])
+        row = next(r for r in report['commands'] if r['name'] == 'cache-compatibility-run')
+        self.assertEqual(len(row['argv']), 2)
+        self.assertEqual(Path(row['argv'][1]), self.output / 'cache-compatibility/cases.json')
+        self.assertEqual(report['evidence']['cases']['cache-compatibility']['case_count'], gate.ADDITIVE_SPECS['cache-compatibility']['case_count'])
+
+    def test_cache_rejects_changed_source_hash(self):
+        def mutate(name, argv, data):
+            if name == 'cache-compatibility-source':
+                self.rewrite_json(self.output / 'cache-compatibility/sources.json',
+                    lambda value: value['inputs_sha256'].update({gate.ADDITIVE_SUITE_INPUTS['cache-compatibility']['production'][0]: '0' * 64}))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Additive production source hashes differ'):
+            self.run_gate()
+        self.assertFalse(any(n.endswith('-compile') for n in self.command_names))
+
+    def test_cache_rejects_case_omission(self):
+        def mutate(name, argv, data):
+            if name == 'cache-compatibility-run':
+                self.rewrite_json(self.output / 'cache-compatibility/cases.json', lambda value: value['cases'].pop())
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Fixture case closure differs'):
+            self.run_gate()
+
+    def test_cache_rejects_real_provider_claim(self):
+        def mutate(name, argv, data):
+            if name == 'cache-compatibility-run':
+                self.rewrite_json(self.output / 'cache-compatibility/cases.json', lambda value: value.update(native_provider_executed=True))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Fixture runtime boundary differs'):
+            self.run_gate()
+
+    def test_cache_rejects_missing_success_marker(self):
+        def mutate(name, argv, data):
+            if name == 'cache-compatibility-run':
+                return subprocess.CompletedProcess(argv, 0, b'inert no marker\n')
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Setup runtime commands failed'):
+            self.run_gate()
+
+    def test_cache_rejects_weakened_host_static_proof(self):
+        def mutate(name, argv, data):
+            if name == 'cache-compatibility-source':
+                self.rewrite_json(self.output / 'cache-compatibility/sources.json', lambda value: value.update(strict_compute_byte_identical=False))
+        self.mutation = mutate
+        with self.assertRaisesRegex(ValueError, 'Cache compatibility static proof differs'):
+            self.run_gate()
+        self.assertFalse(any(n.endswith('-compile') for n in self.command_names))
 
     def test_unbound_contract_stops_before_subprocess(self):
         self.contract['source_inputs_bound'] = False; self.save_contract()
@@ -443,8 +502,8 @@ class Controls(unittest.TestCase):
         self.mutation = mutate
         with self.assertRaisesRegex(ValueError, 'Setup compile commands failed'):
             self.run_gate()
-        self.assertEqual(self.command_names, list(gate.COMMANDS[:22]))
-        self.assertEqual(len(set(self.command_names)), 22)
+        self.assertEqual(self.command_names, list(gate.COMMANDS[:24]))
+        self.assertEqual(len(set(self.command_names)), 24)
         self.assertFalse(any(name.endswith('-run') for name in self.command_names))
         report = json.loads((self.output / 'report.json').read_text())
         self.assertEqual(report['status'], 'FAILED')
@@ -642,7 +701,7 @@ class Controls(unittest.TestCase):
         self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, failures[n], b'failed source') if n in failures else None
         with self.assertRaisesRegex(ValueError, 'Setup source commands failed'):
             self.run_gate()
-        self.assertEqual(self.command_names, list(gate.COMMANDS[:10]))
+        self.assertEqual(self.command_names, list(gate.COMMANDS[:11]))
         report = json.loads((self.output / 'report.json').read_text())
         self.assertEqual([row['name'] for row in report['source_failures']], list(failures))
         self.assertEqual(report['status'], 'FAILED')
@@ -653,7 +712,7 @@ class Controls(unittest.TestCase):
         self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, failures[n], b'failed compile') if n in failures else None
         with self.assertRaisesRegex(ValueError, 'Setup compile commands failed'):
             self.run_gate()
-        self.assertEqual(self.command_names, list(gate.COMMANDS[:22]))
+        self.assertEqual(self.command_names, list(gate.COMMANDS[:24]))
         report = json.loads((self.output / 'report.json').read_text())
         self.assertTrue(all(n in report['failure'] for n in failures))
         self.assertEqual(report['status'], 'FAILED')

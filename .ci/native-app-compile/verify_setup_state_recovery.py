@@ -27,7 +27,8 @@ SUITES = ('setup-localization',
  'setup-connection-evidence',
  'profile-preconditions',
  'vpn-refresh-recovery',
- 'host-refresh-bundle')
+ 'host-refresh-bundle',
+ 'cache-compatibility')
 LOCALIZATION = 'LiveContainer/.ci/comprehensive-diagnostics'
 EARLY = 'LiveContainer/.ci/early-refresh-boundaries'
 PORTAL = 'LiveContainer/.ci/certificate-portal-evidence'
@@ -36,6 +37,7 @@ IDENTITY_CASE_COUNT = 55
 CONNECTION = 'LiveContainer/.ci/setup-connection-evidence'
 VPN_RECOVERY = 'LiveContainer/.ci/vpn-refresh-recovery'
 HOST_BUNDLE = 'SideStore/tests/host_refresh_bundle'
+CACHE_COMPATIBILITY = 'SideStore/tests/cache_compatibility'
 ACTIVATION_NEGATIVE_MUTATIONS = ('cause', 'code', 'generic_timeout_precedence', 'missing_override',
                                  'operation', 'raw_provider_copy', 'stage')
 LOCALIZATION_CASE_COUNT = 1292
@@ -64,6 +66,7 @@ COMMANDS = ('delivered-baseline-extract',
  'profile-preconditions-source',
  'vpn-recovery-source',
  'host-refresh-bundle-source',
+ 'cache-compatibility-source',
  'localization-compile',
  'early-baseline-compile',
  'early-candidate-compile',
@@ -76,6 +79,7 @@ COMMANDS = ('delivered-baseline-extract',
  'profile-preconditions-compile',
  'vpn-recovery-compile',
  'host-refresh-bundle-compile',
+ 'cache-compatibility-compile',
  'localization-run',
  'early-baseline-run',
  'early-candidate-run',
@@ -87,7 +91,8 @@ COMMANDS = ('delivered-baseline-extract',
  'connection-run',
  'profile-preconditions-run',
  'vpn-recovery-run',
- 'host-refresh-bundle-run')
+ 'host-refresh-bundle-run',
+ 'cache-compatibility-run')
 COMPILE_COMMANDS = tuple(name for name in COMMANDS if name.endswith('-compile'))
 
 
@@ -220,6 +225,7 @@ ADDITIVE_SUITE_INPUTS['host-refresh-bundle'] = {
     'fixture': [HOST_BUNDLE + '/' + name for name in
                 ('BoundaryDoubles.swift', 'Cases.swift', 'test_contract.py', 'generate_fixture.py')],
     'other': []}
+ADDITIVE_SUITE_INPUTS['cache-compatibility'] = {'production': ['SideStore/AltStore/Core/Model/InstalledApp.swift', 'SideStore/AltStore/Extensions/FileManager+URLs.swift', 'SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift', 'SideStore/SideStore/Core/Operations/PipelineRunner.swift', 'SideStore/SideStore/Utils/common/AppBundleFingerprint.swift'], 'support': [], 'fixture': ['SideStore/tests/cache_compatibility/Cases.swift', 'SideStore/tests/cache_compatibility/OriginalAppBundleFingerprint.swift', 'SideStore/tests/cache_compatibility/OriginalCacheAppOperation.swift', 'SideStore/tests/cache_compatibility/generate_fixture.py'], 'other': []}
 ADDITIVE_SPECS = {
     'setup-connection-evidence': {'prefix': 'connection', 'folder': CONNECTION,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
@@ -237,6 +243,7 @@ ADDITIVE_SPECS = {
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
         'source_schema': 'v3-host-refresh-bundle-source-v1', 'swift': 'host-refresh-bundle.swift',
         'cases_schema': 'v3-host-refresh-bundle-runtime-v1', 'case_count': 30},
+    'cache-compatibility': {'prefix': 'cache-compatibility', 'folder': 'SideStore/tests/cache_compatibility', 'generator': 'generate_fixture.py', 'receipt': 'sources.json', 'source_schema': 'cache-compatibility-source-v1', 'swift': 'cache-compatibility.swift', 'cases_schema': 'cache-compatibility-cases-v1', 'case_count': 22},
 }
 
 
@@ -280,7 +287,7 @@ def load_contract(path):
 def inventory(sources, contract):
     actual = {p: digest(regular(sources, p).read_bytes()) for p in contract['input_sha256']}
     require(actual == contract['input_sha256'], 'Setup candidate source hashes differ')
-    for folder in (EARLY, PORTAL, IDENTITY, CONNECTION, VPN_RECOVERY, HOST_BUNDLE):
+    for folder in (EARLY, PORTAL, IDENTITY, CONNECTION, VPN_RECOVERY, HOST_BUNDLE, CACHE_COMPATIBILITY):
         root = sources / folder
         require(root.is_dir() and not root.is_symlink(), 'Missing setup fixture package')
         for p in root.rglob('*'):
@@ -549,6 +556,9 @@ def additive_extraction(output, contract, suite):
     require({p.name for p in root.glob('*.swift')} == {spec['swift']} and
             digest(regular(root, spec['swift']).read_bytes()) == value.get('generated_sha256'),
             'Additive generated Swift closure or bytes differ')
+    if suite == 'cache-compatibility':
+        require(all(value.get(key) is True for key in ('strict_compute_byte_identical', 'host_pipeline_byte_identical', 'execute_and_pruning_byte_identical', 'original_cache_key_byte_identical_except_symbol', 'original_cache_flow_except_retained_safety_boundaries_symbol_and_logs', 'copy_helper_overwrite_disabled')),
+                'Cache compatibility static proof differs')
     if suite == 'setup-connection-evidence':
         require(value.get('host_activation_message_contract') == 'exact_finite_guard_both_mirrors_before_generic_timeout' and
                 value.get('host_activation_negative_static_mutations') == list(ACTIVATION_NEGATIVE_MUTATIONS),
@@ -574,6 +584,8 @@ def additive_cases(output, contract, suite):
     value = exact_cases(regular(output, suite + '/cases.json'), ADDITIVE_SPECS[suite]['cases_schema'],
                         contract['case_names'][suite], network_executed=False, native_provider_executed=False)
     require(value['cases'] == contract['case_names'][suite], 'Additive ordered case closure differs')
+    if suite == 'cache-compatibility':
+        require(value.get('fake_only') is True and value.get('foundation_crypto_real') is True, 'Cache fixture boundary differs')
     return value
 
 
@@ -625,6 +637,7 @@ def markers():
               'connection-run': 'SETUP_CONNECTION_EVIDENCE_PASS cases=25',
               'vpn-recovery-run': 'VPN_REFRESH_RECOVERY_PASS cases=49',
               'identity-controls': 'OK',
+              'cache-compatibility-run': 'CACHE_COMPATIBILITY_CASES_PASS',
               'identity-run': 'REMOTE_IDENTITY_REUSE_RUNTIME_PASS cases=' + str(IDENTITY_CASE_COUNT)}
     for variant in ('baseline', 'candidate'):
         result['early-' + variant + '-run'] = 'PASS early_refresh_actual_appmanager_pipeline_source_chain cases=24'
@@ -657,7 +670,7 @@ def verify_receipt(path, contract_path=None):
         if row['name'].endswith('-compile'):
             args = row.get('argv', [])
             expected = ['-swift-version', '5', '-parse-as-library']
-            if row['name'] == 'host-refresh-bundle-compile':
+            if row['name'] in ('host-refresh-bundle-compile', 'cache-compatibility-compile'):
                 expected = ['-swift-version', '5', '-framework', 'CryptoKit']
             if row['name'].startswith('portal-') and '-host-' not in row['name']:
                 expected += ['-module-name', 'SideSign']
@@ -709,7 +722,7 @@ def run(sources, swiftc, output, contract_path=None):
         require(file.is_file() and not file.is_symlink() and file.resolve().is_relative_to(output),
                 'Unsafe generated setup source')
         args = [swiftc, '-swift-version', '5', '-parse-as-library']
-        if name == 'host-refresh-bundle-compile':
+        if name in ('host-refresh-bundle-compile', 'cache-compatibility-compile'):
             args = [swiftc, '-swift-version', '5', '-framework', 'CryptoKit']
         if module:
             require(module == 'SideSign', 'Unexpected setup fixture module')
@@ -757,7 +770,7 @@ def run(sources, swiftc, output, contract_path=None):
             lambda: identity_extraction(output, contract))
         for suite, spec in ADDITIVE_SPECS.items():
             generate(spec['prefix'] + '-source', python(spec['folder'] + '/' + spec['generator']) +
-                ['--candidate-root', sources / 'SideStore' if suite == 'host-refresh-bundle' else sources,
+                ['--candidate-root', sources / 'SideStore' if suite in ('host-refresh-bundle', 'cache-compatibility') else sources,
                  '--output', output / suite],
                 lambda suite=suite: additive_extraction(output, contract, suite))
         if source_failures:
