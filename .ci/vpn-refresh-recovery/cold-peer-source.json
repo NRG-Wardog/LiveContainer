@@ -1,0 +1,30 @@
+{
+  "schema": "cold-vpn-local-peer-guard-v1",
+  "minimuxer_commit": "1d033920660c6f50b8f30c4c333f025867cd9e96",
+  "source_files": {
+    "Sources/MinimuxerImpl.swift": {
+      "sha256": "d6b970c9e041483544862c30ebe9f04ccb368f8991b9e4ca6f45a334b3d6b382",
+      "git_blob": "f9ea443e413210bb629234e8079d082ab99cf770",
+      "url": "https://github.com/NRG-Wardog/minimuxer/blob/1d033920660c6f50b8f30c4c333f025867cd9e96/Sources/MinimuxerImpl.swift"
+    },
+    "Sources/Services/DeviceEndpoint.swift": {
+      "sha256": "111386131f1a9a2a3afae80d79b3b9cea574eac3a14b98abec0e0d7233ece2b1",
+      "git_blob": "4a8b993bdf7c1e5a934fe034de587c6828424254",
+      "url": "https://github.com/NRG-Wardog/minimuxer/blob/1d033920660c6f50b8f30c4c333f025867cd9e96/Sources/Services/DeviceEndpoint.swift"
+    },
+    "Sources/MinimuxerInternalError.swift": {
+      "sha256": "d9ed76a23a257724d3125fb8292e52c9f209b0af82759730a8c8e4f9c44964c7",
+      "git_blob": "b7880439eebd64a9ebe0d563de69346d5f4c90dd",
+      "url": "https://github.com/NRG-Wardog/minimuxer/blob/1d033920660c6f50b8f30c4c333f025867cd9e96/Sources/MinimuxerInternalError.swift"
+    }
+  },
+  "exact_local_noDevice_message": "VPN tunnel iface is up but tunnel peer IP is not yet reachable \u2014 VPN may not be routing device traffic correctly. Cause: DeviceEndpointNotInitialized",
+  "baseline_classifier_source": {
+    "path": "SideStore/SideStore/Core/Operations/PipelineExecutor.swift",
+    "sha256": "b79b429cbd8d7ac38f7435b0cc02536c939bd07a226aa601193cf8e01eba156b",
+    "extracted_sha256": "11317ac8513b261a85ab7b61f38d543f87aa2e4b9fab014e163e0e0303bc5f81"
+  },
+  "limits": [
+    "Source-derived guard identity; no VPN or native runtime was exercised."
+  ]
+}

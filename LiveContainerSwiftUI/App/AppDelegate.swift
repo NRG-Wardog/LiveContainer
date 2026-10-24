@@ -310,7 +310,8 @@ enum LiveContainerVPNRefreshRecoveryPolicy {
         let kind = failure.signingContext["refresh_failure_kind"]
         let reason = failure.signingContext["refresh_readiness_reason"]
         return (kind == "noVPN" && reason == "vpnUnavailable") ||
-            (kind == "invalidVPN" && reason == "peerProbeFailed")
+            (kind == "invalidVPN" && reason == "peerProbeFailed") ||
+            (kind == "noDevice" && reason == "peerAddressUnavailable")
     }
 
     static func permitsRecovery(error: Error, runID: String, source: String,

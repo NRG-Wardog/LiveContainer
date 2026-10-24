@@ -31,15 +31,19 @@ struct VPNRefreshRecoveryCases {
     @MainActor
     static func flow(firstFails: Bool = true, allowed: Bool = true, activationFails: Bool = false,
                      settlementFails: Bool = false, ownershipLost: Bool = false, secondFails: Bool = false,
-                     cancelAt: String? = nil) async -> ([String], String) {
+                     cancelAt: String? = nil, coldPeerFailure: CombinedFailure? = nil) async -> ([String], String) {
         var events: [String] = []; var attempts = 0
         let task = Task { @MainActor () -> String in
             do {
                 try await LiveContainerVPNRefreshRecoveryPolicy.run(attempt: {
                     attempts += 1; events.append("attempt\(attempts)")
-                    if attempts == 1 && firstFails { throw failure() }
+                    if attempts == 1 && firstFails { throw coldPeerFailure ?? failure() }
                     if attempts == 2 && secondFails { throw FixtureError.second }
-                }, mayRecover: { _ in events.append("eligibility"); return allowed }, activate: {
+                }, mayRecover: { error in
+                    events.append("eligibility")
+                    if let coldPeerFailure { return permits(error, manifest: manifest([coldPeerFailure])) }
+                    return allowed
+                }, activate: {
                     events.append("activate")
                     if cancelAt == "activation" { withUnsafeCurrentTask { $0?.cancel() } }
                     if activationFails { throw FixtureError.activation }
@@ -106,6 +110,40 @@ struct VPNRefreshRecoveryCases {
         check("producer_policy_invalidvpn_ineligible", lcRefreshFailureFacts(OperationError.invalidVPN(reason: "unsupported backend policy"), sourceStep: "refreshReadiness")["refresh_readiness_reason"] == nil)
         check("producer_arbitrary_native_drop_ineligible", lcRefreshFailureFacts(OperationError.invalidVPN(reason: "broken pipe SECRET_PAYLOAD"), sourceStep: "refreshReadiness")["refresh_readiness_reason"] == nil)
         check("producer_probe_wrong_boundary_ineligible", lcRefreshFailureFacts(OperationError.invalidVPN(reason: peerText), sourceStep: "refreshApplication")["refresh_readiness_reason"] == nil)
+        // The fixture generator derives this exact string from the pinned local
+        // minimuxer guard, not from a native/provider message supplied by a test.
+        let coldFacts = lcRefreshFailureFacts(OperationError.noDevice(reason: coldVPNPeerGuardMessage), sourceStep: "refreshReadiness")
+        let coldFailure = CombinedFailure(operation: "refresh", stage: .command, code: .failed,
+            id: id, sourceStep: .refreshReadiness, signingContext: coldFacts)
+        check("cold_peer_original_classifier_reproduces_missing_reason", lcRefreshFailureFactsBeforeColdVPN(OperationError.noDevice(reason: coldVPNPeerGuardMessage), sourceStep: "refreshReadiness") == ["refresh_failure_kind": "noDevice"])
+        check("cold_peer_actual_producer_preserves_no_device_and_finite_reason", coldFacts == ["refresh_failure_kind": "noDevice", "refresh_readiness_reason": "peerAddressUnavailable"])
+        check("cold_peer_missing_address_allowed", permits(coldFailure, manifest: manifest([coldFailure])))
+        let coldDecoded = CombinedFailure.decode(coldFailure.wire, expectedID: id)
+        check("cold_peer_wire_roundtrip_preserves_eligibility", coldDecoded.map { permits($0, manifest: manifest([$0])) } == true)
+        check("cold_peer_all_app_failures_allowed", permits(coldFailure, manifest: manifest([coldFailure, coldFailure])))
+        check("cold_peer_mixed_unknown_device_rejected", !permits(coldFailure, manifest: manifest([coldFailure, failure(kind: "noDevice", reason: "unknown")])))
+        check("cold_peer_mixed_pairing_rejected", !permits(coldFailure, manifest: manifest([coldFailure, failure(kind: "invalidPairingFile", reason: "unknown")])))
+        check("cold_peer_wrong_kind_reason_stripped", failure(kind: "invalidVPN", reason: "peerAddressUnavailable").signingContext["refresh_readiness_reason"] == nil)
+        check("cold_peer_wrong_stage_reason_stripped", failure(kind: "noDevice", reason: "peerAddressUnavailable", stage: .signing).signingContext["refresh_readiness_reason"] == nil)
+        check("cold_peer_wrong_boundary_reason_stripped", failure(kind: "noDevice", reason: "peerAddressUnavailable", step: .refreshApplication).signingContext["refresh_readiness_reason"] == nil)
+        check("cold_peer_unclassified_device_error_rejected", lcRefreshFailureFacts(OperationError.noDevice(reason: "CoreDevice creation failed"), sourceStep: "refreshReadiness")["refresh_readiness_reason"] == nil)
+        check("cold_peer_remote_endpoint_rejected", lcRefreshFailureFacts(OperationError.noDevice(reason: "Remote endpoint IP is not configured or reachable. Cause: DeviceEndpointNotInitialized"), sourceStep: "refreshReadiness")["refresh_readiness_reason"] == nil)
+        check("cold_peer_appended_native_text_rejected", lcRefreshFailureFacts(OperationError.noDevice(reason: coldVPNPeerGuardMessage + " SECRET_PAYLOAD"), sourceStep: "refreshReadiness")["refresh_readiness_reason"] == nil)
+        check("cold_peer_other_local_error_rejected", lcRefreshFailureFacts(OperationError.noDevice(reason: coldVPNPeerGuardMessage.replacingOccurrences(of: "DeviceEndpointNotInitialized", with: "NetworkIfaceNotRefreshed")), sourceStep: "refreshReadiness")["refresh_readiness_reason"] == nil)
+        check("cold_peer_wrong_operation_kind_rejected", lcRefreshFailureFacts(OperationError.invalidVPN(reason: coldVPNPeerGuardMessage), sourceStep: "refreshReadiness")["refresh_readiness_reason"] == nil)
+        check("cold_peer_readiness_boundary_required", lcRefreshFailureFacts(OperationError.noDevice(reason: coldVPNPeerGuardMessage), sourceStep: "refreshApplication")["refresh_readiness_reason"] == nil)
+        check("cold_peer_transport_policy_rejected", lcRefreshFailureFacts(OperationError.invalidVPN(reason: "Selected backend has no CoreDevice implementation and IPSec is absent"), sourceStep: "refreshReadiness")["refresh_readiness_reason"] == nil)
+        check("cold_peer_background_never_activates", !permits(coldFailure, source: "bgprocessing", manifest: manifest([coldFailure])))
+        check("cold_peer_initial_enable_not_repeated", !permits(coldFailure, activated: true, manifest: manifest([coldFailure])))
+        let coldFlow = await flow(coldPeerFailure: coldFailure)
+        check("cold_peer_actual_policy_enables_then_one_pipeline_retry", coldFlow.0 == ["attempt1", "eligibility", "activate", "settle", "prepare", "attempt2"] && coldFlow.1 == "success")
+        let coldSecondFailure = await flow(secondFails: true, coldPeerFailure: coldFailure)
+        check("cold_peer_retry_failure_is_final", coldSecondFailure.0 == coldFlow.0 && coldSecondFailure.1 == "failure")
+        let coldCancel = await flow(cancelAt: "activation", coldPeerFailure: coldFailure)
+        check("cold_peer_cancel_during_handoff_no_retry", coldCancel.0 == ["attempt1", "eligibility", "activate"] && coldCancel.1 == "cancelled")
+        let coldLostOwner = await flow(ownershipLost: true, coldPeerFailure: coldFailure)
+        check("cold_peer_changed_ledger_owner_no_retry", coldLostOwner.0 == ["attempt1", "eligibility", "activate", "settle", "prepare"] && coldLostOwner.1 == "failure")
+
         let direct = await flow(firstFails: false)
         check("ready_pipeline_no_handoff", direct.0 == ["attempt1"] && direct.1 == "success")
         let recovered = await flow()

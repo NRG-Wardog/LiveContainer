@@ -54,24 +54,48 @@ def generate(root, output):
     assert 'if let previous = completed[id]' in helper.block(service, 'private func receive(')
     assert 'record = nil' in helper.block(service, 'mutating func settleRefreshAdmission(')
     producer = helper.block((root / PRODUCER).read_text(), 'func lcRefreshFailureFacts(')
+    # Cross-layer classifier must remain exact; no broad noDevice matching.
+    cold_source = json.loads((HERE / 'cold-peer-source.json').read_text())
+    cold_message = cold_source['exact_local_noDevice_message']
+    assert cold_message.endswith('Cause: DeviceEndpointNotInitialized')
+    assert 'message == ' + json.dumps(cold_message, ensure_ascii=False) in producer
+    assert 'facts["refresh_readiness_reason"] = "peerAddressUnavailable"' in producer
+    assert helper.block(service, 'public static func validatedSigningContext(') == helper.block(model, 'public static func validatedSigningContext(')
+    original = (HERE / 'OriginalRefreshReadinessFacts.swift').read_text()
+    assert hashlib.sha256(original.encode()).hexdigest() == cold_source['baseline_classifier_source']['extracted_sha256']
+    assert 'peerAddressUnavailable' not in original
+    original = original.replace('func lcRefreshFailureFacts(', 'func lcRefreshFailureFactsBeforeColdVPN(', 1)
+    # Full native checkouts bind the guard to the actual dependency source.
+    # Sparse offline generation retains an explicit pinned provenance receipt.
+    dependency = root / 'SideStore/Dependencies/minimuxer'
+    live_guard_inputs = {}
+    if dependency.is_dir():
+        for path, expected in cold_source['source_files'].items():
+            actual = sha(dependency / path)
+            assert actual == expected['sha256'], 'Cold VPN guard dependency changed: ' + path
+            live_guard_inputs[path] = actual
+    cold_constant = 'let coldVPNPeerGuardMessage = ' + json.dumps(cold_message, ensure_ascii=False) + '\n'
+
     errors = helper.block((root / ERRORS).read_text(), 'public enum OperationError:')
     cases = (HERE / 'cases.swift').read_text()
     names = re.findall(r'^        check\("([^"]+)"', cases, re.M)
     assert len(names) == len(set(names)) and len(names) >= 35
     swift = 'import Foundation\nimport CoreFoundation\n#if canImport(FoundationNetworking)\nimport FoundationNetworking\n#endif\n'
     swift += helper.pure_model(model) + '\n' + errors + '\n' + producer + '\n'
-    swift += policy + '\n@MainActor\n' + waiter + '\n' + marker + '\n' + cases
+    swift += original + '\n' + cold_constant + policy + '\n@MainActor\n' + waiter + '\n' + marker + '\n' + cases
     output.mkdir(parents=True, exist_ok=True)
     (output / 'vpn-refresh-recovery.swift').write_text(swift)
     receipt = {'schema': 'vpn-refresh-recovery-sources-v1', 'status': 'STATIC_PASS_GENERATED_NOT_COMPILED_NOT_RUN',
         'input_root': str(root), 'inputs_sha256': {x: sha(root / x) for x in [HOST, MODEL, PRODUCER, ERRORS, HELPER, CLIENT, SERVICE]},
-        'support_inputs_sha256': {},
-        'fixture_inputs_sha256': {x: sha(HERE / x) for x in ['generate_fixture.py', 'cases.swift']},
+        'support_inputs_sha256': live_guard_inputs,
+        'cold_guard_provenance': 'actual_dependency_sources' if live_guard_inputs else 'pinned_source_receipt_sparse_generation',
+        'fixture_inputs_sha256': {x: sha(HERE / x) for x in ['generate_fixture.py', 'cases.swift', 'OriginalRefreshReadinessFacts.swift', 'cold-peer-source.json']},
         'generated_sha256': hashlib.sha256(swift.encode()).hexdigest(),
         'expected_case_names': names, 'expected_case_count': len(names),
         'extracted_blocks': anchors + ['func lcRefreshFailureFacts(', 'public enum OperationError:'],
+        'baseline_classifier_sha256': cold_source['baseline_classifier_source']['extracted_sha256'],
         'swift_compiled': False, 'swift_executed': False, 'network_executed': False, 'native_provider_executed': False,
-        'boundary_contract': 'Actual retry policy/orchestrator, producer, decoder, activation waiter, and return-marker policy. Injected attempt/activate/settle/prepare closures record calls or throw. UIApplication, NWPathMonitor, native transport, Keychain and provider are never executed. Wiring is source-asserted, not runtime-validated.',
+        'boundary_contract': 'Actual retry policy/orchestrator, producer, decoder, activation waiter, and return-marker policy, with the unchanged prior readiness classifier as a cold-peer regression control. Injected attempt/activate/settle/prepare closures record calls or throw. UIApplication, NWPathMonitor, native transport, Keychain and provider are never executed. Wiring is source-asserted, not runtime-validated.',
         'limits': ['Generation/static checks only.', 'No device VPN activation or on-device readiness proof.']}
     (output / 'sources.json').write_text(json.dumps(receipt, indent=2) + '\n')
     return receipt
