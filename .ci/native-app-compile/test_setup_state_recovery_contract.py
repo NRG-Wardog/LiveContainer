@@ -333,6 +333,16 @@ class Controls(unittest.TestCase):
             self.run_gate()
 
     def test_cache_exact_source_compile_and_runtime_interface(self):
+        # Exercise the macOS /var versus /private/var parent-alias shape locally.
+        # Direct source symlinks are still rejected by the unchanged gate.
+        alias = self.root / 'cache-parent-alias'
+        alias.symlink_to(self.root, target_is_directory=True)
+        self.sources = alias / 'sources'
+        self.output = alias / 'output'
+        self.swiftc = alias / 'inert-compiler'
+        self.contract_path = alias / 'contract.json'
+        self.assertNotEqual(self.output, self.output.resolve())
+        self.assertFalse(self.sources.is_symlink())
         report = self.run_gate()
         source = next(r for r in report['commands'] if r['name'] == 'cache-compatibility-source')
         actual = Path(source['argv'][source['argv'].index('--candidate-root') + 1])
@@ -342,7 +352,8 @@ class Controls(unittest.TestCase):
         self.assertNotIn('-parse-as-library', row['argv'])
         row = next(r for r in report['commands'] if r['name'] == 'cache-compatibility-run')
         self.assertEqual(len(row['argv']), 2)
-        self.assertEqual(Path(row['argv'][1]), self.output / 'cache-compatibility/cases.json')
+        self.assertEqual(Path(row['argv'][1]).resolve(strict=True),
+                         (self.output / 'cache-compatibility/cases.json').resolve(strict=True))
         self.assertEqual(report['evidence']['cases']['cache-compatibility']['case_count'], gate.ADDITIVE_SPECS['cache-compatibility']['case_count'])
 
     def test_cache_rejects_changed_source_hash(self):
