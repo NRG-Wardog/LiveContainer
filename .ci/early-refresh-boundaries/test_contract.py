@@ -54,8 +54,17 @@ def validate(candidate_root, baseline_root, output, variants=('baseline', 'candi
                   variant + ': candidate-only support ' + relative)
         check(hashlib.sha256(swift.encode()).hexdigest() == receipt['generated_sha256'],
               variant + ': generated hash matches')
-        check(receipt['expected_case_names'] == generator.CASE_NAMES and receipt['expected_case_count'] == 24,
-              variant + ': exact 24 runtime case names retained')
+        wrapper = block(swift, 'func refreshThroughActualManager(')
+        callback = block((root / generator.INPUT_PATHS['producer']).read_text(), '            group.completionHandler = { (results) in')
+        check(receipt['expected_case_names'] == generator.CASE_NAMES and receipt['expected_case_count'] == 24 and
+              wrapper.index('let group = RefreshGroup(') < wrapper.index('withCheckedThrowingContinuation') and
+              callback in wrapper and 'guard let activeTask = group.activeTask else' in wrapper and
+              wrapper.index('await activeTask.value') < wrapper.index('return results') and
+              'if !cellular { await checkCallbackCompletionBarrier() }' in swift and
+              'if !fixtureCandidate { await gate.waitUntilCallbackConsumed() }' in swift and
+              'await gate.waitUntilEntered()' in swift and 'await gate.release()' in swift and
+              'FixtureVisits.beginBatch == 1 && FixtureVisits.endBatch == 1, "balanced transport lease"' in swift,
+              variant + ': exact 24 runtime cases retained with same-task join and deterministic release hold')
         check(dependency.pure_model((root / generator.INPUT_PATHS['host']).read_text()) in swift,
               variant + ': whole shared model comes from actual variant root')
         for relative, anchor in exact:

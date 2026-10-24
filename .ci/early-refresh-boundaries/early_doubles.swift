@@ -97,8 +97,12 @@ enum minimuxer {
 }
 final class FixtureCore {
     var result: Result<Bool, MinimuxerError> = .success(true)
+    var releaseGate: FixtureTransportReleaseGate?
     func beginTransportBatch() async { FixtureVisits.beginBatch += 1 }
-    func endTransportBatch() async { FixtureVisits.endBatch += 1 }
+    func endTransportBatch() async {
+        if let releaseGate { await releaseGate.holdRelease() }
+        FixtureVisits.endBatch += 1
+    }
     func isReady(withNetworkCheck: Bool) async -> Result<Bool, MinimuxerError> {
         FixtureVisits.readiness += 1
         FixtureVisits.readinessNetworkChecks.append(withNetworkCheck)
@@ -145,5 +149,53 @@ enum V3RemoteRequestLeases {
     static func capture() throws -> V3RemoteRequestAdmission { V3RemoteRequestAdmission() }
     static func withAuthorizedRoute<T>(operation: () async throws -> T) async rethrows -> T {
         try await operation()
+    }
+}
+
+// One inert, explicitly released transport gate. No sleep, polling or timeout.
+// It forces the real baseline callback to be consumed before cleanup finishes.
+actor FixtureTransportReleaseGate {
+    private var entered = false
+    private var consumed = false
+    private var released = false
+    private var returned = false
+    private var enteredWaiter: CheckedContinuation<Void, Never>?
+    private var consumedWaiter: CheckedContinuation<Void, Never>?
+    private var releaseWaiter: CheckedContinuation<Void, Never>?
+
+    func holdRelease() async {
+        precondition(!entered)
+        entered = true
+        enteredWaiter?.resume(); enteredWaiter = nil
+        await withCheckedContinuation { continuation in
+            if released { continuation.resume() } else { releaseWaiter = continuation }
+        }
+    }
+    func waitUntilEntered() async {
+        await withCheckedContinuation { continuation in
+            if entered { continuation.resume() } else { enteredWaiter = continuation }
+        }
+    }
+    func callbackConsumed() {
+        precondition(!consumed)
+        consumed = true
+        consumedWaiter?.resume(); consumedWaiter = nil
+    }
+    func waitUntilCallbackConsumed() async {
+        await withCheckedContinuation { continuation in
+            if consumed { continuation.resume() } else { consumedWaiter = continuation }
+        }
+    }
+    func release() {
+        precondition(entered && !released)
+        released = true
+        releaseWaiter?.resume(); releaseWaiter = nil
+    }
+    func markReturned() {
+        precondition(released, "fixture returned before explicit transport release")
+        returned = true
+    }
+    func snapshot() -> (entered: Bool, consumed: Bool, released: Bool, returned: Bool) {
+        (entered, consumed, released, returned)
     }
 }

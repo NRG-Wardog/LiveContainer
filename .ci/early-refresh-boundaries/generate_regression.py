@@ -188,14 +188,20 @@ func getValidDbContext(_ context: NSManagedObjectContext?) -> NSManagedObjectCon
     completion = block(producer, '            group.completionHandler = { (results) in')
     swift += '''extension ManifestProducer {
 func refreshThroughActualManager(_ apps: [InstalledApp]) async throws -> [String: Result<InstalledApp, Error>] {
-    try await withCheckedThrowingContinuation { continuation in
-        // Register the actual producer completion closure first so this
-        // synthetic harness does not depend on real-world scheduler timing.
-        let group = RefreshGroup(dbContext: NSManagedObjectContext())
+    let group = RefreshGroup(dbContext: NSManagedObjectContext())
+    let results: [String: Result<InstalledApp, Error>] = try await withCheckedThrowingContinuation { continuation in
+        // Keep the extracted callback exact. A callback is not task completion:
+        // the baseline runner can still own its transport lease afterward.
 '''
     swift += completion + '\n'
     swift += '''            _ = AppManager.shared.refresh(apps, presentingViewController: nil, group: group)
     }
+    // The continuation body returns only after refresh synchronously assigns
+    // this same group's task, even if its detached callback resumes early.
+    guard let activeTask = group.activeTask else { preconditionFailure("fixture refresh task was not assigned") }
+    if let gate = minimuxer.core.releaseGate { await gate.callbackConsumed() }
+    await activeTask.value
+    return results
 }
 }\n'''
     swift += common_assertions + '\n'
@@ -225,7 +231,7 @@ func refreshThroughActualManager(_ apps: [InstalledApp]) async throws -> [String
                'inert_dependencies': ['remote identity lease admission; real implementation covered by identity suite', 'native core readiness result', 'DB activeTeam/transaction', 'UIKit lifecycle',
                  'app models', 'per-app mutation after both checks', 'memory-only defaults and callback transport'],
                'limits': ['Synthetic fixture; not device root-cause evidence.',
-                 'Completion closure registered before detached task to remove scheduler race from fixture.',
+                 'Exact callback result is followed by awaiting the same group activeTask, including transport cleanup.',
                  'No source publication or provider, native-library, device, or auth execution.',
                  'Generation is not Swift compilation or execution. Runtime assertions require approved CI execution.']}
     (output / 'sources.json').write_text(json.dumps(receipt, indent=2) + '\n')

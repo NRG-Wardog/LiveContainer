@@ -10,6 +10,7 @@
         ChainChecks.reset()
         FixtureVisits.reset()
         minimuxer.core.result = .success(true)
+        minimuxer.core.releaseGate = nil
         CellularRefreshManager.shared.isEnabled = false
         AuthManager.shared.team = nil
         DatabaseManager.shared.selectedTeam = FixtureDBTeam()
@@ -31,6 +32,33 @@
         check(FixtureVisits.beginBatch == 1 && FixtureVisits.endBatch == 1, "balanced transport lease")
         check(server.calls == 1 && server.runID == ChainChecks.runID, "one correlated callback")
         return (results, server)
+    }
+    static func checkCallbackCompletionBarrier() async {
+        reset()
+        let gate = FixtureTransportReleaseGate()
+        minimuxer.core.releaseGate = gate
+        let apps = [InstalledApp(bundleIdentifier: hostID, name: ChainChecks.canary)]
+        let producer = ManifestProducer(apps: apps, runID: ChainChecks.runID)
+        let pending = Task {
+            let results = try await producer.refreshThroughActualManager(apps)
+            await gate.markReturned()
+            return results
+        }
+        await gate.waitUntilEntered()
+        // Only the pinned baseline emits its actual callback before cleanup.
+        // Candidate emits afterward; never wait for its callback while held.
+        if !fixtureCandidate { await gate.waitUntilCallbackConsumed() }
+        let held = await gate.snapshot()
+        check(held.entered && !held.released && !held.returned, "transport release held while fixture result remains pending")
+        check(held.consumed == !fixtureCandidate, "actual variant callback ordering retained")
+        check(FixtureVisits.beginBatch == 1 && FixtureVisits.endBatch == 0, "held transport lease not reported balanced early")
+        await gate.release()
+        let results = try! await pending.value
+        if case .success = results[hostID]! {} else { preconditionFailure("held inert refresh changed result") }
+        let completed = await gate.snapshot()
+        check(completed.consumed && completed.released && completed.returned, "callback and explicit release precede fixture return")
+        check(FixtureVisits.beginBatch == 1 && FixtureVisits.endBatch == 1, "balanced transport lease after task join")
+        minimuxer.core.releaseGate = nil
     }
     static func manifestFailure(_ server: CapturedServer, appID: String = hostID) -> CombinedFailure {
         let payload = try! PropertyListSerialization.propertyList(from: server.verification!, format: nil) as! [String: Any]
@@ -212,6 +240,7 @@
             check(FixtureVisits.readiness == (cellular ? 0 : 1), "original cellular readiness policy retained")
             check(FixtureVisits.teamLookup == 1 && FixtureVisits.mutation == 1, "team guard remains on success")
             check(FixtureVisits.mismatchPrompt == 0, "refresh never gains bundle mismatch prompt")
+            if !cellular { await checkCallbackCompletionBarrier() }
             pass(cellular ? "cellular_existing_policy" : "success_both_checks_retained")
         }
         reset()

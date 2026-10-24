@@ -46,3 +46,18 @@ Local status: source extraction/static validation only. Swift compilation/runtim
 After identity admission was introduced, the candidate projection retains both exact PipelineRunner.perform and performUsingAdmittedRoute bodies. The latter contains the unchanged readiness/preflight and mutation ordering. Only the lease-admission interface is inert here; the dedicated identity suite owns real lease behavior. All original 24 cases and 101 static checks remain, plus one exact-helper extraction check (102 total).
 
 The existing AppManager refresh body now captures admission before Task.detached. Its capture/withScope/close interfaces are inert here, while the dedicated identity fixture covers real lease state. Completion and failure propagation remain the exact extracted production method.
+
+
+Fixture-only completion ordering repair: the actual producer callback remains
+byte-exact, but its result is not returned by the synthetic adapter until the
+same nonnil RefreshGroup.activeTask completes. The synchronously invoked
+AppManager.refresh assigns that task before the continuation body returns.
+Existing failure/cancellation results still use the extracted callbacks and join
+their completed task, without sleeps or polling. The unchanged balanced-lease
+assertion now observes completion rather than racing the baseline's cleanup.
+
+The existing success_both_checks_retained case also holds the inert transport
+release explicitly. Baseline must consume its actual callback while release is
+held; candidate retains its callback-after-release order. Neither adapter may
+return until explicit release and task completion. This strengthens an existing
+case: all 24 names/order and all 102 static checks remain; production is unchanged.
