@@ -1,56 +1,37 @@
-# Explicit contents-API push trigger for this validation run; source pins and workflow semantics unchanged.
-name: Exact native app compile evidence (not release admission)
+# Branch-only actual-source inert VPN recovery fixture. No app build or release admission.
+name: Cold VPN recovery runtime fixture (not device validation)
 on:
   push:
-    branches: [validation/native-cache-compatibility-20261024]
+    branches: [validation/cold-vpn-recovery-test-20261024]
     paths:
       - '.github/workflows/native-app-compile.yml'
-      - '.ci/native-app-compile/record.py'
-      - '.ci/native-app-compile/test_acquisition_contract.py'
-      - '.ci/native-app-compile/test_vendor_contract.py'
-      - '.ci/native-app-compile/test_auth_response_contract.py'
-      - '.ci/native-app-compile/verify_comprehensive_diagnostics.py'
-      - '.ci/native-app-compile/extract_deferred_baseline.py'
-      - '.ci/native-app-compile/verify_setup_state_recovery.py'
-      - '.ci/native-app-compile/test_setup_state_recovery_contract.py'
-      - '.ci/native-app-compile/setup-state-recovery-contract.json'
-      - '.ci/native-app-compile/test_comprehensive_diagnostics_contract.py'
-      - '.ci/native-app-compile/comprehensive-diagnostics-contract.json'
-      - '.ci/native-app-compile/verify_upstream_sync.py'
-      - '.ci/native-app-compile/upstream-sync-contract.json'
-      - '.ci/native-app-compile/test_sync_contract.py'
-      - '.ci/native-app-compile/idevice-abi-gate/**'
+      - '.ci/cold-vpn-recovery-test/vpn-refresh-recovery.swift'
+      - '.ci/cold-vpn-recovery-test/sources.json'
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: native-app-compile-${{ github.ref }}
+  group: cold-vpn-recovery-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  compile:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/native-cache-compatibility-20261024'
+  investigate:
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/cold-vpn-recovery-test-20261024'
     runs-on: macos-26
-    timeout-minutes: 100
+    timeout-minutes: 10
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-      RUSTUP_TOOLCHAIN: '1.98.1'
-      GIT_TERMINAL_PROMPT: '0'
-      GIT_CONFIG_NOSYSTEM: '1'
-      GIT_CONFIG_GLOBAL: /dev/null
-      GIT_ALLOW_PROTOCOL: https
-      GIT_NO_REPLACE_OBJECTS: '1'
       PYTHONDONTWRITEBYTECODE: '1'
     defaults:
       run:
         shell: bash
     steps:
-      - name: Initialize failure evidence before checkout
+      - name: Initialize bounded fixture evidence
         run: |
           set -euo pipefail
           mkdir -p evidence
           printf 'workflow_commit=%s\nrun_id=%s\nrun_attempt=%s\nstatus=STARTED_NOT_COMPILED\n' \
             "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > evidence/attempt.txt
-      - name: Checkout workflow and evidence recorder only
+      - name: Checkout exact branch revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           path: harness
@@ -58,264 +39,58 @@ jobs:
           set-safe-directory: false
           submodules: false
           lfs: false
-      - name: Check sync guards with source-owned synthetic fixtures only
+      - name: Verify pinned fixture and same native toolchain
         run: |
           set -euo pipefail
-          python3 -B harness/.ci/native-app-compile/test_sync_contract.py \
-            2>&1 | tee evidence/upstream-sync-harness-tests.log
-          printf '0\n' > evidence/upstream-sync-harness-tests.exit-code.txt
-          python3 -B harness/.ci/native-app-compile/test_comprehensive_diagnostics_contract.py \
-            2>&1 | tee evidence/comprehensive-diagnostics-control-tests.log
-          printf '0\n' > evidence/comprehensive-diagnostics-control-tests.exit-code.txt
-          python3 -B harness/.ci/native-app-compile/test_setup_state_recovery_contract.py \
-            2>&1 | tee evidence/setup-state-recovery-control-tests.log
-          printf '0\n' > evidence/setup-state-recovery-control-tests.exit-code.txt
-      - name: Check native ABI inspection with source-owned fake tools only
-        run: |
-          set -euo pipefail
-          python3 -B harness/.ci/native-app-compile/idevice-abi-gate/test_native_abi_contract.py \
-            2>&1 | tee evidence/idevice-abi-contract.log
-          printf '0\n' > evidence/idevice-abi-contract.exit-code.txt
-      - name: Acquire exact immutable source graph
-        run: |
-          set -euo pipefail
-          mkdir -p evidence sources
-          python3 harness/.ci/native-app-compile/record.py acquire 2>&1 | tee evidence/acquisition.log
-          python3 harness/.ci/native-app-compile/record.py snapshot acquired
+          cp harness/.ci/cold-vpn-recovery-test/vpn-refresh-recovery.swift evidence/vpn-refresh-recovery.swift
+          cp harness/.ci/cold-vpn-recovery-test/sources.json evidence/sources.json
+          python3 -B - <<'PY'
+          import hashlib, json, pathlib
+          source = pathlib.Path('evidence/vpn-refresh-recovery.swift')
+          actual = hashlib.sha256(source.read_bytes()).hexdigest()
+          expected = '15cf9a0cf05c380153d261216e22ed03d1d5d8436cf2a15a6f9ab46844488862'
+          sources = pathlib.Path('evidence/sources.json')
+          sources_actual = hashlib.sha256(sources.read_bytes()).hexdigest()
+          sources_expected = '49a847b73780e136278052d739910bec5a200026b434c87c5cbf6deadb039345'
+          contract = json.loads(sources.read_text())
+          receipt = {'schema': 'cold-vpn-recovery-fixture-binding-v1', 'expected_sha256': expected,
+                     'sources_expected_sha256': sources_expected, 'sources_actual_sha256': sources_actual,
+                     'actual_sha256': actual, 'source_match': actual == expected,
+                     'scope': 'Actual-source macOS policy fixture with inert side effects; not a device VPN activation proof.'}
+          pathlib.Path('evidence/source-binding.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          if actual != expected or sources_actual != sources_expected or contract['generated_sha256'] != actual:
+              raise SystemExit('Fixture source SHA-256 differs')
+          PY
           { xcodebuild -version; xcrun --sdk iphoneos --show-sdk-version; swift --version; uname -a; } > evidence/toolchain.txt
           xcodebuild -version | grep -Fx 'Xcode 26.4.1'
-      - name: Verify committed native source parity and both exact parents
+      - name: Compile only the source-owned VPN recovery fixture
         run: |
-          set -euo pipefail
-          python3 -B harness/.ci/native-app-compile/verify_upstream_sync.py source-parity \
-            --output evidence/upstream-sync-source-parity.json 2>&1 | tee evidence/upstream-sync-source-parity.log
-      - name: Check all SideStore source-owned upstream regressions without skips
+          set -uo pipefail
+          set +e
+          swiftc -swift-version 5 -parse-as-library evidence/vpn-refresh-recovery.swift -o evidence/cold-vpn-recovery \
+            > evidence/compile.log 2>&1
+          status=$?
+          printf '%s\n' "$status" > evidence/compile.exit-code.txt
+          cat evidence/compile.log
+          exit "$status"
+      - name: Run actual-source recovery policy with inert side-effect closures
         run: |
-          set -euo pipefail
-          python3 -B harness/.ci/native-app-compile/verify_upstream_sync.py sidestore-tests \
-            --output evidence/SideStore-upstream-sync-tests.json 2>&1 | tee evidence/SideStore-upstream-sync-tests.log
-          # Run the committed AK logging policy/fake-output suite once, never vendor/guest fixtures.
-          python3 -B sources/AnisetteKit/.ci/native-logging/test_native_logging_contract.py \
-            2>&1 | tee evidence/AnisetteKit-native-logging-contract.log
-          printf '0\n' > evidence/AnisetteKit-native-logging-contract.exit-code.txt
-      - name: Check minimuxer extracted-production Swift with fake dependencies only
-        run: |
-          set -euo pipefail
-          python3 -B harness/.ci/native-app-compile/verify_upstream_sync.py minimuxer-tests \
-            --swiftc "$(command -v swiftc)" --output evidence/minimuxer-upstream-sync-tests.json
-      - name: Check bounded acquisition diagnostics with fake errors only
-        run: |
-          set -euo pipefail
-          python3 harness/.ci/native-app-compile/test_acquisition_contract.py \
-            --sign sources/SideStore/Dependencies/SideSign/Sources/Anisette/AnisetteDataManager.swift \
-            --store sources/SideStore/AltStore/AppDelegate.swift \
-            --host sources/LiveContainer/SideStoreSupport/SideStore.swift \
-            --output evidence/acquisition_contract.swift
-          swift evidence/acquisition_contract.swift 2>&1 | tee evidence/acquisition-contract.log
-          printf '0\n' > evidence/acquisition-contract.exit-code.txt
-      - name: Check verified vendor acquisition with fake network data only
-        run: |
-          set -euo pipefail
-          python3 harness/.ci/native-app-compile/test_vendor_contract.py \
-            sources/SideStore/Dependencies/SideSign/Sources/Anisette/VerifiedAppleMusicLibraries.swift \
-            evidence/vendor_contract.swift > evidence/vendor-contract-sources.json
-          swift evidence/vendor_contract.swift 2>&1 | tee evidence/vendor-contract.log
-          printf '0\n' > evidence/vendor-contract.exit-code.txt
-      - name: Check comprehensive auth request provenance and real IPC copy with fake boundaries once
-        run: |
-          set -euo pipefail
-          python3 -B harness/.ci/native-app-compile/verify_comprehensive_diagnostics.py \
-            --sources sources --swiftc "$(command -v swiftc)" --output evidence/comprehensive-diagnostics \
-            2>&1 | tee evidence/comprehensive-diagnostics.log
-          printf '0\n' > evidence/comprehensive-diagnostics.exit-code.txt
-      - name: Check setup recovery against exact delivered baseline with fake boundaries once
-        run: |
-          set -euo pipefail
-          python3 -B harness/.ci/native-app-compile/verify_setup_state_recovery.py run \
-            --sources sources --swiftc "$(command -v swiftc)" --output evidence/setup-state-recovery \
-            2>&1 | tee evidence/setup-state-recovery.log
-          printf '0\n' > evidence/setup-state-recovery.exit-code.txt
-      - name: Install pinned transport build prerequisites
-        run: |
-          set -euo pipefail
-          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
-          RUSTUP_DIST_SERVER=https://static.rust-lang.org rustup component add --toolchain "$RUSTUP_TOOLCHAIN" llvm-tools-preview \
-            2>&1 | tee evidence/rust-llvm-tools-install.log
-          rustup target add --toolchain "$RUSTUP_TOOLCHAIN" aarch64-apple-ios
-          cargo +1.98.1 install --locked bindgen-cli --version 0.72.1 --root "$RUNNER_TEMP/native-tools"
-          echo "$RUNNER_TEMP/native-tools/bin" >> "$GITHUB_PATH"
-          { rustc +1.98.1 --version --verbose; cargo +1.98.1 --version; "$RUNNER_TEMP/native-tools/bin/bindgen" --version; } >> evidence/toolchain.txt
-          test "$(rustc +1.98.1 --version)" = 'rustc 1.98.1 (48a229cea 2026-09-01)'
-          test "$(cargo +1.98.1 --version)" = 'cargo 1.98.1 (797e8a9bc 2026-08-05)'
-      - name: Compile iOS transport and stage local framework
-        run: |
-          set -euo pipefail
-          cd sources/idevice
-          BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$(xcrun --sdk iphoneos --show-sdk-path)" IPHONEOS_DEPLOYMENT_TARGET=15.0 \
-            cargo +1.98.1 build --locked --release --target aarch64-apple-ios --features obfuscate --manifest-path ffi/Cargo.toml \
-            2>&1 | tee ../../evidence/transport-build.log
-          test -f target/aarch64-apple-ios/release/libidevice_ffi.a
-          test -f ffi/idevice.h
-          cp ffi/idevice.h swift/include/idevice.h
-          # This is a fresh checkout; replace only the pre-existing binary output directory.
-          rm -rf swift/IDevice.xcframework
-          xcodebuild -create-xcframework -library target/aarch64-apple-ios/release/libidevice_ffi.a \
-            -headers swift/include -output swift/IDevice.xcframework 2>&1 | tee ../../evidence/transport-framework.log
-          cd ../..
-          mux=sources/SideStore/Dependencies/minimuxer/DeviceGateway/LocalBinary
-          mkdir -p "$mux"
-          test ! -e "$mux/IDevice.xcframework"
-          cp -R sources/idevice/swift/IDevice.xcframework "$mux/IDevice.xcframework"
-      - name: Inspect exact native archive symbols and generated header without execution
-        run: |
-          set -euo pipefail
-          python3 -B harness/.ci/native-app-compile/idevice-abi-gate/verify_native_abi.py \
-            --source sources/idevice \
-            --framework sources/idevice/swift/IDevice.xcframework \
-            --staged-framework sources/SideStore/Dependencies/minimuxer/DeviceGateway/LocalBinary/IDevice.xcframework \
-            --output evidence/idevice-abi-inspection.json 2>&1 | tee evidence/idevice-abi-inspection.log
-      - name: Capture genuine app lock transition to exact AnisetteKit
-        run: |
-          set -euo pipefail
-          # Fresh Xcode resolution is allowed to update the app lock, then the recorder
-          # admits only AK e6e9 -> 3e670 plus actual resolver originHash. No other pin may move.
-          test ! -e "$RUNNER_TEMP/native-SideStore"
-          test ! -L "$RUNNER_TEMP/native-SideStore"
-          GIT_ALLOW_PROTOCOL=https:file xcodebuild -resolvePackageDependencies -disablePackageRepositoryCache \
-            -project sources/SideStore/AltStore.xcodeproj -scheme SideStore \
-            -derivedDataPath "$RUNNER_TEMP/native-SideStore" 2>&1 | tee evidence/SideStore-resolution.log
-          python3 harness/.ci/native-app-compile/record.py seal-resolution
-          python3 harness/.ci/native-app-compile/record.py verify-resolved
-          python3 harness/.ci/native-app-compile/record.py snapshot compiler-inputs
-      - name: Compile unsigned LiveContainer app and extensions
-        run: |
-          set -euo pipefail
-          xcodebuild -project sources/LiveContainer/LiveContainer.xcodeproj -scheme LiveContainer \
-            -sdk iphoneos -configuration Release -destination 'generic/platform=iOS' \
-            -derivedDataPath "$RUNNER_TEMP/native-LiveContainer" \
-            -resultBundlePath "$RUNNER_TEMP/native-LiveContainer-build.xcresult" \
-            -onlyUsePackageVersionsFromResolvedFile -disableAutomaticPackageResolution \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | tee evidence/LiveContainer-build.log
-          printf '0\n' > evidence/LiveContainer-build.exit-code.txt
-      - name: Compile unsigned SideStore app and extensions
-        run: |
-          set -euo pipefail
-          xcodebuild -project sources/SideStore/AltStore.xcodeproj -scheme SideStore \
-            -sdk iphoneos -configuration Release -destination 'generic/platform=iOS' \
-            -derivedDataPath "$RUNNER_TEMP/native-SideStore" \
-            -resultBundlePath "$RUNNER_TEMP/native-SideStore-build.xcresult" \
-            -onlyUsePackageVersionsFromResolvedFile -disableAutomaticPackageResolution \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | tee evidence/SideStore-build.log
-          printf '0\n' > evidence/SideStore-build.exit-code.txt
-      - name: Verify unchanged compiler inputs and record outputs
-        run: |
-          set -euo pipefail
-          python3 harness/.ci/native-app-compile/record.py verify-resolved
-          python3 harness/.ci/native-app-compile/record.py snapshot after-build
-          cmp evidence/compiler-inputs.json evidence/after-build.json
-          python3 harness/.ci/native-app-compile/record.py receipt
-      # Insert after the successful native receipt, before always-uploaded evidence.
-      - name: Retain exact unsigned app products for diagnostic packaging
-        if: success()
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import hashlib, json, os, pathlib, stat, subprocess
-          
-          def require(ok, message):
-              if not ok:
-                  raise ValueError(message)
-          
-          def digest(path):
-              return hashlib.sha256(path.read_bytes()).hexdigest()
-          
-          def inventory(root):
-              require(root.is_dir() and not root.is_symlink(), 'Invalid bundle root: ' + str(root))
-              canonical = root.resolve(strict=True)
-              result = {}
-              for path in [root, *sorted(root.rglob('*'))]:
-                  mode = path.lstat().st_mode
-                  row = {'mode': stat.S_IMODE(mode)}
-                  if stat.S_ISLNK(mode):
-                      target = os.readlink(path)
-                      require(not os.path.isabs(target), 'Absolute symlink: ' + str(path))
-                      resolved = path.resolve(strict=True)
-                      require(resolved.is_relative_to(canonical), 'Escaping symlink: ' + str(path))
-                      row.update(kind='symlink', target=target)
-                  elif stat.S_ISDIR(mode):
-                      row['kind'] = 'directory'
-                  elif stat.S_ISREG(mode):
-                      row.update(kind='file', sha256=digest(path))
-                  else:
-                      raise ValueError('Unsupported filesystem entry: ' + str(path))
-                  result[path.relative_to(root).as_posix()] = row
-              return result
-          
-          def copy_checked(source, destination):
-              before = inventory(source)
-              require(not destination.exists() and not destination.is_symlink(), 'Destination already exists')
-              subprocess.run(['ditto', str(source), str(destination)], check=True)
-              require(inventory(destination) == before, 'Copied bytes/modes/links differ: ' + str(source))
-              require(inventory(source) == before, 'Source changed during copy: ' + str(source))
-              return before
-          
-          out = pathlib.Path('native-products')
-          require(not out.exists() and not out.is_symlink(), 'Output directory must be fresh')
-          out.mkdir()
-          receipt = json.loads(pathlib.Path('evidence/receipt.json').read_text())
-          require(receipt['status'] == 'COMPILE_ONLY_PASS_REQUIRES_REVIEW', 'Native compile has not passed')
-          expected = json.loads(pathlib.Path('evidence/product-hashes.json').read_text())
-          require(set(expected) == {'LiveContainer', 'SideStore'}, 'Product identity set differs')
-          for owner in ('LiveContainer', 'SideStore'):
-              products = pathlib.Path(os.environ['RUNNER_TEMP']) / ('native-' + owner) / 'Build/Products/Release-iphoneos'
-              source = products / (owner + '.app')
-              transfer = pathlib.Path(os.environ['RUNNER_TEMP']) / ('native-transfer-' + owner)
-              require(not transfer.exists() and not transfer.is_symlink(), 'Transfer directory must be fresh')
-              (transfer / 'Products').mkdir(parents=True)
-              (transfer / 'Symbols').mkdir()
-              final = transfer / 'Products' / source.name
-              manifest = {'app': copy_checked(source, final), 'symbols': {}}
-              # All symlink targets have already been checked before following file links.
-              files = {p.relative_to(final).as_posix(): digest(p)
-                       for p in sorted(final.rglob('*')) if p.is_file()}
-              require(files == expected[owner], 'Compile receipt product bytes differ: ' + owner)
-              for dsym in sorted(products.glob('*.dSYM')):
-                  manifest['symbols'][dsym.name] = copy_checked(dsym, transfer / 'Symbols' / dsym.name)
-              copy_checked(pathlib.Path('evidence'), transfer / 'evidence')
-              (transfer / 'retained-files.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
-              target = out / owner
-              target.mkdir()
-              archive = target / (owner + '-unsigned.zip')
-              subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(transfer), str(archive)], check=True)
-              (target / 'SHA256SUMS').write_text(digest(archive) + '  ' + archive.name + '\n')
-              size = archive.stat().st_size
-              print(owner + ' archive bytes: ' + str(size), flush=True)
-              # Leave 12 MiB for the GitHub outer artifact ZIP.
-              require(size < 524288000, owner + ' archive requires bounded artifact splitting: ' + str(size))
-          PY
-      - name: Upload unsigned LiveContainer and matching compile evidence
-        if: success()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: unsigned-LiveContainer-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: native-products/LiveContainer/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-      - name: Upload unsigned SideStore and matching compile evidence
-        if: success()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: unsigned-SideStore-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: native-products/SideStore/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-      - name: Preserve evidence, including failures (not app products)
+          set -uo pipefail
+          set +e
+          evidence/cold-vpn-recovery evidence/results.json > evidence/runtime.log 2>&1
+          status=$?
+          printf '%s\n' "$status" > evidence/runtime.exit-code.txt
+          cat evidence/runtime.log
+          exit "$status"
+      - name: Preserve source, JSON, logs and exit status even on failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: native-app-compile-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: evidence/
+          name: cold-vpn-recovery-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/*.json
+            evidence/*.log
+            evidence/*.txt
+            evidence/*.swift
           if-no-files-found: error
           retention-days: 14
