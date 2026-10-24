@@ -646,7 +646,7 @@ def all_evidence(output, contract):
 def markers():
     result = {'localization-run': 'SETUP_LOCALIZATION_RENDERER_PASS cases=' + str(LOCALIZATION_CASE_COUNT),
               'connection-run': 'SETUP_CONNECTION_EVIDENCE_PASS cases=25',
-              'vpn-recovery-run': 'VPN_REFRESH_RECOVERY_PASS cases=49',
+              'vpn-recovery-run': 'VPN_REFRESH_RECOVERY_PASS cases=72',
               'identity-controls': 'OK',
               'cache-compatibility-run': 'CACHE_COMPATIBILITY_CASES_PASS',
               'identity-run': 'REMOTE_IDENTITY_REUSE_RUNTIME_PASS cases=' + str(IDENTITY_CASE_COUNT)}

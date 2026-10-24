@@ -549,6 +549,15 @@ class Controls(unittest.TestCase):
             gate.verify_receipt(self.output / 'report.json', self.contract_path)
 
     def test_duplicate_marker_rejected(self):
+        # Exact line emitted by admitted focused and full native VPN72 fixtures.
+        actual_vpn_line = 'VPN_REFRESH_RECOVERY_PASS cases=72\n'
+        vpn_marker = gate.markers()['vpn-recovery-run']
+        self.assertEqual(gate.ADDITIVE_SPECS['vpn-refresh-recovery']['case_count'], 72)
+        self.assertEqual(vpn_marker, 'VPN_REFRESH_RECOVERY_PASS cases=72')
+        gate.require_marker(actual_vpn_line, vpn_marker)
+        for invalid in ('VPN_REFRESH_RECOVERY_PASS cases=49\n', actual_vpn_line + actual_vpn_line):
+            with self.assertRaisesRegex(ValueError, 'Missing or duplicate exact success marker'):
+                gate.require_marker(invalid, vpn_marker)
         self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, 0, d + d) if n == 'localization-run' else None
         with self.assertRaisesRegex(ValueError, 'duplicate exact success marker'):
             self.run_gate()
