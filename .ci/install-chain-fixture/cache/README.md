@@ -24,7 +24,7 @@ of the test in the production checkout. Production inputs come only from
 baseline. `sources.json` contains full input hashes, generated hashes, extracted
 method hash, ordered case names, and exact negative-control expectations.
 
-## Bounded runtime coverage
+## Bounded runtime coverage (extended mode/name review)
 
 Each case owns a fresh UUID-named directory beneath the macOS temporary directory
 and removes only that directory. All app payloads are tiny, made-up bytes and
@@ -40,8 +40,30 @@ synthetic plists. Neither symlink case references an external or personal file.
    modifying source or cached bytes.
 
 The seventh case covers destination-directory creation failure, not an injected
-mid-copy failure. No case claims concurrent publication, interrupted copies,
-permission-specific failures, CoreData persistence, or iOS installation coverage.
+mid-copy failure. The thirteen additional cases are:
+
+8–16. Root and nested directories explicitly set to 0777/0755/0700, each under
+umask 0022/0077/0000. Each includes regular and hidden files explicitly set to
+0444/0555/0644/0755. The previous process umask is restored after each case.
+17–18. Composed and decomposed Unicode directory/file names in separate cases,
+including hidden files. The filesystem may normalize names during initial
+creation; each case tests the resulting source name bytes against its copy,
+not whether two canonically equivalent spellings yield different keys.
+19. Permission-only source update gets a new key, keeps the previous cache,
+and repeated updated source reuses the new inode.
+20. Legitimate hidden-file content update gets a new key and keeps the old cache.
+
+Every mode/name case observes an independent real Foundation copy and also calls
+the unmodified production cache method, including its own real copy, verification,
+and publication. It checks byte/mode/raw-name preservation, unchanged input,
+repeat-cache inode reuse, and no leftover staging directories. A cache failure
+is recorded verbatim alongside source/copy fingerprints and hex-encoded filename
+bytes to permission maps, even when the independent copy differs.
+
+The report's additive `copy_observations` field carries those synthetic details.
+Hex filename map keys avoid Swift String canonical equality concealing changes.
+No case claims concurrent publication, interrupted copies, CoreData persistence,
+Apple signing, security-scoped access, or iOS installation coverage.
 
 ## Test-only macOS execution contract
 
@@ -52,11 +74,11 @@ There are no app builds, signing operations, network calls, device operations,
 credentials, pairing files, or personal provisioning profiles in this fixture.
 
 Each runtime emits one JSON record before exiting. The schema is
-`install-chain-runtime-v1`, group `cache`, with seven ordered `{name, passed}`
+`install-chain-runtime-v1`, group `cache`, with twenty ordered `{name, passed}`
 case objects, aggregate Boolean `passed`, and
 `native_signing_device_executed: false`. `failure_details` contains synthetic
 failure descriptions keyed by case name. Positive execution must exit zero with
-all seven cases true. A failed case prints the report and exits one rather than
+all twenty cases true. A failed case prints the report and exits one rather than
 crashing at a precondition.
 
 The two deliberate mutations must each exit one, with **exactly** their specified

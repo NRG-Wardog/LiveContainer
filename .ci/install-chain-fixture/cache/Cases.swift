@@ -23,12 +23,15 @@ private struct RuntimeReport: Encodable {
     let passed: Bool
     let native_signing_device_executed = false
     let failure_details: [String: String]
+    let copy_observations: [String: [String: String]]
 }
 
 private final class CacheFixtureRunner {
     private let fm = FileManager.default
     private var results: [CaseResult] = []
     private var failures: [String: String] = [:]
+    private var observations: [String: [String: String]] = [:]
+    private var currentCase = ""
 
     private func require(_ condition: Bool, _ message: String) throws {
         if !condition { throw FixtureFailure.failed(message) }
@@ -122,12 +125,142 @@ private final class CacheFixtureRunner {
     }
 
     private func record(_ name: String, _ body: () throws -> Void) {
+        currentCase = name
         do {
             try body()
             results.append(CaseResult(name: name, passed: true))
         } catch {
             results.append(CaseResult(name: name, passed: false))
             failures[name] = String(describing: error)
+        }
+    }
+
+    private func withUmask(_ mask: mode_t, _ body: () throws -> Void) rethrows {
+        let previous = umask(mask)
+        defer { umask(previous) }
+        try body()
+    }
+
+    // ASCII hex keys preserve the raw filename bytes, avoiding Swift String's
+    // canonical-equivalence comparison concealing NFC/NFD changes in snapshots.
+    private func rawNameModes(_ root: URL) throws -> [String: String] {
+        var rows: [String: String] = [:]
+        func visit(_ url: URL, _ relativeHex: String) throws {
+            let attributes = try fm.attributesOfItem(atPath: url.path)
+            let mode = (attributes[.posixPermissions] as? NSNumber)?.intValue ?? -1
+            let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey])
+            try require(values.isSymbolicLink != true, "The mode/name fixture unexpectedly contains a link")
+            rows[relativeHex] = String(format: "%04o", mode)
+            if values.isDirectory == true {
+                for child in try fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: []) {
+                    let nameHex = child.lastPathComponent.utf8.map { String(format: "%02x", $0) }.joined()
+                    try visit(child, relativeHex + "/" + nameHex)
+                }
+            }
+        }
+        try visit(root, ".")
+        return rows
+    }
+
+    private func encodedMap(_ value: [String: String]) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return String(decoding: try encoder.encode(value), as: UTF8.self)
+    }
+
+    private func verifyRealCopyAndCache(_ source: URL, _ root: URL) throws {
+        let before = try snapshot(source)
+        let beforeNamesModes = try rawNameModes(source)
+        let expected = try fingerprint(source)
+        let probe = root.appendingPathComponent("CopyProbe.app", isDirectory: true)
+        // Observe FileManager independently, but do not substitute it for the
+        // real production cache's own copy/verification/publication path.
+        try fm.copyItem(at: source, to: probe)
+        let probeNamesModes = try rawNameModes(probe)
+        let probeKey = AppBundleFingerprint.compute(for: probe)
+        var detail: [String: String] = [
+            "source_key": expected,
+            "copy_key": probeKey ?? "nil",
+            "source_raw_name_hex_to_mode": try encodedMap(beforeNamesModes),
+            "copy_raw_name_hex_to_mode": try encodedMap(probeNamesModes),
+        ]
+        var cacheError: Error?
+        var result: (signature: String, targetFileURL: URL)?
+        do { result = try CacheAppOperation.cachePayload(for: source) }
+        catch { cacheError = error; detail["cache_error"] = String(describing: error) }
+        detail["source_key_after_cache"] = AppBundleFingerprint.compute(for: source) ?? "nil"
+        if let result = result {
+            detail["cache_key"] = result.signature
+            detail["cache_raw_name_hex_to_mode"] = try encodedMap(rawNameModes(result.targetFileURL))
+        }
+        observations[currentCase] = detail
+        let sourceAfter = try snapshot(source)
+        let sourceNamesAfter = try rawNameModes(source)
+        try require(sourceAfter == before, "Copy/cache modified original contents or permissions")
+        try require(sourceNamesAfter == beforeNamesModes, "Copy/cache changed source raw filename bytes")
+        try noStagingRemains()
+        if let cacheError = cacheError { throw cacheError }
+        try require(probeKey == expected, "Real Foundation copy changed fingerprint; see exact copy observations")
+        let probeSnapshot = try snapshot(probe)
+        try require(probeSnapshot == before && probeNamesModes == beforeNamesModes, "Real Foundation copy changed bytes, modes, or raw filenames")
+        guard let cached = result else { throw FixtureFailure.failed("Missing successful cache result") }
+        let cachedKey = try fingerprint(cached.targetFileURL)
+        let cachedSnapshot = try snapshot(cached.targetFileURL)
+        let cachedNamesModes = try rawNameModes(cached.targetFileURL)
+        try require(cached.signature == expected && cachedKey == expected, "Published cache key differs")
+        try require(cachedSnapshot == before && cachedNamesModes == beforeNamesModes, "Published cache did not retain exact source")
+        let firstIdentity = try inode(cached.targetFileURL)
+        let second = try CacheAppOperation.cachePayload(for: source)
+        try require(second.signature == expected && second.targetFileURL == cached.targetFileURL, "Repeated source did not reuse its cache key")
+        let secondIdentity = try inode(second.targetFileURL)
+        let sourceAfterRepeat = try snapshot(source)
+        let cacheAfterRepeat = try snapshot(second.targetFileURL)
+        try require(secondIdentity == firstIdentity, "Repeated cache replaced its existing payload")
+        try require(sourceAfterRepeat == before && cacheAfterRepeat == before, "Repeated cache modified payload")
+        try noStagingRemains()
+    }
+
+    private func exerciseModes(_ directoryMode: Int, mask: mode_t) throws {
+        try withUmask(mask) {
+            try withFixture { root in
+                let source = try makeApp(root)
+                let nested = source.appendingPathComponent("ModeDirectory", isDirectory: true)
+                try fm.createDirectory(at: nested, withIntermediateDirectories: false)
+                for mode in [0o444, 0o555, 0o644, 0o755] {
+                    for prefix in ["file-", ".hidden-"] {
+                        let file = nested.appendingPathComponent(prefix + String(format: "%04o", mode))
+                        try Data("synthetic-mode-data".utf8).write(to: file)
+                        try fm.setAttributes([.posixPermissions: mode], ofItemAtPath: file.path)
+                        let attributes = try fm.attributesOfItem(atPath: file.path)
+                        try require((attributes[.posixPermissions] as? NSNumber)?.intValue == mode, "File mode setup differs")
+                    }
+                }
+                // Explicit post-creation permissions prevent the setup umask
+                // itself from silently weakening the intended test matrix.
+                for directory in [nested, source] {
+                    try fm.setAttributes([.posixPermissions: directoryMode], ofItemAtPath: directory.path)
+                    let attributes = try fm.attributesOfItem(atPath: directory.path)
+                    try require((attributes[.posixPermissions] as? NSNumber)?.intValue == directoryMode, "Directory mode setup differs")
+                }
+                try verifyRealCopyAndCache(source, root)
+            }
+        }
+    }
+
+    private func exerciseUnicode(_ name: String) throws {
+        try withFixture { root in
+            let source = try makeApp(root)
+            // Each normalization form gets its own case/directory. Never try to
+            // create canonically equivalent siblings on an insensitive volume.
+            let nested = source.appendingPathComponent(name + "-directory", isDirectory: true)
+            try fm.createDirectory(at: nested, withIntermediateDirectories: false)
+            try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: nested.path)
+            for prefix in ["", ".hidden-"] {
+                let file = nested.appendingPathComponent(prefix + name + ".txt")
+                try Data("synthetic-unicode-data".utf8).write(to: file)
+                try fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+            }
+            try verifyRealCopyAndCache(source, root)
         }
     }
 
@@ -238,8 +371,84 @@ private final class CacheFixtureRunner {
             }
         }
 
-        let passed = results.count == 7 && results.allSatisfy { $0.passed }
-        let report = RuntimeReport(cases: results, passed: passed, failure_details: failures)
+        record("copy_modes_umask_022_directories_777") {
+            try exerciseModes(0o777, mask: 0o022)
+        }
+        record("copy_modes_umask_022_directories_755") {
+            try exerciseModes(0o755, mask: 0o022)
+        }
+        record("copy_modes_umask_022_directories_700") {
+            try exerciseModes(0o700, mask: 0o022)
+        }
+        record("copy_modes_umask_077_directories_777") {
+            try exerciseModes(0o777, mask: 0o077)
+        }
+        record("copy_modes_umask_077_directories_755") {
+            try exerciseModes(0o755, mask: 0o077)
+        }
+        record("copy_modes_umask_077_directories_700") {
+            try exerciseModes(0o700, mask: 0o077)
+        }
+        record("copy_modes_umask_000_directories_777") {
+            try exerciseModes(0o777, mask: 0o000)
+        }
+        record("copy_modes_umask_000_directories_755") {
+            try exerciseModes(0o755, mask: 0o000)
+        }
+        record("copy_modes_umask_000_directories_700") {
+            try exerciseModes(0o700, mask: 0o000)
+        }
+        record("composed_unicode_names_copy_preserves_identity") {
+            try exerciseUnicode("caf\u{00E9}")
+        }
+        record("decomposed_unicode_names_copy_preserves_identity") {
+            try exerciseUnicode("cafe\u{0301}")
+        }
+        record("permission_change_publishes_new_key_preserving_previous_cache") {
+            try withFixture { root in
+                let source = try makeApp(root)
+                let first = try CacheAppOperation.cachePayload(for: source)
+                let originalCache = try snapshot(first.targetFileURL)
+                try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: source.path)
+                try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: source.appendingPathComponent("Payload.bin").path)
+                let modified = try snapshot(source)
+                let expected = try fingerprint(source)
+                let second = try CacheAppOperation.cachePayload(for: source)
+                try require(first.signature != second.signature && second.signature == expected, "Permission-only update reused previous key")
+                let previousAfter = try snapshot(first.targetFileURL)
+                let newAfter = try snapshot(second.targetFileURL)
+                let sourceAfter = try snapshot(source)
+                try require(previousAfter == originalCache, "Permission update changed previous cache")
+                try require(newAfter == modified && sourceAfter == modified, "Permission update was not copied exactly")
+                let secondIdentity = try inode(second.targetFileURL)
+                let repeated = try CacheAppOperation.cachePayload(for: source)
+                let repeatedIdentity = try inode(repeated.targetFileURL)
+                try require(repeated.signature == second.signature && repeatedIdentity == secondIdentity, "Repeated modified source did not reuse new cache")
+                try noStagingRemains()
+            }
+        }
+        record("hidden_file_content_change_publishes_new_key") {
+            try withFixture { root in
+                let source = try makeApp(root)
+                let first = try CacheAppOperation.cachePayload(for: source)
+                let originalCache = try snapshot(first.targetFileURL)
+                // Unequal length leaves the pre-existing same-size negative
+                // control targeted solely at its original named case.
+                try Data("synthetic-hidden-byte-with-legitimate-update".utf8).write(to: source.appendingPathComponent(".fixture-marker"))
+                let modified = try snapshot(source)
+                let second = try CacheAppOperation.cachePayload(for: source)
+                try require(first.signature != second.signature, "Hidden-file update reused previous key")
+                let previousAfter = try snapshot(first.targetFileURL)
+                let newAfter = try snapshot(second.targetFileURL)
+                let sourceAfter = try snapshot(source)
+                try require(previousAfter == originalCache, "Hidden-file update changed previous cache")
+                try require(newAfter == modified && sourceAfter == modified, "Hidden-file update was not preserved")
+                try noStagingRemains()
+            }
+        }
+
+        let passed = results.count == 20 && results.allSatisfy { $0.passed }
+        let report = RuntimeReport(cases: results, passed: passed, failure_details: failures, copy_observations: observations)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         do {

@@ -29,7 +29,7 @@ def validate(root):
         check(fingerprint in positive, "Positive fixture changed the real fingerprint")
         check("execute(parentProgress:" not in positive, "Fixture pulled in the unrelated iOS pipeline")
         check(receipt["expected_case_names"] == generate.EXPECTED_CASE_NAMES, "Case order drifted")
-        check(len(receipt["expected_case_names"]) == 7, "Unexpected case count")
+        check(len(receipt["expected_case_names"]) == 20, "Unexpected case count")
         check(receipt["native_signing_device_executed"] is False, "Source receipt overclaims execution")
         check(receipt["swift_executed"] is False, "Source receipt overclaims Swift execution")
         check(same_size == generate.replace_once(
@@ -47,6 +47,15 @@ def validate(root):
             check(observed == item["sha256"], "Generated receipt digest mismatch")
         check("precondition(" not in positive and "fatalError(" not in positive, "Fixture crashes rather than reporting failure")
         check("exit(passed ? 0 : 1)" in positive, "Runtime does not fail nonzero after printing results")
+
+        check('for mode in [0o444, 0o555, 0o644, 0o755]' in positive, "File mode matrix missing")
+        check(all(f'exerciseModes(0o{mode}, mask: 0o{mask})' in positive
+                  for mode in ['777', '755', '700'] for mask in ['022', '077', '000']), "Directory/umask matrix missing")
+        check('defer { umask(previous) }' in positive, "Umask is not restored")
+        check('nameHex = child.lastPathComponent.utf8.map' in positive, "Raw filename evidence missing")
+        check('copy_observations: observations' in positive, "Runtime copy evidence missing")
+        check('try fm.copyItem(at: source, to: probe)' in positive, "Real Foundation copy probe missing")
+        check('cacheError = error; detail["cache_error"]' in positive, "Production cache errors are discarded")
 
         # Validate input pin enforcement against only copied synthetic scratch
         # inputs. Never edit the requested production checkout.
@@ -67,7 +76,7 @@ def validate(root):
 
     return {
         "schema": "install-chain-source-tests-v1", "group": "cache", "passed": True,
-        "test_count": 15, "swift_executed": False, "network_executed": False,
+        "test_count": 22, "swift_executed": False, "network_executed": False,
         "native_signing_device_executed": False,
     }
 

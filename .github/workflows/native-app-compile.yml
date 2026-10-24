@@ -1,5 +1,5 @@
 # Investigation only: never app compilation, release, package or native admission.
-name: TEST ONLY - delivered install chain investigation (no native admission)
+name: TEST ONLY - cache Foundation copy matrix (no native admission)
 on:
   push:
     branches: [validation/install-chain-fixture-20261024]
@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence
-          printf 'workflow_commit=%s\nrun_id=%s\nrun_attempt=%s\nstatus=TEST_ONLY_STARTED_NO_NATIVE_ADMISSION\n' \
+          printf 'workflow_commit=%s\nrun_id=%s\nrun_attempt=%s\nstatus=TEST_ONLY_CACHE_COPY_MATRIX_STARTED_NO_NATIVE_ADMISSION\n' \
             "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > evidence/attempt.txt
       - name: Checkout fixed harness only without persistent credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -43,17 +43,17 @@ jobs:
           set-safe-directory: false
           submodules: false
           lfs: false
-      - name: Investigate delivered install chain with source-owned fake effects only
+      - name: Run only delivered cache copy matrix with synthetic temporary files
         run: |
           set -euo pipefail
           python3 -B harness/.ci/install-chain-fixture/run.py \
             --sources sources --recorder harness/.ci/native-app-compile/record.py \
-            --output evidence/install-chain-fixture
+            --output evidence/cache-copy-matrix
       - name: Preserve all investigation evidence including failures - no app products
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: TEST-ONLY-install-chain-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: TEST-ONLY-cache-copy-matrix-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/
           if-no-files-found: error
           retention-days: 14
