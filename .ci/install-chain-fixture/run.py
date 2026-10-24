@@ -4,6 +4,7 @@ import ast
 import hashlib
 import json
 import os
+import plistlib
 from pathlib import Path
 import re
 import subprocess
@@ -11,6 +12,7 @@ import sys
 import time
 
 HERE = Path(__file__).resolve().parent
+XCODE_DEVELOPER = Path('/Applications/Xcode_26.4.1.app/Contents/Developer')
 PASS = 'TEST_ONLY_FIXTURE_PASS_NOT_APP_OR_DEVICE_VALIDATION'
 
 def require(value, message):
@@ -104,7 +106,7 @@ def run(sources, recorder, output, contract_path):
                       if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'OWNERS' for t in n.targets))
         require({k: list(v) for k, v in owners.items()} == contract['source_pins'], 'Delivered source pins differ')
         inventory(HERE, contract['fixture_inputs_sha256'])
-        require(os.environ.get('DEVELOPER_DIR') == '/Applications/Xcode_26.4.1.app/Contents/Developer',
+        require(os.environ.get('DEVELOPER_DIR') == str(XCODE_DEVELOPER),
                 'Unexpected Xcode selection')
         for name, argv in [('acquire', [sys.executable, '-B', recorder, 'acquire']),
                            ('snapshot-before', [sys.executable, '-B', recorder, 'snapshot', 'install-chain-before']),
@@ -122,6 +124,19 @@ def run(sources, recorder, output, contract_path):
         require(swiftc.is_absolute() and swiftc.is_file(), 'Invalid Swift compiler path')
         row, raw = commands.run('swift-version', [swiftc, '--version'])
         require(command_pass(row), 'Swift compiler version failed')
+        row, raw = commands.run('macos-sdk-path', ['xcrun', '--sdk', 'macosx', '--show-sdk-path'])
+        require(command_pass(row), 'macOS SDK discovery failed')
+        sdk = Path(raw.decode().strip())
+        sdk_parent = XCODE_DEVELOPER / 'Platforms/MacOSX.platform/Developer/SDKs'
+        require(sdk.is_absolute() and sdk.is_dir() and sdk.resolve().parent == sdk_parent.resolve(),
+                'SDK is not inside the selected Xcode macOS platform')
+        sdk = sdk.resolve(strict=True)
+        settings_raw = (sdk / 'SDKSettings.plist').read_bytes()
+        settings = plistlib.loads(settings_raw)
+        require(isinstance(settings.get('CanonicalName'), str) and settings['CanonicalName'].startswith('macosx'),
+                'Selected SDK is not macOS')
+        report['macos_sdk'] = {'path': str(sdk), 'canonical_name': settings['CanonicalName'],
+                               'settings_sha256': sha(settings_raw)}
         generated = output / 'generated'
         row, raw = commands.run('generate', [sys.executable, '-B', HERE / contract['generator'],
             '--root', sources.resolve(), '--output', generated])
@@ -138,7 +153,7 @@ def run(sources, recorder, output, contract_path):
             file = regular(generated, spec['swift'])
             require(spec.get('compile_flags', []) in ([], ['-framework', 'CryptoKit']), 'Unexpected fixture compile flags')
             row, raw = commands.run('compile-' + name,
-                [swiftc, '-swift-version', '5', '-parse-as-library', *spec.get('compile_flags', []), file, '-o', output / name])
+                [swiftc, '-sdk', sdk, '-swift-version', '5', '-parse-as-library', *spec.get('compile_flags', []), file, '-o', output / name])
             compiled[name] = command_pass(row)
             if not compiled[name]: report['failures'].append({'name': name, 'phase': 'compile', 'reason': 'See exact compiler log'})
         for spec in variants:

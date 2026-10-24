@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import os
+import plistlib
 from pathlib import Path
 import subprocess
 import tempfile
@@ -20,6 +21,10 @@ class Controls(unittest.TestCase):
         self.output = self.root / 'evidence/fixture'; self.output.parent.mkdir()
         self.recorder = self.root / 'record.py'; self.recorder.write_text("OWNERS = {'SideStore': ('NRG-Wardog/SideStore', '" + 'a'*40 + "')}\n")
         self.swiftc = self.root / 'inert-swiftc'; self.swiftc.write_text('never executable')
+        self.developer = self.root / 'Xcode.app/Contents/Developer'
+        self.sdk = self.developer / 'Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk'
+        self.sdk.mkdir(parents=True)
+        (self.sdk / 'SDKSettings.plist').write_bytes(plistlib.dumps({'CanonicalName':'macosx26.4'}))
         (self.sources / 'source.swift').write_text('actual input placeholder')
         (self.harness / 'generate.py').write_text('inert generator placeholder')
         self.variants = [dict(name=name, group='chain', swift=name + '.swift', cases=['one','two'],
@@ -41,7 +46,11 @@ class Controls(unittest.TestCase):
             name='acquire' if argv[-1]=='acquire' else 'snapshot-before' if argv[-1]=='install-chain-before' else 'snapshot-after'
             if name!='acquire': gate.write(self.root/'evidence'/('install-chain-before.json' if name=='snapshot-before' else 'install-chain-after.json'),{'same':'source graph'})
         elif argv[0]=='xcodebuild':name='xcode-version';raw=b'Xcode 26.4.1\nBuild version synthetic\n'
-        elif argv[0]=='xcrun':name='swiftc-path';raw=(str(self.swiftc)+'\n').encode()
+        elif argv[0]=='xcrun':
+            if argv[1:] == ['--find','swiftc']:name='swiftc-path';raw=(str(self.swiftc)+'\n').encode()
+            else:
+                self.assertEqual(argv[1:], ['--sdk','macosx','--show-sdk-path'])
+                name='macos-sdk-path';raw=(str(self.sdk)+'\n').encode()
         elif argv[0]==str(self.swiftc):
             if argv[-1]=='--version':name='swift-version';raw=b'Synthetic Swift 5\n'
             else:name='compile-'+Path(argv[-1]).name;Path(argv[-1]).write_text('inert non-executable output')
@@ -61,14 +70,27 @@ class Controls(unittest.TestCase):
         old=Path.cwd()
         try:
             os.chdir(self.root)
-            with mock.patch.object(gate,'HERE',self.harness),mock.patch.dict(os.environ,{'DEVELOPER_DIR':'/Applications/Xcode_26.4.1.app/Contents/Developer'}),mock.patch.object(gate.subprocess,'run',side_effect=self.fake):
+            with mock.patch.object(gate,'HERE',self.harness),mock.patch.object(gate,'XCODE_DEVELOPER',self.developer),mock.patch.dict(os.environ,{'DEVELOPER_DIR':str(self.developer)}),mock.patch.object(gate.subprocess,'run',side_effect=self.fake):
                 return gate.run(self.sources,self.recorder,self.output,self.contract_path)
         finally:os.chdir(old)
     def test_complete_positive_and_precise_negative_controls(self):
         report=self.run_gate();self.assertEqual(report['status'],gate.PASS)
-        self.assertEqual(len(self.names),13);self.assertFalse(report['native_admission'])
+        self.assertEqual(len(self.names),14);self.assertFalse(report['native_admission'])
         self.assertTrue(report['complete_source_graph_unchanged'])
         self.assertEqual(report['runtime']['negative']['passed'],False)
+    def test_every_compile_uses_exact_resolved_macos_sdk_without_target_override(self):
+        report=self.run_gate();self.assertEqual(report['status'],gate.PASS)
+        rows=[r for r in report['commands'] if r['name'].startswith('compile-')]
+        self.assertEqual(len(rows),3)
+        for row in rows:
+            self.assertEqual(row['argv'][1:6],['-sdk',str(self.sdk.resolve()),'-swift-version','5','-parse-as-library'])
+            self.assertNotIn('-target',row['argv'])
+        self.assertEqual(report['macos_sdk']['canonical_name'],'macosx26.4')
+    def test_non_macos_sdk_is_rejected_before_generation_or_compile(self):
+        (self.sdk/'SDKSettings.plist').write_bytes(plistlib.dumps({'CanonicalName':'iphoneos26.4'}))
+        report=self.run_gate();self.assertNotEqual(report['status'],gate.PASS)
+        self.assertNotIn('generate',self.names)
+        self.assertFalse(any(n.startswith('compile-') for n in self.names))
     def test_all_compiler_failures_retained_and_independent_runtime_runs(self):
         def mutate(name,argv,raw,code):
             if name in ('compile-positive','compile-negative'):return subprocess.CompletedProcess(argv,1,b'compiler failure')
