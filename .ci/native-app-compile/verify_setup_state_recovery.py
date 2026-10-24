@@ -226,7 +226,8 @@ ADDITIVE_SUITE_INPUTS['host-refresh-bundle'] = {
                 ('BoundaryDoubles.swift', 'Cases.swift', 'test_contract.py', 'generate_fixture.py')],
     'other': []}
 ADDITIVE_SUITE_INPUTS['cache-compatibility'] = {'production': ['SideStore/AltStore/Core/Model/InstalledApp.swift', 'SideStore/AltStore/Extensions/FileManager+URLs.swift', 'SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift', 'SideStore/SideStore/Core/Operations/PipelineRunner.swift', 'SideStore/SideStore/Utils/common/AppBundleFingerprint.swift'], 'support': [], 'fixture': ['SideStore/tests/cache_compatibility/Cases.swift', 'SideStore/tests/cache_compatibility/OriginalAppBundleFingerprint.swift', 'SideStore/tests/cache_compatibility/OriginalCacheAppOperation.swift', 'SideStore/tests/cache_compatibility/generate_fixture.py', 'SideStore/tests/cache_compatibility/BeforeCanonicalAnchorCacheAppOperation.swift'], 'other': []}
-ADDITIVE_SUITE_INPUTS['vpn-refresh-recovery'] = {'production': ['LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift', 'LiveContainer/SideStoreSupport/SideStore.swift', 'SideStore/SideStore/Core/Operations/PipelineExecutor.swift', 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift', 'LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py', 'LiveContainer/SideStoreSupport/XPCClient.m', 'SideStore/AltStore/AppDelegate.swift'], 'support': ['SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift', 'SideStore/Dependencies/minimuxer/Sources/Services/DeviceEndpoint.swift', 'SideStore/Dependencies/minimuxer/Sources/MinimuxerInternalError.swift'], 'fixture': ['LiveContainer/.ci/vpn-refresh-recovery/generate_fixture.py', 'LiveContainer/.ci/vpn-refresh-recovery/cases.swift', 'LiveContainer/.ci/vpn-refresh-recovery/OriginalRefreshReadinessFacts.swift', 'LiveContainer/.ci/vpn-refresh-recovery/cold-peer-source.json'], 'other': ['LiveContainer/.ci/vpn-refresh-recovery/README.md']}
+ADDITIVE_SUITE_INPUTS['vpn-refresh-recovery'] = {'production': ['LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift', 'LiveContainer/SideStoreSupport/SideStore.swift', 'SideStore/SideStore/Core/Operations/PipelineExecutor.swift', 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift', 'LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py', 'LiveContainer/SideStoreSupport/XPCClient.m', 'SideStore/AltStore/AppDelegate.swift', 'SideStore/SideStore/Core/Operations/PipelineRunner.swift', 'SideStore/tests/vpn_transport_recovery/generate_fixture.py'], 'support': ['SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift', 'SideStore/Dependencies/minimuxer/Sources/Services/DeviceEndpoint.swift', 'SideStore/Dependencies/minimuxer/Sources/MinimuxerInternalError.swift'], 'fixture': ['LiveContainer/.ci/vpn-refresh-recovery/generate_fixture.py', 'LiveContainer/.ci/vpn-refresh-recovery/cases.swift', 'LiveContainer/.ci/vpn-refresh-recovery/OriginalRefreshReadinessFacts.swift', 'LiveContainer/.ci/vpn-refresh-recovery/cold-peer-source.json', 'LiveContainer/.ci/vpn-refresh-recovery/PlatformDoubles.swift'], 'other': ['LiveContainer/.ci/vpn-refresh-recovery/README.md'], 'transport_fixture': ['SideStore/Dependencies/minimuxer/Sources/RefreshTransportPolicy.swift', 'SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift', 'SideStore/Dependencies/minimuxer/Sources/Services/NetworkIfaceScanner.swift', 'SideStore/Dependencies/minimuxer/Sources/Services/NetworkObserverService.swift', 'SideStore/Dependencies/minimuxer/Sources/MinimuxerError.swift', 'SideStore/Dependencies/minimuxer/Sources/MinimuxerApi.swift', 'SideStore/Dependencies/minimuxer/Common/PairingProtocol.swift', 'SideStore/Dependencies/minimuxer/DeviceGateway/DeviceGatewayError.swift', 'SideStore/SideStore/Core/DeviceApi/MinimuxerWrapper.swift', 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift', 'SideStore/SideStore/Core/Operations/PipelineExecutor.swift', 'SideStore/tests/vpn_transport_recovery/generate_fixture.py', 'SideStore/tests/vpn_transport_recovery/interface_doubles.swift', 'SideStore/tests/vpn_transport_recovery/OriginalRefreshTransportPolicy.swift', 'SideStore/tests/vpn_transport_recovery/OriginalReadinessUnavailable.swift', 'SideStore/tests/vpn_transport_recovery/OriginalTransportSnapshot.swift', 'SideStore/tests/vpn_transport_recovery/baseline-receipt.json']}
+VPN_OBSERVATION_HOOK = {'source': 'LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift', 'anchor': 'final class LiveContainerVPNActivationState {', 'original_sha256': 'a53908f887987a74d7aae922ee47f0fdd2c82ac5e8fb1d571f90de7b2fc6ef50', 'instrumented_sha256': 'f7eda491d45193769ef2cdce9c731cb528ae3f77e5aa30014f5524bfddba6e02', 'exact_insertion_count': 1, 'description': 'Observation-only didSet on leftHost awaits the original background observer assignment before injecting active; no fixture writes leftHost and no production decision or method body changes.'}
 ADDITIVE_SPECS = {
     'setup-connection-evidence': {'prefix': 'connection', 'folder': CONNECTION,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
@@ -239,7 +240,7 @@ ADDITIVE_SPECS = {
     'vpn-refresh-recovery': {'prefix': 'vpn-recovery', 'folder': VPN_RECOVERY,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
         'source_schema': 'vpn-refresh-recovery-sources-v1', 'swift': 'vpn-refresh-recovery.swift',
-        'cases_schema': 'vpn-refresh-recovery-cases-v1', 'case_count': 72},
+        'cases_schema': 'vpn-refresh-recovery-cases-v1', 'case_count': 89},
     'host-refresh-bundle': {'prefix': 'host-refresh-bundle', 'folder': HOST_BUNDLE,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
         'source_schema': 'v3-host-refresh-bundle-source-v1', 'swift': 'host-refresh-bundle.swift',
@@ -556,12 +557,19 @@ def additive_extraction(output, contract, suite):
         prefix = 'SideStore/Dependencies/minimuxer/'
         require(all(p.startswith(prefix) for p in support_hashes), 'VPN support path scope differs')
         support_hashes = {p[len(prefix):]: value for p, value in support_hashes.items()}
-        require(value.get('cold_guard_provenance') == 'actual_dependency_sources' and
+        require(value.get('cold_guard_provenance') == 'actual_unchanged_guard_blocks_and_historical_baseline' and
                 value.get('baseline_classifier_sha256') == contract['input_sha256'][
                     VPN_RECOVERY + '/OriginalRefreshReadinessFacts.swift'],
                 'VPN actual dependency or original classifier proof differs')
     require(value.get('support_inputs_sha256', {}) == support_hashes,
             'Additive support source hashes differ')
+    if suite == 'vpn-refresh-recovery':
+        require(value.get('transport_fixture_inputs_sha256') == {
+                p: contract['input_sha256'][p] for p in inputs['transport_fixture']},
+                'VPN transport fixture exact source path or hash closure differs')
+        require(value.get('fixture_observation_hook') == VPN_OBSERVATION_HOOK,
+                'VPN deterministic observation hook differs')
+
     require(value.get('fixture_inputs_sha256') == {Path(p).name: contract['input_sha256'][p] for p in inputs['fixture']},
             'Additive fixture source hashes differ')
     require({p.name for p in root.glob('*.swift')} == {spec['swift']} and
@@ -646,7 +654,7 @@ def all_evidence(output, contract):
 def markers():
     result = {'localization-run': 'SETUP_LOCALIZATION_RENDERER_PASS cases=' + str(LOCALIZATION_CASE_COUNT),
               'connection-run': 'SETUP_CONNECTION_EVIDENCE_PASS cases=25',
-              'vpn-recovery-run': 'VPN_REFRESH_RECOVERY_PASS cases=72',
+              'vpn-recovery-run': 'VPN_REFRESH_RECOVERY_PASS cases=89',
               'identity-controls': 'OK',
               'cache-compatibility-run': 'CACHE_COMPATIBILITY_CASES_PASS',
               'identity-run': 'REMOTE_IDENTITY_REUSE_RUNTIME_PASS cases=' + str(IDENTITY_CASE_COUNT)}

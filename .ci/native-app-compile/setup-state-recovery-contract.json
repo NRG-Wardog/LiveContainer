@@ -88,7 +88,8 @@
         "LiveContainer/.ci/vpn-refresh-recovery/generate_fixture.py",
         "LiveContainer/.ci/vpn-refresh-recovery/cases.swift",
         "LiveContainer/.ci/vpn-refresh-recovery/OriginalRefreshReadinessFacts.swift",
-        "LiveContainer/.ci/vpn-refresh-recovery/cold-peer-source.json"
+        "LiveContainer/.ci/vpn-refresh-recovery/cold-peer-source.json",
+        "LiveContainer/.ci/vpn-refresh-recovery/PlatformDoubles.swift"
       ],
       "other": [
         "LiveContainer/.ci/vpn-refresh-recovery/README.md"
@@ -100,12 +101,33 @@
         "SideStore/SideStore/Core/Operations/Errors/OperationError.swift",
         "LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py",
         "LiveContainer/SideStoreSupport/XPCClient.m",
-        "SideStore/AltStore/AppDelegate.swift"
+        "SideStore/AltStore/AppDelegate.swift",
+        "SideStore/SideStore/Core/Operations/PipelineRunner.swift",
+        "SideStore/tests/vpn_transport_recovery/generate_fixture.py"
       ],
       "support": [
         "SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift",
         "SideStore/Dependencies/minimuxer/Sources/Services/DeviceEndpoint.swift",
         "SideStore/Dependencies/minimuxer/Sources/MinimuxerInternalError.swift"
+      ],
+      "transport_fixture": [
+        "SideStore/Dependencies/minimuxer/Sources/RefreshTransportPolicy.swift",
+        "SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift",
+        "SideStore/Dependencies/minimuxer/Sources/Services/NetworkIfaceScanner.swift",
+        "SideStore/Dependencies/minimuxer/Sources/Services/NetworkObserverService.swift",
+        "SideStore/Dependencies/minimuxer/Sources/MinimuxerError.swift",
+        "SideStore/Dependencies/minimuxer/Sources/MinimuxerApi.swift",
+        "SideStore/Dependencies/minimuxer/Common/PairingProtocol.swift",
+        "SideStore/Dependencies/minimuxer/DeviceGateway/DeviceGatewayError.swift",
+        "SideStore/SideStore/Core/DeviceApi/MinimuxerWrapper.swift",
+        "SideStore/SideStore/Core/Operations/Errors/OperationError.swift",
+        "SideStore/SideStore/Core/Operations/PipelineExecutor.swift",
+        "SideStore/tests/vpn_transport_recovery/generate_fixture.py",
+        "SideStore/tests/vpn_transport_recovery/interface_doubles.swift",
+        "SideStore/tests/vpn_transport_recovery/OriginalRefreshTransportPolicy.swift",
+        "SideStore/tests/vpn_transport_recovery/OriginalReadinessUnavailable.swift",
+        "SideStore/tests/vpn_transport_recovery/OriginalTransportSnapshot.swift",
+        "SideStore/tests/vpn_transport_recovery/baseline-receipt.json"
       ]
     }
   },
@@ -1694,7 +1716,24 @@
       "cancelled_settlement_no_retry",
       "timeout_late_return_settles_once",
       "expired_cold_return_not_replayed",
-      "marker_other_owner_not_cleared"
+      "marker_other_owner_not_cleared",
+      "addressless_old_source_preflight_skips_activation",
+      "addressless_old_source_has_ineligible_invalidvpn",
+      "addressless_candidate_two_app_wire_preserves_finite_reason",
+      "addressless_candidate_opens_official_enable_url_once",
+      "addressless_candidate_retries_once_after_return",
+      "addressless_return_never_forces_ready_or_reopens",
+      "addressless_unconfigured_source_never_opens",
+      "addressless_missing_pairing_source_never_opens",
+      "addressless_unsupported_backend_source_never_opens",
+      "addressless_mixed_backend_batch_never_opens",
+      "addressless_partial_success_batch_never_opens",
+      "addressless_background_source_never_opens",
+      "addressless_inactive_host_never_opens",
+      "addressless_open_rejection_never_retries",
+      "addressless_changed_request_owner_never_retries",
+      "addressless_uncertain_mutation_never_opens",
+      "source_initial_activation_consumes_single_allowance"
     ]
   },
   "delivered_baseline": {
@@ -1781,10 +1820,11 @@
     "LiveContainer/.ci/setup-connection-evidence/cases.swift": "49581972d822bec99e12d93c23cfdb6b8a36c122058044af3d967129930169b4",
     "LiveContainer/.ci/setup-connection-evidence/generate_fixture.py": "7caf32281c1947e2e5f0965b5366f6933ac347ae5e3da934281858cd7a911574",
     "LiveContainer/.ci/vpn-refresh-recovery/OriginalRefreshReadinessFacts.swift": "11317ac8513b261a85ab7b61f38d543f87aa2e4b9fab014e163e0e0303bc5f81",
-    "LiveContainer/.ci/vpn-refresh-recovery/README.md": "da5250ca2837605dbf5575ab7f19fb494597c04ba0592c3eb7a63b7c6e1007b7",
-    "LiveContainer/.ci/vpn-refresh-recovery/cases.swift": "85a0f22a168f03daed58f563f3e201631ef0cf0943a12ac88af7dd84dec52d02",
-    "LiveContainer/.ci/vpn-refresh-recovery/cold-peer-source.json": "8bc582ebb2e9328839b4c5a4da50445be4284dd61fc1060fd8de18044fe6573e",
-    "LiveContainer/.ci/vpn-refresh-recovery/generate_fixture.py": "108b67573542d72d5ca06e28a7c44b11c4bf372be7f8883180598d1c0baba32b",
+    "LiveContainer/.ci/vpn-refresh-recovery/PlatformDoubles.swift": "6a2521763d35ad5cee96a86a925d987fe7850ed54834dd3eb81f773d7d96be10",
+    "LiveContainer/.ci/vpn-refresh-recovery/README.md": "9022baa87a4bc7d5f8ee364721a27d089b68c895f70a008843c5d7e91e0383f2",
+    "LiveContainer/.ci/vpn-refresh-recovery/cases.swift": "2ac4447306df2473f58e721f160429980ce8708e00024df757726b6fbb961fe3",
+    "LiveContainer/.ci/vpn-refresh-recovery/cold-peer-source.json": "1aa15c51ff6f84664d368ce0d6cd43cd396fd2edd3e300e1bfa3f77ade59f011",
+    "LiveContainer/.ci/vpn-refresh-recovery/generate_fixture.py": "4b182115ee9a23cb11e7316b923bbc81f17f0b5a072a46192c1cf1d6df4400e6",
     "LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift": "ee27d85e53c101d3977e276180ccaa6b2bd89ed5f010ec88f112811407b6c42c",
     "LiveContainer/LiveContainerSwiftUI/Utilities/V3LanguageSettings.swift": "1d9c2792102a57e8b649d6d40932a0a20ef3ad093cb2f4f3bce96c5ec9e42392",
     "LiveContainer/LiveContainerSwiftUI/Utilities/V3Localization.swift": "72a3289af42296673237ffbf17e369c5ca9ba26c8e611087c8ebcb08278af673",
@@ -1816,9 +1856,16 @@
     "SideStore/Dependencies/SideSign/Sources/Models/Errors.swift": "2f07da739407a4579754c12513183a4f96c1e7bbd1308a6a49288e396047a500",
     "SideStore/Dependencies/SideSign/Sources/Models/X509Certificate.swift": "058b98e18789d6e807f644a172eaed5169082c75259f3baaba518339f4d93e59",
     "SideStore/Dependencies/SideSign/Sources/SideSign.swift": "9c161cb2c609fb4d1c9d6272f96453c97d427834510ccfd8d54e87e16b5782f9",
-    "SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift": "3d5cab382c0bb262110b767a925222c4beaec6748766dd8b3168ed61fa7fec55",
+    "SideStore/Dependencies/minimuxer/Common/PairingProtocol.swift": "643c5492e5baeded4b0ea673966b77a92cd1f422fbd9a95146fbeee194b09478",
+    "SideStore/Dependencies/minimuxer/DeviceGateway/DeviceGatewayError.swift": "e5513537a1ad7592390e6c6bf1e7690cef00d2c0139f13ce4e7efeef3914b042",
+    "SideStore/Dependencies/minimuxer/Sources/MinimuxerApi.swift": "c71230e058f6d80539796a8a6984148ac6b19dcd20ba543a6c04def83a0049d3",
+    "SideStore/Dependencies/minimuxer/Sources/MinimuxerError.swift": "569773f48a1a2a449d4a8f30812e73cf9f45550fa72a40f25f866c02c1034474",
+    "SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift": "92f350fbbfa4a6a870458b428d11c92a9ace7c7fa5c9ef7c31c7d926ef5acc61",
     "SideStore/Dependencies/minimuxer/Sources/MinimuxerInternalError.swift": "5ade48f6861dfd95fc277bc2fcda08ef50bc6210606f634af048117a5a3c4a2d",
+    "SideStore/Dependencies/minimuxer/Sources/RefreshTransportPolicy.swift": "35d4d922b653ed394da69ba2f5725171e3824f6cb8aef24888bb23e3f3cc35ab",
     "SideStore/Dependencies/minimuxer/Sources/Services/DeviceEndpoint.swift": "d7d9e481e55219d67a554fdfb67477f2e4fcf4f118850ca8f1c9c8ba857d8a7e",
+    "SideStore/Dependencies/minimuxer/Sources/Services/NetworkIfaceScanner.swift": "9547343e103403941daeb7aabdb993ed4af0cdb1382be1b28639ec6faea7be2f",
+    "SideStore/Dependencies/minimuxer/Sources/Services/NetworkObserverService.swift": "0a2af148e244000577fb2a252cf4ae311a631e19f77ef9d4fbe83b34dce21f9e",
     "SideStore/Shared/Errors/ALTWrappedError.swift": "7c256bc94613109a34bf603397ef5f4d59e83871a57f3e98600dec6ad477fec0",
     "SideStore/Shared/Extensions/Bundle+AltStore.swift": "c89b4b41cce3c16ef15091e37e549d2c3543b0789fee0248f6ea8a23ee789f7b",
     "SideStore/Shared/Extensions/NSError+AltStore.swift": "eca209ba021071d4d0daf351ccf338559de0fb6b1fae5631f7e2655989b7e516",
@@ -1849,7 +1896,13 @@
     "SideStore/tests/host_refresh_bundle/Cases.swift": "7a240fc300b158a586379a396a44745e1414721b2847b86743b2cb057933673a",
     "SideStore/tests/host_refresh_bundle/generate_fixture.py": "bfb3a4113aefdf93aaa45ef71bcaffbd662db2c9d6d112a98db0b71bd8b07ed4",
     "SideStore/tests/host_refresh_bundle/test_contract.py": "f12dd2cde0884db61f17bca0c014765fed58c4bcbbe37f863af7a9ab1a3bfda0",
-    "SideStore/tests/refresh_failure/pipeline_harness.swift": "5fd5b3c4af23f49806a06bb40e464b1518ca79f267ca42f8d4d4d3d11cb54875"
+    "SideStore/tests/refresh_failure/pipeline_harness.swift": "5fd5b3c4af23f49806a06bb40e464b1518ca79f267ca42f8d4d4d3d11cb54875",
+    "SideStore/tests/vpn_transport_recovery/OriginalReadinessUnavailable.swift": "a3bf89d405f004ea09d43f65911285ab7c0ed7cef01d56d3426ebc8e94341bb6",
+    "SideStore/tests/vpn_transport_recovery/OriginalRefreshTransportPolicy.swift": "1ddc3d112d8a218db2c8017947595782fbe625dcdf7fef1fc6d4495f8b8b15d0",
+    "SideStore/tests/vpn_transport_recovery/OriginalTransportSnapshot.swift": "99b3af43544a4163b0e7bdfe19afe2da29163c175bc39cce02da4be76e6e5663",
+    "SideStore/tests/vpn_transport_recovery/baseline-receipt.json": "d7b007c5c644352420600401ac6160f08daa4d1f2c5834d797eaf42999bc80d5",
+    "SideStore/tests/vpn_transport_recovery/generate_fixture.py": "09b22b79165a1deedc0d69ceb9989ef8fda9bc7e77b764c56ccbc43bfebc6203",
+    "SideStore/tests/vpn_transport_recovery/interface_doubles.swift": "d8af978f8378d06a6e8276b2148e5683ab5233587698738ca763c20d3e6da4cc"
   },
   "note": "Exact source-owned synthetic fixtures. Native/device/root-cause validation is not implied.",
   "schema": "setup-state-recovery-contract-v1",

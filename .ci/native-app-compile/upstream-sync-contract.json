@@ -1,23 +1,30 @@
 {
   "minimuxer_fake_tests": {
     "source_inputs": {
-      ".ci/upstream-sync-smoke.swift": "ea8b295db77871c7c34f38d763dc51848c3f9f398f74564be231d3189cce7890",
-      ".ci/verify-upstream-sync.py": "6d070a8f6f8750b6a80679831527c83f7e2fb8e747dfb50bad14116a1b939a20",
+      ".ci/upstream-sync-smoke.swift": "812f3db768ff15c1708ab83971c654c4809cfd7a1e366974fcf45140ffe298c1",
+      ".ci/verify-upstream-sync.py": "652fbf9dfbf2443f402e49fd119ebfc96a96d3843c9750452314a7ade98203bb",
       "Common/ConcurrencyUtils.swift": "a51cdcf1f50f5cf9c45a57ce97ab272d5d0cc5ef08b12775cac6518d7fae21a2",
       "Common/PairingFile.swift": "16ae51de40d34d97db2600caf4aba3a9c7aff81096398089e747b2811fc6e511",
       "Common/PairingProtocol.swift": "643c5492e5baeded4b0ea673966b77a92cd1f422fbd9a95146fbeee194b09478",
       "Sources/DeviceProvider.swift": "265a8d55a2f936eaa2bc0d85abac80b4b95dece39e0795d871b39f3652aa7450",
       "Sources/MinimuxerApi.swift": "c71230e058f6d80539796a8a6984148ac6b19dcd20ba543a6c04def83a0049d3",
-      "Sources/RefreshTransportPolicy.swift": "1ddc3d112d8a218db2c8017947595782fbe625dcdf7fef1fc6d4495f8b8b15d0"
+      "Sources/RefreshTransportPolicy.swift": "35d4d922b653ed394da69ba2f5725171e3824f6cb8aef24888bb23e3f3cc35ab"
     },
     "success_line": "SOURCE_ONLY_SWIFT_SMOKE_PASS pairing=7 transport_cases=144 gateway_batch_switch=pass atomic_configuration=pass"
   },
   "native_sources": {
     "SideStore/Dependencies/minimuxer": {
-      "commit": "1d033920660c6f50b8f30c4c333f025867cd9e96",
+      "commit": "4ca3af5270de8aa48e8bc100eadf1b3550260ea2",
       "files_sha256": {
-        ".ci/source-parity.json": "fe8e6d7b8ccfe10e9addac80991260661427bd0f0f78206e567466ed135aa522",
-        ".ci/source-parity.py": "6aa1ba176b52552589e648aca7a95c027269ec69d6a0dbe3d0fadac5c229ad98"
+        ".ci/source-parity.json": "a4cfda96e90fef6280b2d3d153dc355949a944a9ef2bd30792e059146a3df9d3",
+        ".ci/source-parity.py": "6da771ad7ae62ec056a8b919159f6a208c1afc2a3cb7632866c5bbd00d49c152"
+      },
+      "followup_parent": {
+        "commit": "1d033920660c6f50b8f30c4c333f025867cd9e96",
+        "required_commit_parents": [
+          "48419a2d24bd74efcee6dc80552ea89e85dafdee"
+        ],
+        "tree": "cb4b239ebf9f3720f8998dc1debd71b3e6debd27"
       },
       "merge_anchor": {
         "commit": "48419a2d24bd74efcee6dc80552ea89e85dafdee",
@@ -30,9 +37,9 @@
       },
       "merge_base": "98c3c79982f813878e922ab42f9545314a700f0c",
       "required_commit_parents": [
-        "48419a2d24bd74efcee6dc80552ea89e85dafdee"
+        "1d033920660c6f50b8f30c4c333f025867cd9e96"
       ],
-      "tree": "cb4b239ebf9f3720f8998dc1debd71b3e6debd27"
+      "tree": "31cc39b5b6de3896e96ae977f1ea7c835effb76b"
     },
     "idevice": {
       "commit": "774f02a6d29777c85400f4ba7fa69c12b4227fb3",
@@ -86,5 +93,103 @@
     }
   },
   "schema_version": 1,
-  "sidestore_test_count": 158
+  "sidestore_test_count": 158,
+  "vpn_transport_regression": {
+    "generated_sha256": "b3730cc60c23afd44a59654514456434e506929fa8b8813b8cb2b1c769eec59d",
+    "input_rows": {
+      "OriginalReadinessUnavailable.swift": {
+        "path": "SideStore/tests/vpn_transport_recovery/OriginalReadinessUnavailable.swift",
+        "sha256": "a3bf89d405f004ea09d43f65911285ab7c0ed7cef01d56d3426ebc8e94341bb6"
+      },
+      "OriginalRefreshTransportPolicy.swift": {
+        "path": "SideStore/tests/vpn_transport_recovery/OriginalRefreshTransportPolicy.swift",
+        "sha256": "1ddc3d112d8a218db2c8017947595782fbe625dcdf7fef1fc6d4495f8b8b15d0"
+      },
+      "OriginalTransportSnapshot.swift": {
+        "path": "SideStore/tests/vpn_transport_recovery/OriginalTransportSnapshot.swift",
+        "sha256": "99b3af43544a4163b0e7bdfe19afe2da29163c175bc39cce02da4be76e6e5663"
+      },
+      "api": {
+        "path": "SideStore/Dependencies/minimuxer/Sources/MinimuxerApi.swift",
+        "sha256": "c71230e058f6d80539796a8a6984148ac6b19dcd20ba543a6c04def83a0049d3"
+      },
+      "baseline-receipt.json": {
+        "path": "SideStore/tests/vpn_transport_recovery/baseline-receipt.json",
+        "sha256": "d7b007c5c644352420600401ac6160f08daa4d1f2c5834d797eaf42999bc80d5"
+      },
+      "classifier": {
+        "path": "SideStore/SideStore/Core/Operations/PipelineExecutor.swift",
+        "sha256": "cd5871141e6f3f1e32f17c161d3bfac3e0101f616bdeb4ab4db029ebdc81849d"
+      },
+      "gateway_error": {
+        "path": "SideStore/Dependencies/minimuxer/DeviceGateway/DeviceGatewayError.swift",
+        "sha256": "e5513537a1ad7592390e6c6bf1e7690cef00d2c0139f13ce4e7efeef3914b042"
+      },
+      "generate_fixture.py": {
+        "path": "SideStore/tests/vpn_transport_recovery/generate_fixture.py",
+        "sha256": "09b22b79165a1deedc0d69ceb9989ef8fda9bc7e77b764c56ccbc43bfebc6203"
+      },
+      "interface_doubles.swift": {
+        "path": "SideStore/tests/vpn_transport_recovery/interface_doubles.swift",
+        "sha256": "d8af978f8378d06a6e8276b2148e5683ab5233587698738ca763c20d3e6da4cc"
+      },
+      "mapper": {
+        "path": "SideStore/SideStore/Core/DeviceApi/MinimuxerWrapper.swift",
+        "sha256": "11f42833985426a6a93dea806c8f4d2f693345143795e121a1c8a65847a06344"
+      },
+      "minimuxer_error": {
+        "path": "SideStore/Dependencies/minimuxer/Sources/MinimuxerError.swift",
+        "sha256": "569773f48a1a2a449d4a8f30812e73cf9f45550fa72a40f25f866c02c1034474"
+      },
+      "observer": {
+        "path": "SideStore/Dependencies/minimuxer/Sources/Services/NetworkObserverService.swift",
+        "sha256": "0a2af148e244000577fb2a252cf4ae311a631e19f77ef9d4fbe83b34dce21f9e"
+      },
+      "operation_error": {
+        "path": "SideStore/SideStore/Core/Operations/Errors/OperationError.swift",
+        "sha256": "0df82c2b27c8f7da6147bf4b2856609decd7e3be59370f45851018d2a2fe70e2"
+      },
+      "pairing": {
+        "path": "SideStore/Dependencies/minimuxer/Common/PairingProtocol.swift",
+        "sha256": "643c5492e5baeded4b0ea673966b77a92cd1f422fbd9a95146fbeee194b09478"
+      },
+      "policy": {
+        "path": "SideStore/Dependencies/minimuxer/Sources/RefreshTransportPolicy.swift",
+        "sha256": "35d4d922b653ed394da69ba2f5725171e3824f6cb8aef24888bb23e3f3cc35ab"
+      },
+      "producer": {
+        "path": "SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift",
+        "sha256": "92f350fbbfa4a6a870458b428d11c92a9ace7c7fa5c9ef7c31c7d926ef5acc61"
+      },
+      "scanner": {
+        "path": "SideStore/Dependencies/minimuxer/Sources/Services/NetworkIfaceScanner.swift",
+        "sha256": "9547343e103403941daeb7aabdb993ed4af0cdb1382be1b28639ec6faea7be2f"
+      }
+    },
+    "runtime_marker": "VPN_TRANSPORT_RECOVERY_PASS transport_cases=144 actual_scanner=pass baseline_failure_reproduced=pass finite_exclusions=pass",
+    "source_inputs": {
+      "SideStore/Dependencies/minimuxer/Common/PairingProtocol.swift": "643c5492e5baeded4b0ea673966b77a92cd1f422fbd9a95146fbeee194b09478",
+      "SideStore/Dependencies/minimuxer/DeviceGateway/DeviceGatewayError.swift": "e5513537a1ad7592390e6c6bf1e7690cef00d2c0139f13ce4e7efeef3914b042",
+      "SideStore/Dependencies/minimuxer/Sources/MinimuxerApi.swift": "c71230e058f6d80539796a8a6984148ac6b19dcd20ba543a6c04def83a0049d3",
+      "SideStore/Dependencies/minimuxer/Sources/MinimuxerError.swift": "569773f48a1a2a449d4a8f30812e73cf9f45550fa72a40f25f866c02c1034474",
+      "SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift": "92f350fbbfa4a6a870458b428d11c92a9ace7c7fa5c9ef7c31c7d926ef5acc61",
+      "SideStore/Dependencies/minimuxer/Sources/RefreshTransportPolicy.swift": "35d4d922b653ed394da69ba2f5725171e3824f6cb8aef24888bb23e3f3cc35ab",
+      "SideStore/Dependencies/minimuxer/Sources/Services/NetworkIfaceScanner.swift": "9547343e103403941daeb7aabdb993ed4af0cdb1382be1b28639ec6faea7be2f",
+      "SideStore/Dependencies/minimuxer/Sources/Services/NetworkObserverService.swift": "0a2af148e244000577fb2a252cf4ae311a631e19f77ef9d4fbe83b34dce21f9e",
+      "SideStore/SideStore/Core/DeviceApi/MinimuxerWrapper.swift": "11f42833985426a6a93dea806c8f4d2f693345143795e121a1c8a65847a06344",
+      "SideStore/SideStore/Core/Operations/Errors/OperationError.swift": "0df82c2b27c8f7da6147bf4b2856609decd7e3be59370f45851018d2a2fe70e2",
+      "SideStore/SideStore/Core/Operations/PipelineExecutor.swift": "cd5871141e6f3f1e32f17c161d3bfac3e0101f616bdeb4ab4db029ebdc81849d",
+      "SideStore/tests/vpn_transport_recovery/OriginalReadinessUnavailable.swift": "a3bf89d405f004ea09d43f65911285ab7c0ed7cef01d56d3426ebc8e94341bb6",
+      "SideStore/tests/vpn_transport_recovery/OriginalRefreshTransportPolicy.swift": "1ddc3d112d8a218db2c8017947595782fbe625dcdf7fef1fc6d4495f8b8b15d0",
+      "SideStore/tests/vpn_transport_recovery/OriginalTransportSnapshot.swift": "99b3af43544a4163b0e7bdfe19afe2da29163c175bc39cce02da4be76e6e5663",
+      "SideStore/tests/vpn_transport_recovery/README.md": "52870a0039b388ce00d80b5e387155bfd12d7281ee6e0e7188cb59518c917edb",
+      "SideStore/tests/vpn_transport_recovery/baseline-receipt.json": "d7b007c5c644352420600401ac6160f08daa4d1f2c5834d797eaf42999bc80d5",
+      "SideStore/tests/vpn_transport_recovery/generate_fixture.py": "09b22b79165a1deedc0d69ceb9989ef8fda9bc7e77b764c56ccbc43bfebc6203",
+      "SideStore/tests/vpn_transport_recovery/interface_doubles.swift": "d8af978f8378d06a6e8276b2148e5683ab5233587698738ca763c20d3e6da4cc",
+      "SideStore/tests/vpn_transport_recovery/policy_cases.swift": "5e105e746dcb46af47ad5d362c6b9083739cb29f82f35dab109d565c4220338d",
+      "SideStore/tests/vpn_transport_recovery/test_contract.py": "1f527916d190c6baad8f7daf3a5b0641e35d09e0562a092ca475ce43c8940ad9"
+    },
+    "test_count": 4,
+    "transport_case_count": 144
+  }
 }

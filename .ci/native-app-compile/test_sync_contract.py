@@ -242,6 +242,9 @@ class ExactFollowupAncestryTests(unittest.TestCase):
         for name in ('source-parity.py', 'source-parity.json'):
             (self.root / '.ci' / name).write_text('synthetic')
         self.expected = copy.deepcopy(v.SPEC['native_sources']['SideStore/Dependencies/minimuxer'])
+        # Continue testing the original direct-child shape independently.
+        self.expected.pop('followup_parent', None)
+        self.expected['required_commit_parents'] = [self.expected['merge_anchor']['commit']]
         self.expected['commit'] = 'a' * 40
         self.expected['tree'] = 'b' * 40
         self.expected['files_sha256'] = {p: v.sha(self.root / p) for p in self.expected['files_sha256']}
@@ -401,6 +404,143 @@ class ExactReviewedJktcpTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'Frozen source verifier did not pass'):
             self.invoke(report, owner='idevice', expected=expected)
 
+
+
+class ExactSecondFollowupAncestryTests(unittest.TestCase):
+    def setUp(self):
+        ExactFollowupAncestryTests.setUp(self)
+        self.prior = {
+            'commit': '1d033920660c6f50b8f30c4c333f025867cd9e96',
+            'tree': 'cb4b239ebf9f3720f8998dc1debd71b3e6debd27',
+            'required_commit_parents': [self.anchor['commit']]}
+        self.expected['followup_parent'] = self.prior
+        self.expected['required_commit_parents'] = [self.prior['commit']]
+        self.actual.update({
+            ('show', '-s', '--format=%P', 'HEAD'): self.prior['commit'],
+            ('rev-parse', self.prior['commit'] + '^{tree}'): self.prior['tree'],
+            ('show', '-s', '--format=%P', self.prior['commit']): self.anchor['commit'],
+            ('merge-base', '--is-ancestor', self.prior['commit'], 'HEAD'): '',
+            ('merge-base', '--is-ancestor', self.anchor['commit'], self.prior['commit']): ''})
+
+    def test_exact_second_successor_and_original_merge(self):
+        self.assertEqual(v.validate_ancestry(self.root, self.expected), [self.prior['commit']])
+
+    def test_no_open_ended_parent_shape(self):
+        for field, value in [('commit', 'c' * 40), ('tree', 'c' * 40),
+                             ('required_commit_parents', ['c' * 40]), ('allow_any_ancestor', True)]:
+            expected = copy.deepcopy(self.expected)
+            expected['followup_parent'][field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(RuntimeError, 'parent schema'):
+                v.validate_ancestry(self.root, expected)
+
+    def test_missing_intermediate_is_not_direct_child(self):
+        self.expected.pop('followup_parent')
+        with self.assertRaisesRegex(RuntimeError, 'Exact direct'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_wrong_or_extra_head_parent(self):
+        for parents in (self.anchor['commit'], self.prior['commit'] + ' ' + 'c' * 40):
+            self.actual[('show', '-s', '--format=%P', 'HEAD')] = parents
+            with self.subTest(parents=parents), self.assertRaisesRegex(RuntimeError, 'Exact second'):
+                v.validate_ancestry(self.root, self.expected)
+
+    def test_parent_cannot_replace_current_commit(self):
+        self.expected['commit'] = self.prior['commit']
+        self.actual[('rev-parse', 'HEAD')] = self.prior['commit']
+        with self.assertRaisesRegex(RuntimeError, 'Exact second'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_intermediate_tree_drift_rejected(self):
+        self.actual[('rev-parse', self.prior['commit'] + '^{tree}')] = 'c' * 40
+        with self.assertRaisesRegex(RuntimeError, 'parent tree'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_intermediate_parent_drift_rejected(self):
+        self.actual[('show', '-s', '--format=%P', self.prior['commit'])] = 'c' * 40
+        with self.assertRaisesRegex(RuntimeError, 'parent ancestry'):
+            v.validate_ancestry(self.root, self.expected)
+
+    def test_every_exact_ancestry_link_is_required(self):
+        for failed in [('merge-base', '--is-ancestor', self.prior['commit'], 'HEAD'),
+                       ('merge-base', '--is-ancestor', self.anchor['commit'], self.prior['commit']),
+                       ('merge-base', '--is-ancestor', self.anchor['commit'], 'HEAD'),
+                       ('merge-base', '--is-ancestor', self.anchor['required_commit_parents'][1], self.anchor['commit'])]:
+            def git(root, *args):
+                if args == failed:raise subprocess.CalledProcessError(1, ['git', *args])
+                return self.actual[args]
+            with self.subTest(failed=failed), patch.object(v, 'git', git), self.assertRaises(subprocess.CalledProcessError):
+                v.validate_ancestry(self.root, self.expected)
+
+    def test_original_merge_tree_and_order_still_required(self):
+        for command, invalid, error in [
+            (('rev-parse', self.anchor['commit'] + '^{tree}'), 'c' * 40, 'anchor tree'),
+            (('show', '-s', '--format=%P', self.anchor['commit']), ' '.join(reversed(self.anchor['required_commit_parents'])), 'Both exact ordered'),
+            (('merge-base', *self.anchor['required_commit_parents']), 'c' * 40, 'anchor base')]:
+            old=self.actual[command];self.actual[command]=invalid
+            with self.subTest(command=command), self.assertRaisesRegex(RuntimeError, error):
+                v.validate_ancestry(self.root, self.expected)
+            self.actual[command]=old
+
+    def test_current_report_records_both_fixed_anchors(self):
+        observed={'status':'exact_frozen_source_pass','fork_commit':self.expected['commit'],
+                  'upstream_base':self.anchor['required_commit_parents'][1]}
+        owner='SideStore/Dependencies/minimuxer';output=self.root/'result.json'
+        with patch.object(v,'SPEC',{'native_sources':{owner:self.expected}}), \
+             patch.object(v,'validate_ancestry',return_value=[self.prior['commit']]), \
+             patch.object(v.subprocess,'check_output',return_value=json.dumps(observed)):
+            v.source_parity(self.root,output)
+        row=json.loads(output.read_text())['owners'][owner]
+        self.assertEqual(row['followup_parent'],self.prior)
+        self.assertEqual(row['merge_anchor'],self.anchor)
+
+
+
+
+class VPNTransportEvidenceTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.root=Path(self.tmp.name);self.sources=self.root/'sources';self.evidence=self.root/'evidence'
+        self.folder=self.evidence/'vpn-transport-recovery';self.folder.mkdir(parents=True)
+        self.source=self.sources/'SideStore/tests/vpn_transport_recovery/test_contract.py'
+        self.source.parent.mkdir(parents=True);self.source.write_text('synthetic source')
+        self.expected={'source_inputs':{'SideStore/tests/vpn_transport_recovery/test_contract.py':r.sha(self.source)},
+          'input_rows':{'test':{'path':'SideStore/tests/vpn_transport_recovery/test_contract.py','sha256':r.sha(self.source)}},
+          'runtime_marker':'VPN_TRANSPORT_RECOVERY_PASS transport_cases=144 actual_scanner=pass baseline_failure_reproduced=pass finite_exclusions=pass'}
+        (self.folder/'fixture.swift').write_text('synthetic fixture')
+        self.expected['generated_sha256']=r.sha(self.folder/'fixture.swift')
+        (self.folder/'inputs.json').write_text(json.dumps({'test':{'path':str(self.source),'sha256':r.sha(self.source)}}))
+        (self.folder/'compiler.log').write_text('')
+        (self.folder/'runtime.log').write_text(self.expected['runtime_marker']+'\n')
+        (self.evidence/'vpn-transport-recovery.exit-code.txt').write_text('0\n')
+        (self.evidence/'vpn-transport-recovery.log').write_text('Ran 4 tests in 0.1s\n\nOK\n'+self.expected['runtime_marker']+'\n')
+        for name,value in [('E',self.evidence),('S',self.sources)]:
+            item=patch.object(r,name,value);item.start();self.addCleanup(item.stop)
+    def test_exact_evidence_passes(self):
+        result=r.verify_vpn_transport_evidence(self.expected)
+        self.assertEqual(result['transport_case_count'],144)
+        self.assertFalse(result['target_native_executed'])
+    def test_changed_input_stops_admission(self):
+        self.source.write_text('changed')
+        with self.assertRaisesRegex(RuntimeError,'source hashes'):r.verify_vpn_transport_evidence(self.expected)
+    def test_receipt_role_root_drift_rejected(self):
+        (self.folder/'inputs.json').write_text(json.dumps({'test':{'path':'/old/root/test.py','sha256':r.sha(self.source)}}))
+        with self.assertRaisesRegex(RuntimeError,'exact input roles'):r.verify_vpn_transport_evidence(self.expected)
+    def test_generated_source_drift_rejected(self):
+        (self.folder/'fixture.swift').write_text('changed')
+        with self.assertRaisesRegex(RuntimeError,'generated Swift'):r.verify_vpn_transport_evidence(self.expected)
+    def test_missing_or_duplicate_actual_marker_rejected(self):
+        for marker in ('',self.expected['runtime_marker']+'\n'+self.expected['runtime_marker']):
+            (self.folder/'runtime.log').write_text(marker+'\n')
+            with self.subTest(marker=marker),self.assertRaisesRegex(RuntimeError,'runtime marker'):r.verify_vpn_transport_evidence(self.expected)
+    def test_wrong_totals_skips_and_failed_command_rejected(self):
+        for log in ('Ran 3 tests in 0.1s\nOK\n','Ran 4 tests in 0.1s\nOK (skipped=1)\n'):
+            (self.evidence/'vpn-transport-recovery.log').write_text(log+self.expected['runtime_marker']+'\n')
+            with self.subTest(log=log),self.assertRaisesRegex(RuntimeError,'failed, skipped'):r.verify_vpn_transport_evidence(self.expected)
+        (self.evidence/'vpn-transport-recovery.exit-code.txt').write_text('1\n')
+        with self.assertRaisesRegex(RuntimeError,'command did not pass'):r.verify_vpn_transport_evidence(self.expected)
+    def test_linked_evidence_rejected(self):
+        p=self.folder/'compiler.log';p.unlink();p.symlink_to(self.folder/'runtime.log')
+        with self.assertRaisesRegex(RuntimeError,'Missing/linked'):r.verify_vpn_transport_evidence(self.expected)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

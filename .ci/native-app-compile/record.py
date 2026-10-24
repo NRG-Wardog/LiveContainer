@@ -12,13 +12,13 @@ S = ROOT / 'sources'
 E = ROOT / 'evidence'
 TMP = Path(os.environ.get('RUNNER_TEMP', '/tmp'))
 OWNERS = {
-    'LiveContainer': ('NRG-Wardog/LiveContainer', '2975919c7d57b24830274ae0d5524e48ff8d5ff5'),
-    'SideStore': ('NRG-Wardog/SideStore', '73136ff9e20db617ef70d788699b49173fa6f0b9'),
+    'LiveContainer': ('NRG-Wardog/LiveContainer', '8808211d340c6e9e2a6274c0eaa863d7ab09474f'),
+    'SideStore': ('NRG-Wardog/SideStore', 'ff079481ad11c3ddf9510c2eb1cc3c8092c27380'),
     'AnisetteKit': ('NRG-Wardog/AnisetteKit', '3e670c2e1b72ff328d3a64353d8de2418df87e73'),
     'idevice': ('NRG-Wardog/idevice', '774f02a6d29777c85400f4ba7fa69c12b4227fb3'),
     'jktcp': ('NRG-Wardog/jktcp', 'a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9'),
     'SideStore/Dependencies/SideSign': ('NRG-Wardog/SideSign', '483c626d6e5004b45298518352307eb492fe1ccd'),
-    'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', '1d033920660c6f50b8f30c4c333f025867cd9e96'),
+    'SideStore/Dependencies/minimuxer': ('NRG-Wardog/minimuxer', '4ca3af5270de8aa48e8bc100eadf1b3550260ea2'),
     'LiveContainer/OpenSSL': ('krzyzanowskim/OpenSSL', '623c84da314e85363236507ca38a4bde65df21c3'),
     'idevice/cpp/plist_ffi': ('jkcoxson/plist_ffi', '66e6e6362b58bc361725c3e1b0a34af498aa2b3a'),
     'LiveContainer/litehook': ('LiveContainerMirror/litehook', 'a7e9f599d7f0b3d77008ad62bf10cb10dab6eca9'),
@@ -317,7 +317,41 @@ def verify_resolved():
           'actual_anisette_tree': git(ak, 'rev-parse', 'HEAD^{tree}')})
 
 
+def verify_vpn_transport_evidence(expected=None):
+    if expected is None:
+        expected = json.loads((Path(__file__).resolve().parent / 'upstream-sync-contract.json').read_text())['vpn_transport_regression']
+    root = E / 'vpn-transport-recovery'
+    def regular(path):
+        require(path.is_file() and not path.is_symlink(), 'Missing/linked VPN transport evidence: ' + str(path))
+        return path
+    require(regular(E / 'vpn-transport-recovery.exit-code.txt').read_text().strip() == '0',
+            'VPN transport regression command did not pass')
+    source_hashes = {name: sha(regular(S / name)) for name in expected['source_inputs']}
+    require(source_hashes == expected['source_inputs'], 'VPN transport source hashes differ')
+    rows = json.loads(regular(root / 'inputs.json').read_text())
+    require(rows == {name: {'path': str((S / row['path']).resolve()), 'sha256': row['sha256']}
+                     for name, row in expected['input_rows'].items()}, 'VPN transport exact input roles differ')
+    require(sha(regular(root / 'fixture.swift')) == expected['generated_sha256'], 'VPN transport generated Swift differs')
+    runtime = regular(root / 'runtime.log').read_text()
+    marker = expected['runtime_marker']
+    require(runtime.splitlines().count(marker) == 1, 'VPN transport exact runtime marker missing or duplicate')
+    log = regular(E / 'vpn-transport-recovery.log').read_text()
+    require(len(re.findall(r'^Ran 4 tests in [0-9.]+s$', log, re.M)) == 1 and
+            log.splitlines().count('OK') == 1 and 'skipped=' not in log and
+            log.splitlines().count(marker) == 1, 'VPN transport tests failed, skipped, or had wrong totals')
+    report = {'schema': 'vpn-transport-regression-evidence-v1',
+              'status': 'SOURCE_OWNED_FAKE_SWIFT_PASS_NOT_DEVICE_VALIDATION',
+              'test_count': 4, 'transport_case_count': 144, 'source_inputs_sha256': source_hashes,
+              'generated_sha256': expected['generated_sha256'], 'runtime_marker': marker,
+              'evidence_sha256': {name: sha(regular(root / name)) for name in
+                                 ('fixture.swift', 'inputs.json', 'compiler.log', 'runtime.log')},
+              'target_native_executed': False, 'network_executed': False, 'authentication_executed': False}
+    write('vpn-transport-recovery.json', report)
+    return report
+
+
 def receipt():
+    verify_vpn_transport_evidence()
     from verify_comprehensive_diagnostics import verify_receipt
     diagnostic_report = E / 'comprehensive-diagnostics/report.json'
     verify_receipt(diagnostic_report)

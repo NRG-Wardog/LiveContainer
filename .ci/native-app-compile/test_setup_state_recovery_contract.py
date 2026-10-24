@@ -180,7 +180,10 @@ class Controls(unittest.TestCase):
                 prefix = 'SideStore/Dependencies/minimuxer/'
                 value['support_inputs_sha256'] = {p[len(prefix):]: self.contract['input_sha256'][p]
                                                  for p in inputs['support']}
-                value['cold_guard_provenance'] = 'actual_dependency_sources'
+                value['transport_fixture_inputs_sha256'] = {
+                    p: self.contract['input_sha256'][p] for p in inputs['transport_fixture']}
+                value['fixture_observation_hook'] = gate.VPN_OBSERVATION_HOOK
+                value['cold_guard_provenance'] = 'actual_unchanged_guard_blocks_and_historical_baseline'
                 value['baseline_classifier_sha256'] = self.contract['input_sha256'][
                     gate.VPN_RECOVERY + '/OriginalRefreshReadinessFacts.swift']
             if suite == 'setup-connection-evidence':
@@ -549,13 +552,13 @@ class Controls(unittest.TestCase):
             gate.verify_receipt(self.output / 'report.json', self.contract_path)
 
     def test_duplicate_marker_rejected(self):
-        # Exact line emitted by admitted focused and full native VPN72 fixtures.
-        actual_vpn_line = 'VPN_REFRESH_RECOVERY_PASS cases=72\n'
+        # Exact line emitted by admitted focused and full native VPN89 fixtures.
+        actual_vpn_line = 'VPN_REFRESH_RECOVERY_PASS cases=89\n'
         vpn_marker = gate.markers()['vpn-recovery-run']
-        self.assertEqual(gate.ADDITIVE_SPECS['vpn-refresh-recovery']['case_count'], 72)
-        self.assertEqual(vpn_marker, 'VPN_REFRESH_RECOVERY_PASS cases=72')
+        self.assertEqual(gate.ADDITIVE_SPECS['vpn-refresh-recovery']['case_count'], 89)
+        self.assertEqual(vpn_marker, 'VPN_REFRESH_RECOVERY_PASS cases=89')
         gate.require_marker(actual_vpn_line, vpn_marker)
-        for invalid in ('VPN_REFRESH_RECOVERY_PASS cases=49\n', actual_vpn_line + actual_vpn_line):
+        for invalid in ('VPN_REFRESH_RECOVERY_PASS cases=49\n', 'VPN_REFRESH_RECOVERY_PASS cases=72\n', actual_vpn_line + actual_vpn_line):
             with self.assertRaisesRegex(ValueError, 'Missing or duplicate exact success marker'):
                 gate.require_marker(invalid, vpn_marker)
         self.mutation = lambda n, a, d: subprocess.CompletedProcess(a, 0, d + d) if n == 'localization-run' else None
@@ -781,6 +784,9 @@ class Controls(unittest.TestCase):
                 ('connection_fixture', None, 'Additive fixture source hashes'),
                 ('support_inputs_sha256', {}, 'Additive support source hashes'),
                 ('support_inputs_sha256', {'SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift': '0' * 64}, 'Additive support source hashes'),
+                ('fixture_observation_hook', {}, 'VPN deterministic observation hook'),
+                ('transport_fixture_inputs_sha256', {}, 'VPN transport fixture exact'),
+                ('transport_fixture_inputs_sha256', {'SideStore/tests/vpn_transport_recovery/unknown.py': '0' * 64}, 'VPN transport fixture exact'),
                 ('cold_guard_provenance', 'pinned_source_receipt_sparse_generation', 'VPN actual dependency'),
                 ('baseline_classifier_sha256', '0' * 64, 'VPN actual dependency')):
             with self.subTest(field=field, invalid=invalid):

@@ -57,9 +57,29 @@ def validate_ancestry(root, expected):
                 'Native merge anchor schema differs')
         require(all(isinstance(anchor[key], str) and re.fullmatch('[0-9a-f]{40}', anchor[key])
                     for key in ('commit', 'tree', 'merge_base')), 'Native merge anchor identities differ')
-        require(expected['commit'] != anchor['commit'] and
-                expected['required_commit_parents'] == [anchor['commit']] and
-                parents == [anchor['commit']], 'Exact direct native follow-up parent is required')
+        if 'followup_parent' in expected:
+            # One exact additional successor only, never an arbitrary ancestor,
+            # branch name, open-ended chain, or replacement merge anchor.
+            prior = expected['followup_parent']
+            require(prior == {
+                'commit': '1d033920660c6f50b8f30c4c333f025867cd9e96',
+                'tree': 'cb4b239ebf9f3720f8998dc1debd71b3e6debd27',
+                'required_commit_parents': ['48419a2d24bd74efcee6dc80552ea89e85dafdee']
+            } and anchor['commit'] == prior['required_commit_parents'][0],
+                    'Exact reviewed native follow-up parent schema differs')
+            require(expected['commit'] not in (prior['commit'], anchor['commit']) and
+                    expected['required_commit_parents'] == [prior['commit']] and
+                    parents == [prior['commit']], 'Exact second native follow-up parent is required')
+            require(git(root, 'rev-parse', prior['commit'] + '^{tree}') == prior['tree'],
+                    'Native follow-up parent tree differs')
+            require(git(root, 'show', '-s', '--format=%P', prior['commit']).split() == [anchor['commit']],
+                    'Native follow-up parent ancestry differs')
+            git(root, 'merge-base', '--is-ancestor', prior['commit'], 'HEAD')
+            git(root, 'merge-base', '--is-ancestor', anchor['commit'], prior['commit'])
+        else:
+            require(expected['commit'] != anchor['commit'] and
+                    expected['required_commit_parents'] == [anchor['commit']] and
+                    parents == [anchor['commit']], 'Exact direct native follow-up parent is required')
         require(git(root, 'rev-parse', anchor['commit'] + '^{tree}') == anchor['tree'],
                 'Native merge anchor tree differs')
         anchor_parents = git(root, 'show', '-s', '--format=%P', anchor['commit']).split()
@@ -114,6 +134,8 @@ def source_parity(sources, output):
             'metadata_sha256': expected['files_sha256'], 'parity_result': observed}
         if 'merge_anchor' in expected:
             report['owners'][owner]['merge_anchor'] = expected['merge_anchor']
+        if 'followup_parent' in expected:
+            report['owners'][owner]['followup_parent'] = expected['followup_parent']
         write(output, report)
     report['status'] = 'EXACT_COMMITTED_SOURCE_PARITY_PASS_NOT_RUNTIME_VALIDATION'
     write(output, report)
