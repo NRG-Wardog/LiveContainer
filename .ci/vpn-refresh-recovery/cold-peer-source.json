@@ -3,18 +3,18 @@
   "minimuxer_commit": "1d033920660c6f50b8f30c4c333f025867cd9e96",
   "source_files": {
     "Sources/MinimuxerImpl.swift": {
-      "sha256": "d6b970c9e041483544862c30ebe9f04ccb368f8991b9e4ca6f45a334b3d6b382",
-      "git_blob": "f9ea443e413210bb629234e8079d082ab99cf770",
+      "sha256": "3d5cab382c0bb262110b767a925222c4beaec6748766dd8b3168ed61fa7fec55",
+      "git_blob": "5eecf629e9c0948cdb125d295ab61d2e7faa1058",
       "url": "https://github.com/NRG-Wardog/minimuxer/blob/1d033920660c6f50b8f30c4c333f025867cd9e96/Sources/MinimuxerImpl.swift"
     },
     "Sources/Services/DeviceEndpoint.swift": {
-      "sha256": "111386131f1a9a2a3afae80d79b3b9cea574eac3a14b98abec0e0d7233ece2b1",
-      "git_blob": "4a8b993bdf7c1e5a934fe034de587c6828424254",
+      "sha256": "d7d9e481e55219d67a554fdfb67477f2e4fcf4f118850ca8f1c9c8ba857d8a7e",
+      "git_blob": "7ebe47d7368cdc0e7e711d27e326b52d6ecf5f7d",
       "url": "https://github.com/NRG-Wardog/minimuxer/blob/1d033920660c6f50b8f30c4c333f025867cd9e96/Sources/Services/DeviceEndpoint.swift"
     },
     "Sources/MinimuxerInternalError.swift": {
-      "sha256": "d9ed76a23a257724d3125fb8292e52c9f209b0af82759730a8c8e4f9c44964c7",
-      "git_blob": "b7880439eebd64a9ebe0d563de69346d5f4c90dd",
+      "sha256": "5ade48f6861dfd95fc277bc2fcda08ef50bc6210606f634af048117a5a3c4a2d",
+      "git_blob": "701f00f7620c8933440c1fe375d10e70bdd64e4f",
       "url": "https://github.com/NRG-Wardog/minimuxer/blob/1d033920660c6f50b8f30c4c333f025867cd9e96/Sources/MinimuxerInternalError.swift"
     }
   },
