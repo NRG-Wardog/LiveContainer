@@ -127,7 +127,7 @@
       },
       "generate_fixture.py": {
         "path": "SideStore/tests/vpn_transport_recovery/generate_fixture.py",
-        "sha256": "09b22b79165a1deedc0d69ceb9989ef8fda9bc7e77b764c56ccbc43bfebc6203"
+        "sha256": "799a828dc211ccc009c8556c15f13ddde88c18555b39fd131a6b6968be2be3c9"
       },
       "interface_doubles.swift": {
         "path": "SideStore/tests/vpn_transport_recovery/interface_doubles.swift",
@@ -184,10 +184,10 @@
       "SideStore/tests/vpn_transport_recovery/OriginalTransportSnapshot.swift": "99b3af43544a4163b0e7bdfe19afe2da29163c175bc39cce02da4be76e6e5663",
       "SideStore/tests/vpn_transport_recovery/README.md": "52870a0039b388ce00d80b5e387155bfd12d7281ee6e0e7188cb59518c917edb",
       "SideStore/tests/vpn_transport_recovery/baseline-receipt.json": "d7b007c5c644352420600401ac6160f08daa4d1f2c5834d797eaf42999bc80d5",
-      "SideStore/tests/vpn_transport_recovery/generate_fixture.py": "09b22b79165a1deedc0d69ceb9989ef8fda9bc7e77b764c56ccbc43bfebc6203",
+      "SideStore/tests/vpn_transport_recovery/generate_fixture.py": "799a828dc211ccc009c8556c15f13ddde88c18555b39fd131a6b6968be2be3c9",
       "SideStore/tests/vpn_transport_recovery/interface_doubles.swift": "d8af978f8378d06a6e8276b2148e5683ab5233587698738ca763c20d3e6da4cc",
       "SideStore/tests/vpn_transport_recovery/policy_cases.swift": "5e105e746dcb46af47ad5d362c6b9083739cb29f82f35dab109d565c4220338d",
-      "SideStore/tests/vpn_transport_recovery/test_contract.py": "1f527916d190c6baad8f7daf3a5b0641e35d09e0562a092ca475ce43c8940ad9"
+      "SideStore/tests/vpn_transport_recovery/test_contract.py": "217070945d78c369f214324467c94248f104f0aa3e7a76a5048da4e2d96d631c"
     },
     "test_count": 4,
     "transport_case_count": 144

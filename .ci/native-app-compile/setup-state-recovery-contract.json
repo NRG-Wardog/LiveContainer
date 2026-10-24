@@ -1901,7 +1901,7 @@
     "SideStore/tests/vpn_transport_recovery/OriginalRefreshTransportPolicy.swift": "1ddc3d112d8a218db2c8017947595782fbe625dcdf7fef1fc6d4495f8b8b15d0",
     "SideStore/tests/vpn_transport_recovery/OriginalTransportSnapshot.swift": "99b3af43544a4163b0e7bdfe19afe2da29163c175bc39cce02da4be76e6e5663",
     "SideStore/tests/vpn_transport_recovery/baseline-receipt.json": "d7b007c5c644352420600401ac6160f08daa4d1f2c5834d797eaf42999bc80d5",
-    "SideStore/tests/vpn_transport_recovery/generate_fixture.py": "09b22b79165a1deedc0d69ceb9989ef8fda9bc7e77b764c56ccbc43bfebc6203",
+    "SideStore/tests/vpn_transport_recovery/generate_fixture.py": "799a828dc211ccc009c8556c15f13ddde88c18555b39fd131a6b6968be2be3c9",
     "SideStore/tests/vpn_transport_recovery/interface_doubles.swift": "d8af978f8378d06a6e8276b2148e5683ab5233587698738ca763c20d3e6da4cc"
   },
   "note": "Exact source-owned synthetic fixtures. Native/device/root-cause validation is not implied.",

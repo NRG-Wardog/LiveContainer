@@ -499,7 +499,7 @@ class ExactSecondFollowupAncestryTests(unittest.TestCase):
 class VPNTransportEvidenceTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
-        self.root=Path(self.tmp.name);self.sources=self.root/'sources';self.evidence=self.root/'evidence'
+        self.root=Path(self.tmp.name).resolve();self.sources=self.root/'sources';self.evidence=self.root/'evidence'
         self.folder=self.evidence/'vpn-transport-recovery';self.folder.mkdir(parents=True)
         self.source=self.sources/'SideStore/tests/vpn_transport_recovery/test_contract.py'
         self.source.parent.mkdir(parents=True);self.source.write_text('synthetic source')
@@ -516,6 +516,19 @@ class VPNTransportEvidenceTests(unittest.TestCase):
         for name,value in [('E',self.evidence),('S',self.sources)]:
             item=patch.object(r,name,value);item.start();self.addCleanup(item.stop)
     def test_exact_evidence_passes(self):
+        self.assertEqual(self.root, self.root.resolve())
+        # Reproduce the macOS /var -> /private/var mismatch on every platform.
+        # Only fake input construction changes; the real exact-root guard stays strict.
+        alias=self.root/'temp-root-alias';alias.symlink_to(self.root, target_is_directory=True)
+        aliased=alias/'sources/SideStore/tests/vpn_transport_recovery/test_contract.py'
+        self.assertNotEqual(str(aliased), str(aliased.resolve()))
+        self.assertEqual(aliased.resolve(), self.source)
+        row={'test':{'path':str(aliased),'sha256':r.sha(self.source)}}
+        (self.folder/'inputs.json').write_text(json.dumps(row))
+        with self.assertRaisesRegex(RuntimeError,'exact input roles'):
+            r.verify_vpn_transport_evidence(self.expected)
+        row['test']['path']=str(aliased.resolve())
+        (self.folder/'inputs.json').write_text(json.dumps(row))
         result=r.verify_vpn_transport_evidence(self.expected)
         self.assertEqual(result['transport_case_count'],144)
         self.assertFalse(result['target_native_executed'])
