@@ -11,12 +11,24 @@ ERRORS = 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift'
 HELPER = 'LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py'
 CLIENT = 'LiveContainer/SideStoreSupport/XPCClient.m'
 SERVICE = 'SideStore/AltStore/AppDelegate.swift'
+RUNNER = 'SideStore/SideStore/Core/Operations/PipelineRunner.swift'
+TRANSPORT_FIXTURE = 'SideStore/tests/vpn_transport_recovery/generate_fixture.py'
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 def generate(root, output):
     root, output = root.resolve(), output.resolve()
     spec = importlib.util.spec_from_file_location('vpn_wire_extract', root / HELPER)
     helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
     host = (root / HOST).read_text(); model = (root / MODEL).read_text()
+    transport_spec = importlib.util.spec_from_file_location('vpn_transport_extract', root / TRANSPORT_FIXTURE)
+    transport_helper = importlib.util.module_from_spec(transport_spec); transport_spec.loader.exec_module(transport_helper)
+    transport_source, transport_inputs = transport_helper.generate_source(root, include_operation_classifier=False)
+    runner = (root / RUNNER).read_text()
+    early_capture = helper.block(runner, 'enum V3RefreshEarlyFailureBoundary {')
+    structured_capture = helper.block((root / PRODUCER).read_text(), 'func lcStructuredSigningFailure(')
+    assert 'V3RefreshEarlyFailureBoundary.readiness.preserving(' in runner
+    assert 'V3HeadlessPairingFailure.tagIfInvalidPairing(error.asOperationError), operations: operations)' in runner
+    assert 'group.context.error = opError' in runner
+
     anchors = ['enum LiveContainerVPNRefreshRecoveryPolicy {',
                'final class LiveContainerVPNActivationWaiter {',
                'enum LiveContainerVPNReturnMarkerPolicy {']
@@ -60,7 +72,9 @@ def generate(root, output):
     assert cold_message.endswith('Cause: DeviceEndpointNotInitialized')
     assert 'message == ' + json.dumps(cold_message, ensure_ascii=False) in producer
     assert 'facts["refresh_readiness_reason"] = "peerAddressUnavailable"' in producer
-    assert helper.block(service, 'public static func validatedSigningContext(') == helper.block(model, 'public static func validatedSigningContext(')
+    for anchor in ['public struct CombinedFailure:', 'public enum CombinedVerification {']:
+        assert helper.block(service, anchor) == helper.block(model, anchor), anchor
+
     original = (HERE / 'OriginalRefreshReadinessFacts.swift').read_text()
     assert hashlib.sha256(original.encode()).hexdigest() == cold_source['baseline_classifier_source']['extracted_sha256']
     assert 'peerAddressUnavailable' not in original
@@ -72,7 +86,15 @@ def generate(root, output):
     if dependency.is_dir():
         for path, expected in cold_source['source_files'].items():
             actual = sha(dependency / path)
-            assert actual == expected['sha256'], 'Cold VPN guard dependency changed: ' + path
+            pinned_guard = cold_source.get('candidate_guard_blocks', {}).get(path)
+            if pinned_guard:
+                # Full source hashes above name the historical baseline. The
+                # candidate changes transport selection but not this cold-peer
+                # guard. Bind that unchanged guard and report full current bytes.
+                guard = helper.block((dependency / path).read_text(), pinned_guard['anchor'])
+                assert hashlib.sha256(guard.encode()).hexdigest() == pinned_guard['sha256'], path
+            else:
+                assert actual == expected['sha256'], 'Cold VPN guard dependency changed: ' + path
             live_guard_inputs[path] = actual
     cold_constant = 'let coldVPNPeerGuardMessage = ' + json.dumps(cold_message, ensure_ascii=False) + '\n'
 
@@ -81,21 +103,55 @@ def generate(root, output):
     names = re.findall(r'^        check\("([^"]+)"', cases, re.M)
     assert len(names) == len(set(names)) and len(names) >= 35
     swift = 'import Foundation\nimport CoreFoundation\n#if canImport(FoundationNetworking)\nimport FoundationNetworking\n#endif\n'
+    platform = (HERE / 'PlatformDoubles.swift').read_text()
+    keys = ['activeRunKey', 'expectedRunKey', 'activeManualRequestKey', 'verificationKey',
+            'hostHandoffKey', 'uncertainMutationKey', 'hostVerifiedKey', 'runLedgerKey']
+    declarations = []
+    for key in keys:
+        found = re.findall(r'^    static let ' + key + r' = .*$', host, re.M)
+        assert len(found) == 1, key
+        declarations += found
+    scheduler_blocks = [helper.block(host, x) for x in [
+        'private static func runLedger()', 'private static func performRefreshWithVPNRecovery(',
+        'private static func verifyRefreshManifest(']]
+    platform = platform.replace('// ACTUAL_SCHEDULER_KEYS', '\n'.join(declarations))
+    platform = platform.replace('// ACTUAL_SCHEDULER_METHODS', '\n'.join(scheduler_blocks))
+    network_preflight = helper.block(host, 'enum LiveContainerNetworkPreflight {')
+    activation_state = helper.block(host, 'final class LiveContainerVPNActivationState {')
+    # Transparent observation of the production observer's original assignment.
+    # No fixture code sets leftHost; only its actual didEnterBackground handler
+    # can acknowledge the fake application's return event. All decisions and
+    # the preflight/activation method bodies remain byte-exact source extracts.
+    observed_storage = 'var leftHost = false { didSet { FixtureLifecycle.observedLeftHost(leftHost) } }'
+    assert activation_state.count('var leftHost = false') == 1
+    instrumented_state = activation_state.replace('var leftHost = false', observed_storage, 1)
+    assert instrumented_state.replace(observed_storage, 'var leftHost = false', 1) == activation_state
+
     swift += helper.pure_model(model) + '\n' + errors + '\n' + producer + '\n'
-    swift += original + '\n' + cold_constant + policy + '\n@MainActor\n' + waiter + '\n' + marker + '\n' + cases
+    swift += 'func debugLog(_ text: String) {}\nfunc verboseLog(_ text: String) {}\n'
+    swift += transport_source + '\n' + early_capture + '\n' + structured_capture + '\n'
+    swift += platform + '\n' + original + '\n' + cold_constant + policy + '\n@MainActor\n' + waiter
+    swift += '\n@MainActor\n' + instrumented_state + '\n' + marker + '\n@MainActor\n' + network_preflight + '\n' + cases
+
     output.mkdir(parents=True, exist_ok=True)
     (output / 'vpn-refresh-recovery.swift').write_text(swift)
     receipt = {'schema': 'vpn-refresh-recovery-sources-v1', 'status': 'STATIC_PASS_GENERATED_NOT_COMPILED_NOT_RUN',
-        'input_root': str(root), 'inputs_sha256': {x: sha(root / x) for x in [HOST, MODEL, PRODUCER, ERRORS, HELPER, CLIENT, SERVICE]},
+        'input_root': str(root), 'inputs_sha256': {x: sha(root / x) for x in [HOST, MODEL, PRODUCER, ERRORS, HELPER, CLIENT, SERVICE, RUNNER, TRANSPORT_FIXTURE]},
         'support_inputs_sha256': live_guard_inputs,
-        'cold_guard_provenance': 'actual_dependency_sources' if live_guard_inputs else 'pinned_source_receipt_sparse_generation',
-        'fixture_inputs_sha256': {x: sha(HERE / x) for x in ['generate_fixture.py', 'cases.swift', 'OriginalRefreshReadinessFacts.swift', 'cold-peer-source.json']},
+        'transport_fixture_inputs_sha256': {str(path.relative_to(root)): sha(path) for path in transport_inputs.values()},
+        'cold_guard_provenance': 'actual_unchanged_guard_blocks_and_historical_baseline' if live_guard_inputs else 'pinned_source_receipt_sparse_generation',
+        'fixture_inputs_sha256': {x: sha(HERE / x) for x in ['generate_fixture.py', 'cases.swift', 'OriginalRefreshReadinessFacts.swift', 'cold-peer-source.json', 'PlatformDoubles.swift']},
         'generated_sha256': hashlib.sha256(swift.encode()).hexdigest(),
         'expected_case_names': names, 'expected_case_count': len(names),
-        'extracted_blocks': anchors + ['func lcRefreshFailureFacts(', 'public enum OperationError:'],
+        'extracted_blocks': anchors + ['enum LiveContainerNetworkPreflight {', 'private static func performRefreshWithVPNRecovery(', 'private static func verifyRefreshManifest(', 'enum V3RefreshEarlyFailureBoundary {', 'func lcStructuredSigningFailure(', 'func lcRefreshFailureFacts(', 'public enum OperationError:'],
         'baseline_classifier_sha256': cold_source['baseline_classifier_source']['extracted_sha256'],
+        'fixture_observation_hook': {'source': HOST, 'anchor': 'final class LiveContainerVPNActivationState {',
+            'original_sha256': hashlib.sha256(activation_state.encode()).hexdigest(),
+            'instrumented_sha256': hashlib.sha256(instrumented_state.encode()).hexdigest(),
+            'exact_insertion_count': 1,
+            'description': 'Observation-only didSet on leftHost awaits the original background observer assignment before injecting active; no fixture writes leftHost and no production decision or method body changes.'},
         'swift_compiled': False, 'swift_executed': False, 'network_executed': False, 'native_provider_executed': False,
-        'boundary_contract': 'Actual retry policy/orchestrator, producer, decoder, activation waiter, and return-marker policy, with the unchanged prior readiness classifier as a cold-peer regression control. Injected attempt/activate/settle/prepare closures record calls or throw. UIApplication, NWPathMonitor, native transport, Keychain and provider are never executed. Wiring is source-asserted, not runtime-validated.',
+        'boundary_contract': 'Actual interface scanner/transport selection/unavailable producer/error mapper, readiness capture, binary-plist per-app sanitizer/decoder, host preflight/activation and scheduler methods. Frozen exact old producer is the negative control. Only OS interfaces, Wi-Fi observations, UIApplication lifecycle/open completion, preferences and external refresh completion are doubles. The existing 72 policy cases remain. Real UIKit/NWPathMonitor, native transport, Keychain and provider are never executed.',
         'limits': ['Generation/static checks only.', 'No device VPN activation or on-device readiness proof.']}
     (output / 'sources.json').write_text(json.dumps(receipt, indent=2) + '\n')
     return receipt

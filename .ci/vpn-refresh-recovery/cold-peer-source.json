@@ -26,5 +26,12 @@
   },
   "limits": [
     "Source-derived guard identity; no VPN or native runtime was exercised."
-  ]
+  ],
+  "source_files_role": "historical_cold_peer_baseline_not_candidate_revision",
+  "candidate_guard_blocks": {
+    "Sources/MinimuxerImpl.swift": {
+      "anchor": "switch connectionMode {\n                case .localVPN:\n                    debugLog(\"[minimuxer] minimuxer not ready: tunnel peer IP",
+      "sha256": "a9a958442902624d906ed4f771999bf20cac810dc831631bcb2988b620d79019"
+    }
+  }
 }
