@@ -1801,7 +1801,7 @@
     "SideStore/SideStore/Core/Operations/StandaloneOperations/SyncAppIDsOperation.swift": "fc665b979d8cc984367bcbaf948fba7f3a7ba78e3d97198778ae4998df54b0df",
     "SideStore/SideStore/Utils/common/AppBundleFingerprint.swift": "8340287850ef442e63c4d93665ad65e64997914d81c983ccd5aede146bcc7fa2",
     "SideStore/SideStore/Utils/concurrency/TaskChainCoalescer.swift": "9cbd155acef7d25b17ef8f593d718ab5edce47d0c4ba29a502ae7a916a435fae",
-    "SideStore/tests/cache_compatibility/Cases.swift": "0ee56bb9e61eca1c38bf7fb682033949ddd84ebe52588c9f672f0e06cceb497d",
+    "SideStore/tests/cache_compatibility/Cases.swift": "0d5b24668237cfd2c20ce63ef880e60b0a21dd9312643007ccfa0bfb1c8746ae",
     "SideStore/tests/cache_compatibility/OriginalAppBundleFingerprint.swift": "215f5c16cd4d2a5ecddd8a1983e22e3a9851908159b1fb272260c1eb8cfed2e6",
     "SideStore/tests/cache_compatibility/OriginalCacheAppOperation.swift": "c1b7b1b0c3a08f1c5501461561a299b5dc1570e54c241c3c847c64c992b418da",
     "SideStore/tests/cache_compatibility/generate_fixture.py": "8175c8b095c31e70958d8ad4de1ecd475585f04006a589421c32e1ee323aecfe",
