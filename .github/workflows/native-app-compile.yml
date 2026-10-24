@@ -2,7 +2,7 @@
 name: Exact native app compile evidence (not release admission)
 on:
   push:
-    branches: [validation/native-cache-compatibility-20261024]
+    branches: [validation/native-cold-vpn-activation-20261024]
     paths:
       - '.github/workflows/native-app-compile.yml'
       - '.ci/native-app-compile/record.py'
@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   compile:
-    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/native-cache-compatibility-20261024'
+    if: github.repository == 'NRG-Wardog/LiveContainer' && github.ref == 'refs/heads/validation/native-cold-vpn-activation-20261024'
     runs-on: macos-26
     timeout-minutes: 100
     env:

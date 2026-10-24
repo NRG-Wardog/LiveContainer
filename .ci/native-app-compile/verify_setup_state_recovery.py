@@ -226,6 +226,7 @@ ADDITIVE_SUITE_INPUTS['host-refresh-bundle'] = {
                 ('BoundaryDoubles.swift', 'Cases.swift', 'test_contract.py', 'generate_fixture.py')],
     'other': []}
 ADDITIVE_SUITE_INPUTS['cache-compatibility'] = {'production': ['SideStore/AltStore/Core/Model/InstalledApp.swift', 'SideStore/AltStore/Extensions/FileManager+URLs.swift', 'SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift', 'SideStore/SideStore/Core/Operations/PipelineRunner.swift', 'SideStore/SideStore/Utils/common/AppBundleFingerprint.swift'], 'support': [], 'fixture': ['SideStore/tests/cache_compatibility/Cases.swift', 'SideStore/tests/cache_compatibility/OriginalAppBundleFingerprint.swift', 'SideStore/tests/cache_compatibility/OriginalCacheAppOperation.swift', 'SideStore/tests/cache_compatibility/generate_fixture.py', 'SideStore/tests/cache_compatibility/BeforeCanonicalAnchorCacheAppOperation.swift'], 'other': []}
+ADDITIVE_SUITE_INPUTS['vpn-refresh-recovery'] = {'production': ['LiveContainer/LiveContainerSwiftUI/App/AppDelegate.swift', 'LiveContainer/SideStoreSupport/SideStore.swift', 'SideStore/SideStore/Core/Operations/PipelineExecutor.swift', 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift', 'LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py', 'LiveContainer/SideStoreSupport/XPCClient.m', 'SideStore/AltStore/AppDelegate.swift'], 'support': ['SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift', 'SideStore/Dependencies/minimuxer/Sources/Services/DeviceEndpoint.swift', 'SideStore/Dependencies/minimuxer/Sources/MinimuxerInternalError.swift'], 'fixture': ['LiveContainer/.ci/vpn-refresh-recovery/generate_fixture.py', 'LiveContainer/.ci/vpn-refresh-recovery/cases.swift', 'LiveContainer/.ci/vpn-refresh-recovery/OriginalRefreshReadinessFacts.swift', 'LiveContainer/.ci/vpn-refresh-recovery/cold-peer-source.json'], 'other': ['LiveContainer/.ci/vpn-refresh-recovery/README.md']}
 ADDITIVE_SPECS = {
     'setup-connection-evidence': {'prefix': 'connection', 'folder': CONNECTION,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
@@ -238,7 +239,7 @@ ADDITIVE_SPECS = {
     'vpn-refresh-recovery': {'prefix': 'vpn-recovery', 'folder': VPN_RECOVERY,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
         'source_schema': 'vpn-refresh-recovery-sources-v1', 'swift': 'vpn-refresh-recovery.swift',
-        'cases_schema': 'vpn-refresh-recovery-cases-v1', 'case_count': 49},
+        'cases_schema': 'vpn-refresh-recovery-cases-v1', 'case_count': 72},
     'host-refresh-bundle': {'prefix': 'host-refresh-bundle', 'folder': HOST_BUNDLE,
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
         'source_schema': 'v3-host-refresh-bundle-source-v1', 'swift': 'host-refresh-bundle.swift',
@@ -549,7 +550,17 @@ def additive_extraction(output, contract, suite):
             value.get('expected_case_count') == spec['case_count'], 'Additive exact source case closure differs')
     require(value.get('inputs_sha256') == {p: contract['input_sha256'][p] for p in inputs['production']},
             'Additive production source hashes differ')
-    require(value.get('support_inputs_sha256', {}) == {p: contract['input_sha256'][p] for p in inputs['support']},
+    support_hashes = {p: contract['input_sha256'][p] for p in inputs['support']}
+    if suite == 'vpn-refresh-recovery':
+        # The source-owned receipt uses exact dependency-relative paths.
+        prefix = 'SideStore/Dependencies/minimuxer/'
+        require(all(p.startswith(prefix) for p in support_hashes), 'VPN support path scope differs')
+        support_hashes = {p[len(prefix):]: value for p, value in support_hashes.items()}
+        require(value.get('cold_guard_provenance') == 'actual_dependency_sources' and
+                value.get('baseline_classifier_sha256') == contract['input_sha256'][
+                    VPN_RECOVERY + '/OriginalRefreshReadinessFacts.swift'],
+                'VPN actual dependency or original classifier proof differs')
+    require(value.get('support_inputs_sha256', {}) == support_hashes,
             'Additive support source hashes differ')
     require(value.get('fixture_inputs_sha256') == {Path(p).name: contract['input_sha256'][p] for p in inputs['fixture']},
             'Additive fixture source hashes differ')

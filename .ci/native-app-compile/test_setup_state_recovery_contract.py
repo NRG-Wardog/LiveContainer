@@ -176,6 +176,13 @@ class Controls(unittest.TestCase):
                 'support_inputs_sha256': {p: self.contract['input_sha256'][p] for p in inputs['support']},
                 'fixture_inputs_sha256': {Path(p).name: self.contract['input_sha256'][p] for p in inputs['fixture']},
                 'generated_sha256': gate.digest((folder / spec['swift']).read_bytes())}
+            if suite == 'vpn-refresh-recovery':
+                prefix = 'SideStore/Dependencies/minimuxer/'
+                value['support_inputs_sha256'] = {p[len(prefix):]: self.contract['input_sha256'][p]
+                                                 for p in inputs['support']}
+                value['cold_guard_provenance'] = 'actual_dependency_sources'
+                value['baseline_classifier_sha256'] = self.contract['input_sha256'][
+                    gate.VPN_RECOVERY + '/OriginalRefreshReadinessFacts.swift']
             if suite == 'setup-connection-evidence':
                 value.update(host_activation_message_contract='exact_finite_guard_both_mirrors_before_generic_timeout',
                              host_activation_negative_static_mutations=list(gate.ACTIVATION_NEGATIVE_MUTATIONS))
@@ -760,14 +767,26 @@ class Controls(unittest.TestCase):
                     self.run_gate()
 
     def test_additive_fixture_hash_drift_rejected(self):
-        def mutate(name, argv, data):
-            if name == 'connection-source':
-                self.rewrite_json(self.output / 'setup-connection-evidence/sources.json',
-                                  lambda v: v['fixture_inputs_sha256'].update({'cases.swift': '0' * 64}))
-        self.mutation = mutate
-        with self.assertRaisesRegex(ValueError, 'Additive fixture source hashes'):
-            self.run_gate()
-        self.assertFalse(any(n.endswith('-compile') for n in self.command_names))
+        # Preserve the existing fixture drift case and bind new VPN proof boundaries.
+        for field, invalid, expected in (
+                ('connection_fixture', None, 'Additive fixture source hashes'),
+                ('support_inputs_sha256', {}, 'Additive support source hashes'),
+                ('support_inputs_sha256', {'SideStore/Dependencies/minimuxer/Sources/MinimuxerImpl.swift': '0' * 64}, 'Additive support source hashes'),
+                ('cold_guard_provenance', 'pinned_source_receipt_sparse_generation', 'VPN actual dependency'),
+                ('baseline_classifier_sha256', '0' * 64, 'VPN actual dependency')):
+            with self.subTest(field=field, invalid=invalid):
+                self.setUp()
+                def mutate(name, argv, data):
+                    if field == 'connection_fixture' and name == 'connection-source':
+                        self.rewrite_json(self.output / 'setup-connection-evidence/sources.json',
+                                          lambda v: v['fixture_inputs_sha256'].update({'cases.swift': '0' * 64}))
+                    elif field != 'connection_fixture' and name == 'vpn-recovery-source':
+                        self.rewrite_json(self.output / 'vpn-refresh-recovery/sources.json',
+                                          lambda v: v.update({field: invalid}))
+                self.mutation = mutate
+                with self.assertRaisesRegex(ValueError, expected):
+                    self.run_gate()
+                self.assertFalse(any(n.endswith('-compile') for n in self.command_names))
 
     def test_additive_generated_swift_tampering_rejected(self):
         def mutate(name, argv, data):
