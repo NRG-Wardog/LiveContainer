@@ -1,0 +1,330 @@
+{
+  "fixture_inputs_sha256": {
+    "README.md": "ec6cb02d3b8568decdf62e2b1a64d5064d2b85029bf8445f9d2ea40e7b03d0a8",
+    "cache/BoundaryDoubles.swift": "9b517b85c7287207ea8524ad45313c327268ab7d60c14b3944e6dc5d71036bdc",
+    "cache/Cases.swift": "05e955ab060d39da3fe2eb888727534a4a9a57d8ed8b76152a98d6ac8cf1f9c7",
+    "cache/README.md": "0f8b55ed18fcaa2dc15351bb9370d08de6af35876ca42a14150e85f255ea0299",
+    "cache/generate.py": "55bdfe7020fca9b940668647a73c73c87ebb9f783c335774ae5b40470d9bcedc",
+    "cache/test_source.py": "f983e663e063fd7027b4477d994f086c701a17f0287de68d6506b7857d725e41",
+    "chain/Cases.swift": "8a4e72c84ed3c602b2704a9f4d97b5f72e786f4d5ed869f33ea5586553dcd42b",
+    "chain/Doubles.swift": "47f33f5164e7ca49f6b13c6db68e260ba27efd9bd8343c223f412458b9891244",
+    "chain/Operations.swift": "b9691cfcefe4e03258c867de846c50622f10d144f4423127582cbfc573928e64",
+    "chain/generate_fixture.py": "805b8ee78192d12a060b1162f11a8af2d5cf176cd8e47a127ee4d4d41e9a4db9",
+    "customization/Cases.swift": "5abbaaa278c1ac502f6950990e54c95acfa8c35a1281b16c61415223dde72493",
+    "customization/README.md": "86292666a3d46e1f20e1c8b1607bcb1de624f9696547ded63e6aaa3c50ab315c",
+    "customization/Support.swift": "da84cbb8500397576a6114bddd35ded1f5cd77c3fad5fa27afc0944f29f61184",
+    "customization/generate.py": "c9ffae0f7c902cc6d1dc26cc70cfcaab45133b0ee07c9d72cae7ea6c26d7c3f8",
+    "customization/test_generator.py": "304574dad450de5437fdd4fface4bae2eb68bdf2c2b0b4f95577150d38ca964d",
+    "generate.py": "705fd740f086960b0ee31d7c91bbcb0f96fc67dbff132c7272dd6d187c17faec",
+    "source-inputs.json": "0e529cd8d807fa559817f2dc71b61e23d564709f3e72c72da0263752c5b123c2",
+    "test_sources.py": "2bb156525d2f5c2fe482fbc22f1a122f5d1e4da4db035958b835ea82a4914e66"
+  },
+  "generated_sha256": {
+    "cache/Cache.swift": "940edafe48ed344110bbc72ff301e30f4dcc3b1f53ab4395c7e9cf86d10faac6",
+    "cache/CacheNegativeConflict.swift": "2c55f84c39264f6be332917849d8e419f1bd0a9781d14efb03fed1a5010e19f8",
+    "cache/CacheNegativeSameSize.swift": "c5bbf43876eeb17b2ad13cfed24a99dc3e9ca9020dbb912140b7f214d02d0364",
+    "cache/sources.json": "a4ad849b625f2eb4f9afca2bee6495099368b7a3a4d156a05d6de1daf813513f",
+    "chain/InstallChain.swift": "bfc8493dbf21686f62982f3234ec8b52b0a43786f34367f31f7f6471a8973fb0",
+    "chain/MissingInputURL.swift": "fac8a78c6ad5f78ab8f590014c4328f24ed05cbc27542e7da28ee4c61ca1eacb",
+    "chain/MissingProfiles.swift": "470948a07cd86b27ccf7ef9990a8e88d6a520e6e50b67d64664eb453db5cfdd6",
+    "chain/MissingTarget.swift": "8b55e98ee93c39ccbc7fd54de4070a6c616d86d4781aef24003d59b48dc9afda",
+    "chain/OmittedInstallStep.swift": "fbff807f79706cac966af91001af10020bd7239bb74657fdae7ca9f892b5d777",
+    "chain/chain-sources.json": "e71c1ee8c7c859f90437a762dab0d19367e9c1ba8067bc5a0352492df437821a",
+    "customization/Customization.sources.json": "c8cc8d1451d7229a2825cabafbd6abf27e4445934d52807f5091a589b91ca4ad",
+    "customization/Customization.swift": "e951d14791a0e5532e102ef981df8abb83a0c93ed722290408ef7d28fcb86a9a",
+    "customization/NegativeBypassInfoPlist.sources.json": "d9c1390defd0a221c69c3cec7a1c4d5907185ba3aaec05fc4df656105f28f1f2",
+    "customization/NegativeBypassInfoPlist.swift": "f70a463eefc886f4ada36639c37cf0b91a05a89292c5b3495bd8ebf49fce0acb",
+    "customization/NegativeDropPersistedTrue.sources.json": "fbad4eda82e6771f9fb66d83383b0f75514b7d9334e32514b6034a6b9e750c19",
+    "customization/NegativeDropPersistedTrue.swift": "4e6a749f094626db761ef43f433b34eb8ad935b19d29da39d1d051f7e8edd756",
+    "sources.json": "a255be75fbd8d0143c691ee2c7dd7866da6a9f13dbc2e2928cc8880e169ff40e"
+  },
+  "generator": "generate.py",
+  "native_admission": false,
+  "production_changed": false,
+  "recorder_sha256": "9db2179c6d3eb0153e303d906151d99d6f0d3653b993fe088dccdb8bf978ed26",
+  "schema": "install-chain-ci-contract-v1",
+  "source_inputs_sha256": {
+    "SideStore/AltStore/AppDelegate.swift": "ce9e1d78bc262fa9f3e018661dd5c1e9dc17e2188e5e47fd51c243c8614d142e",
+    "SideStore/AltStore/Core/Extensions/UserDefaults+AltStore.swift": "b1f7c447a3a891093ea2fc9a00de78ca6ac7036b81862c6257d00a34533dc574",
+    "SideStore/AltStore/Core/Protocols/AppProtocol.swift": "6b92d17f1b15e37d4c0e6de4e8742db191cd6daeb357865cb5fe4a8288073570",
+    "SideStore/SideStore/Core/Operations/AppOperation.swift": "1d078ee70af9870e86ffdeea713d1410163eeb7990bdf264c245fa6b39f9b9eb",
+    "SideStore/SideStore/Core/Operations/OperationContexts.swift": "d2493541f7f87fd2f9fc1d319b7480e6ef487b23ae7d621c121a63a2b58af994",
+    "SideStore/SideStore/Core/Operations/OperationStep.swift": "2293b15da7ee02363b9d25b05760d2756a206b539814a108e00a0c9c541ed398",
+    "SideStore/SideStore/Core/Operations/OperationStepDefinition.swift": "3465435df1449714541612e84a544350258320da02bdd5ec210a03f0dc3ce128",
+    "SideStore/SideStore/Core/Operations/PipelineExecutionHandler.swift": "af446e4a886b7f87475e57590a3c1cd8399138897f29ac8101c692d3f2d34f60",
+    "SideStore/SideStore/Core/Operations/PipelineExecutor.swift": "b79b429cbd8d7ac38f7435b0cc02536c939bd07a226aa601193cf8e01eba156b",
+    "SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift": "9c4b34f723ff5c83d73ad198188df8e53213f356ce85f73dd95c169743853e6d",
+    "SideStore/SideStore/Core/Operations/PipelineOperations/UserCustomizationOperation.swift": "88eb05e1372f01b25678562a82be5c53bb9650bc81bc3e5b2e9b86fcdd3869da",
+    "SideStore/SideStore/Core/Operations/PipelineRunner.swift": "4e139e9d643f59fb6990fdc246ecfa9aaa32acbc4595ea839b38bd9c4199522e",
+    "SideStore/SideStore/Utils/common/AppBundleFingerprint.swift": "c73ec2bfa43d56be919dac7fb824c0dc62a46f1830569d2b42697b52cd64ff67"
+  },
+  "source_pins": {
+    "AnisetteKit": [
+      "NRG-Wardog/AnisetteKit",
+      "3e670c2e1b72ff328d3a64353d8de2418df87e73"
+    ],
+    "LiveContainer": [
+      "NRG-Wardog/LiveContainer",
+      "a8be8bab654edcecef0ec52020e76f0809a5ecc2"
+    ],
+    "LiveContainer/OpenSSL": [
+      "krzyzanowskim/OpenSSL",
+      "623c84da314e85363236507ca38a4bde65df21c3"
+    ],
+    "LiveContainer/litehook": [
+      "LiveContainerMirror/litehook",
+      "a7e9f599d7f0b3d77008ad62bf10cb10dab6eca9"
+    ],
+    "SideStore": [
+      "NRG-Wardog/SideStore",
+      "7ff41a436cb6d1ee6465110b34b5a1cfded7952d"
+    ],
+    "SideStore/Dependencies/SideSign": [
+      "NRG-Wardog/SideSign",
+      "483c626d6e5004b45298518352307eb492fe1ccd"
+    ],
+    "SideStore/Dependencies/minimuxer": [
+      "NRG-Wardog/minimuxer",
+      "1d033920660c6f50b8f30c4c333f025867cd9e96"
+    ],
+    "idevice": [
+      "NRG-Wardog/idevice",
+      "774f02a6d29777c85400f4ba7fa69c12b4227fb3"
+    ],
+    "idevice/cpp/plist_ffi": [
+      "jkcoxson/plist_ffi",
+      "66e6e6362b58bc361725c3e1b0a34af498aa2b3a"
+    ],
+    "jktcp": [
+      "NRG-Wardog/jktcp",
+      "a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9"
+    ]
+  },
+  "source_receipt": "sources.json",
+  "variants": [
+    {
+      "cases": [
+        "input_owned_url_and_identity",
+        "input_rejects_noncanonical_token",
+        "context_default_values",
+        "install_sequence_and_weights",
+        "default_chain_contract",
+        "failure_stops_before_next_step",
+        "post_install_failure_remains_failure"
+      ],
+      "expected_failures": [],
+      "group": "chain",
+      "name": "chain-installchain",
+      "swift": "chain/InstallChain.swift"
+    },
+    {
+      "cases": [
+        "input_owned_url_and_identity",
+        "input_rejects_noncanonical_token",
+        "context_default_values",
+        "install_sequence_and_weights",
+        "default_chain_contract",
+        "failure_stops_before_next_step",
+        "post_install_failure_remains_failure"
+      ],
+      "expected_failures": [
+        "default_chain_contract",
+        "failure_stops_before_next_step",
+        "post_install_failure_remains_failure"
+      ],
+      "group": "chain",
+      "name": "chain-missingtarget",
+      "swift": "chain/MissingTarget.swift"
+    },
+    {
+      "cases": [
+        "input_owned_url_and_identity",
+        "input_rejects_noncanonical_token",
+        "context_default_values",
+        "install_sequence_and_weights",
+        "default_chain_contract",
+        "failure_stops_before_next_step",
+        "post_install_failure_remains_failure"
+      ],
+      "expected_failures": [
+        "default_chain_contract",
+        "post_install_failure_remains_failure"
+      ],
+      "group": "chain",
+      "name": "chain-missingprofiles",
+      "swift": "chain/MissingProfiles.swift"
+    },
+    {
+      "cases": [
+        "input_owned_url_and_identity",
+        "input_rejects_noncanonical_token",
+        "context_default_values",
+        "install_sequence_and_weights",
+        "default_chain_contract",
+        "failure_stops_before_next_step",
+        "post_install_failure_remains_failure"
+      ],
+      "expected_failures": [
+        "input_owned_url_and_identity",
+        "default_chain_contract",
+        "failure_stops_before_next_step",
+        "post_install_failure_remains_failure"
+      ],
+      "group": "chain",
+      "name": "chain-missinginputurl",
+      "swift": "chain/MissingInputURL.swift"
+    },
+    {
+      "cases": [
+        "input_owned_url_and_identity",
+        "input_rejects_noncanonical_token",
+        "context_default_values",
+        "install_sequence_and_weights",
+        "default_chain_contract",
+        "failure_stops_before_next_step",
+        "post_install_failure_remains_failure"
+      ],
+      "expected_failures": [
+        "install_sequence_and_weights",
+        "default_chain_contract",
+        "post_install_failure_remains_failure"
+      ],
+      "group": "chain",
+      "name": "chain-omittedinstallstep",
+      "swift": "chain/OmittedInstallStep.swift"
+    },
+    {
+      "cases": [
+        "absent_preferences_no_handler_nil_result",
+        "registered_false_preferences_no_handler_nil_result",
+        "persisted_false_preferences_no_handler_nil_result",
+        "persisted_true_customizeInfoPlist_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeEntitlements_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeAppIcon_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeProvisioningProfile_survives_registration_and_reaches_actual_default",
+        "persisted_true_app_id_supported_default_choice",
+        "supported_app_id_cancel_propagates",
+        "nil_target_guard_preserved_with_all_flags_false",
+        "store_update_skips_true_flags_and_nil_target",
+        "direct_default_info_plist_targets_exact_error",
+        "direct_default_info_plist_single_exact_error",
+        "direct_default_entitlements_targets_exact_error",
+        "direct_default_entitlements_single_exact_error",
+        "direct_default_icon_exact_error",
+        "direct_default_provisioning_exact_error"
+      ],
+      "expected_failures": [],
+      "group": "customization",
+      "name": "customization-customization",
+      "swift": "customization/Customization.swift"
+    },
+    {
+      "cases": [
+        "absent_preferences_no_handler_nil_result",
+        "registered_false_preferences_no_handler_nil_result",
+        "persisted_false_preferences_no_handler_nil_result",
+        "persisted_true_customizeInfoPlist_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeEntitlements_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeAppIcon_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeProvisioningProfile_survives_registration_and_reaches_actual_default",
+        "persisted_true_app_id_supported_default_choice",
+        "supported_app_id_cancel_propagates",
+        "nil_target_guard_preserved_with_all_flags_false",
+        "store_update_skips_true_flags_and_nil_target",
+        "direct_default_info_plist_targets_exact_error",
+        "direct_default_info_plist_single_exact_error",
+        "direct_default_entitlements_targets_exact_error",
+        "direct_default_entitlements_single_exact_error",
+        "direct_default_icon_exact_error",
+        "direct_default_provisioning_exact_error"
+      ],
+      "expected_failures": [
+        "persisted_true_customizeInfoPlist_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeEntitlements_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeAppIcon_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeProvisioningProfile_survives_registration_and_reaches_actual_default",
+        "persisted_true_app_id_supported_default_choice",
+        "supported_app_id_cancel_propagates"
+      ],
+      "group": "customization",
+      "name": "customization-negativedroppersistedtrue",
+      "swift": "customization/NegativeDropPersistedTrue.swift"
+    },
+    {
+      "cases": [
+        "absent_preferences_no_handler_nil_result",
+        "registered_false_preferences_no_handler_nil_result",
+        "persisted_false_preferences_no_handler_nil_result",
+        "persisted_true_customizeInfoPlist_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeEntitlements_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeAppIcon_survives_registration_and_reaches_actual_default",
+        "persisted_true_customizeProvisioningProfile_survives_registration_and_reaches_actual_default",
+        "persisted_true_app_id_supported_default_choice",
+        "supported_app_id_cancel_propagates",
+        "nil_target_guard_preserved_with_all_flags_false",
+        "store_update_skips_true_flags_and_nil_target",
+        "direct_default_info_plist_targets_exact_error",
+        "direct_default_info_plist_single_exact_error",
+        "direct_default_entitlements_targets_exact_error",
+        "direct_default_entitlements_single_exact_error",
+        "direct_default_icon_exact_error",
+        "direct_default_provisioning_exact_error"
+      ],
+      "expected_failures": [
+        "persisted_true_customizeInfoPlist_survives_registration_and_reaches_actual_default"
+      ],
+      "group": "customization",
+      "name": "customization-negativebypassinfoplist",
+      "swift": "customization/NegativeBypassInfoPlist.swift"
+    },
+    {
+      "cases": [
+        "new_cache_publishes_verified_payload",
+        "identical_cache_reuses_existing_payload",
+        "same_size_content_change_changes_key",
+        "root_symlink_input_rejected_preserving_files",
+        "nested_symlink_input_rejected_preserving_files",
+        "existing_key_conflict_preserves_original_bytes",
+        "obstructed_destination_parent_preserves_files"
+      ],
+      "expected_failures": [],
+      "group": "cache",
+      "name": "cache-cache",
+      "swift": "cache/Cache.swift"
+    },
+    {
+      "cases": [
+        "new_cache_publishes_verified_payload",
+        "identical_cache_reuses_existing_payload",
+        "same_size_content_change_changes_key",
+        "root_symlink_input_rejected_preserving_files",
+        "nested_symlink_input_rejected_preserving_files",
+        "existing_key_conflict_preserves_original_bytes",
+        "obstructed_destination_parent_preserves_files"
+      ],
+      "expected_failures": [
+        "same_size_content_change_changes_key"
+      ],
+      "group": "cache",
+      "name": "cache-cachenegativesamesize",
+      "swift": "cache/CacheNegativeSameSize.swift"
+    },
+    {
+      "cases": [
+        "new_cache_publishes_verified_payload",
+        "identical_cache_reuses_existing_payload",
+        "same_size_content_change_changes_key",
+        "root_symlink_input_rejected_preserving_files",
+        "nested_symlink_input_rejected_preserving_files",
+        "existing_key_conflict_preserves_original_bytes",
+        "obstructed_destination_parent_preserves_files"
+      ],
+      "expected_failures": [
+        "existing_key_conflict_preserves_original_bytes"
+      ],
+      "group": "cache",
+      "name": "cache-cachenegativeconflict",
+      "swift": "cache/CacheNegativeConflict.swift"
+    }
+  ]
+}

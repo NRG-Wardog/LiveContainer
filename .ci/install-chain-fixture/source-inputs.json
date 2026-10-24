@@ -1,0 +1,71 @@
+{
+  "schema": "install-chain-inputs-v1",
+  "source_commit": "7ff41a436cb6d1ee6465110b34b5a1cfded7952d",
+  "inputs": [
+    {
+      "path": "SideStore/AltStore/AppDelegate.swift",
+      "sha256": "ce9e1d78bc262fa9f3e018661dd5c1e9dc17e2188e5e47fd51c243c8614d142e",
+      "git_blob_sha1": "533c9fe18a0232d8ea2934f902e27ba638f9d8f3"
+    },
+    {
+      "path": "SideStore/AltStore/Core/Extensions/UserDefaults+AltStore.swift",
+      "sha256": "b1f7c447a3a891093ea2fc9a00de78ca6ac7036b81862c6257d00a34533dc574",
+      "git_blob_sha1": "5365dae0655896c06e11bf45674129152928147e"
+    },
+    {
+      "path": "SideStore/AltStore/Core/Protocols/AppProtocol.swift",
+      "sha256": "6b92d17f1b15e37d4c0e6de4e8742db191cd6daeb357865cb5fe4a8288073570",
+      "git_blob_sha1": "9c22135288dc76aa8f07a07343849fb734542ce6"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/AppOperation.swift",
+      "sha256": "1d078ee70af9870e86ffdeea713d1410163eeb7990bdf264c245fa6b39f9b9eb",
+      "git_blob_sha1": "9de30aca1175edf13504776c81dffd7c197506ca"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/OperationContexts.swift",
+      "sha256": "d2493541f7f87fd2f9fc1d319b7480e6ef487b23ae7d621c121a63a2b58af994",
+      "git_blob_sha1": "50e29ea3db1b15753ea8349c2de6d983774d60b6"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/OperationStep.swift",
+      "sha256": "2293b15da7ee02363b9d25b05760d2756a206b539814a108e00a0c9c541ed398",
+      "git_blob_sha1": "37ad8b57c7872087acc2211a000ab92fc7545a63"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/OperationStepDefinition.swift",
+      "sha256": "3465435df1449714541612e84a544350258320da02bdd5ec210a03f0dc3ce128",
+      "git_blob_sha1": "804a3afabf21b13b861bcdfc88aba29f92d2db71"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/PipelineExecutionHandler.swift",
+      "sha256": "af446e4a886b7f87475e57590a3c1cd8399138897f29ac8101c692d3f2d34f60",
+      "git_blob_sha1": "9f6da15d97129ca25415a8ef1f5182c558818a59"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/PipelineExecutor.swift",
+      "sha256": "b79b429cbd8d7ac38f7435b0cc02536c939bd07a226aa601193cf8e01eba156b",
+      "git_blob_sha1": "0a3a8246b4fda5ea972c01a84476a4c2e60f5128"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/PipelineOperations/CacheAppOperation.swift",
+      "sha256": "9c4b34f723ff5c83d73ad198188df8e53213f356ce85f73dd95c169743853e6d",
+      "git_blob_sha1": "6c33795361405dcd8c64d3de9514165bcf2a3c61"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/PipelineOperations/UserCustomizationOperation.swift",
+      "sha256": "88eb05e1372f01b25678562a82be5c53bb9650bc81bc3e5b2e9b86fcdd3869da",
+      "git_blob_sha1": "e19c82202cff5ba435e9df95c5635b4e93090686"
+    },
+    {
+      "path": "SideStore/SideStore/Core/Operations/PipelineRunner.swift",
+      "sha256": "4e139e9d643f59fb6990fdc246ecfa9aaa32acbc4595ea839b38bd9c4199522e",
+      "git_blob_sha1": "91654f09aceb7ab89cb6aa6dc2a232e77862cfb2"
+    },
+    {
+      "path": "SideStore/SideStore/Utils/common/AppBundleFingerprint.swift",
+      "sha256": "c73ec2bfa43d56be919dac7fb824c0dc62a46f1830569d2b42697b52cd64ff67",
+      "git_blob_sha1": "e41610c65bb47b933739a45c5d063092c0d88566"
+    }
+  ]
+}
