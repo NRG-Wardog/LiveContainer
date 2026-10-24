@@ -243,7 +243,7 @@ ADDITIVE_SPECS = {
         'generator': 'generate_fixture.py', 'receipt': 'sources.json',
         'source_schema': 'v3-host-refresh-bundle-source-v1', 'swift': 'host-refresh-bundle.swift',
         'cases_schema': 'v3-host-refresh-bundle-runtime-v1', 'case_count': 30},
-    'cache-compatibility': {'prefix': 'cache-compatibility', 'folder': 'SideStore/tests/cache_compatibility', 'generator': 'generate_fixture.py', 'receipt': 'sources.json', 'source_schema': 'cache-compatibility-source-v1', 'swift': 'cache-compatibility.swift', 'cases_schema': 'cache-compatibility-cases-v1', 'case_count': 22},
+    'cache-compatibility': {'prefix': 'cache-compatibility', 'folder': 'SideStore/tests/cache_compatibility', 'generator': 'generate_fixture.py', 'receipt': 'sources.json', 'source_schema': 'cache-compatibility-source-v1', 'swift': 'cache-compatibility.swift', 'cases_schema': 'cache-compatibility-cases-v1', 'case_count': 25},
 }
 
 
@@ -557,7 +557,7 @@ def additive_extraction(output, contract, suite):
             digest(regular(root, spec['swift']).read_bytes()) == value.get('generated_sha256'),
             'Additive generated Swift closure or bytes differ')
     if suite == 'cache-compatibility':
-        require(all(value.get(key) is True for key in ('strict_compute_byte_identical', 'host_pipeline_byte_identical', 'execute_and_pruning_byte_identical', 'original_cache_key_byte_identical_except_symbol', 'original_cache_flow_except_retained_safety_boundaries_symbol_and_logs', 'copy_helper_overwrite_disabled')),
+        require(all(value.get(key) is True for key in ('strict_compute_byte_identical', 'host_pipeline_byte_identical', 'execute_and_pruning_byte_identical', 'original_cache_key_byte_identical_except_symbol', 'original_cache_flow_except_retained_safety_boundaries_symbol_and_logs', 'copy_helper_overwrite_disabled', 'cache_components_lstat_no_follow', 'production_darwin_import_present')),
                 'Cache compatibility static proof differs')
     if suite == 'setup-connection-evidence':
         require(value.get('host_activation_message_contract') == 'exact_finite_guard_both_mirrors_before_generic_timeout' and
