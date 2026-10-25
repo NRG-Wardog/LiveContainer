@@ -48,6 +48,15 @@ def validate_size_scope(project=PROJECT):
     return actual
 
 
+def validate_release_coverage_scope(project=PROJECT):
+    debug = object_block('17DCE9D42C7067ED00731D42', project)
+    release = object_block('17DCE9D52C7067ED00731D42', project)
+    assert 'ENABLE_CODE_COVERAGE = NO;' in release, 'Release compiler coverage enabled'
+    assert 'CLANG_COVERAGE_MAPPING = NO;' in release, 'Release mapping coverage enabled'
+    assert 'CLANG_COVERAGE_MAPPING' not in debug, 'Debug coverage changed'
+    assert project.count('CLANG_COVERAGE_MAPPING') == 1, 'Unexpected mapping override scope'
+
+
 class ReleaseSizeConfigurationTests(unittest.TestCase):
     def test_only_reviewed_release_targets_select_size_optimization(self):
         release = configuration('LiveContainerSwiftUI', 'Release')
@@ -76,6 +85,17 @@ class ReleaseSizeConfigurationTests(unittest.TestCase):
         mutated = PROJECT.replace(block, block.replace('buildSettings = {', 'buildSettings = {\n\t\t\t\t' + SIZE_SETTING, 1))
         with self.assertRaisesRegex(AssertionError, 'Unowned'):
             validate_size_scope(mutated)
+
+    def test_coverage_mapping_is_disabled_only_for_release(self):
+        validate_release_coverage_scope()
+
+    def test_mapping_yes_or_debug_override_is_rejected(self):
+        with self.assertRaises(AssertionError):
+            validate_release_coverage_scope(PROJECT.replace('CLANG_COVERAGE_MAPPING = NO;', 'CLANG_COVERAGE_MAPPING = YES;'))
+        debug = object_block('17DCE9D42C7067ED00731D42')
+        changed = PROJECT.replace(debug, debug.replace('buildSettings = {', 'buildSettings = {\nCLANG_COVERAGE_MAPPING = NO;', 1))
+        with self.assertRaises(AssertionError):
+            validate_release_coverage_scope(changed)
 
     def test_guest_dynamic_symbol_retention_is_preserved(self):
         for mode in ('Debug', 'Release'):
