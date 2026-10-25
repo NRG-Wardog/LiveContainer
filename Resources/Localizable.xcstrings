@@ -6481,6 +6481,35 @@
         }
       }
     },
+    "Built-in On-Device libraries are checked against pinned vendor hashes before use.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built-in On-Device libraries are checked against pinned vendor hashes before use."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הספריות המובנות לעיבוד במכשיר נבדקות מול ערכי גיבוב קבועים של הספק לפני השימוש."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用前会将内置的设备端库与固定的供应商哈希值进行核对。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用前會將內建的裝置端程式庫與固定的供應商雜湊值進行核對。"
+          }
+        }
+      }
+    },
     "Bundle ID": {
       "extractionState": "manual",
       "localizations": {
@@ -11175,6 +11204,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "自訂 Anisette URL 覆寫"
+          }
+        }
+      }
+    },
+    "Custom On-Device source: HTTPS and an archive checksum are required. A supplied checksum does not verify who published the libraries.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom On-Device source: HTTPS and an archive checksum are required. A supplied checksum does not verify who published the libraries."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "מקור מותאם לעיבוד במכשיר: נדרשים HTTPS וסכום ביקורת לארכיון. סכום הביקורת שסופק אינו מאמת מי פרסם את הספריות."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义设备端来源：必须使用 HTTPS 并提供归档校验和。提供的校验和不能验证库的发布者身份。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自訂裝置端來源：必須使用 HTTPS 並提供封存檔校驗碼。提供的校驗碼無法驗證程式庫的發布者身分。"
           }
         }
       }
@@ -21853,6 +21911,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "裝置端 Anisette"
+          }
+        }
+      }
+    },
+    "On-Device is unavailable for this sequence because its private storage is unavailable.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On-Device is unavailable for this sequence because its private storage is unavailable."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "עיבוד במכשיר אינו זמין ברצף זה מכיוון שהאחסון הפרטי שלו אינו זמין."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此序列无法使用设备端提供程序，因为其专用存储不可用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此序列無法使用裝置端提供者，因為其專用儲存空間無法使用。"
+          }
+        }
+      }
+    },
+    "On-Device is unavailable for this sequence: its configured source must use HTTPS without embedded credentials or a URL fragment.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On-Device is unavailable for this sequence: its configured source must use HTTPS without embedded credentials or a URL fragment."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "עיבוד במכשיר אינו זמין ברצף זה: המקור שהוגדר חייב להשתמש ב־HTTPS, ללא פרטי התחברות מוטמעים או מזהה מקטע בכתובת."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此序列无法使用设备端提供程序：配置的来源必须使用 HTTPS，且网址不能包含凭据或片段标识。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此序列無法使用裝置端提供者：設定的來源必須使用 HTTPS，且網址不能包含憑證或片段識別碼。"
           }
         }
       }

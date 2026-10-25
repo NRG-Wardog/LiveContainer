@@ -48,7 +48,7 @@ def generate(root, output):
     assert 'let handler = V3HeadlessPipelineHandler(sessionID: id)' in s['service']
     assert 'handler: handler, context: baseContext)' in s['service']
     parts = []
-    for key, anchor in [('handlers','enum ExtensionRemovalDecision:'), ('service','enum V3ExtensionRemovalPromptPolicy {'), ('service','enum V3PromptSelectionPolicy {'), ('ui','enum V3MultiSelectPromptAnswerPolicy {'), ('removal','public enum AppExtensionCustomization:'), ('removal','final class RemoveAppExtensionsOperation:')]:
+    for key, anchor in [('handlers','enum ExtensionRemovalDecision:'), ('handlers','enum V3ReuseMainExplanation {'), ('service','enum V3ExtensionRemovalPromptPolicy {'), ('service','enum V3PromptSelectionPolicy {'), ('ui','enum V3MultiSelectPromptAnswerPolicy {'), ('removal','public enum AppExtensionCustomization:'), ('removal','final class RemoveAppExtensionsOperation:')]:
         parts.append(block(s[key], anchor))
     handler = block(s['service'], '    func selectAppExtensionsToRemove(appBundle: ALTApplication,')
     fixture = (Path(__file__).parent/'Doubles.swift').read_text() + '\n' + '\n'.join(parts)

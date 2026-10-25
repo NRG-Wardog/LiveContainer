@@ -12136,6 +12136,19 @@ struct V3PromptSection: View {
     private var selectedDiagnosticProviders: V3DiagnosticProviderPlan? {
         offeredDiagnosticProviders?.selecting(diagnosticProviderOrder)
     }
+    private var ownedODASourceNotice: String? {
+        switch prompt["diagnosticOnDeviceSource"] as? String {
+        case "verifiedVendor":
+            return "Built-in On-Device libraries are checked against pinned vendor hashes before use."
+        case "customIntegrityCheckRequired":
+            return "Custom On-Device source: HTTPS and an archive checksum are required. A supplied checksum does not verify who published the libraries."
+        case "unsupportedSource":
+            return "On-Device is unavailable for this sequence: its configured source must use HTTPS without embedded credentials or a URL fragment."
+        case "missingStorage":
+            return "On-Device is unavailable for this sequence because its private storage is unavailable."
+        default: return nil
+        }
+    }
     private var usesRemoteMacAnisetteForSubmit: Bool {
         kind == "credentials" && prompt["remoteMacAnisette"] as? String == "submit-v2"
     }
@@ -12292,6 +12305,11 @@ struct V3PromptSection: View {
                 if diagnosticSequenceEnabled {
                     Text("Submit tries each selected provider at most once. It stops on success or an account error and pauses for verification. If cleanup is delayed, no next provider starts.")
                         .font(.caption).foregroundColor(.secondary)
+                    if let notice = ownedODASourceNotice {
+                        V3LocalizedText(notice)
+                            .font(.caption).foregroundColor(.secondary)
+                            .accessibilityIdentifier("signin.diagnostic.on-device-source")
+                    }
                     ForEach(Array(diagnosticProviderOrder.enumerated()), id: \.element) { index, raw in
                         HStack {
                             Text("\(index + 1). \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw)")
