@@ -12,7 +12,7 @@ class SourceNoticeTests(unittest.TestCase):
   for note in notes:
    self.assertNotIn('\\(',note)
    localizations=catalog[note]['localizations']
-   self.assertEqual(set(localizations),{'en','he','zh-Hans','zh-Hant'})
+   self.assertEqual(set(localizations),{'en','he','zh-Hans','zh-Hant','ru'})
    for entry in localizations.values():
     self.assertEqual(entry['stringUnit']['state'],'translated')
     self.assertTrue(entry['stringUnit']['value'].strip())

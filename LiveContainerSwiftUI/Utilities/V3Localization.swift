@@ -1,7 +1,7 @@
 import Foundation
 
 enum V3AppLanguage: String, CaseIterable, Identifiable {
-    case english = "en", simplifiedChinese = "zh-Hans", traditionalChinese = "zh-Hant", hebrew = "he"
+    case english = "en", simplifiedChinese = "zh-Hans", traditionalChinese = "zh-Hant", hebrew = "he", russian = "ru"
     static let storageKey = "V3AppLanguage"
     var id: String { rawValue }
     var isRightToLeft: Bool { self == .hebrew }
@@ -11,6 +11,7 @@ enum V3AppLanguage: String, CaseIterable, Identifiable {
         case .simplifiedChinese: return "简体中文"
         case .traditionalChinese: return "繁體中文"
         case .hebrew: return "עברית"
+        case .russian: return "Русский"
         }
     }
     static func resolve(_ raw: String?) -> Self {
@@ -19,6 +20,7 @@ enum V3AppLanguage: String, CaseIterable, Identifiable {
         guard let language = components.first else { return .english }
         switch language {
         case "he": return .hebrew
+        case "ru": return .russian
         case "zh":
             // Read the script/region subtag before extensions or private-use data.
             // An explicit script wins over any following region.
@@ -147,6 +149,7 @@ enum V3Localization {
         // Fail closed even if a bundle is missing; native admission still rejects it.
         switch language {
         case .english: return key
+        case .russian: return "Некоторые сведения недоступны на выбранном языке."
         case .hebrew: return "פרטים מסוימים אינם זמינים בשפה שנבחרה."
         case .simplifiedChinese: return "部分详细信息未提供所选语言的版本。"
         case .traditionalChinese: return "部分詳細資訊未提供所選語言的版本。"
@@ -182,7 +185,7 @@ enum V3Localization {
                 let message = translatedProse(String(value[..<range.lowerBound]), language: language, bundle: bundle, depth: depth + 1)
                     ?? unavailableDetails(language: language, bundle: bundle)
                 let label = selectedString("Error ID:", language: language, bundle: bundle)
-                    ?? ["en": "Error ID:", "he": "מזהה שגיאה:", "zh-Hans": "错误 ID：", "zh-Hant": "錯誤 ID："][language.rawValue]!
+                    ?? ["ru": "ID ошибки:", "en": "Error ID:", "he": "מזהה שגיאה:", "zh-Hans": "错误 ID：", "zh-Hant": "錯誤 ID："][language.rawValue]!
                 let isolated = language.isRightToLeft ? "\u{2066}\(identifier)\u{2069}" : identifier
                 let remainder = String(suffix.dropFirst(identifier.count)).trimmingCharacters(in: .whitespacesAndNewlines)
                 return message + "\n" + label + " " + isolated

@@ -9,7 +9,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
-LANGUAGES = ['en', 'he', 'zh-Hans', 'zh-Hant']
+BASELINE_LANGUAGES = ['en', 'he', 'zh-Hans', 'zh-Hant']
+LANGUAGES = BASELINE_LANGUAGES + ['ru']
 PAIRING_KEYS = ['Pairing file saved and selected.', 'The placed file is available but has not been selected.', 'Pairing was reset. Use the placed file or import a file to enable it again.', 'The selected pairing file is missing.', 'The pairing files or selected protocol have changed. Check the selection before continuing.', 'The saved pairing file could not be validated.', 'Saved pairing selection could not be confirmed.', 'Device connection has not been checked on this screen.', 'The device connection was verified for the saved pairing file.', 'The pairing file remains saved. The device connection could not be confirmed. Check the connection before refreshing.']
 PAIRING_ANCHOR = "enum V3PairingSelectionPresentation {"
 TITLE_ANCHOR = 'enum V3SetupTitle: String, CaseIterable {'
@@ -178,8 +179,9 @@ def write_bundle(out, name, rows):
 
 def expected_case_names(inventory):
     names = []
-    missing_keys = sorted({row['key'] for row in inventory.get('baseline_missing', [])})
     for language in LANGUAGES:
+        missing_keys = sorted({row['key'] for row in inventory.get('baseline_missing', [])
+                               if row['language'] == language})
         names.extend('actual-source-copy-' + language + '-' + key for key in inventory['keys'])
         for title in inventory['title_cases'].values():
             names.append('actual-typed-title-' + language + '-' + title)
@@ -235,13 +237,13 @@ def generate(root, out, baseline=None):
         bundle_outputs.extend(write_bundle(out, name, entries))
     if baseline:
         original_inventory = coverage(original)
-        assert {r['key'] for r in original_inventory['missing']} <= {'JIT-Less', 'Wi-Fi', 'CoreDevice'}
+        assert {r['key'] for r in original_inventory['missing'] if r['language'] in BASELINE_LANGUAGES} <= {'JIT-Less', 'Wi-Fi', 'CoreDevice'}
         baseline_catalog = json.loads(original['catalog'])['strings']
         bundle_outputs.extend(write_bundle(out, 'baseline', {language: {key: row['localizations'][language]['stringUnit']['value']
             for key, row in baseline_catalog.items()
             if 'stringUnit' in row.get('localizations', {}).get(language, {})} for language in LANGUAGES}))
         inventory['baseline_missing'] = catalog_missing(inventory['keys'], baseline_catalog)
-        (out / 'baseline_missing_keys.json').write_text(json.dumps(sorted({row['key'] for row in inventory['baseline_missing']})) + '\n')
+        (out / 'baseline_missing_keys.json').write_text(json.dumps({language: sorted({row['key'] for row in inventory['baseline_missing'] if row['language'] == language}) for language in LANGUAGES}) + '\n')
     (out / 'coverage.json').write_text(json.dumps(inventory, ensure_ascii=False, indent=2) + '\n')
     expected = {language: {key: rows[language][key] for key in inventory['keys']} for language in LANGUAGES}
     (out / 'expected.json').write_text(json.dumps(expected, ensure_ascii=False, indent=2) + '\n')

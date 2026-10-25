@@ -70,14 +70,21 @@ struct SetupLocalizationHarness {
                 check(V3DisplayMessage.raw(source).rendered(language: language, bundle: complete) == wanted, "actual-schedule-format-" + code + "-" + frequency)
             }
             if FileManager.default.fileExists(atPath: root.appendingPathComponent("baseline.bundle").path) {
-                let missingKeys = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("baseline_missing_keys.json"))) as! [String]
+                let missingKeys = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("baseline_missing_keys.json"))) as! [String: [String]]
                 let baseline = bundle("baseline")
                 guard let path = baseline.path(forResource: code, ofType: "lproj"), let selected = Bundle(path: path) else {
                     fatalError("Missing baseline locale: " + code)
                 }
                 let missing = "__SETUP_BASELINE_MISSING__"
-                for key in missingKeys {
+                for key in missingKeys[code]! {
                     let exact = selected.localizedString(forKey: key, value: missing, table: nil)
+                    if language == .russian {
+                        // Russian was not an exposed renderer locale in the baseline.
+                        // Missing exact entries are tracked per locale: inherited dynamic
+                        // formats may still match, but cannot stand in for translated copy.
+                        check(exact == missing, "baseline-reproduces-missing-owned-copy-" + code + "-" + key)
+                        continue
+                    }
                     let wanted: String
                     switch key {
                     case "Refresh is still being checked. Tunnel readiness is not verified.",

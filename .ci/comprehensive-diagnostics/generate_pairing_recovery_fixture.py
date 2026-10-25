@@ -42,6 +42,7 @@ CASE_NAMES = [
     "localized-command-recovery-deferred-zh-Hans",
     "localized-command-recovery-deferred-zh-Hant",
     "localized-command-recovery-deferred-he",
+    "localized-command-recovery-deferred-ru",
     "certificate-import-safe-copy-and-stale-suffix"
 ]
 
@@ -130,7 +131,7 @@ def generate(root, out):
     bundle.mkdir(exist_ok=True)
     (bundle/'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':'test.synthetic.pairing-recovery', 'CFBundleDevelopmentRegion':'en', 'CFBundlePackageType':'BNDL'}))
     strings = json.loads(s['catalog'])['strings']
-    for language in ['en', 'he', 'zh-Hans', 'zh-Hant']:
+    for language in ['en', 'he', 'zh-Hans', 'zh-Hant', 'ru']:
         localized = {key:row['localizations'][language]['stringUnit']['value'] for key,row in strings.items()
                      if language in row.get('localizations', {}) and 'stringUnit' in row['localizations'][language]}
         directory = bundle/(language+'.lproj')
@@ -145,7 +146,7 @@ def generate(root, out):
             'test_pairing_recovery_contract.py', 'generate_wire_fixture.py']},
         'output_sha256':{str(path.relative_to(out)):hashlib.sha256(path.read_bytes()).hexdigest()
                          for path in [out/'fixture.swift', bundle/'Info.plist'] +
-                         [bundle/(lang+'.lproj')/'Localizable.strings' for lang in ['en','he','zh-Hans','zh-Hant']]},
+                         [bundle/(lang+'.lproj')/'Localizable.strings' for lang in ['en','he','zh-Hans','zh-Hant','ru']]},
         'schema':'pairing-recovery-sources-v1', 'case_names':CASE_NAMES,
         'owned_paths':['actual mutation dispatch lifecycle', 'actual pairing dispatcher snapshot ordering',
                        'actual direct recovery ACK', 'actual full snapshot recovery application',

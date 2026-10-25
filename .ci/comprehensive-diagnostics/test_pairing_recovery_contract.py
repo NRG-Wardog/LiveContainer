@@ -40,9 +40,9 @@ with tempfile.TemporaryDirectory() as d:
     assert 'guard !Task.isCancelled,' in fixture
     assert 'withUnsafeCurrentTask { $0?.cancel() }' in fixture
     assert manifest['baseline_store_sha256'] == '7f2e5adb99e4e990513152d59c2e7e931d871e4e3c5bbc9f32344a180b4ac19a'
-    assert len(g.CASE_NAMES) == len(set(g.CASE_NAMES)) == 31
+    assert len(g.CASE_NAMES) == len(set(g.CASE_NAMES)) == 32
     assert len(manifest['input_sha256']) == 6 and len(manifest['fixture_inputs']) == 4
-    assert len(manifest['output_sha256']) == 6
+    assert len(manifest['output_sha256']) == 7
     for name, digest in manifest['output_sha256'].items():
         assert hashlib.sha256((out/name).read_bytes()).hexdigest() == digest, name
     for name, digest in manifest['fixture_inputs'].items():
@@ -65,6 +65,6 @@ catalog = json.loads((root/'LiveContainer/Resources/Localizable.xcstrings').read
 for key in ['command','pairingUsePlaced','placed pairing activation',
             'Apple ID signed in. Add pairing before refreshing or installing apps.',
             'Checking the saved provisioning state before another attempt.']:
-    for language in ['en','he','zh-Hans','zh-Hant']:
+    for language in ['en','he','zh-Hans','zh-Hant','ru']:
         assert catalog[key]['localizations'][language]['stringUnit']['value']
 print('PAIRING_RECOVERY_STATIC_PASS source_owned=true swift_executed=false')

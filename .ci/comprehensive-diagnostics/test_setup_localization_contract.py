@@ -17,7 +17,7 @@ def check(root, baseline, output):
     s, old = g.read_sources(root), g.read_sources(baseline)
     current, previous = g.coverage(s, old), g.coverage(old)
     assert not current['missing'], current['missing']
-    assert {row['key'] for row in previous['missing']} <= {'JIT-Less', 'Wi-Fi', 'CoreDevice'}
+    assert {row['key'] for row in previous['missing'] if row['language'] in g.BASELINE_LANGUAGES} <= {'JIT-Less', 'Wi-Fi', 'CoreDevice'}
     overlay_keys = g.overlay_keys(s)
     assert len(overlay_keys) == 27
     assert set(current['retained_baseline_copy']) == g.RETAINED_BASELINE_KEYS
@@ -65,11 +65,28 @@ def check(root, baseline, output):
         'if setup.testRunning { setup.cancelTest() }', 'if setup.testRunning { }', 1))) != normalize_owned_titles(old_view)
 
     assert s['display'] == old['display']
+    # Russian adds exactly these two finite fail-closed messages. No other
+    # production renderer bytes may change relative to the historical baseline.
+    def normalize_russian_renderer(source):
+        additions = [
+            '        case .russian: return "Некоторые сведения недоступны на выбранном языке."\n',
+            '"ru": "ID ошибки:", ',
+        ]
+        for addition in additions:
+            assert source.count(addition) == 1, addition
+            source = source.replace(addition, '', 1)
+        return source
+    renderer = normalize_russian_renderer(s['localization'][s['localization'].index('enum V3Localization {'):])
+    baseline_renderer = old['localization'][old['localization'].index('enum V3Localization {'):]
+    assert renderer == baseline_renderer
+    assert normalize_russian_renderer(s['localization'].replace(
+        'guard depth < 8 else { return nil }', 'guard depth < 9 else { return nil }', 1)
+        [s['localization'].index('enum V3Localization {'):]) != baseline_renderer
     for anchor in ['enum V3Localization {', 'extension V3Localization {', 'struct V3DisplayMessage: LocalizedError, @unchecked Sendable {']:
         # Two separate V3Localization extensions exist; compare full suffix below.
         if anchor != 'extension V3Localization {':
-            assert g.block(s['localization'], anchor) == g.block(old['localization'], anchor)
-    assert s['localization'][s['localization'].index('enum V3Localization {'):] == old['localization'][old['localization'].index('enum V3Localization {'):]
+            assert g.block(renderer, anchor) == g.block(old['localization'], anchor)
+    assert renderer == baseline_renderer
     for anchor in ['private func setupRow(', 'private func rowContent(']:
         assert 'title: V3SetupTitle' in g.block(view, anchor)
     content = g.block(view, 'private func rowContent(')
@@ -101,21 +118,40 @@ def check(root, baseline, output):
     allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
-    assert {row['key'] for row in negative} == added & set(current['keys'])
-    assert len(negative) == len(added & set(current['keys'])) * len(g.LANGUAGES)
-    for key in baseline_catalog['strings']:
-        assert catalog['strings'][key] == baseline_catalog['strings'][key], key
+    historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]
+    assert {row['key'] for row in historical_negative} == added & set(current['keys'])
+    assert len(historical_negative) == len(added & set(current['keys'])) * len(g.BASELINE_LANGUAGES)
+    # Independent Russian audit, 2026-10-25: reviewed corrections to inherited
+    # Russian copy (including negation, certificate actions, plurals and data-loss
+    # warnings). Pin the exact reviewed map; this is not a blanket locale waiver.
+    reviewed_path = root / 'tests/fixtures/russian_reviewed_existing.json'
+    reviewed_bytes = reviewed_path.read_bytes()
+    assert hashlib.sha256(reviewed_bytes).hexdigest() == 'fd2259f2e1279d713d81dd24908fe1ff158e35ba0427d13a895ac9e5bc67711d'
+    reviewed_russian = json.loads(reviewed_bytes)
+    assert len(reviewed_russian) == 108
+    for key, reviewed_value in reviewed_russian.items():
+        assert catalog['strings'][key]['localizations']['ru'] == reviewed_value, key
+    for key, baseline_row in baseline_catalog['strings'].items():
+        candidate_row = json.loads(json.dumps(catalog['strings'][key]))
+        # Permit additive Russian entries or the exact independently reviewed
+        # corrections above. Every other locale and metadata field remains equal.
+        if 'ru' not in baseline_row.get('localizations', {}):
+            candidate_row.get('localizations', {}).pop('ru', None)
+        elif key in reviewed_russian:
+            assert candidate_row['localizations']['ru'] == reviewed_russian[key], key
+            candidate_row['localizations']['ru'] = baseline_row['localizations']['ru']
+        assert candidate_row == baseline_row, key
     assert not set(baseline_catalog['strings']) - set(catalog['strings'])
     for key in added:
         for language in g.LANGUAGES:
             unit = catalog['strings'][key]['localizations'][language]['stringUnit']
             assert unit['state'] == 'translated' and unit['value']
-            if key in {'JIT-Less', 'Wi-Fi', 'CoreDevice'} or language == 'en':
+            if (key in {'JIT-Less', 'Wi-Fi', 'CoreDevice'} and language in g.BASELINE_LANGUAGES) or language == 'en':
                 assert unit['value'] == key
-            else:
+            elif key not in {'JIT-Less', 'Wi-Fi', 'CoreDevice'}:
                 assert unit['value'] != key
-    # Russian is present in the catalog schema, although the in-app language
-    # enum currently exposes only the four renderer locales in g.LANGUAGES.
+    # The existing finite Russian overlay remains fully translated, and Russian
+    # is now also covered by all candidate renderer cases and mutation checks.
     for key in overlay_keys:
         unit = catalog['strings'][key]['localizations']['ru']['stringUnit']
         assert unit['state'] == 'translated' and unit['value'] and unit['value'] != key
@@ -151,6 +187,8 @@ def check(root, baseline, output):
         'setup_view_except_typed_titles_and_exact_connection_overlay': 'byte_for_byte_unchanged',
         'exact_connection_scope_negative_control': 'unrelated_cancel_mutation_rejected',
         'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': 27,
+        'reviewed_russian_corrections_sha256': hashlib.sha256(reviewed_bytes).hexdigest(),
+        'reviewed_russian_correction_count': len(reviewed_russian),
         'retained_baseline_copy': current['retained_baseline_copy'],
         'inherited_source_copy_cases_retained': len(inherited_copy_cases),
         'pairing_keys': g.PAIRING_KEYS, 'identity_diagnostic_keys': sorted(identity_keys),
@@ -159,7 +197,7 @@ def check(root, baseline, output):
         'missing_translation_mutation_cases': len(mutation_checks),
         'native_renderer_cases': 'generated_not_executed', 'swift_build': 'not_run',
         'expected_native_case_count': manifest['expected_native_case_count'],
-        'strict_prose_and_original_copy': 'byte_for_byte_unchanged',
+        'strict_prose_and_original_copy': 'unchanged_except_exact_russian_fallback_additions',
         'source_sha256': manifest['source_sha256'], 'baseline_sha256': manifest['baseline_sha256']}
     (output / 'static-contract.json').write_text(json.dumps(report, indent=2) + '\n')
     print('SETUP_LOCALIZATION_STATIC_PASS baseline=fail_as_expected candidate=pass keys=' + str(current['key_count']) + ' localized_values=' + str(current['localized_value_count']) + ' swift_executed=false')

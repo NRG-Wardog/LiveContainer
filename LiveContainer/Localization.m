@@ -30,6 +30,7 @@ static NSString *LCHostLanguageCode(void) {
     NSArray<NSString *> *parts = [[[raw stringByReplacingOccurrencesOfString:@"_" withString:@"-"] lowercaseString] componentsSeparatedByString:@"-"];
     NSString *language = parts.firstObject;
     if ([language isEqualToString:@"he"]) return @"he";
+    if ([language isEqualToString:@"ru"]) return @"ru";
     if ([language isEqualToString:@"zh"]) {
         NSString *scriptOrRegion = parts.count > 1 ? parts[1] : @"";
         if ([@[@"hant", @"tw", @"hk", @"mo"] containsObject:scriptOrRegion]) return @"zh-Hant";

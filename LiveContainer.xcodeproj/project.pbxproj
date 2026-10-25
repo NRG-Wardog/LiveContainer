@@ -159,6 +159,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A17ECAFE2DCA00000000F00D /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = "Resources/ru.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
 		A17ECAFE2DCA00000000F00A /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "Resources/zh-Hant.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
 		A17ECAFE2DCA00000000F00B /* zh_TW */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh_TW"; path = "Resources/zh_TW.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
 		A17ECAFE2DCA00000000F00C /* zh_HK */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh_HK"; path = "Resources/zh_HK.lproj/InfoPlist.strings"; sourceTree = SOURCE_ROOT; };
@@ -1106,7 +1107,7 @@
 /* Begin PBXVariantGroup section */
         A17ECAFE2DCA00000000F007 /* InfoPlist.strings */ = {
             isa = PBXVariantGroup;
-            children = (A17ECAFE2DCA00000000F004 /* en */, A17ECAFE2DCA00000000F005 /* he */, A17ECAFE2DCA00000000F006 /* zh-Hans */, A17ECAFE2DCA00000000F009 /* zh_CN */, A17ECAFE2DCA00000000F00A /* zh-Hant */, A17ECAFE2DCA00000000F00B /* zh_TW */, A17ECAFE2DCA00000000F00C /* zh_HK */, );
+            children = (A17ECAFE2DCA00000000F00D /* ru */, A17ECAFE2DCA00000000F004 /* en */, A17ECAFE2DCA00000000F005 /* he */, A17ECAFE2DCA00000000F006 /* zh-Hans */, A17ECAFE2DCA00000000F009 /* zh_CN */, A17ECAFE2DCA00000000F00A /* zh-Hant */, A17ECAFE2DCA00000000F00B /* zh_TW */, A17ECAFE2DCA00000000F00C /* zh_HK */, );
             name = InfoPlist.strings;
             sourceTree = "<group>";
         };

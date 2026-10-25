@@ -1,0 +1,764 @@
+{
+  "Connect to Wi-Fi, then test refresh to verify device readiness.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Подключитесь к Wi-Fi и выполните пробное обновление подписи, чтобы проверить готовность устройства."
+    }
+  },
+  "Copy Diagnostics to review the local refresh setup. This observation does not establish an account or provisioning-service failure.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Скопируйте диагностику для проверки локальных настроек обновления подписи. Это наблюдение не подтверждает сбой аккаунта или службы подготовки."
+    }
+  },
+  "Device connection readiness failed during the latest refresh. Copy Diagnostics for details.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "При последнем обновлении подписи проверка готовности подключения к устройству завершилась ошибкой. Скопируйте диагностику для получения подробностей."
+    }
+  },
+  "Device connection verified by the latest successful refresh. This is not a live VPN check.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Подключение к устройству подтверждено последним успешным обновлением подписи. Это не проверка VPN в реальном времени."
+    }
+  },
+  "No tunnel interface detected. Enable LocalDevVPN before testing refresh.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Интерфейс туннеля не обнаружен. Включите LocalDevVPN перед пробным обновлением подписи."
+    }
+  },
+  "Not verified: device connection readiness failed during the latest refresh.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Не подтверждено: при последнем обновлении подписи проверка готовности подключения к устройству завершилась ошибкой."
+    }
+  },
+  "Refresh is still being checked. Tunnel readiness is not verified.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Результат обновления подписи ещё проверяется. Готовность туннеля не подтверждена."
+    }
+  },
+  "Refresh verified; CoreDevice transport was not independently recorded.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Обновление подписи подтверждено; использование транспорта CoreDevice отдельно не зафиксировано."
+    }
+  },
+  "SideStore could not prepare provisioning profiles because the target app bundle was missing from the refresh context.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "SideStore не удалось подготовить профили подготовки, поскольку в контексте обновления подписи отсутствовал пакет целевого приложения."
+    }
+  },
+  "SideStore did not recognize the selected team type while preparing provisioning features.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "При настройке возможностей подготовки SideStore не распознал выбранный тип команды."
+    }
+  },
+  "SideStore's refresh readiness check could not find a usable local VPN connection.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "При проверке готовности к обновлению подписи SideStore не обнаружил пригодного локального VPN-подключения."
+    }
+  },
+  "SideStore's refresh readiness check could not validate the local VPN connection.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "При проверке готовности к обновлению подписи SideStore не удалось подтвердить локальное VPN-подключение."
+    }
+  },
+  "The latest refresh could not use the VPN connection. Enable LocalDevVPN, return here, and retry.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "При последнем обновлении подписи не удалось использовать VPN-подключение. Включите LocalDevVPN, вернитесь сюда и повторите попытку."
+    }
+  },
+  "The refresh pipeline could not map the provisioning-profile operation to its step.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "В процессе обновления подписи не удалось сопоставить операцию с профилем подготовки с её этапом."
+    }
+  },
+  "The refresh pipeline has an invalid progress reuse limit for provisioning-profile preparation.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "В процессе обновления подписи задан недопустимый предел повторного использования прогресса для подготовки профилей."
+    }
+  },
+  "The refresh pipeline has no progress entry for provisioning-profile preparation.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "В процессе обновления подписи отсутствует запись о ходе подготовки профилей."
+    }
+  },
+  "Waiting for a verified refresh result.": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Ожидание подтверждённого результата обновления подписи."
+    }
+  },
+  "lc.appBanner.addToHomeScreen": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Добавить на экран «Домой»"
+    }
+  },
+  "lc.appBanner.copyLaunchUrl": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Скопировать URL запуска"
+    }
+  },
+  "lc.appBanner.deleteDataMsg %@": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Также удалить папку данных %@? Её можно сохранить для дальнейшего использования."
+    }
+  },
+  "lc.appBanner.saveAppIcon": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Сохранить значок приложения"
+    }
+  },
+  "lc.appBanner.waitForJitMsg": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Включите JIT для текущего LiveContainer удобным вам способом."
+    }
+  },
+  "lc.appList.convertToSharedToShowInLC2": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Сделайте приложения общими, чтобы использовать их в LiveContainer2"
+    }
+  },
+  "lc.appList.generatedIconStyleSelector.title": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Выберите стиль значка"
+    }
+  },
+  "lc.appList.installAsNew": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Установить как новое"
+    }
+  },
+  "lc.appList.installReplaceTip": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Уже есть приложение с таким идентификатором пакета. Замените его или установите как новое."
+    }
+  },
+  "lc.appList.installUrlInputTip": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Введите URL установки"
+    }
+  },
+  "lc.appList.plistInvalidError": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Недопустимый формат URL itms-services"
+    }
+  },
+  "lc.appList.schemeCannotOpenError %@": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Схему «%@» не может открыть ни одно приложение, установленное в LiveContainer."
+    }
+  },
+  "lc.appList.signSuccessWithError": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Приложение подписано, но LiveContainer не удалось подписать следующие файлы. Возможно, приложение будет работать, но следует ожидать сбоев."
+    }
+  },
+  "lc.appSettings.addExternalNonLocalContainer": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Добавление нелокального контейнера"
+    }
+  },
+  "lc.appSettings.appOpenInOtherLc %@ %@": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Данные этого приложения сейчас находятся в %@. Откройте %@, перейдите на экран «Мои приложения» и повторите попытку."
+    }
+  },
+  "lc.appSettings.fixFilePicker": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "(Устаревшее) Исправить выбор файлов"
+    }
+  },
+  "lc.appSettings.fixFilePickerDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Устраняет зависание при нажатии «Открыть», заставляя приложение копировать выбранные файлы в свою входящую папку. Импортированные файлы можно найти в папке Inbox внутри папки данных приложения."
+    }
+  },
+  "lc.appSettings.forceSignDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Попробуйте подписать приложение заново, если оно не запускается с ошибкой вроде «Недействительная подпись». Если это не поможет, обновите сертификат режима без JIT."
+    }
+  },
+  "lc.appSettings.hideLiveContainer": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Скрыть LiveContainer от API dyld"
+    }
+  },
+  "lc.appSettings.jit26.scriptDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Файл JavaScript, передаваемый StikDebug при запуске приложения с JIT."
+    }
+  },
+  "lc.appSettings.jit26.scriptLoaded": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Скрипт загружен"
+    }
+  },
+  "lc.appSettings.remarkPlaceholder": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Введите примечание..."
+    }
+  },
+  "lc.appSettings.toSharedAppDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Перемещение приложения в группу приложений позволит другим LiveContainer запускать его с сохранением всех данных и твиков. Чтобы снова получить доступ к данным и твикам через приложение «Файлы», переместите его обратно."
+    }
+  },
+  "lc.appSettings.useLCBundleId": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Использовать идентификатор пакета LiveContainer"
+    }
+  },
+  "lc.appSettings.useLCBundleIdDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Устраняет эти проблемы, используя идентификатор пакета LiveContainer при перезаписи основного пакета."
+    }
+  },
+  "lc.common.default": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "По умолчанию"
+    }
+  },
+  "lc.guestTweak.openWebPageTip": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Открыть веб-страницу и запустить приложение? Это завершит работу текущего приложения. Можно попробовать открыть страницу в текущем приложении, если оно поддерживает универсальные ссылки."
+    }
+  },
+  "lc.guestTweak.restartToInstall": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Перезапустите LiveContainer для установки приложений."
+    }
+  },
+  "lc.helpView.text1": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Настройте режим без JIT в настройках, чтобы использовать LiveContainer без JIT.\n\n**Если не удаётся включить режим без JIT, откройте страницу его диагностики в настройках.**\n\nНажмите кнопку «+» для установки приложений.\n\nУдерживайте карточку приложения, чтобы открыть его настройки, исправления и добавление на экран «Домой»."
+    }
+  },
+  "lc.helpView.text2": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "**Решения частых проблем см. в [FAQ LiveContainer](https://github.com/khanhduytran0/LiveContainer/issues/265).**\n                         \nЕсли вы обнаружили ошибку или проблему совместимости, сообщите о ней в [GitHub Issues](https://github.com/khanhduytran0/LiveContainer/issues)."
+    }
+  },
+  "lc.jielessDiag.entitlement": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Файл прав приложения"
+    }
+  },
+  "lc.jitlessDiag.appGroupAccessible": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Доступ к группе приложений"
+    }
+  },
+  "lc.jitlessDiag.appGroupId": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "ID группы приложений"
+    }
+  },
+  "lc.jitlessDiag.certTeamId": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "ID команды сертификата"
+    }
+  },
+  "lc.jitlessDiag.certificateValidateUntil": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Сертификат недействителен после"
+    }
+  },
+  "lc.jitlessSetup.success": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Проверка режима без JIT пройдена"
+    }
+  },
+  "lc.settings.FrameIcon": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Рамка значка ярлыка"
+    }
+  },
+  "lc.settings.FrameIconDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Добавлять значок LiveContainer в рамку значков ярлыков."
+    }
+  },
+  "lc.settings.JitDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Настройте средство включения JIT. Может потребоваться разрешение на доступ к локальной сети."
+    }
+  },
+  "lc.settings.appGroup.moveSuccess": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Перемещение выполнено."
+    }
+  },
+  "lc.settings.appGroupExist Shared": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "В общей папке группы приложений есть файлы. Сначала переместите их и повторите попытку."
+    }
+  },
+  "lc.settings.appGroupExistPrivate": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "В закрытой папке группы приложений есть файлы. Сначала переместите их и повторите попытку."
+    }
+  },
+  "lc.settings.appGroupPrivateToShare": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Переместить закрытую группу приложений в общую папку документов"
+    }
+  },
+  "lc.settings.appGroupShareToPrivate": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Переместить файлы общей группы приложений в личную папку документов"
+    }
+  },
+  "lc.settings.bundleIdMismatch %@ %@": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Идентификатор пакета LiveContainer «%@» не совпадает с application-Identifier в правах приложения, где ожидается «%@». Некоторые функции могут быть недоступны."
+    }
+  },
+  "lc.settings.cleanKeychainDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Если аккаунт приложения не синхронизируется между экземплярами LiveContainer, возможно, он хранится в личной связке ключей текущего LiveContainer. Удаление связки ключей может решить проблему, но может также привести к выходу из некоторых аккаунтов. Продолжить?"
+    }
+  },
+  "lc.settings.error.certNotImported": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Перед проверкой режима без JIT необходимо импортировать сертификат ADP."
+    }
+  },
+  "lc.settings.hideCollapsedDock": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Скрывать свёрнутую панель"
+    }
+  },
+  "lc.settings.importCertificateDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Чтобы использовать режим без JIT без AltStore/SideStore, импортируйте сертификат, которым подписан LiveContainer. Продолжить?"
+    }
+  },
+  "lc.settings.interface": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Интерфейс"
+    }
+  },
+  "lc.settings.invalidCertError": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Не удалось проверить сертификат. Проверьте пароль и убедитесь, что выбранным сертификатом подписан LiveContainer."
+    }
+  },
+  "lc.settings.jitEnabler": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Средство включения JIT"
+    }
+  },
+  "lc.settings.jitLess": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Без JIT"
+    }
+  },
+  "lc.settings.jitLessDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Режим без JIT позволяет использовать LiveContainer без включения JIT."
+    }
+  },
+  "lc.settings.jitlessDiagnose": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Диагностика режима без JIT"
+    }
+  },
+  "lc.settings.launchMultitaskMaximized": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Развёрнутое окно многозадачности по умолчанию"
+    }
+  },
+  "lc.settings.moveDanglingFolderOut": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Переместить неиспользуемые папки из группы приложений"
+    }
+  },
+  "lc.settings.multiLC": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Несколько экземпляров LiveContainer"
+    }
+  },
+  "lc.settings.multiLCDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Установив несколько экземпляров LiveContainer и сделав приложения общими, вы сможете открывать одно приложение во всех экземплярах LiveContainer с сохранением большинства данных и настроек."
+    }
+  },
+  "lc.settings.multiLCInstall.allowGameMode": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Разрешить игровой режим"
+    }
+  },
+  "lc.settings.multiLCInstall.installWithBuiltInSideStore": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Установить через встроенный SideStore"
+    }
+  },
+  "lc.settings.multiLCLaunchPriorityDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Перетаскивайте экземпляры LiveContainer, чтобы задать порядок попыток запуска общих приложений."
+    }
+  },
+  "lc.settings.noCacheToClean": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Нет кэша для очистки."
+    }
+  },
+  "lc.settings.noDataFolderToClean": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Нет папок данных для удаления. Все папки данных используются."
+    }
+  },
+  "lc.settings.notDevCert": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "LiveContainer подписан не сертификатом разработки, поэтому работать не будет. Подпишите LiveContainer сертификатом разработки."
+    }
+  },
+  "lc.settings.redirectURLToHost": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Перенаправлять схемы URL в основной LiveContainer"
+    }
+  },
+  "lc.settings.refreshCertificateFromStore %@": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Обновить сертификат из %@"
+    }
+  },
+  "lc.settings.restartTerminatedApp": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Автоматически перезапускать приложение после завершения"
+    }
+  },
+  "lc.settings.silentOpenWebPageDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "По умолчанию LiveContainer спрашивает, как открыть URL. Включите этот параметр, чтобы автоматически открывать URL в текущем приложении."
+    }
+  },
+  "lc.settings.silentSwitchAppDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "По умолчанию LiveContainer запрашивает подтверждение перед переключением приложений. Включите этот параметр для немедленного переключения. Все несохранённые данные будут потеряны."
+    }
+  },
+  "lc.settings.skipTerminatedScreen": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Пропускать экран завершённого приложения"
+    }
+  },
+  "lc.settings.strictHidingDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "В этом режиме скрытые приложения можно запускать только после тройного нажатия на счётчик установленных приложений."
+    }
+  },
+  "lc.settings.testJitLess": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Проверить режим без JIT"
+    }
+  },
+  "lc.settings.unsupportedInstallMethod": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Неподдерживаемый способ установки. Используйте AltStore или SideStore для настройки этой функции."
+    }
+  },
+  "lc.settings.warning": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Не используйте LiveContainer для пиратства."
+    }
+  },
+  "lc.signer.crashDuringSignErr": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Похоже, LiveContainer аварийно завершился при последнем подписании приложения, и приложение может быть повреждено. Попробуйте переустановить его или выбрать другое средство подписи."
+    }
+  },
+  "lc.signer.latestCertificateInvalidErr": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Приложение подписано последним сертификатом, но подпись кода недействительна. Откройте диагностику режима без JIT и проверьте его настройки."
+    }
+  },
+  "lc.signer.noCertificateFoundErr": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Не удалось найти сертификат подписи. Откройте диагностику режима без JIT и проверьте его настройки."
+    }
+  },
+  "lc.sources.error.malformed": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Файл источника недействителен."
+    }
+  },
+  "lc.sources.error.missingDownload": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Эта запись не содержит URL загрузки."
+    }
+  },
+  "lc.sources.section.noApps": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "В этом источнике нет доступных приложений."
+    }
+  },
+  "lc.storage.appBundle": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Пакет приложения"
+    }
+  },
+  "lc.storage.appGroupData": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Данные группы приложений"
+    }
+  },
+  "lc.storage.installedApps": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Установленные приложения"
+    }
+  },
+  "lc.storage.totalStorage": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Общий объём хранилища"
+    }
+  },
+  "lc.tweakView.appFolderDesc": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Это папка твиков для отдельного приложения. Задайте папку твиков, и гостевое приложение загрузит их, включая вложенные папки."
+    }
+  },
+  "lc.utils.requireAuthentication": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Требуется аутентификация."
+    }
+  },
+  "lc.webView.pageCanBeOpenIn %@": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Эту веб-страницу можно открыть в «%@». Продолжить?"
+    }
+  },
+  "lc.appList.appCounter %lld": {
+    "variations": {
+      "plural": {
+        "one": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всего %lld приложение"
+          }
+        },
+        "few": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всего %lld приложения"
+          }
+        },
+        "many": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всего %lld приложений"
+          }
+        },
+        "other": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всего %lld приложения"
+          }
+        }
+      }
+    }
+  },
+  "lc.settings.cleanDataFolderConfirm %lld": {
+    "variations": {
+      "plural": {
+        "one": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить %lld неиспользуемую папку данных?"
+          }
+        },
+        "few": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить %lld неиспользуемые папки данных?"
+          }
+        },
+        "many": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить %lld неиспользуемых папок данных?"
+          }
+        },
+        "other": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить %lld неиспользуемой папки данных?"
+          }
+        }
+      }
+    }
+  },
+  "lc.settings.moveDanglingFolderComplete %lld %lld": {
+    "stringUnit": {
+      "state": "translated",
+      "value": "Перемещены %#@arg1@ и %#@arg2@."
+    },
+    "substitutions": {
+      "arg1": {
+        "argNum": 1,
+        "formatSpecifier": "lld",
+        "variations": {
+          "plural": {
+            "few": {
+              "stringUnit": {
+                "state": "translated",
+                "value": "%arg папки с данными"
+              }
+            },
+            "many": {
+              "stringUnit": {
+                "state": "translated",
+                "value": "%arg папок с данными"
+              }
+            },
+            "one": {
+              "stringUnit": {
+                "state": "translated",
+                "value": "%arg папка с данными"
+              }
+            },
+            "other": {
+              "stringUnit": {
+                "state": "translated",
+                "value": "%arg папки с данными"
+              }
+            }
+          }
+        }
+      },
+      "arg2": {
+        "argNum": 2,
+        "formatSpecifier": "lld",
+        "variations": {
+          "plural": {
+            "few": {
+              "stringUnit": {
+                "state": "translated",
+                "value": "%arg папки с твиками"
+              }
+            },
+            "many": {
+              "stringUnit": {
+                "state": "translated",
+                "value": "%arg папок с твиками"
+              }
+            },
+            "one": {
+              "stringUnit": {
+                "state": "translated",
+                "value": "%arg папка с твиками"
+              }
+            },
+            "other": {
+              "stringUnit": {
+                "state": "translated",
+                "value": "%arg папки с твиками"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
