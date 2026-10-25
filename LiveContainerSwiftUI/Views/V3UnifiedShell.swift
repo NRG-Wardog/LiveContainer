@@ -7214,7 +7214,7 @@ enum V3SetupReadinessObservationPolicy {
 enum V3MultiSelectPromptAnswerPolicy {
     static func isMemberOption(kind: String, optionID: String) -> Bool {
         if ["keep", "keepAll"].contains(optionID) { return false }
-        if kind == "extensions" && ["keepAllMainProfile", "removeAll", "cancel"].contains(optionID) { return false }
+        if kind == "extensions" && ["keepAllMainProfile", "keepAllValidatedReuseMain", "removeAll", "cancel"].contains(optionID) { return false }
         return true
     }
 
@@ -10420,7 +10420,7 @@ struct V3SourcesView: View {
 }
 
 struct V3CatalogApp: Identifiable {
-    let id: String, name: String, version: String, developer: String, description: String, installedID: String
+    let id: String, name: String, version: String, developer: String, description: String, installedID: String, bundleID: String
     let canInstall: Bool
     let downloadURL: String
     let installedVersion: String?
@@ -10429,6 +10429,7 @@ struct V3CatalogApp: Identifiable {
               let id = row["identifier"] as? String,
               let name = row["name"] as? String else { return nil }
         self.id = id; self.name = name; version = row["version"] as? String ?? ""
+        bundleID = row["bundleID"] as? String ?? ""
         developer = row["developer"] as? String ?? ""; description = row["description"] as? String ?? ""
         installedID = row["installedID"] as? String ?? ""; canInstall = row["canInstall"] as? Bool ?? false
         downloadURL = row["downloadURL"] as? String ?? ""
@@ -10526,6 +10527,12 @@ struct V3CatalogView: View {
                                 }
                                 .disabled(!app.canInstall)
                             }
+                            if let guest = installedGuest(for: app) {
+                                Text(V3Localization.format("Installed guest version: %@", guest.appInfo.version() ?? ""))
+                                    .font(.caption).foregroundColor(.secondary)
+                                Text("Updating a guest uses the existing replacement confirmation. Select the installed app to preserve its containers.")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
                             Button {
                                 var link = URLComponents()
                                 link.scheme = "livecontainer"
@@ -10534,7 +10541,7 @@ struct V3CatalogView: View {
                                 sharedModel.deepLink = link.url
                                 sharedModel.selectedTab = .apps
                             } label: {
-                                Label("Install as LiveContainer Guest", systemImage: "square.stack.3d.up")
+                                Label(LocalizedStringKey(guestActionTitle(for: app)), systemImage: guestHasUpdate(app) ? "arrow.down.app.fill" : "square.stack.3d.up")
                             }
                             .disabled(!app.canInstall || app.downloadURL.isEmpty)
                         }
@@ -10554,13 +10561,20 @@ struct V3CatalogView: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        if status.installedApps.contains(where: { $0.identifier == app.installedID }) {
-                            Text("Installed")
+                        if let installed = status.installedApps.first(where: { $0.identifier == app.installedID }) {
+                            Text(LocalizedStringKey(installed.hasUpdate ? "Update" : "Installed"))
                                 .font(.caption.weight(.semibold))
                                 .foregroundColor(.secondary)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
                                 .background(Capsule().fill(Color(UIColor.secondarySystemFill)))
+                        } else if guestHasUpdate(app) {
+                            Text("Update Guest")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(.accentColor)
+                        } else if installedGuest(for: app) != nil {
+                            Text("Guest Installed")
+                                .font(.caption).foregroundColor(.secondary)
                         } else if app.canInstall {
                             Text("GET")
                                 .font(.caption.weight(.bold))
@@ -10578,6 +10592,21 @@ struct V3CatalogView: View {
         .navigationTitle(source.name)
         .searchable(text: $query, prompt: "Search apps in " + source.name)
         .task { await load() }
+        .refreshable { await load() }
+    }
+    private func installedGuest(for app: V3CatalogApp) -> LCAppModel? {
+        guard !app.bundleID.isEmpty else { return nil }
+        // Do not reveal locked/hidden guest installations in source catalogs.
+        return sharedModel.apps.first { $0.appInfo.bundleIdentifier() == app.bundleID }
+    }
+    private func guestHasUpdate(_ app: V3CatalogApp) -> Bool {
+        guard app.canInstall, let guest = installedGuest(for: app),
+              let installedVersion = guest.appInfo.version() else { return false }
+        return V3SourceVersionPolicy.isUpgrade(installed: installedVersion, available: app.version)
+    }
+    private func guestActionTitle(for app: V3CatalogApp) -> String {
+        if guestHasUpdate(app) { return "Update LiveContainer Guest" }
+        return installedGuest(for: app) == nil ? "Install as LiveContainer Guest" : "Install Source Version as Guest"
     }
     private func load() async {
         guard !loadInFlight else { return }
@@ -12096,7 +12125,17 @@ struct V3PromptSection: View {
     @State private var copiedDiagnostic: String?
     @State private var repairURL: URL?
     @State private var loadedPromptID: String?
+    @State private var diagnosticProviderOrder: [String] = []
+    @State private var diagnosticSequenceEnabled = false
     private var kind: String { prompt["kind"] as? String ?? "" }
+    private var offeredDiagnosticProviders: V3DiagnosticProviderPlan? {
+        V3DiagnosticProviderPlan.offered(kind: kind,
+            capability: prompt["diagnosticProviderSequence"] as? String,
+            providers: prompt["diagnosticProviders"] as? [String])
+    }
+    private var selectedDiagnosticProviders: V3DiagnosticProviderPlan? {
+        offeredDiagnosticProviders?.selecting(diagnosticProviderOrder)
+    }
     private var usesRemoteMacAnisetteForSubmit: Bool {
         kind == "credentials" && prompt["remoteMacAnisette"] as? String == "submit-v2"
     }
@@ -12247,6 +12286,50 @@ struct V3PromptSection: View {
                         .disableAutocorrection(true)
                 }
             }
+            if offeredDiagnosticProviders != nil {
+                Toggle("Try providers in order", isOn: $diagnosticSequenceEnabled)
+                    .disabled(isSubmitting || isSubmissionBlocked)
+                if diagnosticSequenceEnabled {
+                    Text("Submit tries each selected provider at most once. It stops on success or an account error and pauses for verification. If cleanup is delayed, no next provider starts.")
+                        .font(.caption).foregroundColor(.secondary)
+                    ForEach(Array(diagnosticProviderOrder.enumerated()), id: \.element) { index, raw in
+                        HStack {
+                            Text("\(index + 1). \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw)")
+                            Spacer()
+                            Button {
+                                guard index > 0 else { return }
+                                diagnosticProviderOrder.swapAt(index, index - 1)
+                            } label: { Image(systemName: "arrow.up") }
+                                .accessibilityLabel("Move \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) earlier")
+                                .buttonStyle(.borderless)
+                                .disabled(index == 0 || isSubmitting || isSubmissionBlocked)
+                            Button {
+                                guard index + 1 < diagnosticProviderOrder.count else { return }
+                                diagnosticProviderOrder.swapAt(index, index + 1)
+                            } label: { Image(systemName: "arrow.down") }
+                                .accessibilityLabel("Move \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) later")
+                                .buttonStyle(.borderless)
+                                .disabled(index + 1 == diagnosticProviderOrder.count || isSubmitting || isSubmissionBlocked)
+                            Button {
+                                guard diagnosticProviderOrder.count > 1 else { return }
+                                diagnosticProviderOrder.removeAll { $0 == raw }
+                            } label: { Image(systemName: "minus.circle") }
+                                .accessibilityLabel("Remove \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) from sequence")
+                                .buttonStyle(.borderless)
+                                .disabled(diagnosticProviderOrder.count == 1 || isSubmitting || isSubmissionBlocked)
+                        }
+                    }
+                    ForEach((offeredDiagnosticProviders?.providers ?? []).filter {
+                        !diagnosticProviderOrder.contains($0.rawValue)
+                    }, id: \.rawValue) { provider in
+                        Button("Add \(provider.title)", systemImage: "plus.circle") {
+                            guard !diagnosticProviderOrder.contains(provider.rawValue) else { return }
+                            diagnosticProviderOrder.append(provider.rawValue)
+                        }
+                        .disabled(isSubmitting || isSubmissionBlocked)
+                    }
+                }
+            }
             if fieldDefs.count > 0 && options.isEmpty {
                 Button("Submit") { submit(choice: "") }
                     .buttonStyle(.borderedProminent)
@@ -12293,6 +12376,12 @@ struct V3PromptSection: View {
                     }
                         .disabled(isSubmitting || isSubmissionBlocked)
                 } else {
+                    if options.contains(where: { $0["id"] == "keepAllValidatedReuseMain" }) {
+                        Button("Keep All (Experimental ReuseMain)") {
+                            respond(V3MultiSelectPromptAnswerPolicy.actionAnswer("keepAllValidatedReuseMain", fields: fields))
+                        }
+                        .disabled(isSubmitting || isSubmissionBlocked)
+                    }
                     if options.contains(where: { $0["id"] == "keepAllMainProfile" }) {
                         Button("Keep All (Use Main Profile)") {
                             respond(V3MultiSelectPromptAnswerPolicy.actionAnswer("keepAllMainProfile", fields: fields))
@@ -12365,6 +12454,8 @@ struct V3PromptSection: View {
             selected = []
             repairURL = nil
             loadedPromptID = nil
+            diagnosticProviderOrder = []
+            diagnosticSequenceEnabled = false
         }
     }
     private func copyDiagnostic(_ value: String) {
@@ -12386,6 +12477,8 @@ struct V3PromptSection: View {
             fields["appleID"] = draft["appleID"] ?? ""
             fields["password"] = draft["password"] ?? ""
         }
+        diagnosticSequenceEnabled = false
+        diagnosticProviderOrder = offeredDiagnosticProviders?.providers.map(\.rawValue) ?? []
         loadedPromptID = prompt["id"] as? String
     }
     private func twoFactorOption(_ option: [String: String]) -> some View {
@@ -12436,7 +12529,11 @@ struct V3PromptSection: View {
     private func submit(choice: String) {
         var answer = fields
         answer["choice"] = choice
-        if usesRemoteMacAnisetteForSubmit {
+        if diagnosticSequenceEnabled {
+            guard let plan = selectedDiagnosticProviders else { return }
+            answer["diagnosticProviderSequence"] = V3DiagnosticProviderPlan.capability
+            answer["diagnosticProviderOrder"] = plan.encoded
+        } else if usesRemoteMacAnisetteForSubmit {
             answer["anisetteProvider"] = "remoteMac"
         }
         respond(answer)
@@ -12463,6 +12560,7 @@ final class V3AuthStore: ObservableObject {
     @Published var previousFailure: [String: Any]?
     @Published private(set) var timeoutDiagnosticFailure: [String: Any]?
     @Published var attempts = 0
+    @Published private(set) var diagnosticProviderResults: [V3DiagnosticProviderResult] = []
     @Published private(set) var revision = 0
     @Published var message = ""
     @Published private(set) var currentAttemptFailure = V3AuthAttemptFailureNotice()
@@ -12630,6 +12728,7 @@ final class V3AuthStore: ObservableObject {
         pendingAuthenticationReadinessSessionID = requestedSession
         pendingAuthenticationReadinessAttemptSequence = V3AuthReadinessRefreshEvent.nextAttemptSequence()
         attempts = 0
+        diagnosticProviderResults = []
         revision = 0
         state = "working"
         message = ""
@@ -12687,6 +12786,7 @@ final class V3AuthStore: ObservableObject {
         reconciliationGate.invalidate()
         session = requestedSession
         attempts = 0
+        diagnosticProviderResults = []
         revision = 0
         state = "working"
         message = ""
@@ -13636,6 +13736,10 @@ final class V3AuthStore: ObservableObject {
             V3ServiceBridge.strictBool(reply["authenticated"]) == true
         let replySessionID = reply["session"] as? String
         let replyBelongsToCurrentSession = replySessionID != nil && replySessionID == session
+        if replyBelongsToCurrentSession {
+            diagnosticProviderResults = V3DiagnosticProviderResult.parse(reply["diagnosticProviderResults"],
+                terminal: ["completed", "authenticatedProvisioningIncomplete", "failed", "timedOut", "promptExpired", "cancelled"].contains(replyState))
+        }
         let isTerminal = ["completed", "authenticatedProvisioningIncomplete", "failed",
                           "timedOut", "promptExpired", "cancelled"].contains(replyState)
         var readinessAttemptSequence: UInt64?
@@ -14148,6 +14252,19 @@ struct V3SignInView: View {
                     }
                 }
                 .padding(.vertical, 4)
+            }
+        }
+        if !auth.diagnosticProviderResults.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Provider sign-in results").font(.subheadline.weight(.semibold))
+                ForEach(auth.diagnosticProviderResults, id: \.provider.rawValue) { result in
+                    HStack {
+                        Text(result.provider.title)
+                        Spacer()
+                        Text(result.title).foregroundColor(result.outcome == "succeeded" ? .green : .secondary)
+                    }
+                    .font(.caption)
+                }
             }
         }
         if !auth.message.isEmpty {
@@ -14794,7 +14911,7 @@ struct V3DeveloperServicesView: View {
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @State private var teams: [[String: String]] = []
     @State private var devices: [[String: String]] = []
-    @State private var appIDs: [[String: String]] = []
+    @State private var appIDs: [V3DeveloperAppID] = []
     @State private var groups: [[String: String]] = []
     @State private var profiles: [[String: Any]] = []
     @State private var message = ""
@@ -14822,7 +14939,33 @@ struct V3DeveloperServicesView: View {
             }
             simpleSection("Teams", rows: teams.map { "\($0["name"] ?? "") (\($0["identifier"] ?? ""))" })
             simpleSection("Devices", rows: devices.map { "\($0["name"] ?? "") · \($0["identifier"] ?? "")" })
-            simpleSection("App IDs", rows: appIDs.map { "\($0["name"] ?? "") · \($0["bundleID"] ?? "")" })
+            Section(V3Localization.format("%@ (%@)", V3Localization.text("App IDs"), String(appIDs.count))) {
+                if loading { ProgressView() }
+                if appIDs.isEmpty && !loading { Text("None").foregroundColor(.secondary) }
+                ForEach(appIDs) { appID in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(appID.name).font(.headline)
+                        Text(appID.bundleID).font(.caption).foregroundColor(.secondary)
+                        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                            if let expiration = appID.expirationDate,
+                               let remaining = appID.remainingSeconds(at: timeline.date) {
+                                if remaining == 0 {
+                                    Text("Expired. Reload Developer Data to check slot availability.")
+                                        .font(.caption).foregroundColor(.secondary)
+                                } else {
+                                    HStack(spacing: 4) {
+                                        Text("Expires in")
+                                        Text(expiration, style: .relative)
+                                    }.font(.caption).foregroundColor(.secondary)
+                                }
+                            } else {
+                                Text("Expiration unavailable")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                    }.textSelection(.enabled)
+                }
+            }
             simpleSection("App Groups", rows: groups.map { "\($0["name"] ?? "") · \($0["identifier"] ?? "")" })
             Section(V3Localization.text("Provisioning Profiles (\(profiles.count))")) {
                 if loading { ProgressView() }
@@ -14921,7 +15064,7 @@ struct V3DeveloperServicesView: View {
             }
             teams = strings(teamsResult, key: "teams")
             devices = strings(devicesResult, key: "devices")
-            appIDs = strings(appIDsResult, key: "appIDs")
+            appIDs = (appIDsResult["appIDs"] as? [[String: Any]] ?? []).compactMap(V3DeveloperAppID.init)
             groups = strings(groupsResult, key: "groups")
             profiles = profilesResult["profiles"] as? [[String: Any]] ?? []
             message = ""

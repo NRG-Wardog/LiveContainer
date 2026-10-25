@@ -54,14 +54,10 @@ void hook_FBScene_performUpdateWithoutActivation(FBScene* self, SEL _cmd, void (
         if (!container || !view.window) return;
         CGAffineTransform transform = view.transform;
         UIEdgeInsets orig = container.safeAreaInsets;
-        // Validate before the existing landscape adjustment so that it cannot
-        // hide an invalid host inset. No fallback insets are invented here.
+        // Preserve UIKit's measured insets in every orientation. The presence
+        // of the remote-sheet selector does not imply an unobstructed top edge.
         LCGuestSafeAreaInsets source = {orig.top, orig.left, orig.bottom, orig.right};
         if (!LCGuestSafeAreaInsetsAreValid(source)) return;
-        if(LCHasRemoteSheetProviderSelector && UIInterfaceOrientationIsLandscape(settings.interfaceOrientation)) {
-            // apps with glass has an extra top safe area space, so clear it (will it cause inconsistencies?)
-            source.top = 0;
-        }
         LCGuestSafeAreaInsets scaled;
         LCGuestSafeAreaTransform scale = {transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty};
         if (!LCGuestScaleSafeAreaInsets(source, scale, &scaled)) return;

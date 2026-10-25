@@ -42,6 +42,7 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, copy) void (^lcActivateHost)(void);
 @property(nonatomic, strong) NSError *lcLaunchError;
 @property(nonatomic, readonly) bool isAppTerminationCleanUpCalled;
+- (void)lcEndGuestEditing;
 - (void)terminate;
 - (void)openURLScheme:(NSString *)urlString;
 - (void)handleStatusBarTapAction:(UIAction *)action;

@@ -205,6 +205,49 @@ static void V3InitializeUIKitFixes(void) {
 
 @implementation AppSceneViewController
 
+// Only release this guest's host-side responder chain. Never end editing on
+// UIApplication windows: another guest or the host may already own its input.
+- (void)lcEndGuestEditing {
+    NSAssert(NSThread.isMainThread, @"Guest input transitions must run on main");
+    [self.contentView endEditing:YES];
+    [self.viewIfLoaded endEditing:YES];
+    if (@available(iOS 17.0, *)) {
+        [self.hostingController.sceneViewController resignFirstResponder];
+    }
+    [self resignFirstResponder];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [self lcEndGuestEditing];
+    [super viewWillDisappear:animated];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    [center removeObserver:self name:UISceneWillDeactivateNotification object:nil];
+    UIWindowScene *scene = self.viewIfLoaded.window.windowScene;
+    if (scene) [center addObserver:self selector:@selector(lcHostSceneWillDeactivate:)
+        name:UISceneWillDeactivateNotification object:scene];
+}
+
+- (void)lcHostSceneWillDeactivate:(NSNotification *)notification {
+    if (notification.object == self.viewIfLoaded.window.windowScene) {
+        [self lcEndGuestEditing];
+    }
+}
+
+- (void)dealloc {
+    [NSNotificationCenter.defaultCenter removeObserver:self];
+}
+
+- (void)viewSafeAreaInsetsDidChange {
+    [super viewSafeAreaInsetsDidChange];
+    // Queue normal geometry propagation after UIKit has supplied fresh insets.
+    // Do not cache portrait/notch values across activation or rotation.
+    [self.view setNeedsLayout];
+}
+
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     if (self.isAppTerminationCleanUpCalled) {
@@ -232,6 +275,7 @@ static void V3InitializeUIKitFixes(void) {
     [overlayHost bringSubviewToFront:self.lcReturnControl];
 }
 - (void)lcReturnToHost {
+    [self lcEndGuestEditing];
     NSLog(@"[LC_RETURN] RETURN_REQUESTED pid=%d", self.pid);
     NSLog(@"[LC_RETURN] MODE_LIVEPROCESS");
     if (!self.isAppRunning) {
@@ -492,6 +536,7 @@ static void V3InitializeUIKitFixes(void) {
 }
 
 - (void)terminate {
+    [self lcEndGuestEditing];
     if(self.isAppRunning) {
         [self.extension _kill:SIGTERM];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -598,6 +643,7 @@ static void V3InitializeUIKitFixes(void) {
         return;
     }
     if (_isAppTerminationCleanUpCalled) return;
+    [self lcEndGuestEditing];
     _isAppTerminationCleanUpCalled = true;
     self.lcReturnControl.hidden = YES;
     [self.lcReturnControl removeFromSuperview];

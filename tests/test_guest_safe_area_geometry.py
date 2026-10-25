@@ -34,7 +34,6 @@ class GuestSafeAreaGeometryTests(unittest.TestCase):
             "if (!container || !view.window) return;",
             "UIEdgeInsets orig = container.safeAreaInsets;",
             "if (!LCGuestSafeAreaInsetsAreValid(source)) return;",
-            "source.top = 0;",
             "if (!LCGuestScaleSafeAreaInsets(source, scale, &scaled)) return;",
             "UIEdgeInsets insets = UIEdgeInsetsMake(scaled.top, scaled.left, scaled.bottom, scaled.right);",
             "settings.safeAreaEdgeInsets = insets;",
@@ -42,8 +41,9 @@ class GuestSafeAreaGeometryTests(unittest.TestCase):
         offsets = [wrapper.index(step) for step in ordered]
         self.assertEqual(offsets, sorted(offsets))
         self.assertEqual(wrapper.count("updateBlock(settings, context);"), 1)
-        # Existing orientation policy and older-OS setter remain unchanged.
-        self.assertIn("LCHasRemoteSheetProviderSelector && UIInterfaceOrientationIsLandscape(settings.interfaceOrientation)", wrapper)
+        # Measured nonzero landscape insets must not be erased based on an OS selector.
+        self.assertNotIn("source.top = 0", wrapper)
+        # Existing orientation conversion and older-OS setter remain unchanged.
         self.assertIn("settings.safeAreaInsetsPortrait = LCUIEdgeInsetsRotateToOrientation(insets, settings.interfaceOrientation);", wrapper)
         self.assertIn("settings.safeAreaInsetsPortrait = insets;", wrapper)
 

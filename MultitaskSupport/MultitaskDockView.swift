@@ -875,6 +875,7 @@ class AppInfoProvider {
     }
 
     private func bringViewToFront(_ view: UIView, in window: UIWindow) {
+        (view._viewDelegate() as? DecoratedAppSceneViewController)?.lcPrepareForGuestActivation()
         if let superview = view.superview {
             superview.bringSubviewToFront(view)
         }

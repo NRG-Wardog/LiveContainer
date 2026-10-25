@@ -367,7 +367,19 @@
     }
 }
 
+- (void)lcPrepareForGuestActivation {
+    NSAssert(NSThread.isMainThread, @"Guest input transitions must run on main");
+    // Public containment identifies guest siblings, not system keyboard windows.
+    for (UIViewController *sibling in self.parentViewController.childViewControllers) {
+        if (sibling == self || ![sibling isKindOfClass:DecoratedAppSceneViewController.class]) continue;
+        if (sibling.viewIfLoaded.window != self.viewIfLoaded.window) continue;
+        DecoratedAppSceneViewController *outgoing = (DecoratedAppSceneViewController *)sibling;
+        [outgoing.appSceneVC lcEndGuestEditing];
+    }
+}
+
 - (void)minimizeWindow {
+    [self.appSceneVC lcEndGuestEditing];
     if (self.view.hidden) return;
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
@@ -381,6 +393,7 @@
 }
 
 - (void)minimizeWindowPiP {
+    [self.appSceneVC lcEndGuestEditing];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
     } completion:^(BOOL finished) {
@@ -514,6 +527,7 @@
 }
 
 - (void)appSceneVCWillActivateScene:(AppSceneViewController *)vc {
+    [self lcPrepareForGuestActivation];
     // Set up initial settings such as frame, safe area, etc
     [self appSceneVC:vc didUpdateFromSettings:vc.presenter.scene.settings.mutableCopy transitionContext:nil lifecycleActionType:0];
 }
@@ -625,6 +639,7 @@
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [super touchesBegan:touches withEvent:event];
     // FIXME: how to bring view to front when touching the passthrough view?
+    [self lcPrepareForGuestActivation];
     [self.view.superview bringSubviewToFront:self.view];
 }
 
