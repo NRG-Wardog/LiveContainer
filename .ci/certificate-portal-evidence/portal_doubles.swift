@@ -156,3 +156,13 @@ struct MinimuxerServiceError: Error { let error: Error }
 #if os(Linux)
 let NSMultipleUnderlyingErrorsKey = "NSMultipleUnderlyingErrorsKey"
 #endif
+
+// This portal regression deliberately selects no owned ODA context. Actual
+// task-local ownership/cancellation is exercised by the dedicated owned suite.
+// Keep the original FakeDispatcher path and never construct a URLSession.
+@MainActor enum OwnedODAAuthentication {
+    static func data(for request: URLRequest, legacySession: FakeDispatcher,
+                     remoteSelected: Bool = false, validateAfterResponse: Bool = true) async throws -> (Data, URLResponse) {
+        try await legacySession.data(for: request)
+    }
+}

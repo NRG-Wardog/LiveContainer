@@ -73,6 +73,14 @@ def validate_service_dependencies(swift, diagnostic_policy, block):
     assert 'static var current: FixtureRemoteAuthenticationContext? { nil }' in route, \
         'Nil-only remote route missing from service closure'
 
+    assert swift.count('enum OwnedODAAuthentication {') == 1, \
+        'Inert owned ODA transport boundary missing from service closure'
+    owned = block(swift, 'enum OwnedODAAuthentication {')
+    for required in ['legacySession: FakeDispatcher', 'remoteSelected: Bool = false',
+                     'validateAfterResponse: Bool = true', 'try await legacySession.data(for: request)']:
+        assert required in owned, 'Inert owned ODA transport boundary missing: ' + required
+    assert 'URLSession' not in owned, 'Owned ODA portal fixture must remain network-free'
+
 
 def generate_variant(root, support_root, output, variant, wire):
     block = wire.block
@@ -170,6 +178,7 @@ response["error"] = error is CancellationError ? "cancelled" : "operationFailed"
         'inert_boundaries': ['fake dispatcher returns invented JSON/HTTP/error values, never URLSession',
             'account/team/session state, generation guards, certificate storage and X509 parsing model shells',
             'remote identity admission and task-local context shells; actual bodies covered by remote-identity-reuse suite',
+            'nil-owned ODA transport delegates only to FakeDispatcher; owned context covered by dedicated owned-oda suite',
             'success certificate row formatter, command scheduler and generic reply assembly'],
     }
     (target / 'sources.json').write_text(json.dumps(receipt, indent=2) + '\n')

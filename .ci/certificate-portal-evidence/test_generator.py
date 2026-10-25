@@ -31,10 +31,15 @@ def run(candidate, baseline, output):
         # controls, not additional runtime cases or replacements for native Swift.
         context = wire.block(generated, 'struct FixtureRemoteAuthenticationContext {')
         route = wire.block(generated, 'enum ILoaderRemoteAuthentication {')
+        owned = wire.block(generated, 'enum OwnedODAAuthentication {')
         for scope, omitted in [(policy, policy), (context, context),
                                (context, 'let session = FakeDispatcher()'),
                                (context, 'func checkActive() throws {}'), (route, route),
-                               (route, 'static var current: FixtureRemoteAuthenticationContext? { nil }')]:
+                               (route, 'static var current: FixtureRemoteAuthenticationContext? { nil }'),
+                               (owned, owned), (owned, 'legacySession: FakeDispatcher'),
+                               (owned, 'remoteSelected: Bool = false'),
+                               (owned, 'validateAfterResponse: Bool = true'),
+                               (owned, 'try await legacySession.data(for: request)')]:
             assert generated.count(scope) == 1 and scope.count(omitted) == 1
             mutated = generated.replace(scope, scope.replace(omitted, '', 1), 1)
             try:
