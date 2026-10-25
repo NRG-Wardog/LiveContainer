@@ -7,33 +7,75 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT = (ROOT / 'LiveContainer.xcodeproj/project.pbxproj').read_text()
 
 
-def object_block(identifier):
-    match = re.search(r'^\t\t' + re.escape(identifier) + r' /\*[^\n]+\*/ = \{\n(.*?)^\t\t\};', PROJECT, re.M | re.S)
+def object_block(identifier, project=PROJECT):
+    match = re.search(r'^\t\t' + re.escape(identifier) + r' /\*[^\n]+\*/ = \{\n(.*?)^\t\t\};', project, re.M | re.S)
     if not match:
         raise AssertionError('Xcode object not found: ' + identifier)
     return match.group(1)
 
 
-def configuration(target, name):
-    match = re.search(r'^\t\t([0-9A-F]{24}) /\* Build configuration list for PBXNativeTarget "' + re.escape(target) + r'" \*/ = \{', PROJECT, re.M)
+def configuration(target, name, project=PROJECT):
+    match = re.search(r'^\t\t([0-9A-F]{24}) /\* Build configuration list for PBXNativeTarget "' + re.escape(target) + r'" \*/ = \{', project, re.M)
     if not match:
         raise AssertionError('Target configuration list not found: ' + target)
-    config_list = object_block(match.group(1))
+    config_list = object_block(match.group(1), project)
     config = re.search(r'([0-9A-F]{24}) /\* ' + re.escape(name) + r' \*/', config_list)
     if not config:
         raise AssertionError('Named target configuration not found')
-    return object_block(config.group(1))
+    return object_block(config.group(1), project)
+
+
+EXPECTED_SIZE_TARGETS = {'LiveContainerSwiftUI', 'SideStoreSupport'}
+SIZE_SETTING = 'SWIFT_OPTIMIZATION_LEVEL = "-Osize";'
+
+
+def validate_size_scope(project=PROJECT):
+    # Inspect actual target/configuration ownership, not merely a global count.
+    lists = re.findall(r'^\t\t([0-9A-F]{24}) /\* Build configuration list for PBXNativeTarget "([^"\n]+)" \*/ = \{', project, re.M)
+    actual = set()
+    for identifier, target in lists:
+        configs = re.findall(r'([0-9A-F]{24}) /\* ([^*\n]+) \*/', object_block(identifier, project))
+        for config_id, mode in configs:
+            block = object_block(config_id, project)
+            if SIZE_SETTING in block:
+                assert block.count(SIZE_SETTING) == 1, 'Duplicate size setting'
+                assert (target, mode) not in actual, 'Duplicate target configuration'
+                actual.add((target, mode))
+    expected = {(target, 'Release') for target in EXPECTED_SIZE_TARGETS}
+    assert actual == expected, 'Unexpected size-optimized target/configuration scope'
+    # Reject settings hidden at project level or in unowned configuration objects.
+    assert project.count(SIZE_SETTING) == len(actual), 'Unowned size optimization setting'
+    return actual
 
 
 class ReleaseSizeConfigurationTests(unittest.TestCase):
-    def test_only_swiftui_release_selects_size_optimization(self):
+    def test_only_reviewed_release_targets_select_size_optimization(self):
         release = configuration('LiveContainerSwiftUI', 'Release')
         self.assertIn('SWIFT_OPTIMIZATION_LEVEL = "-Osize";', release)
         self.assertNotIn('SWIFT_OPTIMIZATION_LEVEL', configuration('LiveContainerSwiftUI', 'Debug'))
-        self.assertEqual(PROJECT.count('SWIFT_OPTIMIZATION_LEVEL = "-Osize";'), 1)
+        self.assertEqual(validate_size_scope(), {(target, 'Release') for target in EXPECTED_SIZE_TARGETS})
+        self.assertIn(SIZE_SETTING, configuration('SideStoreSupport', 'Release'))
+        self.assertNotIn('SWIFT_OPTIMIZATION_LEVEL', configuration('SideStoreSupport', 'Debug'))
         self.assertNotIn('DEAD_CODE_STRIPPING', release)
         self.assertNotIn('STRIP_STYLE', release)
         self.assertNotIn('EXPORTED_SYMBOLS_FILE', release)
+
+    def test_same_count_wrong_target_or_debug_cannot_replace_approved_release(self):
+        release = configuration('SideStoreSupport', 'Release')
+        without = PROJECT.replace(release, release.replace(SIZE_SETTING, ''))
+        self.assertNotEqual(without, PROJECT)
+        for target, mode in [('LiveProcess', 'Release'), ('SideStoreSupport', 'Debug')]:
+            block = configuration(target, mode, without)
+            mutated = without.replace(block, block.replace('buildSettings = {', 'buildSettings = {\n\t\t\t\t' + SIZE_SETTING, 1))
+            self.assertEqual(mutated.count(SIZE_SETTING), 2)
+            with self.subTest(target=target, mode=mode), self.assertRaisesRegex(AssertionError, 'scope'):
+                validate_size_scope(mutated)
+
+    def test_project_default_cannot_add_unowned_size_setting(self):
+        block = object_block('17DCE9D52C7067ED00731D42')
+        mutated = PROJECT.replace(block, block.replace('buildSettings = {', 'buildSettings = {\n\t\t\t\t' + SIZE_SETTING, 1))
+        with self.assertRaisesRegex(AssertionError, 'Unowned'):
+            validate_size_scope(mutated)
 
     def test_guest_dynamic_symbol_retention_is_preserved(self):
         for mode in ('Debug', 'Release'):
