@@ -7,7 +7,8 @@
     static func run(_ name: String, localIDs: [String]?, targetIDs: [String] = ["required", "widget", "share"],
                     choice: String = "selected", selected: Set<String> = ["remove:example.app.widget"],
                     preset: AppExtensionCustomization = .promptUser, expected: Set<String>,
-                    expectedPrompts: Int = 1, mainProfile: Bool = false, shouldCancel: Bool = false) async throws {
+                    expectedPrompts: Int = 1, mainProfile: Bool = false, shouldCancel: Bool = false,
+                    validated: Bool = false, host: Bool = false, activeHost: Bool = false, recordCase: Bool = true) async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -16,7 +17,8 @@
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
             return ALTApplication("example.app.\(id)", url)
         })
-        let app = ALTApplication("example.app", dir, children: children)
+        let app = ALTApplication(activeHost ? Bundle.Info.activeBundleIdentifier : "example.app", dir, children: children)
+        app.isAltStoreApp = host
         let local = localIDs.map { ids in Set(ids.map { ALTApplication("example.app.\($0)", dir.appendingPathComponent("old/\($0)")) }) }
         let handler = TestHandler()
         handler.answer = choice == "selected"
@@ -34,12 +36,20 @@
         require(handler.prompts == expectedPrompts, "\(name): prompt count")
         require(Set(app.appExtensions.map { $0.bundleIdentifier }) == Set(expected.map { "example.app.\($0)" }), "\(name): retained extension set")
         require(context.useMainProfile == mainProfile, "\(name): profile route")
+        require(context.validatedReuseMain == validated, "\(name): validated opt-in remains distinct")
         if expectedPrompts > 0 {
             let members = handler.offered.compactMap { $0["id"] }.filter { V3MultiSelectPromptAnswerPolicy.isMemberOption(kind: "extensions", optionID: $0) }
             require(Set(members) == Set(targetIDs.map { "remove:example.app.\($0)" }), "\(name): every target extension offered")
-            require(handler.offered.contains { $0["id"] == "keepAllMainProfile" }, "main profile option missing")
+            let options = Set(handler.offered.compactMap { $0["id"] })
+            require(options.contains("keepAllValidatedReuseMain") == !(host || activeHost), "Validated option must exclude host")
+            require(options.contains("keepAllMainProfile") == (host || activeHost), "Legacy host option preserved")
         }
-        passedCases.append(name)
+        if recordCase { passedCases.append(name) }
+        if name == "keep-all-main-profile" && recordCase {
+            try await Self.run("validated-opt-in-subcase", localIDs: nil, choice: "keepAllValidatedReuseMain", expected: expected, mainProfile: true, validated: true, recordCase: false)
+            try await Self.run("active-host-exclusion-subcase", localIDs: nil, choice: "keepAllMainProfile", expected: expected, mainProfile: true, activeHost: true, recordCase: false)
+            try await Self.run("validated-preset-subcase", localIDs: nil, preset: .validatedReuseMain, expected: expected, expectedPrompts: 0, mainProfile: true, validated: true, recordCase: false)
+        }
         print("PASS \(name)")
     }
     static func main() async throws {
@@ -62,7 +72,7 @@
         try await run("update-no-previous-extensions", localIDs: [], expected: kept)
         try await run("remove-multiple-keeps-required", localIDs: nil, selected: ["remove:example.app.widget", "remove:example.app.share"], expected: ["required"])
         try await run("keep-all-register-individually", localIDs: nil, choice: "keepAll", expected: all)
-        try await run("keep-all-main-profile", localIDs: nil, choice: "keepAllMainProfile", expected: all, mainProfile: true)
+        try await run("keep-all-main-profile", localIDs: nil, choice: "keepAllMainProfile", expected: all, mainProfile: true, host: true)
         try await run("remove-all-explicit", localIDs: nil, choice: "removeAll", expected: [])
         try await run("cancel-no-files-removed", localIDs: nil, choice: "cancel", expected: all, shouldCancel: true)
         try await run("unknown-selection-no-files-removed", localIDs: nil, selected: ["remove:other.app.extension"], expected: all, shouldCancel: true)

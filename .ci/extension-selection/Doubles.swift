@@ -3,7 +3,8 @@ import CoreFoundation
 
 // Only platform models, operation infrastructure and prompt transport are doubles.
 // The policy, handler decision, operation and filesystem deletion are real source.
-final class ALTApplication: Hashable {
+final class ALTApplication: Hashable, @unchecked Sendable {
+    var isAltStoreApp = false
     let bundleIdentifier: String
     let fileURL: URL
     private let children: Set<ALTApplication>
@@ -16,8 +17,8 @@ final class ALTApplication: Hashable {
     static func ==(l: ALTApplication, r: ALTApplication) -> Bool { l.fileURL == r.fileURL }
     func hash(into h: inout Hasher) { h.combine(fileURL) }
 }
-enum ExtensionRemovalDecision {
-    case cancel, keepAll(useMainProfile: Bool), removeAll, removeSelected(Set<ALTApplication>)
+extension Bundle {
+    enum Info { static let activeBundleIdentifier = "example.fixture.host" }
 }
 enum OperationError: Error { case invalidParameters(String), cancelled }
 struct OperationsLoggingControl { static func isLoggingEnabled<T>(for type: T.Type) -> Bool { false } }
@@ -34,6 +35,7 @@ class BasePipelineOperation<C, R> {
 final class InstallAppOperationContext {
     var targetAppBundle: ALTApplication?
     var useMainProfile = false
+    var validatedReuseMain = false
     let handler: TestPipelineHandler
     init(_ app: ALTApplication, _ handler: TestHandler) { targetAppBundle = app; self.handler = TestPipelineHandler(handler) }
 }

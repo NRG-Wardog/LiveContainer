@@ -23,6 +23,7 @@ def generate(root, output):
     ss = root/'SideStore'
     paths = {
         'service': ss/'AltStore/AppDelegate.swift',
+        'handlers': ss/'SideStore/Core/Operations/PipelineExecutionHandler.swift',
         'removal': ss/'SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift',
         'steps': ss/'SideStore/Core/Operations/OperationStepDefinition.swift',
         'runner': ss/'SideStore/Core/Operations/PipelineRunner.swift',
@@ -47,12 +48,21 @@ def generate(root, output):
     assert 'let handler = V3HeadlessPipelineHandler(sessionID: id)' in s['service']
     assert 'handler: handler, context: baseContext)' in s['service']
     parts = []
-    for key, anchor in [('service','enum V3ExtensionRemovalPromptPolicy {'), ('service','enum V3PromptSelectionPolicy {'), ('ui','enum V3MultiSelectPromptAnswerPolicy {'), ('removal','public enum AppExtensionCustomization:'), ('removal','final class RemoveAppExtensionsOperation:')]:
+    for key, anchor in [('handlers','enum ExtensionRemovalDecision:'), ('service','enum V3ExtensionRemovalPromptPolicy {'), ('service','enum V3PromptSelectionPolicy {'), ('ui','enum V3MultiSelectPromptAnswerPolicy {'), ('removal','public enum AppExtensionCustomization:'), ('removal','final class RemoveAppExtensionsOperation:')]:
         parts.append(block(s[key], anchor))
     handler = block(s['service'], '    func selectAppExtensionsToRemove(appBundle: ALTApplication,')
     fixture = (Path(__file__).parent/'Doubles.swift').read_text() + '\n' + '\n'.join(parts)
     fixture += '\nfinal class TestHandler {\nvar answer: [String:String] = [:]\nvar prompts = 0\nvar offered: [[String:String]] = []\nfunc ask(kind: String, title: String, message: String, options: [[String:String]]) async throws -> [String:String] { prompts += 1; offered = options; return answer }\n' + handler + '\n}\n'
     fixture += (Path(__file__).parent/'Cases.swift').read_text()
+    # Check member-level closure too: a type-name-only scan misses enum cases
+    # and newly accessed properties at otherwise unchanged SDK boundaries.
+    decision = block(s['handlers'], 'enum ExtensionRemovalDecision:')
+    for case in ('cancel', 'keepAll', 'keepAllValidatedReuseMain', 'removeAll', 'removeSelected'):
+        assert re.search(r'case\s+' + case + r'\b', decision), case
+    for member in ('var validatedReuseMain = false', 'var isAltStoreApp = false',
+                   'enum Info { static let activeBundleIdentifier'):
+        assert member in fixture, member
+
     actual_cases = re.findall(r'try await run\("([^"]+)"', (Path(__file__).parent/'Cases.swift').read_text())
     assert actual_cases == CASE_NAMES and len(set(CASE_NAMES)) == 17
     old = 'targetExtensions: appBundle.appExtensions,'
