@@ -1,887 +1,809 @@
 {
-  "repository_full_name": "NRG-Wardog/LiveContainer",
   "actual_default_branch": "main",
-  "audited_default_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-  "execution_revision": 2,
-  "execution_revision_reason": "Corrected the GET-only API route validator to permit exact SHA comparisons while rejecting traversal. Prior SAR verification failed before apply; no deletion occurred.",
-  "reviewed_inventory_sha256": "450891d9f2649e5244368f536489fc66df5d56316bed930bcfdb275e80da57b7",
-  "ancestry_report_sha256": "eafeec489d94886e3ac8a9c02809e9a77611ba831594950334683deaa9fd9eab",
-  "ancestry_run_id": 40138459790,
-  "ancestry_workflow_sha": "aa6223a0e922d8e8455400549bb6947f7deffb79",
-  "source_review_complete": true,
-  "source_review_scope": "Targeted review of current repository-owned workflow acquisitions, .gitmodules, package/build manifests and dependency-rewriting scripts for the exact proposed branch names. This is not an exhaustive application-source or dynamic-ref certification. Fresh runtime exclusions remain required.",
-  "source_review_evidence": {
-    "functional_review_sha256": "0f8b918a3ad6c21d0d929e781f91d1f0db5772469634821f2bd31f0f6a876b67",
-    "reviewed_public_sources": [
-      {
-        "url": "https://github.com/NRG-Wardog/LiveContainer/blob/8f0ad98068ab75298be40b404f1d1a25d8ecbbbf/.gitmodules",
-        "sha256": "2990fa4dabfb0182aa69679ffab5e6444a45476070894efb20928ebb473c1d0a"
+  "audited_default_sha": "c7111b580254190a0c037037036aaed49bfce8c6",
+  "candidates": [
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "bd5d9d87af76bfce0553d358bb3c6d45cbbc806a",
+        "behind_by": 0,
+        "head_sha": "0dcc2a20d9490a797ead972507a28fe02eef56fc",
+        "merge_base_sha": "bd5d9d87af76bfce0553d358bb3c6d45cbbc806a",
+        "status": "ahead"
       },
-      {
-        "url": "https://github.com/NRG-Wardog/SideStore/blob/c2beadd2c94df6854f83cb53d5b59c3540ec9783/.gitmodules",
-        "sha256": "eeb38935b866879950a482324b4fe03b7791df636cd6da89b5d6c112b7f0ecf5"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/SideSign/blob/483c626d6e5004b45298518352307eb492fe1ccd/Package.swift",
-        "sha256": "dcd3b5c041712503180bda8e2d94bc873b9a38d4ca03e441118a9806070a3c17"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/idevice/blob/774f02a6d29777c85400f4ba7fa69c12b4227fb3/Cargo.toml",
-        "sha256": "c390ce8ae9f2cee08b07d7bf726e928cf6fbcf2fbb9d9d02d9e9c266adcb41bf"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/jktcp/blob/a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9/Cargo.toml",
-        "sha256": "e20113e6b83e9621f103916a2e39766801cc7f01947ad53192d3a1a9332bdbd8"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/minimuxer/blob/4ca3af5270de8aa48e8bc100eadf1b3550260ea2/Package.swift",
-        "sha256": "b4849af42725b7176206a3d76b2a9bd60dc6399217deb811963c41e316951aa5"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/AnisetteKit/blob/3e670c2e1b72ff328d3a64353d8de2418df87e73/Package.swift",
-        "sha256": "a8ea2defa17b0f943ef824578146381bda02665a24a61fe00dd28254cf5b4b85"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/idevice/blob/774f02a6d29777c85400f4ba7fa69c12b4227fb3/idevice/Cargo.toml",
-        "sha256": "68417b615ed59fe9b6e22d2c43ee64cc085a19368c668477972e89d3caa1d427"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/idevice/blob/774f02a6d29777c85400f4ba7fa69c12b4227fb3/.gitmodules",
-        "sha256": "af90802a99b765d0ce69bdcaa9fec8b24f7d51989e4ebf92d383db17dd44166b"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/SideStore/blob/c2beadd2c94df6854f83cb53d5b59c3540ec9783/Makefile",
-        "sha256": "39c5ca7ccca829bcf98da32230b14088c702261fdf9352cd6c234c27489c1b5d"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/LiveContainer/blob/8f0ad98068ab75298be40b404f1d1a25d8ecbbbf/.github/build_github.sh",
-        "sha256": "532d833b2c16eb920e29b5ad3d93d65e01c99b5d4ca1d75ffce010de47d48b87"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/minimuxer/blob/4ca3af5270de8aa48e8bc100eadf1b3550260ea2/DeviceGateway/Package.swift",
-        "sha256": "ecb4a9cbd63f68b1b4dd321c300c28148e996c91b149857d558f2d2a02b0e0ed"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/minimuxer/blob/4ca3af5270de8aa48e8bc100eadf1b3550260ea2/Common/Package.swift",
-        "sha256": "09667199d39647e9dbbb787bae442a1c8e8132636f91a26400abdb4acf2ce575"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/SideStore/blob/c2beadd2c94df6854f83cb53d5b59c3540ec9783/AltStore.xcodeproj/project.pbxproj",
-        "sha256": "0690f418830c32b4475f447972c209744f49a44d17fc41251ec33d422375e9c5"
-      },
-      {
-        "url": "https://github.com/NRG-Wardog/SideStore/blob/c2beadd2c94df6854f83cb53d5b59c3540ec9783/AltStore.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
-        "sha256": "e97604f913903659539663f09176a20ee9ca5fe06188a41ff38f54257d076d08"
-      }
-    ],
-    "sar_commit": "aa6223a0e922d8e8455400549bb6947f7deffb79",
-    "sar_current_files": {
-      "build-current.yml": "a703477bc210c30f87011ff6035af6ca80f65927bc20356ab6c74dc676956ad4",
-      "livecontainer-build.yml": "29b31aee8478c1d209b2be0565045b6b1a33681e9ce4d5e4416ffecc99c54d9a",
-      "livecontainer-source-audit.yml": "f44c25cd2f1a09be0448b39323b92da719c41d631a14a55cf95a8469a3bbac6e",
-      "release-dispatch.yml": "6546d7bbba040b1fb2fd8860ba285f645515adac2bdc278e35b1eabda77d45a3",
-      "patch_local_idevice_package.py": "2162242554c544b426bf0d8451830f2873dc69f5577121e2023794525f53f3f9",
-      "patch_coredevice_idevice.py": "f5fb70f227f1a1b094051ea61cddcd05a1f63ae97ebd1ae6f755e2c9815a7b07",
-      "patch_jktcp_reliability.py": "795547f9e817193d9c2a395710a3bcea69b269ae026d5ddc516eecc1a396cef4"
+      "branch_name": "fix/v3.1.0-p1",
+      "disposition": "eligible",
+      "expected_branch_sha": "bd5d9d87af76bfce0553d358bb3c6d45cbbc806a",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/fix/p1-guest-geometry",
+      "retained_anchor_sha": "0dcc2a20d9490a797ead972507a28fe02eef56fc"
     },
-    "SideSign_gitmodules": "Absent (404) at 483c626d6e5004b45298518352307eb492fe1ccd.",
-    "remaining_named_ref_findings": "No additional candidate branch references found. The external SideStore/jktcp master literal is outside cleanup scope and replaced by a local path."
-  },
-  "required_runtime_checks": [
-    "actual_default",
-    "branch_heads",
-    "retained_ancestry",
-    "protected_branches",
-    "open_pull_requests",
-    "active_workflow_runs",
-    "release_targets"
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "88c7110c868c12f70f8686b8cf887ff3f13a7c78",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "88c7110c868c12f70f8686b8cf887ff3f13a7c78",
+        "status": "ahead"
+      },
+      "branch_name": "validation/consumer-contract-20261020",
+      "disposition": "eligible",
+      "expected_branch_sha": "88c7110c868c12f70f8686b8cf887ff3f13a7c78",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "1d9dcd5c16ccfe79b25e7fa22a74eda8a638487b",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "1d9dcd5c16ccfe79b25e7fa22a74eda8a638487b",
+        "status": "ahead"
+      },
+      "branch_name": "validation/evidence-transfer-20261020",
+      "disposition": "eligible",
+      "expected_branch_sha": "1d9dcd5c16ccfe79b25e7fa22a74eda8a638487b",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "a395469f43ef3c80bae48839336d9f7bc87fcb53",
+        "behind_by": 0,
+        "head_sha": "5ee0e9adebef6981ae3ac1c2163f80b0c893a79f",
+        "merge_base_sha": "a395469f43ef3c80bae48839336d9f7bc87fcb53",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-cache-compatibility-20261024",
+      "disposition": "eligible",
+      "expected_branch_sha": "a395469f43ef3c80bae48839336d9f7bc87fcb53",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cold-vpn-recovery-test-20261024",
+      "retained_anchor_sha": "5ee0e9adebef6981ae3ac1c2163f80b0c893a79f"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "107bb6fbe112d9d9769f6e2915c72464f5712151",
+        "behind_by": 0,
+        "head_sha": "5ed17a034b3cefbf1ef0497179a8e42d075d40a7",
+        "merge_base_sha": "107bb6fbe112d9d9769f6e2915c72464f5712151",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-cold-vpn-activation-20261024",
+      "disposition": "eligible",
+      "expected_branch_sha": "107bb6fbe112d9d9769f6e2915c72464f5712151",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/package-cold-vpn-activation-20261024",
+      "retained_anchor_sha": "5ed17a034b3cefbf1ef0497179a8e42d075d40a7"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "cb3fc0d66e2a85cd8961488be7635af4b5b420a9",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "cb3fc0d66e2a85cd8961488be7635af4b5b420a9",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-comprehensive-diagnostics-20261021",
+      "disposition": "eligible",
+      "expected_branch_sha": "cb3fc0d66e2a85cd8961488be7635af4b5b420a9",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "da061bda6ac5315722a16859401b7dbb3c7eb953",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "da061bda6ac5315722a16859401b7dbb3c7eb953",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-host-bundle-repair-20261023",
+      "disposition": "eligible",
+      "expected_branch_sha": "da061bda6ac5315722a16859401b7dbb3c7eb953",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "c8700f4b4d4706510df5ce106137a5c0f79a0b6c",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "c8700f4b4d4706510df5ce106137a5c0f79a0b6c",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-iloader-auth-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "c8700f4b4d4706510df5ce106137a5c0f79a0b6c",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "8e310c1c2bb5e7455aaf08781a9604885aadee54",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "8e310c1c2bb5e7455aaf08781a9604885aadee54",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-iloader-onboarding-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "8e310c1c2bb5e7455aaf08781a9604885aadee54",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "c975bef8987ca9ce24ed2cbf6af9903bd9a2c792",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "c975bef8987ca9ce24ed2cbf6af9903bd9a2c792",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-pairing-deferred-setup-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "c975bef8987ca9ce24ed2cbf6af9903bd9a2c792",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "e375ffda1afb160da332833baae404845ec60476",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "e375ffda1afb160da332833baae404845ec60476",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-pairing-finalization-recovery-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "e375ffda1afb160da332833baae404845ec60476",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "785d4623982094eae836f1b857bf7e8cfe093a87",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "785d4623982094eae836f1b857bf7e8cfe093a87",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-refresh-failure-preservation-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "785d4623982094eae836f1b857bf7e8cfe093a87",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "deba71bcac44b1adc1da95c7b2db2f60a2300211",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "deba71bcac44b1adc1da95c7b2db2f60a2300211",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-refresh-failure-preservation-recovery-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "deba71bcac44b1adc1da95c7b2db2f60a2300211",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-registration-diagnostics-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "ab2e392fed7eddb7ebe7cae556dcb9d3fd7c616f",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "2ef9cd5626aa223b8c285d278788719334d29a8b",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "2ef9cd5626aa223b8c285d278788719334d29a8b",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-setup-state-recovery-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "2ef9cd5626aa223b8c285d278788719334d29a8b",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "0eb987f2c3a59193b68a0221fb7d4d2517ec5e61",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "0eb987f2c3a59193b68a0221fb7d4d2517ec5e61",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-setup-state-recovery1-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "0eb987f2c3a59193b68a0221fb7d4d2517ec5e61",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "2f7ae8533b943432fd6e981acf946bd83f66d415",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "2f7ae8533b943432fd6e981acf946bd83f66d415",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-setup-state-recovery2-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "2f7ae8533b943432fd6e981acf946bd83f66d415",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "98457f22991926c900f14c3a9792f9f25fbd5ab4",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "98457f22991926c900f14c3a9792f9f25fbd5ab4",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-setup-state-recovery3-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "98457f22991926c900f14c3a9792f9f25fbd5ab4",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "7e4ae0246933377bd4be5a78520f6155c4be3341",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "7e4ae0246933377bd4be5a78520f6155c4be3341",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-setup-state-recovery4-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "7e4ae0246933377bd4be5a78520f6155c4be3341",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "835b8d736c2d370b5b2565e19f6115bcd3cb6362",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "835b8d736c2d370b5b2565e19f6115bcd3cb6362",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-setup-state-recovery5-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "835b8d736c2d370b5b2565e19f6115bcd3cb6362",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "d1564b00ea85bd611cabf1cd401b4db7592eb82f",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "d1564b00ea85bd611cabf1cd401b4db7592eb82f",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-setup-state-recovery6-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "d1564b00ea85bd611cabf1cd401b4db7592eb82f",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "93aa13df1be96b14715cc1e156043f931ed293da",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "93aa13df1be96b14715cc1e156043f931ed293da",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-setup-state-recovery7-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "93aa13df1be96b14715cc1e156043f931ed293da",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "f16526ce4e3fbd2a7c4278d8afee8f57ee6347c7",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "f16526ce4e3fbd2a7c4278d8afee8f57ee6347c7",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-status-profile-diagnostics-20261023",
+      "disposition": "eligible",
+      "expected_branch_sha": "f16526ce4e3fbd2a7c4278d8afee8f57ee6347c7",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "177ac31e90499231191b25f761014c17d9f2ba7b",
+        "behind_by": 0,
+        "head_sha": "0403c859f943ffe4f17a048ac1309dd009f1f17b",
+        "merge_base_sha": "177ac31e90499231191b25f761014c17d9f2ba7b",
+        "status": "ahead"
+      },
+      "branch_name": "validation/native-vpn-interface-recovery-20261024",
+      "disposition": "eligible",
+      "expected_branch_sha": "177ac31e90499231191b25f761014c17d9f2ba7b",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/package-vpn-interface-recovery-20261024",
+      "retained_anchor_sha": "0403c859f943ffe4f17a048ac1309dd009f1f17b"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "1d0a875bf4e7257c44022aac6e0b77c9f5a11925",
+        "behind_by": 0,
+        "head_sha": "bbd14b3137f213004a2006f65a2c94ad6d52712c",
+        "merge_base_sha": "1d0a875bf4e7257c44022aac6e0b77c9f5a11925",
+        "status": "ahead"
+      },
+      "branch_name": "validation/p0-constructor-diagnostics",
+      "disposition": "eligible",
+      "expected_branch_sha": "1d0a875bf4e7257c44022aac6e0b77c9f5a11925",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/p0-cxx-allocation",
+      "retained_anchor_sha": "bbd14b3137f213004a2006f65a2c94ad6d52712c"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "252eb33dfcd59bb6d07f3034e58dd15584eda2dc",
+        "behind_by": 0,
+        "head_sha": "bbd14b3137f213004a2006f65a2c94ad6d52712c",
+        "merge_base_sha": "252eb33dfcd59bb6d07f3034e58dd15584eda2dc",
+        "status": "ahead"
+      },
+      "branch_name": "validation/p0-cxx-allocation-linux",
+      "disposition": "eligible",
+      "expected_branch_sha": "252eb33dfcd59bb6d07f3034e58dd15584eda2dc",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/p0-cxx-allocation",
+      "retained_anchor_sha": "bbd14b3137f213004a2006f65a2c94ad6d52712c"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "1f1230372551c4aa0a4f39d93f58be76a8ee163d",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "1f1230372551c4aa0a4f39d93f58be76a8ee163d",
+        "status": "ahead"
+      },
+      "branch_name": "validation/p0-defensive-diagnostic-phase-a",
+      "disposition": "eligible",
+      "expected_branch_sha": "1f1230372551c4aa0a4f39d93f58be76a8ee163d",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "4df0baa4f92274983a0d750cc5c3a3553600296b",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "4df0baa4f92274983a0d750cc5c3a3553600296b",
+        "status": "ahead"
+      },
+      "branch_name": "validation/p0-defensive-diagnostic-phase-a-swift-split",
+      "disposition": "eligible",
+      "expected_branch_sha": "4df0baa4f92274983a0d750cc5c3a3553600296b",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "6edd04bdeca008faf0f5e3c56d0ff42ac097e7d8",
+        "behind_by": 0,
+        "head_sha": "bbd14b3137f213004a2006f65a2c94ad6d52712c",
+        "merge_base_sha": "6edd04bdeca008faf0f5e3c56d0ff42ac097e7d8",
+        "status": "ahead"
+      },
+      "branch_name": "validation/p0-elf-metadata-bounds",
+      "disposition": "eligible",
+      "expected_branch_sha": "6edd04bdeca008faf0f5e3c56d0ff42ac097e7d8",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/p0-cxx-allocation",
+      "retained_anchor_sha": "bbd14b3137f213004a2006f65a2c94ad6d52712c"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "8f8002412248d2168c6e52858ff928800a2a01bb",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "8f8002412248d2168c6e52858ff928800a2a01bb",
+        "status": "ahead"
+      },
+      "branch_name": "validation/p0-fault-aggregate-phase-a",
+      "disposition": "eligible",
+      "expected_branch_sha": "8f8002412248d2168c6e52858ff928800a2a01bb",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "5a255a7b52bfa0351d1a5a2a934be90df985d138",
+        "behind_by": 0,
+        "head_sha": "61521cfc621ae018aa1336d1b9bf9ba1efc4c8a1",
+        "merge_base_sha": "5a255a7b52bfa0351d1a5a2a934be90df985d138",
+        "status": "ahead"
+      },
+      "branch_name": "validation/p0-native-basis",
+      "disposition": "eligible",
+      "expected_branch_sha": "5a255a7b52bfa0351d1a5a2a934be90df985d138",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/p1-export-replay",
+      "retained_anchor_sha": "61521cfc621ae018aa1336d1b9bf9ba1efc4c8a1"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "09d75d765a6c63b27fccae3529c8b224100278b3",
+        "behind_by": 0,
+        "head_sha": "e07d8a45bf8ac71fdf426903238bc8389dc20c83",
+        "merge_base_sha": "09d75d765a6c63b27fccae3529c8b224100278b3",
+        "status": "ahead"
+      },
+      "branch_name": "validation/p1-native-basis",
+      "disposition": "eligible",
+      "expected_branch_sha": "09d75d765a6c63b27fccae3529c8b224100278b3",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/p1-sample-capability",
+      "retained_anchor_sha": "e07d8a45bf8ac71fdf426903238bc8389dc20c83"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "662f971025d653141001ee192259f0d0a141ac0c",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "662f971025d653141001ee192259f0d0a141ac0c",
+        "status": "ahead"
+      },
+      "branch_name": "validation/package-iloader-onboarding-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "662f971025d653141001ee192259f0d0a141ac0c",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "a6bd8202050dcd8a692341c0b1e1381bafdb02af",
+        "behind_by": 0,
+        "head_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+        "merge_base_sha": "a6bd8202050dcd8a692341c0b1e1381bafdb02af",
+        "status": "ahead"
+      },
+      "branch_name": "validation/package-registration-diagnostics-20261022",
+      "disposition": "eligible",
+      "expected_branch_sha": "a6bd8202050dcd8a692341c0b1e1381bafdb02af",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "retained_anchor_sha": "8928d99bae45f051af2e708a953b5021e0ba0796"
+    },
+    {
+      "actual_default_branch": "main",
+      "ancestry": {
+        "base_sha": "5fcff4214fc459b30b37843aaa2cf075232f52f2",
+        "behind_by": 0,
+        "head_sha": "761eb1387b6264d27ad606920e1e44a87f6bbb65",
+        "merge_base_sha": "5fcff4214fc459b30b37843aaa2cf075232f52f2",
+        "status": "ahead"
+      },
+      "branch_name": "validation/production-dependencies-141776ba",
+      "disposition": "eligible",
+      "expected_branch_sha": "5fcff4214fc459b30b37843aaa2cf075232f52f2",
+      "functional_dependency_checks_complete": true,
+      "protected": false,
+      "repository_full_name": "NRG-Wardog/LiveContainer",
+      "retained_anchor_ref": "refs/heads/validation/adi-production-dependencies",
+      "retained_anchor_sha": "761eb1387b6264d27ad606920e1e44a87f6bbb65"
+    }
+  ],
+  "dependency_snapshots": [
+    {
+      "expected_sha": "0678baab19c2ad456c0f5123b9c24c0959436821",
+      "kind": "actual_default",
+      "ref": "refs/heads/main",
+      "repository_full_name": "NRG-Wardog/sidestore-auto-refresh"
+    },
+    {
+      "expected_sha": "c7111b580254190a0c037037036aaed49bfce8c6",
+      "kind": "actual_default",
+      "ref": "refs/heads/main",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "18ab80ac78853e988adbe5dab67a1f9f4027eff4",
+      "kind": "actual_default",
+      "ref": "refs/heads/LiveContainerSupport",
+      "repository_full_name": "NRG-Wardog/SideStore"
+    },
+    {
+      "expected_sha": "a1681f83612932bc1d68ccd007918fdb3fe7ca88",
+      "kind": "actual_default",
+      "ref": "refs/heads/main",
+      "repository_full_name": "NRG-Wardog/SideSign"
+    },
+    {
+      "expected_sha": "cb9d56a0670014fa0f4b37f6cc9d3ba0ffd96848",
+      "kind": "actual_default",
+      "ref": "refs/heads/main",
+      "repository_full_name": "NRG-Wardog/AnisetteKit"
+    },
+    {
+      "expected_sha": "fe049d6431418bbc9aee6ab282a07cde9ba71dff",
+      "kind": "actual_default",
+      "ref": "refs/heads/develop",
+      "repository_full_name": "NRG-Wardog/minimuxer"
+    },
+    {
+      "expected_sha": "b892fed1c87701ab0d05926a10a49dc042d2b0b2",
+      "kind": "actual_default",
+      "ref": "refs/heads/master",
+      "repository_full_name": "NRG-Wardog/idevice"
+    },
+    {
+      "expected_sha": "ca21d888eb8d978e5116decfa3f990712d96c5ad",
+      "kind": "actual_default",
+      "ref": "refs/heads/master",
+      "repository_full_name": "NRG-Wardog/jktcp"
+    },
+    {
+      "expected_sha": "0dcc2a20d9490a797ead972507a28fe02eef56fc",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/fix/p1-guest-geometry",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "761eb1387b6264d27ad606920e1e44a87f6bbb65",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/validation/adi-production-dependencies",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "8928d99bae45f051af2e708a953b5021e0ba0796",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/validation/cache-root-alias-investigation-20261024",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "5ee0e9adebef6981ae3ac1c2163f80b0c893a79f",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/validation/cold-vpn-recovery-test-20261024",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "bbd14b3137f213004a2006f65a2c94ad6d52712c",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/validation/p0-cxx-allocation",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "61521cfc621ae018aa1336d1b9bf9ba1efc4c8a1",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/validation/p1-export-replay",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "e07d8a45bf8ac71fdf426903238bc8389dc20c83",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/validation/p1-sample-capability",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "5ed17a034b3cefbf1ef0497179a8e42d075d40a7",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/validation/package-cold-vpn-activation-20261024",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    },
+    {
+      "expected_sha": "0403c859f943ffe4f17a048ac1309dd009f1f17b",
+      "kind": "immutable_branch",
+      "ref": "refs/heads/validation/package-vpn-interface-recovery-20261024",
+      "repository_full_name": "NRG-Wardog/LiveContainer"
+    }
+  ],
+  "integration_commits": [
+    "2591361545afd14a637b91fa78ce376589e7f326",
+    "a1681f83612932bc1d68ccd007918fdb3fe7ca88"
+  ],
+  "integration_runs": [
+    40176266114
+  ],
+  "pr_repositories": [
+    "NRG-Wardog/sidestore-auto-refresh",
+    "NRG-Wardog/LiveContainer",
+    "NRG-Wardog/SideStore",
+    "NRG-Wardog/SideSign",
+    "NRG-Wardog/AnisetteKit",
+    "NRG-Wardog/minimuxer",
+    "NRG-Wardog/idevice",
+    "NRG-Wardog/jktcp"
   ],
   "preserved_branch_names": [
     "debug/adi-otp-execution",
     "fix/p0-constructor-diagnostics",
     "fix/p1-guest-geometry",
-    "fix/v3.1.0-p1",
-    "main",
     "validation/adi-consumption-native",
     "validation/adi-production-dependencies",
     "validation/cache-root-alias-investigation-20261024",
     "validation/cold-vpn-recovery-test-20261024",
-    "validation/consumer-contract-20261020",
     "validation/diagnostic-ipa-20261020",
-    "validation/evidence-transfer-20261020",
     "validation/install-chain-fixture-20261024",
     "validation/native-app-compile-20261020",
-    "validation/native-cache-compatibility-20261024",
-    "validation/native-cold-vpn-activation-20261024",
-    "validation/native-comprehensive-diagnostics-20261021",
-    "validation/native-host-bundle-repair-20261023",
-    "validation/native-iloader-auth-20261022",
-    "validation/native-iloader-onboarding-20261022",
-    "validation/native-pairing-deferred-setup-20261022",
-    "validation/native-pairing-finalization-recovery-20261022",
-    "validation/native-refresh-failure-preservation-20261022",
-    "validation/native-refresh-failure-preservation-recovery-20261022",
-    "validation/native-registration-diagnostics-20261022",
-    "validation/native-setup-state-recovery-20261022",
-    "validation/native-setup-state-recovery1-20261022",
-    "validation/native-setup-state-recovery2-20261022",
-    "validation/native-setup-state-recovery3-20261022",
-    "validation/native-setup-state-recovery4-20261022",
-    "validation/native-setup-state-recovery5-20261022",
-    "validation/native-setup-state-recovery6-20261022",
-    "validation/native-setup-state-recovery7-20261022",
-    "validation/native-status-profile-diagnostics-20261023",
-    "validation/native-vpn-interface-recovery-20261024",
-    "validation/p0-constructor-diagnostics",
     "validation/p0-cxx-allocation",
-    "validation/p0-cxx-allocation-linux",
     "validation/p0-defensive-ab-artifact-transport",
     "validation/p0-defensive-ab-linux",
     "validation/p0-defensive-ab-phase-a",
     "validation/p0-defensive-ab-phase-a-toolchain",
     "validation/p0-defensive-diagnostic-artifact-transport",
     "validation/p0-defensive-diagnostic-corrected-transport",
-    "validation/p0-defensive-diagnostic-phase-a",
-    "validation/p0-defensive-diagnostic-phase-a-swift-split",
     "validation/p0-defensive-diagnostic-phase-b",
     "validation/p0-defensive-diagnostic-phase-b-transport",
-    "validation/p0-elf-metadata-bounds",
-    "validation/p0-fault-aggregate-phase-a",
     "validation/p0-fault-aggregate-phase-a-transport",
     "validation/p0-login-trace-phase-a",
     "validation/p0-login-trace-phase-b",
-    "validation/p0-native-basis",
     "validation/p1-export-replay",
-    "validation/p1-native-basis",
     "validation/p1-sample-capability",
     "validation/package-cache-compatibility-20261024",
     "validation/package-cold-vpn-activation-20261024",
     "validation/package-comprehensive-diagnostics-20261022",
     "validation/package-host-bundle-repair-20261023",
     "validation/package-iloader-auth-20261022",
-    "validation/package-iloader-onboarding-20261022",
     "validation/package-pairing-deferred-setup-20261022",
     "validation/package-pairing-finalization-recovery-20261022",
     "validation/package-refresh-failure-preservation-recovery-20261022",
-    "validation/package-registration-diagnostics-20261022",
     "validation/package-setup-state-recovery-20261022",
     "validation/package-status-profile-diagnostics-20261023",
     "validation/package-vpn-interface-recovery-20261024",
     "validation/pr1835-quick",
-    "validation/production-dependencies-141776ba",
     "validation/runtime-source-141776ba"
   ],
-  "dependency_snapshots": [
-    {
-      "repository_full_name": "NRG-Wardog/sidestore-auto-refresh",
-      "ref": "refs/heads/main",
-      "expected_sha": "aa6223a0e922d8e8455400549bb6947f7deffb79",
-      "kind": "actual_default"
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "ref": "refs/heads/main",
-      "expected_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "kind": "actual_default"
-    },
-    {
-      "repository_full_name": "NRG-Wardog/SideStore",
-      "ref": "refs/heads/LiveContainerSupport",
-      "expected_sha": "c2beadd2c94df6854f83cb53d5b59c3540ec9783",
-      "kind": "actual_default"
-    },
-    {
-      "repository_full_name": "NRG-Wardog/SideSign",
-      "ref": "refs/heads/main",
-      "expected_sha": "483c626d6e5004b45298518352307eb492fe1ccd",
-      "kind": "actual_default"
-    },
-    {
-      "repository_full_name": "NRG-Wardog/AnisetteKit",
-      "ref": "refs/heads/main",
-      "expected_sha": "3e670c2e1b72ff328d3a64353d8de2418df87e73",
-      "kind": "actual_default"
-    },
-    {
-      "repository_full_name": "NRG-Wardog/minimuxer",
-      "ref": "refs/heads/develop",
-      "expected_sha": "4ca3af5270de8aa48e8bc100eadf1b3550260ea2",
-      "kind": "actual_default"
-    },
-    {
-      "repository_full_name": "NRG-Wardog/idevice",
-      "ref": "refs/heads/master",
-      "expected_sha": "774f02a6d29777c85400f4ba7fa69c12b4227fb3",
-      "kind": "actual_default"
-    },
-    {
-      "repository_full_name": "NRG-Wardog/jktcp",
-      "ref": "refs/heads/master",
-      "expected_sha": "a46594f6af56b66b6d9342ed9f5ee6d1b7fb9cc9",
-      "kind": "actual_default"
-    }
+  "repository_full_name": "NRG-Wardog/LiveContainer",
+  "required_runtime_checks": [
+    "active_workflow_runs",
+    "actual_default",
+    "branch_heads",
+    "open_pull_requests",
+    "protected_branches",
+    "release_targets",
+    "retained_ancestry"
   ],
-  "pr_repositories": [
-    "LiveContainer/LiveContainer",
-    "LiveContainer/SideStore",
-    "NRG-Wardog/AnisetteKit",
-    "NRG-Wardog/LiveContainer",
-    "NRG-Wardog/SideSign",
-    "NRG-Wardog/SideStore",
-    "NRG-Wardog/idevice",
-    "NRG-Wardog/jktcp",
-    "NRG-Wardog/minimuxer",
-    "NRG-Wardog/sidestore-auto-refresh",
-    "SideStore/SideSign",
-    "SideStore/idevice",
-    "SideStore/jktcp",
-    "SideStore/minimuxer",
-    "altstoreio/AltStore",
-    "jkcoxson/idevice",
-    "jkcoxson/jktcp",
-    "jkcoxson/minimuxer",
-    "mahee96/AnisetteKit"
-  ],
-  "candidates": [
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "debug/adi-consumption-decoder",
-      "expected_branch_sha": "2a1d297ed94840b134a6ea5111065d228a51cf2b",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "2a1d297ed94840b134a6ea5111065d228a51cf2b",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 51,
-        "behind_by": 0,
-        "merge_base_sha": "2a1d297ed94840b134a6ea5111065d228a51cf2b"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "debug/adi-staging-order",
-      "expected_branch_sha": "6b128686477b569a936915abaa4bd2ec51b40c14",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "6b128686477b569a936915abaa4bd2ec51b40c14",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 50,
-        "behind_by": 0,
-        "merge_base_sha": "6b128686477b569a936915abaa4bd2ec51b40c14"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "fix/v3.1.0-p0",
-      "expected_branch_sha": "00546cec351adad1fa1cad5590da4f06e612db8f",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "00546cec351adad1fa1cad5590da4f06e612db8f",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 49,
-        "behind_by": 0,
-        "merge_base_sha": "00546cec351adad1fa1cad5590da4f06e612db8f"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "fix/v3.1.0-p2",
-      "expected_branch_sha": "f46a3e14c0752714144aa076355663c79a54f1a9",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "f46a3e14c0752714144aa076355663c79a54f1a9",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 45,
-        "behind_by": 0,
-        "merge_base_sha": "f46a3e14c0752714144aa076355663c79a54f1a9"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "migration/runtime-source-141776ba",
-      "expected_branch_sha": "47db163356dc419d2b6a894fdc5dbeb9d011dc69",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "47db163356dc419d2b6a894fdc5dbeb9d011dc69",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 52,
-        "behind_by": 0,
-        "merge_base_sha": "47db163356dc419d2b6a894fdc5dbeb9d011dc69"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/acquisition-diagnostics-20261021",
-      "expected_branch_sha": "952135fbde2eeac9fd8f1e55e57e1a5915374d4f",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "952135fbde2eeac9fd8f1e55e57e1a5915374d4f",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 40,
-        "behind_by": 0,
-        "merge_base_sha": "952135fbde2eeac9fd8f1e55e57e1a5915374d4f"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/auth-copy-renderer-20261021",
-      "expected_branch_sha": "0ea58d80f9e0db7e4f56486ba118ae3b85652513",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "0ea58d80f9e0db7e4f56486ba118ae3b85652513",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 37,
-        "behind_by": 0,
-        "merge_base_sha": "0ea58d80f9e0db7e4f56486ba118ae3b85652513"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/auth-response-diagnostics-20261021",
-      "expected_branch_sha": "66e4b40a8b21ca5077aa09f5fef7233020c5e636",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "66e4b40a8b21ca5077aa09f5fef7233020c5e636",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 39,
-        "behind_by": 0,
-        "merge_base_sha": "66e4b40a8b21ca5077aa09f5fef7233020c5e636"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/cold-vpn-activation-20261024",
-      "expected_branch_sha": "2975919c7d57b24830274ae0d5524e48ff8d5ff5",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "2975919c7d57b24830274ae0d5524e48ff8d5ff5",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 2,
-        "behind_by": 0,
-        "merge_base_sha": "2975919c7d57b24830274ae0d5524e48ff8d5ff5"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/comprehensive-diagnostics-20261021",
-      "expected_branch_sha": "186ca80d2e4dcaa416fef295eb08d5ef7c495381",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "186ca80d2e4dcaa416fef295eb08d5ef7c495381",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 21,
-        "behind_by": 0,
-        "merge_base_sha": "186ca80d2e4dcaa416fef295eb08d5ef7c495381"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/iloader-onboarding-20261022",
-      "expected_branch_sha": "7bab0b869a896fa0308d12cbd751916af66bbff2",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "7bab0b869a896fa0308d12cbd751916af66bbff2",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 19,
-        "behind_by": 0,
-        "merge_base_sha": "7bab0b869a896fa0308d12cbd751916af66bbff2"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/iloader-remote-auth-20261022",
-      "expected_branch_sha": "d0f19528ed2784b85dccb50647ee9e46c98aacc9",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "d0f19528ed2784b85dccb50647ee9e46c98aacc9",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 20,
-        "behind_by": 0,
-        "merge_base_sha": "d0f19528ed2784b85dccb50647ee9e46c98aacc9"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/p0-fault-consumer-20261019",
-      "expected_branch_sha": "47abe34894eb332a654d32f8e9322ce5eeac757a",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "47abe34894eb332a654d32f8e9322ce5eeac757a",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 42,
-        "behind_by": 0,
-        "merge_base_sha": "47abe34894eb332a654d32f8e9322ce5eeac757a"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/p0-login-trace-20261018",
-      "expected_branch_sha": "545438e1f0a89fdef375f73273c5c9fc2735cbce",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "545438e1f0a89fdef375f73273c5c9fc2735cbce",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 43,
-        "behind_by": 0,
-        "merge_base_sha": "545438e1f0a89fdef375f73273c5c9fc2735cbce"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/p2-composed-release",
-      "expected_branch_sha": "e22de6df412a0977f7430b2218960ca3ee9585d5",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "e22de6df412a0977f7430b2218960ca3ee9585d5",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 44,
-        "behind_by": 0,
-        "merge_base_sha": "e22de6df412a0977f7430b2218960ca3ee9585d5"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/p2-direction-rebuild",
-      "expected_branch_sha": "f46a3e14c0752714144aa076355663c79a54f1a9",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "f46a3e14c0752714144aa076355663c79a54f1a9",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 45,
-        "behind_by": 0,
-        "merge_base_sha": "f46a3e14c0752714144aa076355663c79a54f1a9"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/pairing-finalization-recovery-20261022",
-      "expected_branch_sha": "d22f7c0ea32be749517a20deb719f8c11891f731",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "d22f7c0ea32be749517a20deb719f8c11891f731",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 15,
-        "behind_by": 0,
-        "merge_base_sha": "d22f7c0ea32be749517a20deb719f8c11891f731"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/pairing-setup-deferred-20261022",
-      "expected_branch_sha": "c20d8289bb72fdca07dd08506c37ead6d9da37da",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "c20d8289bb72fdca07dd08506c37ead6d9da37da",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 16,
-        "behind_by": 0,
-        "merge_base_sha": "c20d8289bb72fdca07dd08506c37ead6d9da37da"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/refresh-failure-preservation-20261022",
-      "expected_branch_sha": "67659fd6f340a215bb49acec5362208f8af1083b",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "67659fd6f340a215bb49acec5362208f8af1083b",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 14,
-        "behind_by": 0,
-        "merge_base_sha": "67659fd6f340a215bb49acec5362208f8af1083b"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/refresh-failure-preservation-recovery-20261022",
-      "expected_branch_sha": "cb21f150e8907d2f8ed1bc7658342bac3fbb9926",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "cb21f150e8907d2f8ed1bc7658342bac3fbb9926",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 13,
-        "behind_by": 0,
-        "merge_base_sha": "cb21f150e8907d2f8ed1bc7658342bac3fbb9926"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/registration-diagnostics-20261022",
-      "expected_branch_sha": "0b98afc7ad5ea51dc97612466743a15baa9305ed",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "0b98afc7ad5ea51dc97612466743a15baa9305ed",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 17,
-        "behind_by": 0,
-        "merge_base_sha": "0b98afc7ad5ea51dc97612466743a15baa9305ed"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/setup-state-recovery1-20261022",
-      "expected_branch_sha": "42eadd654c8de8aa2abd444a37db007e890d8e2e",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "42eadd654c8de8aa2abd444a37db007e890d8e2e",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 11,
-        "behind_by": 0,
-        "merge_base_sha": "42eadd654c8de8aa2abd444a37db007e890d8e2e"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/setup-state-recovery4-20261022",
-      "expected_branch_sha": "1a281fa978b0afaabdafe8fb4385de838b0fed1c",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "1a281fa978b0afaabdafe8fb4385de838b0fed1c",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 10,
-        "behind_by": 0,
-        "merge_base_sha": "1a281fa978b0afaabdafe8fb4385de838b0fed1c"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/setup-state-recovery5-20261022",
-      "expected_branch_sha": "2252f2299803a237f5d8c2ecfac716a661099172",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "2252f2299803a237f5d8c2ecfac716a661099172",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 9,
-        "behind_by": 0,
-        "merge_base_sha": "2252f2299803a237f5d8c2ecfac716a661099172"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/setup-state-recovery6-20261022",
-      "expected_branch_sha": "fa168b097b97225a4d84d4d9984f37eb31b95d38",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "fa168b097b97225a4d84d4d9984f37eb31b95d38",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 8,
-        "behind_by": 0,
-        "merge_base_sha": "fa168b097b97225a4d84d4d9984f37eb31b95d38"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/setup-state-recovery7-20261022",
-      "expected_branch_sha": "d540dcead306d7707d859834a9f530d962465977",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "d540dcead306d7707d859834a9f530d962465977",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 7,
-        "behind_by": 0,
-        "merge_base_sha": "d540dcead306d7707d859834a9f530d962465977"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/setup-state-recovery-20261022",
-      "expected_branch_sha": "e39559a8c823073415a7b4fad1403e6a7f99eefc",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "e39559a8c823073415a7b4fad1403e6a7f99eefc",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 12,
-        "behind_by": 0,
-        "merge_base_sha": "e39559a8c823073415a7b4fad1403e6a7f99eefc"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/signin-entry-ui-20261021",
-      "expected_branch_sha": "60018880a49634fb3e826670dc81b20cf721ff1c",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "60018880a49634fb3e826670dc81b20cf721ff1c",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 38,
-        "behind_by": 0,
-        "merge_base_sha": "60018880a49634fb3e826670dc81b20cf721ff1c"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/signin-form-20261021",
-      "expected_branch_sha": "a5a294afff312902a302478f83cba44f6ef489ac",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "a5a294afff312902a302478f83cba44f6ef489ac",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 41,
-        "behind_by": 0,
-        "merge_base_sha": "a5a294afff312902a302478f83cba44f6ef489ac"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/status-profile-diagnostics-20261023",
-      "expected_branch_sha": "a8be8bab654edcecef0ec52020e76f0809a5ecc2",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "a8be8bab654edcecef0ec52020e76f0809a5ecc2",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 5,
-        "behind_by": 0,
-        "merge_base_sha": "a8be8bab654edcecef0ec52020e76f0809a5ecc2"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/upstream-first-6.0",
-      "expected_branch_sha": "1a227e49a8af33368b39c1ba7605bf3aff244b8b",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "1a227e49a8af33368b39c1ba7605bf3aff244b8b",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 22,
-        "behind_by": 0,
-        "merge_base_sha": "1a227e49a8af33368b39c1ba7605bf3aff244b8b"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    },
-    {
-      "repository_full_name": "NRG-Wardog/LiveContainer",
-      "branch_name": "validation/vpn-interface-recovery-20261024",
-      "expected_branch_sha": "8808211d340c6e9e2a6274c0eaa863d7ab09474f",
-      "protected": false,
-      "retained_anchor_ref": "refs/heads/main",
-      "retained_anchor_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "retained_anchor_object_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-      "ancestry": {
-        "base_sha": "8808211d340c6e9e2a6274c0eaa863d7ab09474f",
-        "head_sha": "8f0ad98068ab75298be40b404f1d1a25d8ecbbbf",
-        "status": "ahead",
-        "ahead_by": 1,
-        "behind_by": 0,
-        "merge_base_sha": "8808211d340c6e9e2a6274c0eaa863d7ab09474f"
-      },
-      "actual_default_branch": "main",
-      "disposition": "eligible",
-      "functional_dependency_checks_complete": true
-    }
-  ]
+  "reviewed_inventory_sha256": "41a7b8ab5a8a095a4b0d3d1dcb4261004df9ef965a7657261fe1f24b4bb53ca8",
+  "source_review_complete": true,
+  "source_review_scope": "Ancestry-covered intermediate refs only; all exact histories remain under excluded immutable descendant heads. Necessary current production geometry/recovery and HTTP hardening were narrowly ported and passed focused/native validation. Obsolete Windows/reserve behavior is not restored; current AK ABI implementation was source-compared. Historical compile/package runs refer to immutable commits and their recorded head labels, not requiring current branch ref existence. Fresh branch/default/PR/release/active-run exclusions remain mandatory. No unique-history deletion is authorized."
 }
