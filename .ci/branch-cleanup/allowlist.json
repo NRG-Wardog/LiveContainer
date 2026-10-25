@@ -1,6 +1,6 @@
 {
   "actual_default_branch": "main",
-  "audited_default_sha": "89a552cf2d78634dc24705cb6b0367df3d84f7c1",
+  "audited_default_sha": "667c04ab9f69c5e9e0337e7cfbdb3bd0c44d1c70",
   "candidates": [
     {
       "actual_default_branch": "main",
@@ -641,7 +641,7 @@
       "repository_full_name": "NRG-Wardog/sidestore-auto-refresh"
     },
     {
-      "expected_sha": "c7111b580254190a0c037037036aaed49bfce8c6",
+      "expected_sha": "667c04ab9f69c5e9e0337e7cfbdb3bd0c44d1c70",
       "kind": "actual_default",
       "ref": "refs/heads/main",
       "repository_full_name": "NRG-Wardog/LiveContainer"
