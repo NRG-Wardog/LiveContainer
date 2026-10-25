@@ -89,7 +89,16 @@ def check(root, baseline, output):
     identity_keys = set(['The saved remote provider identity is invalid. It was not replaced.', 'The saved remote provider identity could not be verified in protected storage.', 'The active account or remote provider identity changed during this request.', 'This saved session needs one manual sign-in to confirm its provider identity.', 'Keep the saved identity unchanged and copy Diagnostics before retrying.', 'Open Account & Signing and sign in again. The local pairing file and certificates are kept.'])
     identity_producers = g.block(s['identity_diagnostics'], 'static func remoteIdentityMessage(') + g.block(s['identity_diagnostics'], 'static func remoteIdentityRecovery(')
     assert set(re.findall(r'return "([^"]+)"', identity_producers)) == identity_keys
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys
+    owned_oda_keys = {
+        'Built-in On-Device libraries are checked against pinned vendor hashes before use.',
+        'Custom On-Device source: HTTPS and an archive checksum are required. A supplied checksum does not verify who published the libraries.',
+        'On-Device is unavailable for this sequence: its configured source must use HTTPS without embedded credentials or a URL fragment.',
+        'On-Device is unavailable for this sequence because its private storage is unavailable.',
+    }
+    owned_notice = g.block(s['ui'], 'private var ownedODASourceNotice: String? {')
+    assert set(re.findall(r'return "([^"]+)"', owned_notice)) == owned_oda_keys
+    assert 'default: return nil' in owned_notice
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     assert {row['key'] for row in negative} == added & set(current['keys'])
