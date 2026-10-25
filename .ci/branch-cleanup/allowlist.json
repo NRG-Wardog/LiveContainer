@@ -1,6 +1,6 @@
 {
   "actual_default_branch": "main",
-  "audited_default_sha": "c7111b580254190a0c037037036aaed49bfce8c6",
+  "audited_default_sha": "89a552cf2d78634dc24705cb6b0367df3d84f7c1",
   "candidates": [
     {
       "actual_default_branch": "main",
@@ -752,7 +752,8 @@
     "NRG-Wardog/AnisetteKit",
     "NRG-Wardog/minimuxer",
     "NRG-Wardog/idevice",
-    "NRG-Wardog/jktcp"
+    "NRG-Wardog/jktcp",
+    "LiveContainer/LiveContainer"
   ],
   "preserved_branch_names": [
     "debug/adi-otp-execution",
