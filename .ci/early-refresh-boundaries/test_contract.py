@@ -84,7 +84,22 @@ def validate(candidate_root, baseline_root, output, variants=('baseline', 'candi
               variant + ': correlation and privacy controls retained')
         helper = 'enum V3RefreshEarlyFailureBoundary {'
         check((helper in swift) == (variant == 'candidate'), variant + ': correct early-boundary generation')
+        api = (candidate_root / generator.SUPPORT_PATHS[5]).read_text()
+        for anchor in ['public enum DeviceConnectionMode:', 'public enum MinimuxerOwnedReadinessTransient:',
+                       'public struct MinimuxerOwnedReadinessObservation']:
+            check(block(api, anchor) in swift, variant + ': exact public transport type ' + anchor)
+        check('refreshAdmission: (() throws -> Void)? = nil' in swift and
+              'try refreshAdmission?()' in block(swift, 'func performOperation('),
+              variant + ': inert mutation boundary honors owned admission')
         if variant == 'candidate':
+            for anchor in ['final class V3RefreshReadinessLifetime:', 'enum V3OwnedRefreshReadinessWait {']:
+                check(block((root / generator.EXTRA_INPUTS['runner']).read_text(), anchor) in swift,
+                      'candidate: exact owned readiness helper ' + anchor)
+            check('false network proof cannot reach native readiness or mutation' in swift and
+                  'post-native admission rejection cannot reach preflight or mutation' in swift and
+                  'network success cannot substitute for true native readiness' in swift and
+                  'post-native cancellation identity preserved' in swift,
+                  'candidate: new network/admission negative controls retained')
             check(block((root / generator.EXTRA_INPUTS['runner']).read_text(),
                         '    private func performUsingAdmittedRoute(') in swift,
                   'candidate: exact admitted-route readiness/preflight body extracted')

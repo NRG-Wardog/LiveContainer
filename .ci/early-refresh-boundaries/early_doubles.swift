@@ -69,6 +69,7 @@ final class FixtureProgressRegistry {
 final class FixtureRunnerContext { let isActivelyManagingAnyApp = false }
 enum FixtureVisits {
     static var readiness = 0
+    static var networkReadiness = 0
     static var teamLookup = 0
     static var mutation = 0
     static var beginBatch = 0
@@ -76,7 +77,7 @@ enum FixtureVisits {
     static var mismatchPrompt = 0
     static var readinessNetworkChecks: [Bool] = []
     static func reset() {
-        readiness = 0; teamLookup = 0; mutation = 0
+        readiness = 0; networkReadiness = 0; teamLookup = 0; mutation = 0
         beginBatch = 0; endBatch = 0; mismatchPrompt = 0
         readinessNetworkChecks = []
     }
@@ -98,14 +99,24 @@ enum minimuxer {
 final class FixtureCore {
     var result: Result<Bool, MinimuxerError> = .success(true)
     var releaseGate: FixtureTransportReleaseGate?
+    var networkResult = MinimuxerOwnedReadinessObservation(result: .success(true))
+    var afterReadiness: () -> Void = {}
+    func getConnectionMode() async -> DeviceConnectionMode { .localVPN }
+    func ownedNetworkReadinessProbe(withNetworkCheck: Bool) async -> MinimuxerOwnedReadinessObservation {
+        FixtureVisits.networkReadiness += 1
+        precondition(withNetworkCheck, "owned readiness must retain network checks")
+        return networkResult
+    }
     func beginTransportBatch() async { FixtureVisits.beginBatch += 1 }
     func endTransportBatch() async {
         if let releaseGate { await releaseGate.holdRelease() }
         FixtureVisits.endBatch += 1
     }
-    func isReady(withNetworkCheck: Bool) async -> Result<Bool, MinimuxerError> {
+    func isReady(withNetworkCheck: Bool, withDDIMountCheck: Bool = false) async -> Result<Bool, MinimuxerError> {
+        precondition(!withDDIMountCheck, "refresh does not mount a developer image")
         FixtureVisits.readiness += 1
         FixtureVisits.readinessNetworkChecks.append(withNetworkCheck)
+        afterReadiness()
         return result
     }
 }
@@ -139,13 +150,15 @@ final class FixturePersistentContainer {
 // Identity lease state is an inert external boundary in this early-failure suite.
 // Both real runner methods are extracted; the identity suite owns real lease checks.
 struct V3RemoteRequestAdmission: Sendable {
-    func check() throws {}
+    func check() throws { if let error = V3RemoteRequestLeases.admissionError { throw error } }
     func close() {}
     func withScope<T>(_ operation: () async throws -> T) async rethrows -> T {
         try await operation()
     }
 }
 enum V3RemoteRequestLeases {
+    static var admitted: V3RemoteRequestAdmission? = V3RemoteRequestAdmission()
+    static var admissionError: Error?
     static func capture() throws -> V3RemoteRequestAdmission { V3RemoteRequestAdmission() }
     static func withAuthorizedRoute<T>(operation: () async throws -> T) async rethrows -> T {
         try await operation()

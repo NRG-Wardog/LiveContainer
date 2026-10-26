@@ -32,6 +32,7 @@ SUPPORT_PATHS = [
     'LiveContainer/.ci/comprehensive-diagnostics/refresh_handler_doubles.swift',
     'LiveContainer/.ci/comprehensive-diagnostics/refresh_failure_harness.swift',
     'SideStore/tests/refresh_failure/pipeline_harness.swift',
+    'SideStore/Dependencies/minimuxer/Sources/MinimuxerApi.swift',
 ]
 
 def load_dependency(support_root):
@@ -157,7 +158,12 @@ def generate_variant(root, support_root, variant, output_root):
     prefix = prefix.replace(block(prefix, 'enum AppOperation:'), block(app_operation, 'enum AppOperation:'))
     prefix = prefix.replace('final class ManifestProducer {',
         'final class ManifestProducer {\nlet refreshGroupLock = NSLock()\nvar activeRefreshGroup: RefreshGroup?\nfunc setProgress(_ value: Int) {}\n')
-    swift = prefix + '\n' + (HERE / 'early_doubles.swift').read_text()
+    api = (support_root / SUPPORT_PATHS[5]).read_text()
+    # Exact current public observation envelope; IO remains an inert double.
+    api_types = '\n'.join(block(api, anchor) for anchor in [
+        'public enum DeviceConnectionMode:', 'public enum MinimuxerOwnedReadinessTransient:',
+        'public struct MinimuxerOwnedReadinessObservation'])
+    swift = prefix + '\n' + api_types + '\n' + (HERE / 'early_doubles.swift').read_text()
     swift += '\nextension String {\n' + block(source['bundle_ids'], '    var isAltStoreAppID:') + '\n}\n'
     swift += '\nextension StoreApp {\n' + block(source['store_app'], '    static var altstoreAppID:') + '\n}\n'
     swift += '\n' + block(source['minimuxer'], 'public func isMinimuxerReady()')
@@ -169,11 +175,14 @@ def generate_variant(root, support_root, variant, output_root):
     swift += '\n' + block(source['group'], 'final class RefreshGroup:') + '\n'
     if variant == 'candidate':
         swift += '\n' + block(source['runner'], 'enum V3RefreshEarlyFailureBoundary {') + '\n'
+        for anchor in ['final class V3RefreshReadinessLifetime:', 'enum V3OwnedRefreshReadinessWait {']:
+            swift += '\n' + block(source['runner'], anchor) + '\n'
     swift += '\nfinal class PipelineRunner {\nlet progress = FixtureProgressRegistry()\nlet context = FixtureRunnerContext()\n'
     swift += block(source['runner'], '    func perform(_ operations:') + '\n'
     if variant == 'candidate':
         swift += block(source['runner'], '    private func performUsingAdmittedRoute(') + '\n'
-    swift += '''func performOperation(for operation: AppOperation, handler: PipelineExecutionHandler, group: RefreshGroup, operationsCount: Int = 1) async throws {
+    swift += '''func performOperation(for operation: AppOperation, handler: PipelineExecutionHandler, group: RefreshGroup, operationsCount: Int = 1, refreshAdmission: (() throws -> Void)? = nil) async throws {
+try refreshAdmission?()
 // The only mutation boundary is deliberately inert. Early-failure tests
 // assert zero visits; controls assert it is reached only after both checks.
 FixtureVisits.mutation += 1

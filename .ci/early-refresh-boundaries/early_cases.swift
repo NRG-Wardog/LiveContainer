@@ -11,6 +11,10 @@
         FixtureVisits.reset()
         minimuxer.core.result = .success(true)
         minimuxer.core.releaseGate = nil
+        minimuxer.core.networkResult = .init(result: .success(true))
+        minimuxer.core.afterReadiness = {}
+        V3RemoteRequestLeases.admitted = V3RemoteRequestAdmission()
+        V3RemoteRequestLeases.admissionError = nil
         CellularRefreshManager.shared.isEnabled = false
         AuthManager.shared.team = nil
         DatabaseManager.shared.selectedTeam = FixtureDBTeam()
@@ -237,11 +241,39 @@
             reset(); CellularRefreshManager.shared.isEnabled = cellular
             let (results, _) = await run()
             if case .success = results[hostID]! {} else { preconditionFailure("inert success changed") }
+            check(FixtureVisits.networkReadiness == (fixtureCandidate && !cellular ? 1 : 0), "candidate really observes owned network before native check")
             check(FixtureVisits.readiness == (cellular ? 0 : 1), "original cellular readiness policy retained")
             check(FixtureVisits.teamLookup == 1 && FixtureVisits.mutation == 1, "team guard remains on success")
             check(FixtureVisits.mismatchPrompt == 0, "refresh never gains bundle mismatch prompt")
             if !cellular { await checkCallbackCompletionBarrier() }
             pass(cellular ? "cellular_existing_policy" : "success_both_checks_retained")
+        }
+        // Additional controls within the retained success/readiness contract.
+        // A network observation is not device readiness; revoked ownership is
+        // rechecked after native readiness and before preflight/mutation.
+        if fixtureCandidate {
+            reset(); minimuxer.core.networkResult = .init(result: .success(false))
+            let (networkRejected, _) = await run()
+            if case .failure = networkRejected[hostID]! {} else { preconditionFailure("false network proof accepted") }
+            check(FixtureVisits.networkReadiness == 1 && FixtureVisits.readiness == 0 && FixtureVisits.mutation == 0,
+                  "false network proof cannot reach native readiness or mutation")
+            reset(); minimuxer.core.result = .success(false)
+            let (nativeRejected, _) = await run()
+            if case .failure = nativeRejected[hostID]! {} else { preconditionFailure("false native proof accepted") }
+            check(FixtureVisits.networkReadiness == 1 && FixtureVisits.readiness == 1 && FixtureVisits.mutation == 0,
+                  "network success cannot substitute for true native readiness")
+            reset(); minimuxer.core.afterReadiness = { V3RemoteRequestLeases.admissionError = CancellationError() }
+            let (cancelledOwner, _) = await run()
+            if case .failure(let error) = cancelledOwner[hostID]! {
+                check(error is CancellationError, "post-native cancellation identity preserved")
+            } else { preconditionFailure("cancelled owner accepted") }
+            check(FixtureVisits.readiness == 1 && FixtureVisits.mutation == 0,
+                  "post-native cancellation never dispatches mutation")
+            reset(); minimuxer.core.afterReadiness = { V3RemoteRequestLeases.admissionError = OperationError.timedOut }
+            let (ownerRejected, _) = await run()
+            if case .failure = ownerRejected[hostID]! {} else { preconditionFailure("revoked owner accepted") }
+            check(FixtureVisits.networkReadiness == 1 && FixtureVisits.readiness == 1 && FixtureVisits.teamLookup == 0 && FixtureVisits.mutation == 0,
+                  "post-native admission rejection cannot reach preflight or mutation")
         }
         reset()
         AuthManager.shared.team = ALTTeam(identifier: "CACHED_FIXTURE_TEAM", name: "fixture", type: "fixture")
