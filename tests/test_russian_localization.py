@@ -104,10 +104,12 @@ class RussianLocalizationTests(unittest.TestCase):
         self.assertIn('var isRightToLeft: Bool { self == .hebrew }', swift)
         self.assertIn('if ([language isEqualToString:@"ru"]) return @"ru";', objc)
         picker = (ROOT / 'LiveContainerSwiftUI/Utilities/V3LanguageSettings.swift').read_text()
-        self.assertIn('store: V3Localization.hostDefaults', picker)
+        self.assertIn('static let shared = V3HostLanguageState(defaults: V3Localization.hostDefaults)', picker)
+        self.assertIn('@ObservedObject private var languageState = V3HostLanguageState.shared', picker)
+        self.assertIn('languageState.select(V3AppLanguage.resolve($0))', picker)
         self.assertIn('ForEach(V3AppLanguage.allCases)', picker)
         shell = (ROOT / 'LiveContainerSwiftUI/Views/V3UnifiedShell.swift').read_text()
-        self.assertIn('.environment(\\.layoutDirection, V3AppLanguage.resolve(language).isRightToLeft ? .rightToLeft : .leftToRight)', shell)
+        self.assertIn('.environment(\\.layoutDirection, languageState.selected.isRightToLeft ? .rightToLeft : .leftToRight)', shell)
 
     def test_system_permission_localization_is_packaged(self):
         english = (ROOT / 'Resources/en.lproj/InfoPlist.strings').read_text()

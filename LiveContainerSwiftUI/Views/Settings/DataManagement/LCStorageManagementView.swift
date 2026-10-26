@@ -2,11 +2,13 @@ import Foundation
 import SwiftUI
 
 struct LCStorageManagementView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @EnvironmentObject private var sharedModel: SharedModel
     @StateObject private var model = LCStorageManagementModel()
     @State private var refreshed: Bool = false
 
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         Form {
             LCStorageSummarySection(
                 breakdown: model.breakdown,

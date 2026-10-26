@@ -33,6 +33,11 @@ def check(root, baseline, output):
     # only the exact snippets below. Every remaining Setup Assistant byte must
     # still match baseline; no broad method deletion or wildcard normalization.
     def normalize_owned_titles(source):
+        # Live language switching binds the outer formatter even when the date
+        # branch is absent. Normalize only this exact presentation-only addition.
+        source = source.replace(
+            'V3Localization.format("Last verified %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier))',
+            'V3Localization.format("Last verified %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)))')
         for case, title in current['title_cases'].items():
             source = source.replace('title: .' + case + ',', 'title: "' + title + '",')
         source = source.replace('title: V3SetupTitle,', 'title: String,')

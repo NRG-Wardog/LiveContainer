@@ -61,7 +61,8 @@ class RecoveryBannerLayoutTests(unittest.TestCase):
     def test_current_localization_and_stable_tab_identity_are_retained(self):
         shell = self.source.split("struct V3UnifiedShell: View", 1)[1].split(
             "private struct V3RecoveryBannerHeightKey", 1)[0]
-        self.assertIn("@AppStorage(V3AppLanguage.storageKey", shell)
+        self.assertIn("@ObservedObject private var languageState = V3HostLanguageState.shared", shell)
+        self.assertNotIn(".id(", shell)
         self.assertIn(".environment(\\.locale, Locale(identifier:", shell)
         self.assertIn(".environment(\\.layoutDirection,", shell)
         self.assertIn("TabView(selection: $sharedModel.selectedTab)", self.source)

@@ -13,6 +13,7 @@ final class LCAppBannerRootView: UIView {
     private var layoutStyle: AppLayoutStyle = .list
     private weak var displayedModel: LCAppModel?
     private var languageObserver: NSObjectProtocol?
+    private var explicitLanguageObserver: NSObjectProtocol?
     private var displayedLanguage = V3AppLanguage.selected
     private var iconSizeConstraints: [NSLayoutConstraint] = []
 
@@ -60,7 +61,10 @@ final class LCAppBannerRootView: UIView {
         setupView()
     }
 
-    deinit { if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) } }
+    deinit {
+        if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) }
+        if let explicitLanguageObserver { NotificationCenter.default.removeObserver(explicitLanguageObserver) }
+    }
 
     private func refreshLocalizedLabels() {
         semanticContentAttribute = displayedLanguage.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
@@ -75,6 +79,13 @@ final class LCAppBannerRootView: UIView {
     private func setupView() {
         semanticContentAttribute = displayedLanguage.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
         languageObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.displayedLanguage != V3AppLanguage.selected else { return }
+                self.displayedLanguage = V3AppLanguage.selected
+                self.refreshLocalizedLabels()
+            }
+        }
+        explicitLanguageObserver = NotificationCenter.default.addObserver(forName: Notification.Name("V3HostLanguageDidChange"), object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, self.displayedLanguage != V3AppLanguage.selected else { return }
                 self.displayedLanguage = V3AppLanguage.selected
@@ -364,6 +375,7 @@ final class LCAppBannerRunControl: UIControl {
     private var progress = 0.0
     private var isSigning = false
     private var languageObserver: NSObjectProtocol?
+    private var explicitLanguageObserver: NSObjectProtocol?
     private var displayedLanguage = V3AppLanguage.selected
 
     override var intrinsicContentSize: CGSize {
@@ -380,7 +392,10 @@ final class LCAppBannerRunControl: UIControl {
         setupView()
     }
 
-    deinit { if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) } }
+    deinit {
+        if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) }
+        if let explicitLanguageObserver { NotificationCenter.default.removeObserver(explicitLanguageObserver) }
+    }
 
     private func refreshLocalizedLabels() {
         titleLabel.text = "lc.appBanner.run".loc
@@ -398,6 +413,13 @@ final class LCAppBannerRunControl: UIControl {
 
     private func setupView() {
         languageObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.displayedLanguage != V3AppLanguage.selected else { return }
+                self.displayedLanguage = V3AppLanguage.selected
+                self.refreshLocalizedLabels()
+            }
+        }
+        explicitLanguageObserver = NotificationCenter.default.addObserver(forName: Notification.Name("V3HostLanguageDidChange"), object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, self.displayedLanguage != V3AppLanguage.selected else { return }
                 self.displayedLanguage = V3AppLanguage.selected

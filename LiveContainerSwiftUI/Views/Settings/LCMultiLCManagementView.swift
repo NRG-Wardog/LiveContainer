@@ -65,6 +65,7 @@ struct InstallAnotherLCButton : View {
 }
 
 struct LCMultiLCManagementView : View, InstallAnotherLCButtonDelegate {
+    @Environment(\.locale) private var selectedDisplayLocale
     @EnvironmentObject private var v3Status: V3SideStoreStatusStore
     @AppStorage("LCMultiAllowGameCategory") var useGameCategory = false
     @AppStorage("LCMultiAllowGameMode") var allowGameMode = false
@@ -81,6 +82,7 @@ struct LCMultiLCManagementView : View, InstallAnotherLCButtonDelegate {
     let storeName = LCUtils.getStoreName()
 
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         Form {
             Section {
                 InstallAnotherLCButton(lcName: "LiveContainer2", delegate: self)

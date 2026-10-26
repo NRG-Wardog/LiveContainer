@@ -53,6 +53,8 @@
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostLanguageChanged:)
         name:NSUserDefaultsDidChangeNotification object:NSUserDefaults.lcUserDefaults];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostLanguageChanged:)
+        name:@"V3HostLanguageDidChange" object:NSUserDefaults.lcUserDefaults];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostLanguageChanged:)
         name:UIApplicationDidBecomeActiveNotification object:nil];
     _scaleRatio = 1.0;
     _isMaximized = [NSUserDefaults.lcUserDefaults boolForKey:@"LCLaunchMultitaskMaximized"];

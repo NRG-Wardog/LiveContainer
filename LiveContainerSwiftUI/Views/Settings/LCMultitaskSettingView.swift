@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct LCMultitaskSettingView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     @AppStorage("LCLaunchMultitaskMaximized") var launchMultitaskMaximized = false
@@ -23,6 +24,7 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCRedirectURLToHost", store: LCUtils.appGroupUserDefault) var redirectURLToHost = false
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         List {
             Section {
                 if(UIApplication.shared.supportsMultipleScenes) {

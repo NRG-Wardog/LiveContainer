@@ -7253,11 +7253,12 @@ extension LCAppModel {
 }
 
 struct V3UnifiedShell: View {
-    @AppStorage(V3AppLanguage.storageKey, store: V3Localization.hostDefaults) private var language = V3AppLanguage.english.rawValue
+    @ObservedObject private var languageState = V3HostLanguageState.shared
     var body: some View {
         V3ApplicationRoot(content: V3UnifiedTabs())
-            .environment(\.locale, Locale(identifier: V3AppLanguage.resolve(language).rawValue))
-            .environment(\.layoutDirection, V3AppLanguage.resolve(language).isRightToLeft ? .rightToLeft : .leftToRight)
+            .environment(\.locale, Locale(identifier: languageState.selected.rawValue))
+            .environment(\.layoutDirection, languageState.selected.isRightToLeft ? .rightToLeft : .leftToRight)
+            .background(V3HostLanguageUIKitBridge(language: languageState.selected))
     }
 }
 
@@ -9975,7 +9976,7 @@ struct V3SideStoreAppDetail: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .textSelection(.enabled)
-                            Text(V3Localization.format("Version %@", app.version))
+                            Text(V3Localization.format("Version %@", app.version, language: .resolve(dateLocale.identifier)))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -10012,11 +10013,14 @@ struct V3SideStoreAppDetail: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(app?.name ?? V3Localization.string("App"))
+        .navigationTitle(app?.name ?? V3Localization.string("App", language: .resolve(dateLocale.identifier)))
     }
 }
 
 struct V3SourcesView: View {
+    // Eager formatted strings must observe the live locale, not only read defaults.
+    @Environment(\.locale) private var displayLocale
+
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @State private var preview: [String: Any]?
     @State private var previewBusy = false
@@ -10169,7 +10173,7 @@ struct V3SourcesView: View {
                         .accessibilityHint("Opens the source URL form. Nothing is added until you confirm.")
                     }
                 }
-                Section(V3Localization.text("Sources (\(status.sources.count))")) {
+                Section(V3Localization.text("Sources (\(status.sources.count))", language: .resolve(displayLocale.identifier))) {
                     ForEach(status.sources) { source in
                         NavigationLink(destination: V3CatalogView(source: source)) {
                             HStack(spacing: 12) {
@@ -10442,6 +10446,9 @@ struct V3CatalogApp: Identifiable {
 }
 
 struct V3CatalogView: View {
+    // Eager formatted strings must observe the live locale, not only read defaults.
+    @Environment(\.locale) private var displayLocale
+
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @EnvironmentObject private var sharedModel: SharedModel
     @Environment(\.dismiss) private var dismiss
@@ -10505,7 +10512,7 @@ struct V3CatalogView: View {
                                     Text(app.developer)
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
-                                    Text(V3Localization.format("Version %@", app.version))
+                                    Text(V3Localization.format("Version %@", app.version, language: .resolve(displayLocale.identifier)))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -10532,7 +10539,7 @@ struct V3CatalogView: View {
                                 .disabled(!app.canInstall)
                             }
                             if let guest = installedGuest(for: app) {
-                                Text(V3Localization.format("Installed guest version: %@", guest.appInfo.version() ?? ""))
+                                Text(V3Localization.format("Installed guest version: %@", guest.appInfo.version() ?? "", language: .resolve(displayLocale.identifier)))
                                     .font(.caption).foregroundColor(.secondary)
                                 Text("Updating a guest uses the existing replacement confirmation. Select the installed app to preserve its containers.")
                                     .font(.caption).foregroundColor(.secondary)
@@ -10772,7 +10779,7 @@ struct V3AccountSettings: View {
                 HStack {
                     Label("Certificate", systemImage: "doc.plaintext")
                     Spacer()
-                    Text(V3Localization.format("Expires %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))))
+                    Text(V3Localization.format("Expires %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
                         .foregroundColor(.secondary)
                 }
             }
@@ -10780,7 +10787,7 @@ struct V3AccountSettings: View {
                 HStack {
                     Label("Host App", systemImage: "app.badge.fill")
                     Spacer()
-                    Text(app.expirationDate.map { V3Localization.format("%@, expires %@", V3Localization.prose(app.certificateStatus.capitalized), V3Localization.date($0, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier))) } ?? V3Localization.prose(app.certificateStatus.capitalized))
+                    Text(app.expirationDate.map { V3Localization.format("%@, expires %@", V3Localization.prose(app.certificateStatus.capitalized, language: .resolve(dateLocale.identifier)), V3Localization.date($0, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)) } ?? V3Localization.prose(app.certificateStatus.capitalized, language: .resolve(dateLocale.identifier)))
                         .foregroundColor(.secondary)
                 }
             }
@@ -11069,7 +11076,7 @@ struct V3TargetedRefreshSection: View {
                     Label(app.name, systemImage: "app.fill")
                     Spacer()
                     if let date = app.expirationDate {
-                        Text(V3Localization.format("Expires %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))))
+                        Text(V3Localization.format("Expires %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -11088,7 +11095,7 @@ struct V3TargetedRefreshSection: View {
                 Button {
                     status.perform("refreshApp", target: target, title: "Refresh " + app.name)
                 } label: {
-                    Label(V3Localization.format("Refresh %@", app.name), systemImage: "arrow.clockwise")
+                    Label(V3Localization.format("Refresh %@", app.name, language: .resolve(dateLocale.identifier)), systemImage: "arrow.clockwise")
                 }
                 .disabled(V3RefreshPrerequisite.evaluate(statusConnected: status.connected,
                     pairingStatus: status.pairing).blocksTargetedRefresh)
@@ -14703,7 +14710,7 @@ struct V3CertificatesView: View {
                     V3SignInLink(title: "Sign In to Manage Certificates")
                 }
             }
-            Section(V3Localization.text("On This Device (\(local.count))")) {
+            Section(V3Localization.text("On This Device (\(local.count))", language: .resolve(dateLocale.identifier))) {
                 if loading { ProgressView("Loading certificates...") }
                 ForEach(local) { cert in
                     VStack(alignment: .leading, spacing: 4) {
@@ -14716,7 +14723,7 @@ struct V3CertificatesView: View {
                         }
                         Text(cert.serial).font(.caption).foregroundColor(.secondary).textSelection(.enabled)
                         if let expiry = cert.expiry {
-                            Text(V3Localization.format("Expires %@", V3Localization.date(expiry, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier))))
+                            Text(V3Localization.format("Expires %@", V3Localization.date(expiry, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
                                 .font(.caption).foregroundColor(.secondary)
                         }
                         HStack {
@@ -14744,7 +14751,7 @@ struct V3CertificatesView: View {
                             Text(cert.name).font(.headline)
                             Text(cert.serial).font(.caption).foregroundColor(.secondary).textSelection(.enabled)
                             if let expiry = cert.expiry {
-                                Text(V3Localization.format("Expires %@", V3Localization.date(expiry, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier))))
+                                Text(V3Localization.format("Expires %@", V3Localization.date(expiry, date: .abbreviated, time: .omitted, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
                                     .font(.caption).foregroundColor(.secondary)
                             }
                             Button("Revoke", role: .destructive) { confirm = ("revoke", cert.serial) }
@@ -14930,6 +14937,9 @@ struct V3CertificatesView: View {
 }
 
 struct V3DeveloperServicesView: View {
+    // Eager formatted strings must observe the live locale, not only read defaults.
+    @Environment(\.locale) private var displayLocale
+
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @State private var teams: [[String: String]] = []
     @State private var devices: [[String: String]] = []
@@ -14961,7 +14971,7 @@ struct V3DeveloperServicesView: View {
             }
             simpleSection("Teams", rows: teams.map { "\($0["name"] ?? "") (\($0["identifier"] ?? ""))" })
             simpleSection("Devices", rows: devices.map { "\($0["name"] ?? "") · \($0["identifier"] ?? "")" })
-            Section(V3Localization.format("%@ (%@)", V3Localization.text("App IDs"), String(appIDs.count))) {
+            Section(V3Localization.format("%@ (%@)", V3Localization.text("App IDs", language: .resolve(displayLocale.identifier)), String(appIDs.count), language: .resolve(displayLocale.identifier))) {
                 if loading { ProgressView() }
                 if appIDs.isEmpty && !loading { Text("None").foregroundColor(.secondary) }
                 ForEach(appIDs) { appID in
@@ -14989,11 +14999,11 @@ struct V3DeveloperServicesView: View {
                 }
             }
             simpleSection("App Groups", rows: groups.map { "\($0["name"] ?? "") · \($0["identifier"] ?? "")" })
-            Section(V3Localization.text("Provisioning Profiles (\(profiles.count))")) {
+            Section(V3Localization.text("Provisioning Profiles (\(profiles.count))", language: .resolve(displayLocale.identifier))) {
                 if loading { ProgressView() }
                 ForEach(profiles.indices, id: \.self) { index in
                     let row = profiles[index]
-                    let name = row["name"] as? String ?? row["profileName"] as? String ?? V3Localization.string("Profile")
+                    let name = row["name"] as? String ?? row["profileName"] as? String ?? V3Localization.string("Profile", language: .resolve(displayLocale.identifier))
                     let detail = row["bundleID"] as? String ?? row["bundleIdentifier"] as? String ?? ""
                     VStack(alignment: .leading, spacing: 2) {
                         Text(name).font(.headline)
@@ -15032,7 +15042,7 @@ struct V3DeveloperServicesView: View {
         }
     }
     private func simpleSection(_ title: String, rows: [String]) -> some View {
-        Section(V3Localization.format("%@ (%@)", V3Localization.text(title), String(rows.count))) {
+        Section(V3Localization.format("%@ (%@)", V3Localization.text(title, language: .resolve(displayLocale.identifier)), String(rows.count), language: .resolve(displayLocale.identifier))) {
             if loading { ProgressView() }
             if rows.isEmpty && !loading {
                 Text("None").foregroundColor(.secondary)
@@ -15694,6 +15704,9 @@ struct V3AnisetteServerRow: Identifiable {
 }
 
 struct V3AnisetteView: View {
+    // Eager formatted strings must observe the live locale, not only read defaults.
+    @Environment(\.locale) private var displayLocale
+
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @StateObject private var store = V3SettingsStore()
     @State private var servers: [V3AnisetteServerRow] = []
@@ -15712,7 +15725,7 @@ struct V3AnisetteView: View {
             if !store.message.isEmpty {
                 Section { V3LocalizedText(store.message).font(.footnote).foregroundColor(.red) }
             }
-            Section(V3Localization.text("Servers (\(servers.count))")) {
+            Section(V3Localization.text("Servers (\(servers.count))", language: .resolve(displayLocale.identifier))) {
                 ForEach(servers) { server in
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {
@@ -16248,7 +16261,7 @@ struct V3HealthView: View {
                     HStack {
                         V3LocalizedText(row.0)
                         Spacer()
-                        Text(opaqueHealthRows.contains(row.0) || row.0 == "Anisette Servers" ? row.1 : V3Localization.prose(row.1)).foregroundColor(.secondary).multilineTextAlignment(.trailing)
+                        Text(opaqueHealthRows.contains(row.0) || row.0 == "Anisette Servers" ? row.1 : V3Localization.prose(row.1, language: .resolve(dateLocale.identifier))).foregroundColor(.secondary).multilineTextAlignment(.trailing)
                     }
                     .font(.subheadline)
                 }
@@ -16266,7 +16279,7 @@ struct V3HealthView: View {
                             V3Localization.date($0, date: .abbreviated,
                                 time: row.0 == "Active Expiry" ? .omitted : .shortened,
                                 language: V3AppLanguage.resolve(dateLocale.identifier))
-                        } ?? (["Active Serial", "Active Team", "Copy Team"].contains(row.0) ? row.1 : V3Localization.prose(row.1))).foregroundColor(.secondary).multilineTextAlignment(.trailing)
+                        } ?? (["Active Serial", "Active Team", "Copy Team"].contains(row.0) ? row.1 : V3Localization.prose(row.1, language: .resolve(dateLocale.identifier)))).foregroundColor(.secondary).multilineTextAlignment(.trailing)
                     }
                     .font(.subheadline)
                 }
@@ -17775,7 +17788,7 @@ struct V3SetupAssistantView: View {
                     }
                 }
                 if let date = setup.lastVerified {
-                    Text(V3Localization.format("Last verified %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))))
+                    Text(V3Localization.format("Last verified %@", V3Localization.date(date, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -18033,10 +18046,10 @@ struct V3HomeServiceHeader: View {
                                 .foregroundColor(statusPresentation.tint)
                         }
                         if let updatedAt {
-                            Text(V3Localization.format("Updated %@", V3Localization.date(updatedAt, date: .omitted, time: .standard, language: V3AppLanguage.resolve(dateLocale.identifier))))
+                            Text(V3Localization.format("Updated %@", V3Localization.date(updatedAt, date: .omitted, time: .standard, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                                .accessibilityLabel(V3Localization.format("Status last updated %@", V3Localization.date(updatedAt, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier))))
+                                .accessibilityLabel(V3Localization.format("Status last updated %@", V3Localization.date(updatedAt, date: .abbreviated, time: .shortened, language: V3AppLanguage.resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
                         }
                     }
                 }
@@ -18063,7 +18076,7 @@ struct V3HomeServiceHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(V3Localization.format("SideStore status: %@, %@", V3Localization.prose(statusPresentation.title), V3Localization.prose(statusPresentation.severityName)))
+        .accessibilityLabel(V3Localization.format("SideStore status: %@, %@", V3Localization.prose(statusPresentation.title, language: .resolve(dateLocale.identifier)), V3Localization.prose(statusPresentation.severityName, language: .resolve(dateLocale.identifier)), language: .resolve(dateLocale.identifier)))
     }
 }
 

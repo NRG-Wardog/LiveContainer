@@ -82,8 +82,10 @@ public final class DownloadHelper : ObservableObject {
 }
 
 struct DownloadAlert : View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @StateObject var helper : DownloadHelper
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         
         Color.black.opacity(0.2) // Semi-transparent grey background
             .edgesIgnoringSafeArea(.all) // Covers entire screen

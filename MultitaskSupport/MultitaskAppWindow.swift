@@ -215,7 +215,7 @@ struct AppSceneViewSwiftUI: UIViewControllerRepresentable {
 
 @available(iOS 16.1, *)
 struct MultitaskAppWindow: View {
-    @AppStorage(V3AppLanguage.storageKey, store: V3Localization.hostDefaults) private var selectedHostLanguage = V3AppLanguage.english.rawValue
+    @ObservedObject private var hostLanguageState = V3HostLanguageState.shared
     @State var show = true
     @State var pid = 0
     @State var appInfo: MultitaskAppInfo? = nil
@@ -236,7 +236,7 @@ struct MultitaskAppWindow: View {
     
     var body: some View {
         let isVirtualWindowMode = multitaskMode == .virtualWindow
-        let hostLanguage = V3AppLanguage.resolve(selectedHostLanguage)
+        let hostLanguage = hostLanguageState.selected
         if show, let appInfo {
             GeometryReader { geometry in
                 AppSceneViewSwiftUI(windowID: appInfo.windowID, show: $show, bundleId: appInfo.bundleId, dataUUID: appInfo.dataUUID, initSize: geometry.size,

@@ -12,6 +12,7 @@ protocol LCSelectContainerViewDelegate {
 }
 
 struct LCSelectContainerView : View{
+    @Environment(\.locale) private var selectedDisplayLocale
     @State private var multiSelection = Set<String>()
     @State private var unusedContainers : [LCContainer] = []
     @Binding var isPresent : Bool
@@ -20,6 +21,7 @@ struct LCSelectContainerView : View{
     @EnvironmentObject private var sharedModel : SharedModel
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         NavigationView {
             List(selection: $multiSelection) {
                 ForEach(unusedContainers, id: \.folderName) { container in

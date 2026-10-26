@@ -327,9 +327,11 @@ private struct LCAppStorageSummaryHeaderView: View {
 }
 
 private struct LCAppStorageDetailView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     let appItem: LCAppStorageItem
 
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         Form {
             Section {
                 LCAppStorageSummaryHeaderView(appItem: appItem)

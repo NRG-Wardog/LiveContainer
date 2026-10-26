@@ -347,6 +347,7 @@ private final class V3NativeAlertPresentation: NSObject {
     private weak var presenter: UIViewController?
     private weak var controller: UIAlertController?
     private var observer: NSObjectProtocol?
+    private var explicitLanguageObserver: NSObjectProtocol?
     private var sceneObserver: NSObjectProtocol?
     private var renderedLanguage = V3AppLanguage.selected
     private var isTransitioning = false
@@ -391,6 +392,10 @@ private final class V3NativeAlertPresentation: NSObject {
             object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in self?.refreshLanguage() }
         }
+        explicitLanguageObserver = NotificationCenter.default.addObserver(forName: Notification.Name("V3HostLanguageDidChange"),
+            object: V3Localization.hostDefaults, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.refreshLanguage() }
+        }
         let sceneID = presenter.viewIfLoaded?.window?.windowScene?.session.persistentIdentifier
         sceneObserver = NotificationCenter.default.addObserver(forName: UIScene.didDisconnectNotification,
             object: nil, queue: .main) { [weak self] notification in
@@ -402,6 +407,7 @@ private final class V3NativeAlertPresentation: NSObject {
 
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
+        if let explicitLanguageObserver { NotificationCenter.default.removeObserver(explicitLanguageObserver) }
         if let sceneObserver { NotificationCenter.default.removeObserver(sceneObserver) }
     }
 
@@ -473,6 +479,7 @@ private final class V3NativeAlertPresentation: NSObject {
         isFinished = true
         completion = callback
         if let observer { NotificationCenter.default.removeObserver(observer); self.observer = nil }
+        if let explicitLanguageObserver { NotificationCenter.default.removeObserver(explicitLanguageObserver); self.explicitLanguageObserver = nil }
         if !isTransitioning { dismissAndComplete() }
     }
 

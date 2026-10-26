@@ -8,6 +8,7 @@ import SwiftUI
 import Combine
 
 struct LCCustomSortView: View {
+    @Environment(\.locale) private var selectedDisplayLocale
     @EnvironmentObject private var sharedModel: SharedModel
     @Environment(\.presentationMode) var presentationMode
     @AppStorage("darkModeIcon", store: LCUtils.appGroupUserDefault) var darkModeIcon = false
@@ -17,6 +18,7 @@ struct LCCustomSortView: View {
     @State private var localHiddenApps: [LCAppModel] = []
     
     var body: some View {
+        let _ = selectedDisplayLocale.identifier
         NavigationView {
             Form {
                 // Visible apps section
