@@ -24,7 +24,7 @@ def project_reviewed_live_language_display(source, baseline):
     end = '// V3_LIVE_HOST_LANGUAGE_END\n\n'
     assert source.count(begin) == source.count(end) == 1
     helper = begin + source.split(begin, 1)[1].split(end, 1)[0] + end
-    assert hashlib.sha256(helper.encode()).hexdigest() == '48faf8021f0490de0260376371fdcc9edd3729dbcde6a8953797678d6e8c360a'
+    assert hashlib.sha256(helper.encode()).hexdigest() == '64512146a7d8e06e751f5b04a7f13f6e7abe605c92533f28e3be563782d969c4'
     source = source.replace(helper, '', 1)
     assert source.startswith('import SwiftUI\nimport UIKit\n\n')
     source = source.replace('import SwiftUI\nimport UIKit\n\n', 'import SwiftUI\n\n', 1)
@@ -294,7 +294,7 @@ def check(root, baseline, output):
         'expected_native_case_count': manifest['expected_native_case_count'],
         'strict_prose_and_original_copy': 'unchanged_except_exact_russian_fallback_additions',
         'display_renderer_bytes': 'unchanged',
-        'live_language_helper_projection_sha256': '48faf8021f0490de0260376371fdcc9edd3729dbcde6a8953797678d6e8c360a',
+        'live_language_helper_projection_sha256': '64512146a7d8e06e751f5b04a7f13f6e7abe605c92533f28e3be563782d969c4',
         'live_language_negative_mutations': 3,
         'source_sha256': manifest['source_sha256'], 'baseline_sha256': manifest['baseline_sha256']}
     (output / 'static-contract.json').write_text(json.dumps(report, indent=2) + '\n')

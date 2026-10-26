@@ -57,15 +57,19 @@ struct V3HostLanguageUIKitBridge: UIViewControllerRepresentable {
             guard let host = parent, host.viewIfLoaded != nil else { return }
             let direction: UISemanticContentAttribute = language.isRightToLeft ? .forceRightToLeft : .forceLeftToRight
             func containsGuestController(_ controller: UIViewController) -> Bool {
-                if controller is AppSceneViewController || controller is DecoratedAppSceneViewController { return true }
+                if #available(iOS 16.0, *) {
+                    if controller is AppSceneViewController || controller is DecoratedAppSceneViewController { return true }
+                }
                 return controller.children.contains(where: containsGuestController)
             }
             func updateChrome(_ view: UIView) {
                 // Virtual guest windows can be nested below the main hosting
                 // view. Do not change their inherited root or any guest chrome.
-                if view is VirtualWindowsHostView { return }
-                if let owner = view.next as? UIViewController,
-                   owner is AppSceneViewController || owner is DecoratedAppSceneViewController { return }
+                if #available(iOS 16.0, *) {
+                    if view is VirtualWindowsHostView { return }
+                    if let owner = view.next as? UIViewController,
+                       owner is AppSceneViewController || owner is DecoratedAppSceneViewController { return }
+                }
                 // Do not recursively force text fields or diagnostic text whose
                 // explicit LTR semantics must survive Hebrew presentation.
                 if view is UINavigationBar || view is UITabBar || view is UISearchBar ||
