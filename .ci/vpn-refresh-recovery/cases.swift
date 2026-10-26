@@ -81,7 +81,7 @@ struct VPNRefreshRecoveryCases {
                            loseOwnerOnOpen: Bool = false, uncertain: Bool = false) async -> SourceFlowResult {
         var observed = SourceFlowResult()
         let runID = UUID(uuidString: id)!
-        LiveContainerAutoRefreshScheduler.reset(runID: runID, requestID: other)
+        LiveContainerAutoRefreshScheduler.reset(runID: runID, requestID: other, source: source)
         UIApplication.shared.reset()
         UIApplication.shared.applicationState = foreground ? .active : .background
         UIApplication.shared.openSucceeds = openSucceeds
@@ -142,7 +142,9 @@ struct VPNRefreshRecoveryCases {
         }
         do {
             let activated = try await LiveContainerNetworkPreflight.check(
-                allowForegroundActivation: source == "manual" && !background, runID: id)
+                allowForegroundActivation: source == "manual" && !background, runID: id, ownsRun: {
+                    LiveContainerAutoRefreshScheduler.ownsFixtureNetworkPreflight(runID: runID, requestID: other, source: source)
+                })
             observed.initialActivation = activated
             try await LiveContainerAutoRefreshScheduler.exercise(runID: runID, source: source,
                 hasBackgroundTask: background, activationAlreadyAttempted: activated, requestID: other)

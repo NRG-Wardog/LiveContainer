@@ -102,18 +102,23 @@ enum LiveContainerAutoRefreshScheduler {
         guard let fixtureAttempt else { preconditionFailure("Missing injected pipeline") }
         try await fixtureAttempt(runID)
     }
-    static func reset(runID: UUID, requestID: String) {
+    static func reset(runID: UUID, requestID: String, source: String = "manual") {
         defaults = UserDefaults(); activeRun = runID; fixtureAttempt = nil
         defaults.set(runID.uuidString, forKey: activeRunKey)
         defaults.set(runID.uuidString, forKey: expectedRunKey)
         defaults.set(requestID, forKey: activeManualRequestKey)
         defaults.set([runID.uuidString: ["run_id": runID.uuidString,
-            "request_id": requestID, "state": "running"]], forKey: runLedgerKey)
+            "request_id": requestID, "source": source, "state": "running"]], forKey: runLedgerKey)
     }
     static func exercise(runID: UUID, source: String, hasBackgroundTask: Bool,
                          activationAlreadyAttempted: Bool, requestID: String) async throws {
         try await performRefreshWithVPNRecovery(runID: runID, source: source,
             hasBackgroundTask: hasBackgroundTask, activationAlreadyAttempted: activationAlreadyAttempted,
-            requestID: requestID)
+            requestID: requestID, ownsNetworkRun: {
+                ownsNetworkPreflight(runID: runID, requestID: requestID, source: source, gateFinished: false)
+            })
+    }
+    static func ownsFixtureNetworkPreflight(runID: UUID, requestID: String, source: String) -> Bool {
+        ownsNetworkPreflight(runID: runID, requestID: requestID, source: source, gateFinished: false)
     }
 }

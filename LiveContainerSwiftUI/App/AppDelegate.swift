@@ -367,6 +367,73 @@ enum LiveContainerVPNRefreshRecoveryPolicy {
     }
 }
 
+// V3_COLD_VPN_OBSERVATION_BEGIN
+/// Interface observation is deliberately weaker than SideStore's owned device
+/// readiness. This wait never opens a URL or dispatches/replays a refresh.
+enum LiveContainerVPNPostActivationPolicy {
+    struct Observation {
+        let wifi: Bool?
+        let tunnel: Bool
+        let background: Bool
+    }
+    enum Outcome: Equatable { case observed, wifiUnavailable, tunnelUnavailable }
+    static let budget: TimeInterval = 10
+    static let interval: TimeInterval = 0.25
+
+    @MainActor
+    static func wait(now: () -> TimeInterval, observe: () -> Observation,
+                     ownsRun: () -> Bool,
+                     sleep: (UInt64) async throws -> Void) async throws -> Outcome {
+        let start = now()
+        guard start.isFinite else { throw CancellationError() }
+        var lastWiFi: Bool?
+        func expired() -> Outcome { lastWiFi == true ? .tunnelUnavailable : .wifiUnavailable }
+        // The monotonic deadline is authoritative. This additional finite bound
+        // also fails closed if an injected/broken clock never advances.
+        for _ in 0..<128 {
+            try Task.checkCancellation()
+            guard ownsRun() else { throw CancellationError() }
+            let elapsed = now() - start
+            guard elapsed.isFinite, elapsed >= 0 else { throw CancellationError() }
+            guard elapsed < budget else { return expired() }
+            let observation = observe()
+            lastWiFi = observation.wifi
+            try Task.checkCancellation()
+            guard ownsRun(), !observation.background else { throw CancellationError() }
+            let observedElapsed = now() - start
+            guard observedElapsed.isFinite, observedElapsed >= 0 else { throw CancellationError() }
+            guard observedElapsed < budget else { return expired() }
+            if observation.wifi == true && observation.tunnel { return .observed }
+            let remaining = budget - observedElapsed
+            try await sleep(UInt64(min(interval, remaining) * 1_000_000_000))
+        }
+        return expired()
+    }
+}
+
+enum LiveContainerVPNPostActivationOwnership {
+    static func matches(runID: String, requestID: String?, source: String,
+                        inMemoryRunID: String?, storedRunID: String?, expectedRunID: String?,
+                        storedRequestID: String?, record: [String: Any]?, gateFinished: Bool,
+                        hostHandoffPending: Bool, uncertainMutationRunID: String?) -> Bool {
+        guard !gateFinished, UUID(uuidString: runID)?.uuidString == runID,
+              inMemoryRunID == runID, storedRunID == runID, expectedRunID == runID,
+              storedRequestID == requestID, let record,
+              record["run_id"] as? String == runID,
+              record["request_id"] as? String == (requestID ?? ""),
+              record["source"] as? String == source,
+              record["state"] as? String == "running",
+              !hostHandoffPending, uncertainMutationRunID == nil else { return false }
+        return true
+    }
+}
+
+@MainActor
+final class LiveContainerVPNPathObservation {
+    var wifi: Bool?
+}
+// V3_COLD_VPN_OBSERVATION_END
+
 // One-shot checks owned by an actual refresh run. No idle monitoring.
 @MainActor
 enum LiveContainerNetworkPreflight {
@@ -505,22 +572,36 @@ enum LiveContainerNetworkPreflight {
         defaults.removeObject(forKey: pendingKey)
     }
 
-    static func settleAfterActivation() async throws {
-        // One bounded grace period for the provider after returning. Interface
-        // re-observation below is not a live transport proof; the real pipeline
-        // still performs its own device-readiness check before any mutation.
-        try await Task.sleep(nanoseconds: 2_000_000_000)
+    static func settleAfterActivation(ownsRun: @escaping @MainActor () -> Bool) async throws {
         try Task.checkCancellation()
-        guard await wifiAvailable() else {
-            throw failure(1, "Wi-Fi was lost while enabling LocalDevVPN. Reconnect and retry.")
+        guard ownsRun() else { throw CancellationError() }
+        let observation = LiveContainerVPNPathObservation()
+        let monitor = NWPathMonitor(requiredInterfaceType: .wifi)
+        monitor.pathUpdateHandler = { path in
+            let available = path.status == .satisfied && path.usesInterfaceType(.wifi)
+            Task { @MainActor in observation.wifi = available }
         }
+        monitor.start(queue: DispatchQueue(label: "LiveContainer.VPNActivationObservation"))
+        defer { monitor.pathUpdateHandler = nil; monitor.cancel() }
+        let outcome = try await LiveContainerVPNPostActivationPolicy.wait(
+            now: { ProcessInfo.processInfo.systemUptime },
+            observe: { .init(wifi: observation.wifi, tunnel: hasTunnelInterface(),
+                             background: UIApplication.shared.applicationState == .background) },
+            ownsRun: ownsRun,
+            sleep: { try await Task.sleep(nanoseconds: $0) })
         try Task.checkCancellation()
-        guard hasTunnelInterface() else {
+        guard ownsRun() else { throw CancellationError() }
+        switch outcome {
+        case .observed: return // Never a provider identity or live transport proof.
+        case .wifiUnavailable:
+            throw failure(1, "Wi-Fi was lost while enabling LocalDevVPN. Reconnect and retry.")
+        case .tunnelUnavailable:
             throw failure(2, "No tunnel interface appeared after enabling LocalDevVPN. Open LocalDevVPN and retry refresh.")
         }
     }
 
-    static func check(allowForegroundActivation: Bool, runID: String) async throws -> Bool {
+    static func check(allowForegroundActivation: Bool, runID: String,
+                      ownsRun: @escaping @MainActor () -> Bool) async throws -> Bool {
         guard UUID(uuidString: runID)?.uuidString == runID else { throw CancellationError() }
         guard await wifiAvailable() else {
             print("[AUTO_REFRESH] WIFI_PREFLIGHT_FAIL reason=no_wifi_path")
@@ -530,9 +611,10 @@ enum LiveContainerNetworkPreflight {
         print("[AUTO_REFRESH] WIFI_PREFLIGHT_PASS")
         var activationAttempted = false
         if !hasTunnelInterface(), allowForegroundActivation {
+            guard ownsRun() else { throw CancellationError() }
             activationAttempted = true
             try await enableInForeground(runID: runID)
-            try await settleAfterActivation()
+            try await settleAfterActivation(ownsRun: ownsRun)
         }
         guard hasTunnelInterface() else {
             if !allowForegroundActivation { print("[AUTO_REFRESH] VPN_UNAVAILABLE_BACKGROUND") }
@@ -897,10 +979,23 @@ enum LiveContainerAutoRefreshScheduler {
         print("[LIVE_CONTAINER_REFRESH] REFRESH_PIPELINE_RETURNED run_id=\(runID.uuidString)")
     }
 
+    private static func ownsNetworkPreflight(runID: UUID, requestID: String?, source: String,
+                                             gateFinished: Bool) -> Bool {
+        LiveContainerVPNPostActivationOwnership.matches(runID: runID.uuidString,
+            requestID: requestID, source: source, inMemoryRunID: activeRun?.uuidString,
+            storedRunID: defaults.string(forKey: activeRunKey),
+            expectedRunID: defaults.string(forKey: expectedRunKey),
+            storedRequestID: defaults.string(forKey: activeManualRequestKey),
+            record: runLedger()[runID.uuidString], gateFinished: gateFinished,
+            hostHandoffPending: defaults.bool(forKey: hostHandoffKey),
+            uncertainMutationRunID: defaults.string(forKey: uncertainMutationKey))
+    }
+
     private static func performRefreshWithVPNRecovery(runID: UUID, source: String,
                                                        hasBackgroundTask: Bool,
                                                        activationAlreadyAttempted: Bool,
-                                                       requestID: String?) async throws {
+                                                       requestID: String?,
+                                                       ownsNetworkRun: @escaping @MainActor () -> Bool) async throws {
         try await LiveContainerVPNRefreshRecoveryPolicy.run(attempt: {
             try await performRefresh(runID: runID)
             // Some canonical refresh failures are returned in the terminal
@@ -923,7 +1018,7 @@ enum LiveContainerAutoRefreshScheduler {
             print("[LIVE_CONTAINER_REFRESH] VPN_RECOVERY_BEGIN run_id=\(runID.uuidString) reason=proven_pre_mutation_readiness")
             try await LiveContainerNetworkPreflight.enableInForeground(runID: runID.uuidString)
         }, settle: {
-            try await LiveContainerNetworkPreflight.settleAfterActivation()
+            try await LiveContainerNetworkPreflight.settleAfterActivation(ownsRun: ownsNetworkRun)
         }, prepareRetry: {
             // Ownership may change across the external handoff. Never reuse an
             // old failure as evidence for a new run or an uncertain mutation.
@@ -1343,14 +1438,20 @@ enum LiveContainerAutoRefreshScheduler {
         }
         do {
             print("[LIVE_CONTAINER_REFRESH] NETWORK_PREFLIGHT_START run_id=\(runID.uuidString) request_id=\(correlatedRequestID ?? "none") origin=\(correlatedOrigin ?? "unknown") source=\(source)")
+            let ownsNetworkRun: @MainActor () -> Bool = {
+                ownsNetworkPreflight(runID: runID, requestID: correlatedRequestID,
+                    source: source, gateFinished: gate.isFinished)
+            }
             let activationAttempted = try await LiveContainerNetworkPreflight.check(
                 allowForegroundActivation: manual && source != "vpn_return" && task == nil,
-                runID: runID.uuidString)
+                runID: runID.uuidString, ownsRun: ownsNetworkRun)
+            try Task.checkCancellation()
+            guard ownsNetworkRun() else { throw CancellationError() }
             recordNetworkPreflight("passed", runID: runID.uuidString)
             print("[LIVE_CONTAINER_REFRESH] NETWORK_PREFLIGHT_PASS run_id=\(runID.uuidString) request_id=\(correlatedRequestID ?? "none") origin=\(correlatedOrigin ?? "unknown")")
             try await performRefreshWithVPNRecovery(runID: runID, source: source,
                 hasBackgroundTask: task != nil, activationAlreadyAttempted: activationAttempted,
-                requestID: correlatedRequestID)
+                requestID: correlatedRequestID, ownsNetworkRun: ownsNetworkRun)
             markRunVerifying(runID: runID.uuidString,
                              manifest: defaults.dictionary(forKey: verificationKey))
             let verification = verifyRefreshManifest(runID: runID.uuidString)

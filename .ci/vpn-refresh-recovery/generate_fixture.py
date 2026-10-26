@@ -14,6 +14,30 @@ SERVICE = 'SideStore/AltStore/AppDelegate.swift'
 RUNNER = 'SideStore/SideStore/Core/Operations/PipelineRunner.swift'
 TRANSPORT_FIXTURE = 'SideStore/tests/vpn_transport_recovery/generate_fixture.py'
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+def validate_current_cold_guard(text, pinned_guard, block):
+    guard = block(text, pinned_guard['anchor'])
+    assert hashlib.sha256(guard.encode()).hexdigest() == pinned_guard['sha256'], 'Current cold peer guard changed'
+    observation = block(text, 'private func readinessObservation(')
+    assert guard in observation, 'Cold peer guard detached from actual observation'
+    forwarding = block(text, 'func isReady(withNetworkCheck:')
+    assert hashlib.sha256(forwarding.encode()).hexdigest() == pinned_guard['forwarding_sha256'], 'Ordinary readiness forwarding changed'
+    return guard
+
+def verify_cold_guard_negative_controls(text, pinned_guard, block):
+    validate_current_cold_guard(text, pinned_guard, block)
+    for old, new in [
+        ('VPN tunnel iface is up but tunnel peer IP is not yet reachable', 'unclassified peer failure'),
+        ('owned: false).result', 'owned: true).result'),
+        ('private func readinessObservation(', 'private func detachedReadinessObservation('),
+    ]:
+        assert old in text
+        mutated = text.replace(old, new, 1)
+        try:
+            validate_current_cold_guard(mutated, pinned_guard, block)
+        except (AssertionError, ValueError):
+            continue
+        raise AssertionError('Cold guard negative control was accepted: ' + old)
+
 def generate(root, output):
     root, output = root.resolve(), output.resolve()
     spec = importlib.util.spec_from_file_location('vpn_wire_extract', root / HELPER)
@@ -26,7 +50,10 @@ def generate(root, output):
     early_capture = helper.block(runner, 'enum V3RefreshEarlyFailureBoundary {')
     structured_capture = helper.block((root / PRODUCER).read_text(), 'func lcStructuredSigningFailure(')
     assert 'V3RefreshEarlyFailureBoundary.readiness.preserving(' in runner
-    assert 'V3HeadlessPairingFailure.tagIfInvalidPairing(error.asOperationError), operations: operations)' in runner
+    assert 'if error is CancellationError { throw error }' in runner
+    assert 'if let native = error as? MinimuxerError { typedError = native.asOperationError }' in runner
+    assert 'else { typedError = error }' in runner
+    assert 'V3HeadlessPairingFailure.tagIfInvalidPairing(typedError), operations: operations)' in runner
     assert 'group.context.error = opError' in runner
 
     anchors = ['enum LiveContainerVPNRefreshRecoveryPolicy {',
@@ -35,15 +62,19 @@ def generate(root, output):
     policy, waiter, marker = [helper.block(host, x) for x in anchors]
     attempt = helper.block(host, 'private static func performRefreshWithVPNRecovery(')
     preflight = helper.block(host, 'static func check(allowForegroundActivation:')
-    settle = helper.block(host, 'static func settleAfterActivation()')
+    settle = helper.block(host, 'static func settleAfterActivation(')
     enable = helper.block(host, 'static func enableInForeground(')
     assert 'let activationAttempted = try await LiveContainerNetworkPreflight.check(' in host
     assert 'hasBackgroundTask: task != nil, activationAlreadyAttempted: activationAttempted,' in host
     assert 'allowForegroundActivation: manual && source != "vpn_return" && task == nil' in host
     assert 'return activationAttempted' in preflight and 'activationAttempted = true' in preflight
     assert preflight.count('enableInForeground(') == 1
-    assert 'Task.sleep(nanoseconds: 2_000_000_000)' in settle
-    assert 'guard await wifiAvailable()' in settle and 'guard hasTunnelInterface()' in settle
+    assert 'LiveContainerVPNPostActivationPolicy.wait(' in settle
+    assert 'now: { ProcessInfo.processInfo.systemUptime }' in settle
+    assert 'ownsRun: ownsRun' in settle
+    assert settle.count('NWPathMonitor(requiredInterfaceType: .wifi)') == 1
+    assert 'defer { monitor.pathUpdateHandler = nil; monitor.cancel() }' in settle
+    assert 'Task.sleep(nanoseconds: 2_000_000_000)' not in settle
     assert 'try Task.checkCancellation()' in settle
     assert 'LiveContainerVPNRefreshRecoveryPolicy.run(' in attempt
     assert 'defaults.removeObject(forKey: verificationKey)' in attempt
@@ -88,11 +119,10 @@ def generate(root, output):
             actual = sha(dependency / path)
             pinned_guard = cold_source.get('candidate_guard_blocks', {}).get(path)
             if pinned_guard:
-                # Full source hashes above name the historical baseline. The
-                # candidate changes transport selection but not this cold-peer
-                # guard. Bind that unchanged guard and report full current bytes.
-                guard = helper.block((dependency / path).read_text(), pinned_guard['anchor'])
-                assert hashlib.sha256(guard.encode()).hexdigest() == pinned_guard['sha256'], path
+                # Historical baseline bytes stay immutable. The reviewed current
+                # guard wraps the same failure in an owned-readiness observation.
+                # Bind its actual body and ordinary isReady forwarding, not a copy.
+                verify_cold_guard_negative_controls((dependency / path).read_text(), pinned_guard, helper.block)
             else:
                 assert actual == expected['sha256'], 'Cold VPN guard dependency changed: ' + path
             live_guard_inputs[path] = actual
@@ -112,7 +142,7 @@ def generate(root, output):
         assert len(found) == 1, key
         declarations += found
     scheduler_blocks = [helper.block(host, x) for x in [
-        'private static func runLedger()', 'private static func performRefreshWithVPNRecovery(',
+        'private static func runLedger()', 'private static func ownsNetworkPreflight(', 'private static func performRefreshWithVPNRecovery(',
         'private static func verifyRefreshManifest(']]
     platform = platform.replace('// ACTUAL_SCHEDULER_KEYS', '\n'.join(declarations))
     platform = platform.replace('// ACTUAL_SCHEDULER_METHODS', '\n'.join(scheduler_blocks))
@@ -130,6 +160,10 @@ def generate(root, output):
     swift += helper.pure_model(model) + '\n' + errors + '\n' + producer + '\n'
     swift += 'func debugLog(_ text: String) {}\nfunc verboseLog(_ text: String) {}\n'
     swift += transport_source + '\n' + early_capture + '\n' + structured_capture + '\n'
+    observation_policy = helper.block(host, 'enum LiveContainerVPNPostActivationPolicy {')
+    observation_owner = helper.block(host, 'enum LiveContainerVPNPostActivationOwnership {')
+    observation_state = helper.block(host, 'final class LiveContainerVPNPathObservation {')
+    swift += observation_policy + '\n' + observation_owner + '\n@MainActor\n' + observation_state + '\n'
     swift += platform + '\n' + original + '\n' + cold_constant + policy + '\n@MainActor\n' + waiter
     swift += '\n@MainActor\n' + instrumented_state + '\n' + marker + '\n@MainActor\n' + network_preflight + '\n' + cases
 
@@ -139,11 +173,11 @@ def generate(root, output):
         'input_root': str(root), 'inputs_sha256': {x: sha(root / x) for x in [HOST, MODEL, PRODUCER, ERRORS, HELPER, CLIENT, SERVICE, RUNNER, TRANSPORT_FIXTURE]},
         'support_inputs_sha256': live_guard_inputs,
         'transport_fixture_inputs_sha256': {str(path.relative_to(root)): sha(path) for path in transport_inputs.values()},
-        'cold_guard_provenance': 'actual_unchanged_guard_blocks_and_historical_baseline' if live_guard_inputs else 'pinned_source_receipt_sparse_generation',
+        'cold_guard_provenance': 'actual_current_guard_and_forwarding_with_historical_baseline' if live_guard_inputs else 'pinned_source_receipt_sparse_generation',
         'fixture_inputs_sha256': {x: sha(HERE / x) for x in ['generate_fixture.py', 'cases.swift', 'OriginalRefreshReadinessFacts.swift', 'cold-peer-source.json', 'PlatformDoubles.swift']},
         'generated_sha256': hashlib.sha256(swift.encode()).hexdigest(),
         'expected_case_names': names, 'expected_case_count': len(names),
-        'extracted_blocks': anchors + ['enum LiveContainerNetworkPreflight {', 'private static func performRefreshWithVPNRecovery(', 'private static func verifyRefreshManifest(', 'enum V3RefreshEarlyFailureBoundary {', 'func lcStructuredSigningFailure(', 'func lcRefreshFailureFacts(', 'public enum OperationError:'],
+        'extracted_blocks': anchors + ['enum LiveContainerVPNPostActivationPolicy {', 'enum LiveContainerVPNPostActivationOwnership {', 'final class LiveContainerVPNPathObservation {', 'private static func ownsNetworkPreflight(', 'enum LiveContainerNetworkPreflight {', 'private static func performRefreshWithVPNRecovery(', 'private static func verifyRefreshManifest(', 'enum V3RefreshEarlyFailureBoundary {', 'func lcStructuredSigningFailure(', 'func lcRefreshFailureFacts(', 'public enum OperationError:'],
         'baseline_classifier_sha256': cold_source['baseline_classifier_source']['extracted_sha256'],
         'fixture_observation_hook': {'source': HOST, 'anchor': 'final class LiveContainerVPNActivationState {',
             'original_sha256': hashlib.sha256(activation_state.encode()).hexdigest(),
