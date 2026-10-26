@@ -403,6 +403,7 @@ public struct CombinedFailure: Error, LocalizedError {
     }
 
     public enum SafeCause: String, CaseIterable {
+        case databaseLayoutBlocked, databaseLayoutConflict, databaseAppGroupUnavailable, databasePersistenceFailed, databaseStartupFailed
         case networkConnectionLost
         case networkTimedOut
         case networkUnavailable
@@ -481,6 +482,8 @@ public struct CombinedFailure: Error, LocalizedError {
 
         fileprivate var inferredRetryable: Bool? {
             switch self {
+            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed:
+                return false
             case .networkConnectionLost, .networkTimedOut, .networkUnavailable,
                  .signingNetworkConnectionLost, .signingNetworkTimedOut, .signingNetworkUnavailable,
                  .wifiUnavailable, .localDevVPNUnavailable:
@@ -976,7 +979,30 @@ public struct CombinedFailure: Error, LocalizedError {
         }
         return nil
     }
+    public var isTerminalDatabaseStartupFailure: Bool {
+        guard let safeCause else { return false }
+        return stage == .serviceReadiness && code == .failed && retryable == false &&
+            [.databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable,
+             .databasePersistenceFailed, .databaseStartupFailed].contains(safeCause)
+    }
+    private var databaseStartupMessage: String? {
+        guard isTerminalDatabaseStartupFailure else { return nil }
+        switch safeCause {
+        case .databaseLayoutBlocked:
+            return "SideStore stopped startup because its private data layout could not be verified."
+        case .databaseLayoutConflict:
+            return "SideStore stopped startup because conflicting saved data locations were found."
+        case .databaseAppGroupUnavailable:
+            return "SideStore could not access its required shared storage."
+        case .databasePersistenceFailed:
+            return "SideStore could not open or prepare its saved database."
+        case .databaseStartupFailed:
+            return "SideStore database startup failed before readiness."
+        default: return nil
+        }
+    }
     public var message: String {
+        if let startup = databaseStartupMessage { return startup }
         if let message = V3AccountOperationError.remoteIdentityMessage(signingContext["typed_error"]) { return message }
         if signingContext["typed_error"] == "anisetteIdentityStateInvalid" { return LCAnisettePairError.safeMessage }
         if operation == "delete", code == .timedOut {
@@ -998,6 +1024,8 @@ public struct CombinedFailure: Error, LocalizedError {
         if code == .timedOut { return "SideStore could not \(timeoutAction) in time while \(timeoutContext)." }
         if let local = localRefreshMessage { return local }
         if let safeCause {            switch safeCause {
+            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed:
+                break
             case .networkConnectionLost: return "The network connection was lost during \(operation)."
             case .networkTimedOut: return "The network request timed out during \(operation)."
             case .networkUnavailable: return "A network connection was unavailable during \(operation)."
@@ -1195,6 +1223,9 @@ public struct CombinedFailure: Error, LocalizedError {
     }
 
     public var recovery: String {
+        if isTerminalDatabaseStartupFailure {
+            return "Open Operation Logs and copy the startup diagnostics. Keep the existing app and its data; do not delete, reset, or move its database as a workaround."
+        }
         if let recovery = V3AccountOperationError.remoteIdentityRecovery(signingContext["typed_error"]) { return recovery }
         if signingContext["typed_error"] == "anisetteIdentityStateInvalid" { return LCAnisettePairError.recovery }
         if let local = localRefreshRecovery { return local }
@@ -1207,6 +1238,8 @@ public struct CombinedFailure: Error, LocalizedError {
            safeCause != .responseTooLarge, let catalog = catalogFailureRecovery { return catalog }
         if let safeCause {
             switch safeCause {
+            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed:
+                break
             case .networkConnectionLost, .networkTimedOut, .networkUnavailable:
                 return "Check the network used by this request, then retry when the connection is stable. If a device operation still fails, run Connection Check."
             case .anisetteServerUnavailable:
@@ -3458,6 +3491,12 @@ extension CombinedFailure.Code {
 extension CombinedFailure.SafeCause {
     fileprivate var diagnosticToken: String {
         switch self {
+        case .databaseLayoutBlocked: return "F69"
+        case .databaseLayoutConflict: return "F70"
+        case .databaseAppGroupUnavailable: return "F71"
+        case .databasePersistenceFailed: return "F72"
+        case .databaseStartupFailed: return "F73"
+
         case .networkConnectionLost: return "F01"
         case .networkTimedOut: return "F02"
         case .networkUnavailable: return "F03"
@@ -4210,9 +4249,49 @@ enum V3RefreshTerminalFailurePolicy {
     }
 }
 
+// V3_STARTUP_DIAGNOSTICS_V1: an in-memory, bounded host bootstrap record.
+// Never accepts error descriptions, paths, account data, database contents or
+// arbitrary peer text. It remains readable after the failed process retires.
+public struct V3StartupDiagnosticLog {
+    public enum Event: String {
+        case launchRequested, processLaunched, xpcConnected, applicationReady, serviceReady, failed
+    }
+    public static let capacity = 32
+    private(set) var entries: [String] = []
+    public init() {}
+    public mutating func record(_ event: Event, stage: String? = nil,
+                                code: String? = nil, cause: String? = nil) {
+        var line = "event=" + event.rawValue
+        if event == .failed {
+            let stages: Set<String> = ["extensionDiscovery", "extensionLaunch", "xpcConnection", "serviceReadiness"]
+            let codes: Set<String> = ["unavailable", "invalidConfiguration", "permissionDenied", "timedOut",
+                "cancelled", "interrupted", "notReady", "busy", "invalidResponse", "unsupported", "failed"]
+            let causes: Set<String> = ["databaseLayoutBlocked", "databaseLayoutConflict", "databaseAppGroupUnavailable",
+                "databasePersistenceFailed", "databaseStartupFailed"]
+            line += " stage=" + (stage.flatMap { stages.contains($0) ? $0 : nil } ?? "unknown")
+            line += " code=" + (code.flatMap { codes.contains($0) ? $0 : nil } ?? "unknown")
+            line += " cause=" + (cause.flatMap { causes.contains($0) ? $0 : nil } ?? "notRecorded")
+        }
+        entries.append(line)
+        if entries.count > Self.capacity { entries.removeFirst(entries.count - Self.capacity) }
+    }
+    public var text: String { entries.joined(separator: "\n") }
+}
+
+public enum V3OperationLogLoadPolicy {
+    public static func shouldRequestServiceLogs(serviceReady: Bool) -> Bool { serviceReady }
+    public static func canCopy(reloading: Bool, startup: String, operations: String) -> Bool {
+        !reloading && (!startup.isEmpty || !operations.isEmpty)
+    }
+    public static func copyText(startup: String, operations: String) -> String {
+        [startup, operations].filter { !$0.isEmpty }.joined(separator: "\n\n")
+    }
+}
+
 @MainActor
 class RefreshHandler: NSObject {
     static let shared = RefreshHandler()
+    private(set) var startupDiagnostics = V3StartupDiagnosticLog()
     var progress: Progress?
     var sideStorePid: Int32 = 0
     var client: RefreshClient?
@@ -4337,6 +4416,7 @@ class RefreshHandler: NSObject {
     private func launchEmbeddedSideStore(id: UUID, bookmark: Data) throws {
         guard let ext = extensionProcess else { throw NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError) }
         launchID = id
+        startupDiagnostics.record(.launchRequested)
         NSLog("[V3_SERVICE_START] PROCESS_LAUNCH_BEGIN id=%@", id.uuidString)
         let callbacks = CombinedServiceCallbacks(owner: self, identity: id)
         guard let listener = startAnonymousListener(callbacks) else {
@@ -4392,6 +4472,7 @@ class RefreshHandler: NSObject {
                 }
                 self.sideStorePid = pid
                 self.launchPIDObserved = true
+                self.startupDiagnostics.record(.processLaunched)
                 NSLog("[V3_SERVICE_START] PROCESS_LAUNCHED id=%@ pid=%d", id.uuidString, pid)
                 self.service.signal(.launched, attempt: id)
                 self.confirmLaunchedPeer(id)
@@ -4414,6 +4495,7 @@ class RefreshHandler: NSObject {
             return
         }
         launchXPCAccepted = true
+        startupDiagnostics.record(.xpcConnected)
         NSLog("[V3_SERVICE_START] XPC_CONNECTED id=%@", id.uuidString)
         connection = incoming
         incoming.remoteObjectInterface = NSXPCInterface(with: RefreshClient.self)
@@ -4444,11 +4526,13 @@ class RefreshHandler: NSObject {
         // finishedLaunching may be repeated; one readiness probe owns this launch.
         guard launchID == id, readinessTask == nil else { return }
         launchApplicationReadyObserved = true
+        startupDiagnostics.record(.applicationReady)
         NSLog("[V3_SERVICE_START] APPLICATION_READY id=%@", id.uuidString)
         readinessTask = Task { @MainActor in
             do {
                 try await awaitServiceReady(id)
                 guard launchID == id else { return }
+                startupDiagnostics.record(.serviceReady)
                 service.signal(.ready, attempt: id)
             } catch {
                 guard !Task.isCancelled, launchID == id else { return }
@@ -4552,6 +4636,8 @@ class RefreshHandler: NSObject {
             stage: stage, code: code, id: refreshRunID ?? id.uuidString,
             retryable: refreshContinuation == nil && code == .interrupted ? true : nil,
             launchContext: context)
+        startupDiagnostics.record(.failed, stage: failure.stage.rawValue, code: failure.code.rawValue,
+            cause: failure.safeCause?.rawValue)
         NSLog("[V3_SERVICE_START] START_FAILED id=%@ stage=%@ code=%@", id.uuidString, failure.stage.rawValue, failure.code.rawValue)
         finishRefreshContinuation(.failure(failure))
         service.fail(id, failure)
@@ -5482,6 +5568,7 @@ enum V3ServiceReadinessReply: Equatable {
     // executable vocabulary-parity harness verifies every typed cause and
     // source step is accepted here while unknown values remain rejected.
     static let knownSafeCauseValues: Set<String> = [
+        "databaseLayoutBlocked", "databaseLayoutConflict", "databaseAppGroupUnavailable", "databasePersistenceFailed", "databaseStartupFailed",
         "networkConnectionLost", "networkTimedOut", "networkUnavailable",
         "anisetteServerUnavailable", "anisetteServerRejected", "anisetteRequestTimedOut",
         "anisetteRateLimited", "anisetteInvalidResponse", "anisetteUnknownFailure",
@@ -5567,6 +5654,12 @@ enum V3ServiceReadinessReply: Equatable {
                 // The typed failure boundary validates the fixed keys
                 // and values before any diagnostic publication.
                 failure.signingContext = fields
+            }
+            if ["databaseLayoutBlocked", "databaseLayoutConflict", "databaseAppGroupUnavailable",
+                "databasePersistenceFailed", "databaseStartupFailed"].contains(failure.safeCause ?? "") {
+                guard ["snapshot", "status"].contains(failure.operation),
+                      failure.stage == "serviceReadiness", failure.code == "failed",
+                      failure.retryable == false else { return .invalid }
             }
             if ["snapshot", "status"].contains(failure.operation) && failure.stage == "serviceReadiness" &&
                failure.code == "notReady" && failure.retryable == true {
@@ -11946,6 +12039,8 @@ public final class V3ServiceBridge {
         reconcileAuthStatusOwner(sessionID: sessionID)
     }
     public var processID: Int32 { RefreshHandler.shared.sideStorePid }
+    public var startupDiagnosticText: String { RefreshHandler.shared.startupDiagnostics.text }
+    public var serviceReadyForOperationLogs: Bool { RefreshHandler.shared.v3ServiceIdentity != nil }
 
     init(readTimeout: TimeInterval = 30, commandTimeout: TimeInterval = 600, cancellationGrace: TimeInterval = 3) {
         self.readTimeout = readTimeout
@@ -12175,7 +12270,16 @@ public final class V3ServiceBridge {
             }
         }
         do {
-            try await connect()
+            // Reading diagnostics never launches/retries a failed service.
+            // No await occurs on this branch before dispatch to the current peer.
+            if operation == "logTail" {
+                guard RefreshHandler.shared.v3ServiceIdentity != nil else {
+                    throw CombinedFailure(operation: operation, stage: .serviceReadiness,
+                        code: .notReady, id: id, retryable: false)
+                }
+            } else {
+                try await connect()
+            }
             if let connectedTicket = observeConnectedStatusService(ownerID: statusOwnerID ??
                 V3StatusAuthorityOperationPolicy.controlOwnerID(
                     operation: operation, sessionID: operationSessionID)) {

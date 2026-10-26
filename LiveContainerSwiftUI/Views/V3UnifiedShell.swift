@@ -8232,6 +8232,7 @@ final class V3SideStoreStatusStore: ObservableObject {
         }
     }
 
+    @Published private(set) var terminalStartupFailure: CombinedFailure?
     @Published private(set) var account = "Not available"
     @Published private(set) var signing = "Unknown"
     @Published private(set) var team = "Unknown"
@@ -9017,11 +9018,14 @@ final class V3SideStoreStatusStore: ObservableObject {
         do {
             let reply = try await V3ServiceBridge.shared.request(operation: "snapshot")
             succeeded = accept(reply)
+            if succeeded { terminalStartupFailure = nil }
             rejectedAsStale = !succeeded
         } catch {
             if rejectedAsStale {
                 rejectedAsStale = true
             } else if V3SnapshotErrorPolicy.shouldMarkDisconnected(error) {
+                let startup = error as? CombinedFailure
+                terminalStartupFailure = startup?.isTerminalDatabaseStartupFailure == true ? startup : nil
                 connected = false
                 invalidateSetupFacts()
                 requiresConnectionRetry = true
@@ -16658,6 +16662,7 @@ struct V3DiagnosticsView: View {
 }
 
 struct V3LogsView: View {
+    @State private var startup = ""
     @State private var tail = ""
     @State private var message = ""
     @State private var copied = false
@@ -16671,14 +16676,19 @@ struct V3LogsView: View {
                 Button(LocalizedStringKey(reloading ? "Loading Logs..." : "Reload Logs")) { Task { await reload() } }
                     .disabled(reloading)
                 Button(LocalizedStringKey(copied ? "Copied" : "Copy Logs")) {
-                    UIPasteboard.general.string = tail
+                    UIPasteboard.general.string = V3OperationLogLoadPolicy.copyText(startup: startup, operations: tail)
                     copied = true
                     Task {
                         try? await Task.sleep(nanoseconds: 2_000_000_000)
                         copied = false
                     }
                 }
-                .disabled(reloading || tail.isEmpty)
+                .disabled(!V3OperationLogLoadPolicy.canCopy(reloading: reloading, startup: startup, operations: tail))
+            }
+            Section("Startup Diagnostics") {
+                Text(startup).environment(\.layoutDirection, .leftToRight)
+                    .font(.system(.caption2, design: .monospaced))
+                    .textSelection(.enabled)
             }
             Section("Operation Logs") {
                 Text(String(tail.suffix(120_000))).environment(\.layoutDirection, .leftToRight)
@@ -16696,6 +16706,12 @@ struct V3LogsView: View {
         defer { reloading = false }
         tail = ""
         message = ""
+        startup = V3ServiceBridge.shared.startupDiagnosticText
+        guard V3OperationLogLoadPolicy.shouldRequestServiceLogs(
+            serviceReady: V3ServiceBridge.shared.serviceReadyForOperationLogs) else {
+            message = "Service operation logs are unavailable because startup is not complete. Available safe startup diagnostics are shown below."
+            return
+        }
         do {
             let reply = try await V3ServiceBridge.shared.request(operation: "logTail")
             tail = reply["tail"] as? String ?? ""
@@ -17012,6 +17028,16 @@ final class V3SetupStore: ObservableObject {
     private func preserveUnknownStatusFacts(status: V3SideStoreStatusStore) {
         status.invalidateSetupFacts()
         statusProvisioningIncomplete = true
+        if let failure = status.terminalStartupFailure {
+            // Unknown account/pairing facts are not signed-out/missing facts.
+            // A terminal startup failure is finished, not an ongoing check.
+            let detail = failure.message
+            account = V3SetupStepState(state: "failed", detail: detail)
+            pairing = V3SetupStepState(state: "failed", detail: detail)
+            jitless = V3SetupStepState(state: "failed", detail: detail)
+            refreshConnectionEvidence()
+            return
+        }
         account = V3SetupStepState(state: "checking", detail: "Sign-in status was not refreshed. Retry to check.")
         pairing = V3SetupStepState(state: "checking", detail: "Pairing status was not refreshed. Retry to check.")
         jitless = V3SetupStepState(state: "checking", detail: "Certificate status was not refreshed. Retry to check.")

@@ -27401,6 +27401,41 @@
         }
       }
     },
+    "Open Operation Logs and copy the startup diagnostics. Keep the existing app and its data; do not delete, reset, or move its database as a workaround.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Operation Logs and copy the startup diagnostics. Keep the existing app and its data; do not delete, reset, or move its database as a workaround."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פתחו את יומני הפעולות והעתיקו את אבחון ההפעלה. שמרו על היישום הקיים ועל הנתונים שלו; אל תמחקו, תאפסו או תעבירו את מסד הנתונים כפתרון עוקף."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开操作日志并复制启动诊断信息。保留现有应用及其数据；不要通过删除、重置或移动数据库来绕过问题。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟操作記錄並複製啟動診斷資訊。保留現有 App 及其資料；請勿透過刪除、重設或移動資料庫來繞過問題。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте журнал операций и скопируйте диагностику запуска. Сохраните установленное приложение и его данные; не удаляйте, не сбрасывайте и не перемещайте базу данных в попытке обойти проблему."
+          }
+        }
+      }
+    },
     "Open Pairing File": {
       "extractionState": "manual",
       "localizations": {
@@ -38131,6 +38166,41 @@
         }
       }
     },
+    "Service operation logs are unavailable because startup is not complete. Available safe startup diagnostics are shown below.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service operation logs are unavailable because startup is not complete. Available safe startup diagnostics are shown below."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יומני הפעולות של השירות אינם זמינים כי ההפעלה לא הושלמה. נתוני אבחון ההפעלה הבטוחים הזמינים מוצגים למטה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动尚未完成，无法读取服务操作日志。下方显示可用且不含敏感信息的启动诊断。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動尚未完成，無法讀取服務操作記錄。下方顯示可用且不含敏感資訊的啟動診斷。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал операций службы недоступен, поскольку запуск не завершён. Ниже показана доступная безопасная диагностика запуска."
+          }
+        }
+      }
+    },
     "Services": {
       "extractionState": "manual",
       "localizations": {
@@ -39426,6 +39496,41 @@
         }
       }
     },
+    "SideStore could not access its required shared storage.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore could not access its required shared storage."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ל־SideStore לא הייתה גישה לאחסון המשותף הדרוש לו."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 无法访问所需的共享存储。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 無法存取所需的共享儲存空間。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore не удалось получить доступ к необходимому общему хранилищу."
+          }
+        }
+      }
+    },
     "SideStore could not acquire its recovery storage lock.": {
       "extractionState": "manual",
       "localizations": {
@@ -40476,6 +40581,41 @@
         }
       }
     },
+    "SideStore could not open or prepare its saved database.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore could not open or prepare its saved database."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה לפתוח או להכין את מסד הנתונים השמור של SideStore."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 无法打开或准备已保存的数据库。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 無法開啟或準備已儲存的資料庫。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore не удалось открыть или подготовить сохранённую базу данных."
+          }
+        }
+      }
+    },
     "SideStore could not prepare provisioning data for signing. The exact failed request could not be safely identified.": {
       "extractionState": "manual",
       "localizations": {
@@ -41383,6 +41523,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "SideStore сообщает о выполненном входе в аккаунт, но не смог подтвердить остановку запроса входа. Повторите отмену перед новой попыткой."
+          }
+        }
+      }
+    },
+    "SideStore database startup failed before readiness.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore database startup failed before readiness."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפעלת מסד הנתונים של SideStore נכשלה לפני שהשירות היה מוכן."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 数据库在服务就绪前启动失败。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 資料庫在服務就緒前啟動失敗。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск базы данных SideStore завершился ошибкой до готовности службы."
           }
         }
       }
@@ -42819,6 +42994,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "SideStore по-прежнему сообщает об активном входе. Выход не подтверждён."
+          }
+        }
+      }
+    },
+    "SideStore stopped startup because conflicting saved data locations were found.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore stopped startup because conflicting saved data locations were found."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפעלת SideStore נעצרה כי נמצאה סתירה בין מיקומי הנתונים השמורים."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发现保存数据的位置存在冲突，SideStore 已停止启动。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發現已儲存資料的位置存在衝突，SideStore 已停止啟動。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore остановил запуск: обнаружен конфликт расположений сохранённых данных."
+          }
+        }
+      }
+    },
+    "SideStore stopped startup because its private data layout could not be verified.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore stopped startup because its private data layout could not be verified."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפעלת SideStore נעצרה כי לא ניתן היה לאמת את מבנה הנתונים הפרטיים שלו."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证 SideStore 的私有数据布局，启动已停止。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法驗證 SideStore 的私有資料配置，啟動已停止。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore остановил запуск: не удалось проверить расположение его частных данных."
           }
         }
       }
@@ -45761,6 +46006,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запускает одно ручное обновление подписи и показывает состояние планировщика до подтверждённого завершения или ошибки."
+          }
+        }
+      }
+    },
+    "Startup Diagnostics": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startup Diagnostics"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אבחון הפעלה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动诊断"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動診斷"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Диагностика запуска"
           }
         }
       }
