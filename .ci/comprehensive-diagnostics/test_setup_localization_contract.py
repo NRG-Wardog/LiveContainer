@@ -115,7 +115,29 @@ def check(root, baseline, output):
     owned_notice = g.block(s['ui'], 'private var ownedODASourceNotice: String? {')
     assert set(re.findall(r'return "([^"]+)"', owned_notice)) == owned_oda_keys
     assert 'default: return nil' in owned_notice
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys
+    # Issue56 owns exactly eight startup strings. Bind the allowlist to the
+    # actual finite producers, not to whatever happens to appear in the catalog.
+    startup_messages = {
+        'SideStore stopped startup because its private data layout could not be verified.',
+        'SideStore stopped startup because conflicting saved data locations were found.',
+        'SideStore could not access its required shared storage.',
+        'SideStore could not open or prepare its saved database.',
+        'SideStore database startup failed before readiness.',
+    }
+    startup_recovery = 'Open Operation Logs and copy the startup diagnostics. Keep the existing app and its data; do not delete, reset, or move its database as a workaround.'
+    startup_logs_message = 'Service operation logs are unavailable because startup is not complete. Available safe startup diagnostics are shown below.'
+    startup_keys = startup_messages | {startup_recovery, startup_logs_message, 'Startup Diagnostics'}
+    assert len(startup_keys) == 8
+    startup_producer = g.block(s['identity_diagnostics'], 'private var databaseStartupMessage: String? {')
+    assert set(re.findall(r'return "([^"]+)"', startup_producer)) == startup_messages
+    recovery = g.block(s['identity_diagnostics'], 'public var recovery: String {')
+    startup_recovery_producer = g.block(recovery, 'if isTerminalDatabaseStartupFailure {')
+    assert set(re.findall(r'return "([^"]+)"', startup_recovery_producer)) == {startup_recovery}
+    startup_logs = g.block(s['ui'], 'struct V3LogsView: View {')
+    assert 'Section("Startup Diagnostics") {' in startup_logs
+    assert 'message = "' + startup_logs_message + '"' in startup_logs
+    assert not g.catalog_missing(startup_keys, catalog['strings'])
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]
@@ -165,6 +187,18 @@ def check(root, baseline, output):
             assert {'key': key, 'language': language} in failure
             localizations[language] = saved
             mutation_checks.append(key + '|' + language)
+    # Keep the historical setup case counts unchanged. The separate startup
+    # scope rejects each missing translation independently (8 keys x 5 locales).
+    startup_mutation_checks = []
+    for key in sorted(startup_keys):
+        for language in g.LANGUAGES:
+            localizations = catalog['strings'][key]['localizations']
+            saved = localizations.pop(language)
+            failure = g.catalog_missing(startup_keys, catalog['strings'])
+            assert {'key': key, 'language': language} in failure
+            localizations[language] = saved
+            startup_mutation_checks.append(key + '|' + language)
+    assert len(startup_mutation_checks) == 40
     manifest = g.generate(root, output, baseline)
     assert len(manifest['expected_case_names']) == len(set(manifest['expected_case_names'])) == manifest['expected_native_case_count']
     assert set(manifest['expected_case_names']) == set(g.expected_case_names(current | {'baseline_missing': negative}))
@@ -187,6 +221,8 @@ def check(root, baseline, output):
         'setup_view_except_typed_titles_and_exact_connection_overlay': 'byte_for_byte_unchanged',
         'exact_connection_scope_negative_control': 'unrelated_cancel_mutation_rejected',
         'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': 27,
+        'startup_diagnostic_keys': sorted(startup_keys),
+        'startup_missing_translation_mutation_cases': len(startup_mutation_checks),
         'reviewed_russian_corrections_sha256': hashlib.sha256(reviewed_bytes).hexdigest(),
         'reviewed_russian_correction_count': len(reviewed_russian),
         'retained_baseline_copy': current['retained_baseline_copy'],
