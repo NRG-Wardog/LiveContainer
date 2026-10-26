@@ -13,6 +13,36 @@ spec = importlib.util.spec_from_file_location('setup_generator', HERE / 'generat
 g = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(g)
 
+def project_reviewed_live_language_display(source, baseline):
+    """Project only the exact reviewed live-state/bridge and picker wiring.
+
+    The display renderer suffix remains byte-identical, including opaque-data
+    and locale routing. The helper has separate live simulator/source controls;
+    its exact digest here prevents this historical gate hiding arbitrary edits.
+    """
+    begin = '// V3_LIVE_HOST_LANGUAGE_BEGIN\n'
+    end = '// V3_LIVE_HOST_LANGUAGE_END\n\n'
+    assert source.count(begin) == source.count(end) == 1
+    helper = begin + source.split(begin, 1)[1].split(end, 1)[0] + end
+    assert hashlib.sha256(helper.encode()).hexdigest() == '48faf8021f0490de0260376371fdcc9edd3729dbcde6a8953797678d6e8c360a'
+    source = source.replace(helper, '', 1)
+    assert source.startswith('import SwiftUI\nimport UIKit\n\n')
+    source = source.replace('import SwiftUI\nimport UIKit\n\n', 'import SwiftUI\n\n', 1)
+    anchor = 'struct V3LanguageSettingsSection: View {'
+    old_picker = g.block(baseline, anchor)
+    replacements = [
+        ('@AppStorage(V3AppLanguage.storageKey, store: V3Localization.hostDefaults) private var selection = V3AppLanguage.english.rawValue',
+         '@ObservedObject private var languageState = V3HostLanguageState.shared'),
+        ('get: { V3AppLanguage.resolve(selection).rawValue }', 'get: { languageState.selected.rawValue }'),
+        ('set: { selection = V3AppLanguage.resolve($0).rawValue }', 'set: { languageState.select(V3AppLanguage.resolve($0)) }'),
+    ]
+    expected_picker = old_picker
+    for old, new in replacements:
+        assert expected_picker.count(old) == 1
+        expected_picker = expected_picker.replace(old, new, 1)
+    assert g.block(source, anchor) == expected_picker
+    return source.replace(expected_picker, old_picker, 1)
+
 def check(root, baseline, output):
     s, old = g.read_sources(root), g.read_sources(baseline)
     current, previous = g.coverage(s, old), g.coverage(old)
@@ -69,7 +99,31 @@ def check(root, baseline, output):
     assert normalize_owned_titles(normalize_connection_evidence(view.replace(
         'if setup.testRunning { setup.cancelTest() }', 'if setup.testRunning { }', 1))) != normalize_owned_titles(old_view)
 
-    assert s['display'] == old['display']
+    assert project_reviewed_live_language_display(s['display'], old['display']) == old['display']
+    for anchor in ['struct V3LocalizedText: View {', 'struct V3LocalizedLabel: View {']:
+        assert g.block(s['display'], anchor) == g.block(old['display'], anchor)
+    # A changed live renderer must not disappear behind the helper projection.
+    changed_renderer = s['display'].replace(
+        'Text(verbatim: value.rendered(language: .resolve(locale.identifier)))',
+        'Text(verbatim: value.original)', 1)
+    assert changed_renderer != s['display']
+    assert project_reviewed_live_language_display(changed_renderer, old['display']) != old['display']
+    # Helper changes also fail closed rather than being ignored wholesale.
+    try:
+        project_reviewed_live_language_display(s['display'].replace(
+            'defaults.set(language.rawValue, forKey: V3AppLanguage.storageKey)',
+            'UserDefaults.standard.set(language.rawValue, forKey: V3AppLanguage.storageKey)', 1), old['display'])
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError('Changed host-language helper escaped the exact projection')
+    try:
+        project_reviewed_live_language_display(s['display'].replace(
+            'import UIKit\n', 'import UIKit\nimport Foundation\n', 1), old['display'])
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError('Unknown display prefix escaped the exact projection')
     # Russian adds exactly these two finite fail-closed messages. No other
     # production renderer bytes may change relative to the historical baseline.
     def normalize_russian_renderer(source):
@@ -239,6 +293,9 @@ def check(root, baseline, output):
         'native_renderer_cases': 'generated_not_executed', 'swift_build': 'not_run',
         'expected_native_case_count': manifest['expected_native_case_count'],
         'strict_prose_and_original_copy': 'unchanged_except_exact_russian_fallback_additions',
+        'display_renderer_bytes': 'unchanged',
+        'live_language_helper_projection_sha256': '48faf8021f0490de0260376371fdcc9edd3729dbcde6a8953797678d6e8c360a',
+        'live_language_negative_mutations': 3,
         'source_sha256': manifest['source_sha256'], 'baseline_sha256': manifest['baseline_sha256']}
     (output / 'static-contract.json').write_text(json.dumps(report, indent=2) + '\n')
     print('SETUP_LOCALIZATION_STATIC_PASS baseline=fail_as_expected candidate=pass keys=' + str(current['key_count']) + ' localized_values=' + str(current['localized_value_count']) + ' swift_executed=false')
