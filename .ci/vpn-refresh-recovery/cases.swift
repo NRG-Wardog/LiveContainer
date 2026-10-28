@@ -80,7 +80,9 @@ struct VPNRefreshRecoveryCases {
                            usableAfterOpen: Bool = true, mixedBackend: Bool = false,
                            partialSuccess: Bool = false, source: String = "manual", background: Bool = false,
                            foreground: Bool = true, openSucceeds: Bool = true,
-                           loseOwnerOnOpen: Bool = false, uncertain: Bool = false, ownedGrace: Bool = false) async -> SourceFlowResult {
+                           loseOwnerOnOpen: Bool = false, uncertain: Bool = false, ownedGrace: Bool = false,
+                           requiredWiFiStatus: String? = nil, requiredWiFiObserved: Bool = true,
+                           requiredWiFiUses: Bool = true, defaultWiFi: Bool = true) async -> SourceFlowResult {
         var observed = SourceFlowResult()
         let runID = UUID(uuidString: id)!
         LiveContainerAutoRefreshScheduler.reset(runID: runID, requestID: other, source: source)
@@ -118,6 +120,14 @@ struct VPNRefreshRecoveryCases {
                         if localProbes == 11 { graceTime = 9.466 }
                         let decision = fixtureTransportDecision(mode: mode, pairing: pairing,
                             coreDeviceSupported: supported)
+                        if let requiredWiFiStatus {
+                            let network = FixtureWiFiNetwork(mode: mode, localVPNWiFiSnapshot: .init(
+                                generation: 1, observed: requiredWiFiObserved,
+                                status: requiredWiFiStatus, usesWiFi: requiredWiFiUses),
+                                isWifiSatisfied: defaultWiFi)
+                            return await FixtureWiFiReadiness(network: network, mode: mode).observe(
+                                decision: decision, transientAllowed: mode == .localVPN && supported && pairing != .unknown)
+                        }
                         let result = fixtureReadinessResult(decision: decision)
                         let transient: MinimuxerOwnedReadinessTransient?
                         if case .failure(.noVPN) = result { transient = .vpnInterfacePending }
@@ -341,6 +351,23 @@ struct VPNRefreshRecoveryCases {
         check("grace_partial_success_does_not_activate", gracePartial.status == "failure" && gracePartial.attempts == 1 && gracePartial.openedURLs.isEmpty)
         let graceUncertain = await sourceFlow(uncertain: true, ownedGrace: true)
         check("grace_uncertain_mutation_does_not_activate", graceUncertain.status != "success" && graceUncertain.attempts == 1 && graceUncertain.openedURLs.isEmpty && graceUncertain.mutationAdmissions == 0)
+        // The production Wi-Fi guard now participates in the entire chain.
+        // A non-Wi-Fi default route is not evidence that a required Wi-Fi path
+        // is absent. Conversely unknown/unsatisfied local observations stay shut.
+        let localWiFi = await sourceFlow(ownedGrace: true, requiredWiFiStatus: "satisfied", defaultWiFi: false)
+        check("required_wifi_nonwifi_default_reaches_typed_vpn_failure", localWiFi.firstFailures.count == 2 && localWiFi.firstFailures.allSatisfy { $0.signingContext == ["refresh_failure_kind": "noVPN", "refresh_readiness_reason": "vpnUnavailable"] })
+        check("required_wifi_nonwifi_default_opens_once_then_rechecks", localWiFi.status == "success" && localWiFi.initialActivation == false && localWiFi.attempts == 2 && localWiFi.openedURLs.count == 1 && localWiFi.graceProbes == 12 && localWiFi.retryClearedOldManifest)
+        check("required_wifi_nonwifi_default_mutation_admitted_once", localWiFi.mutationAdmissions == 1 && localWiFi.sourceReadyOnRetry)
+        let unknownWiFi = await sourceFlow(ownedGrace: true, requiredWiFiStatus: "unknown", requiredWiFiObserved: false, defaultWiFi: true)
+        check("required_wifi_unknown_never_opens_or_mutates", unknownWiFi.status == "failure" && unknownWiFi.attempts == 1 && unknownWiFi.openedURLs.isEmpty && unknownWiFi.mutationAdmissions == 0 && unknownWiFi.firstFailures.allSatisfy { $0.signingContext["refresh_failure_kind"] == "noConnection" })
+        let unsatisfiedWiFi = await sourceFlow(ownedGrace: true, requiredWiFiStatus: "unsatisfied", defaultWiFi: true)
+        check("required_wifi_unsatisfied_never_opens_or_mutates", unsatisfiedWiFi.status == "failure" && unsatisfiedWiFi.attempts == 1 && unsatisfiedWiFi.openedURLs.isEmpty && unsatisfiedWiFi.mutationAdmissions == 0)
+        let wrongInterfaceWiFi = await sourceFlow(ownedGrace: true, requiredWiFiStatus: "satisfied", requiredWiFiUses: false, defaultWiFi: true)
+        check("required_wifi_wrong_interface_never_opens_or_mutates", wrongInterfaceWiFi.status == "failure" && wrongInterfaceWiFi.openedURLs.isEmpty && wrongInterfaceWiFi.mutationAdmissions == 0)
+        let remoteDefaultWiFi = await sourceFlow(mode: .remoteServer, ownedGrace: true, requiredWiFiStatus: "unsatisfied", defaultWiFi: true)
+        check("remote_preserves_default_wifi_acceptance", remoteDefaultWiFi.status == "success" && remoteDefaultWiFi.attempts == 1 && remoteDefaultWiFi.openedURLs.isEmpty && remoteDefaultWiFi.mutationAdmissions == 1)
+        let remoteDefaultOther = await sourceFlow(mode: .remoteServer, ownedGrace: true, requiredWiFiStatus: "satisfied", defaultWiFi: false)
+        check("remote_preserves_default_nonwifi_rejection", remoteDefaultOther.status == "failure" && remoteDefaultOther.attempts == 1 && remoteDefaultOther.openedURLs.isEmpty && remoteDefaultOther.mutationAdmissions == 0 && remoteDefaultOther.graceProbes == 1)
         let receiptURL = URL(fileURLWithPath: CommandLine.arguments[1]).deletingLastPathComponent().appendingPathComponent("sources.json")
         let receipt = try JSONSerialization.jsonObject(with: Data(contentsOf: receiptURL)) as! [String: Any]
         precondition(names == receipt["expected_case_names"] as! [String])
