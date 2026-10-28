@@ -295,6 +295,26 @@ static void V3InitializeUIKitFixes(void) {
 
 
 
+// LC_GUEST_EXTENSION_LOOKUP_V1: settle lookup failure after caller wiring.
+- (BOOL)lcPrepareGuestExtension {
+    NSError *error = nil;
+    _extension = [NSExtension extensionWithIdentifier:LCUtils.liveProcessBundleIdentifier error:&error];
+    if (!_extension || error) {
+        NSError *failure = error ?: [NSError errorWithDomain:@"LiveContainerReturn" code:411
+            userInfo:@{NSLocalizedDescriptionKey: @"The guest extension could not be initialized."}];
+        self.lcLaunchError = failure;
+        NSLog(@"[LC_GUEST_LIFECYCLE] EXTENSION_LOOKUP_FAILED extension_present=%d native_error_present=%d", _extension != nil, error != nil);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.isAppTerminationCleanUpCalled) return;
+            [self.delegate appSceneVC:self didInitializeWithError:failure];
+        });
+        return NO;
+    }
+    NSLog(@"[LC_GUEST_LIFECYCLE] EXTENSION_LOOKUP_READY");
+    return YES;
+}
+// LC_GUEST_EXTENSION_LOOKUP_END
+
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate {
     self = [super initWithNibName:nil bundle:nil];
     self.delegate = delegate;
@@ -309,13 +329,10 @@ static void V3InitializeUIKitFixes(void) {
         V3InitializeUIKitFixes();
     });
     
-    // init extension
-    NSError* error = nil;
-    _extension = [NSExtension extensionWithIdentifier:LCUtils.liveProcessBundleIdentifier error:&error];
-    if(error) {
-        [delegate appSceneVC:self didInitializeWithError:error];
-        return nil;
-    }
+    // Return an inert controller on lookup failure. The queued error reaches
+    // the caller only after native binding / virtual completion wiring, and
+    // callers never pass a nil child into UIKit containment.
+    if (![self lcPrepareGuestExtension]) return self;
     _extension.preferredLanguages = @[];
     
     NSExtensionItem *item = [NSExtensionItem new];
@@ -371,7 +388,11 @@ static void V3InitializeUIKitFixes(void) {
     }];
     [_extension setRequestInterruptionBlock:^(NSUUID *uuid) {
         NSLog(@"[LC_GUEST_LIFECYCLE] PROCESS_INTERRUPTED pid=%d source=extension_request", weakSelf.pid);
-        [weakSelf appTerminationCleanUp];
+        // A provider may interrupt synchronously while this initializer is
+        // still running. Defer settlement until the caller has wired ownership.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf appTerminationCleanUp];
+        });
     }];
     [_extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
         dispatch_async(dispatch_get_main_queue(), ^{
