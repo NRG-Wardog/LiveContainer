@@ -20,7 +20,7 @@ def main():
     launch=model.split('func runApp(multitask:',1)[1].split('func forceResign()',1)[0]
     assert 'defer {' in launch
     assert 'isAppRunning = false' in launch.split('defer {',1)[1].split('try await signApp',1)[0]
-    assert 'try await LCUtils.launchMultitaskGuestApp(appInfo.displayName())' in launch
+    assert 'try await LCUtils.launchMultitaskGuestApp(appInfo.displayName(), diagnosticGeneration: guestDiagnosticGeneration)' in launch
     assert 'try await configuration.model.runApp(multitask: multitask)' in banner and 'showError(.preserving(error))' in banner
     lookup=method(source,'- (BOOL)lcPrepareGuestExtension')
     interruption=block(source,'[_extension setRequestInterruptionBlock:')

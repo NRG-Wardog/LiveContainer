@@ -73,6 +73,7 @@ enum V3LoginDiagnosticSnapshot { static let contextKey = "test_login_context" }
         return ["tail": "operation log fixture"]
     }
 }
+enum LCUtils { static func guestLaunchDiagnosticSnapshot() -> String { "guest_launch_schema=1\\nguest_launch_state=not_started" } }
 enum V3FailureGuidance { static func message(_ error: Error) -> String { "Safe fixture failure" } }
 @MainActor final class V3SideStoreStatusStore {
     var invalidations = 0

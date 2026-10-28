@@ -16719,7 +16719,7 @@ struct V3LogsView: View {
         defer { reloading = false }
         tail = ""
         message = ""
-        startup = V3ServiceBridge.shared.startupDiagnosticText
+        startup = V3ServiceBridge.shared.startupDiagnosticText + "\n" + LCUtils.guestLaunchDiagnosticSnapshot()
         guard V3OperationLogLoadPolicy.shouldRequestServiceLogs(
             serviceReady: V3ServiceBridge.shared.serviceReadyForOperationLogs) else {
             message = "Service operation logs are unavailable because startup is not complete. Available safe startup diagnostics are shown below."

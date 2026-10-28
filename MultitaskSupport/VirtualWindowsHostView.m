@@ -6,14 +6,29 @@
 //
 #import "DecoratedAppSceneViewController.h"
 #import "VirtualWindowsHostView.h"
+#include <math.h>
 
 @implementation VirtualWindowsHostView
 - (instancetype)init {
-    CGRect frame = ((UIWindowScene *)UIApplication.sharedApplication.connectedScenes.anyObject).keyWindow.bounds;
-    self = [super initWithFrame:frame];
+    self = [super initWithFrame:CGRectZero];
     self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.shouldForwardTapAction = YES;
     return self;
+}
+// LC_VIRTUAL_HOST_ATTACHMENT_V1: own a stable root overlay, never a SwiftUI
+// implementation-detail child (the language bridge can be its first child).
+- (BOOL)attachToHostView:(UIView *)hostView {
+    NSAssert(NSThread.isMainThread, @"Guest host attachment must run on main");
+    CGRect bounds = hostView.bounds;
+    if (!hostView || hostView == self || [hostView isDescendantOfView:self] ||
+        !hostView.window || CGRectIsEmpty(bounds) || CGRectIsInfinite(bounds) ||
+        !isfinite(bounds.origin.x) || !isfinite(bounds.origin.y) ||
+        !isfinite(bounds.size.width) || !isfinite(bounds.size.height)) return NO;
+    if (self.superview != hostView) [hostView addSubview:self];
+    self.frame = bounds;
+    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [hostView bringSubviewToFront:self];
+    return self.window == hostView.window;
 }
 - (BOOL)handleStatusBarTapAction:(UIAction *)action {
     if(!self.shouldForwardTapAction) return NO;

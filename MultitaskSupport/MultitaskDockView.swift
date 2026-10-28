@@ -12,6 +12,31 @@ import Combine
 
 import Foundation
 
+// LC_GUEST_HOST_WINDOW_SELECTION_BEGIN
+@available(iOS 16.0, *)
+enum LCGuestHostWindowSelection {
+    static func containsHostBridge(_ controller: UIViewController, in window: UIWindow) -> Bool {
+        // A guest can contain arbitrary UIKit descendants; never use one of
+        // those to identify our host. Existing virtual guests under the host
+        // are skipped without rejecting the separate host bridge sibling.
+        if controller is AppSceneViewController || controller is DecoratedAppSceneViewController { return false }
+        if controller is V3HostLanguageUIKitBridge.Controller { return controller.viewIfLoaded?.window === window }
+        return controller.children.contains { containsHostBridge($0, in: window) }
+    }
+
+    static func select(from windows: [UIWindow]) -> UIWindow? {
+        let candidates = windows.filter { window in
+            guard !window.isHidden, window.windowLevel == .normal,
+                  let root = window.rootViewController,
+                  root.viewIfLoaded?.window === window else { return false }
+            return containsHostBridge(root, in: window)
+        }
+        // A key-window flag must not conceal two different host candidates.
+        return candidates.count == 1 ? candidates.first : nil
+    }
+}
+// LC_GUEST_HOST_WINDOW_SELECTION_END
+
 enum LCMultitaskDockRenderedMode: Equatable {
     case expandedDockView
     case collapsedDockView
@@ -425,7 +450,43 @@ class AppInfoProvider {
     }
 
     public var keyWindow: UIWindow? {
-        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.windows.first
+        // Bind dock and guest presentation to the recorded host, not whichever
+        // scene happens to come first (which can be a native guest window).
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let hostScenes: [UIWindowScene]
+        if #available(iOS 16.1, *), let session = MultitaskWindowManager.mainSceneSession {
+            hostScenes = scenes.filter { $0.session.persistentIdentifier == session.persistentIdentifier }
+        } else {
+            hostScenes = scenes.filter { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
+        }
+        let foregroundScenes = hostScenes.filter {
+            $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive
+        }
+        return LCGuestHostWindowSelection.select(from: foregroundScenes.flatMap { $0.windows })
+    }
+
+    @objc public func prepareVirtualWindowHost() -> UIViewController? {
+        precondition(Thread.isMainThread)
+        guard let window = keyWindow, let root = window.rootViewController,
+              root.viewIfLoaded?.window === window else {
+            NSLog("[LC_GUEST_HOST] ATTACH_FAILED reason=host_unavailable")
+            return nil
+        }
+        // Never migrate a live guest to a different controller/window implicitly.
+        // A replacement SwiftUI child under the same root is safe to reattach.
+        for view in windowHostingView.subviews {
+            if let controller = view._viewDelegate() as? DecoratedAppSceneViewController,
+               controller.parent !== root {
+                NSLog("[LC_GUEST_HOST] ATTACH_FAILED reason=guest_owner_changed")
+                return nil
+            }
+        }
+        guard windowHostingView.attach(toHostView: root.view) else {
+            NSLog("[LC_GUEST_HOST] ATTACH_FAILED reason=host_bounds_unavailable")
+            return nil
+        }
+        NSLog("[LC_GUEST_HOST] ATTACHED root=main bounds=nonempty")
+        return root
     }
 
     public var safeAreaInsets: UIEdgeInsets {
@@ -436,7 +497,7 @@ class AppInfoProvider {
     }
 
     private var safeAreaHeight: CGFloat {
-        keyWindow!.bounds.height - safeAreaInsets.top - safeAreaInsets.bottom
+        max(0, (keyWindow?.bounds.height ?? 0) - safeAreaInsets.top - safeAreaInsets.bottom)
     }
     
     override init() {
@@ -450,7 +511,8 @@ class AppInfoProvider {
             NSLog("[LC_DOCK] IS_COLLAPSED_PUBLISHED manager=%@ session=%@ stored_preference=%d suite=%@ apps_count=%ld value=%d ready=%d", String(describing: ObjectIdentifier(self)), self.collapseStartState.sessionID ?? "none", LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, (LCSharedUtils.appGroupID() ?? "unavailable"), self.apps.count, value ? 1 : 0, self.v3DockPresentationState.isReady ? 1 : 0)
         }
         NSLog("[LC_DOCK] INIT manager=%@ suite=%@ stored_preference=%d apps_count=%ld isCollapsed=%d", String(describing: ObjectIdentifier(self)), (LCSharedUtils.appGroupID() ?? "unavailable"), stored ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0)
-        keyWindow!.rootViewController!.view.subviews.first!.addSubview(self.windowHostingView)
+        // The guest host is attached immediately before launch/resume, once a
+        // concrete foreground host is available. No SwiftUI child assumptions.
         NSLog("[LC_DOCK] BEFORE_SETUP_DOCK_VIEW manager=%@ suite=%@ stored_preference=%d apps_count=%ld isCollapsed=%d session=%@", String(describing: ObjectIdentifier(self)), (LCSharedUtils.appGroupID() ?? "unavailable"), LCUtils.appGroupUserDefault.bool(forKey: "LCMultitaskDockStartsCollapsed") ? 1 : 0, self.apps.count, self.isCollapsed ? 1 : 0, self.collapseStartState.sessionID ?? "none")
         setupDockView()
         NotificationCenter.default.addObserver(
@@ -508,7 +570,7 @@ class AppInfoProvider {
     private func updateDockFrame(animated: Bool = true) {
         guard let hostingController = hostingController else { return }
 
-        let screenBounds = keyWindow!.bounds
+        guard let screenBounds = keyWindow?.bounds else { return }
         let currentDockWidth = self.dockWidth
         
         let dockHeight = calculateTargetDockHeight(forWidth: currentDockWidth)
@@ -655,7 +717,7 @@ class AppInfoProvider {
             let initialHeight = Constants.initialDockShowHeight
             
             // If not already in view hierarchy, add it
-            if hostingController.view.superview == nil {
+            if hostingController.view.superview !== keyWindow {
                 keyWindow.addSubview(hostingController.view)
                 hostingController.view.frame = CGRect(
                     x: screenBounds.width - currentDockWidth,
@@ -702,7 +764,7 @@ class AppInfoProvider {
                 let finalScale = Constants.initialScale
                 hostingController.view.transform = CGAffineTransform(scaleX: finalScale, y: finalScale)
                 // Move off-screen to hide, but keep in view hierarchy
-                let screenBounds = self.keyWindow!.bounds
+                guard let screenBounds = self.keyWindow?.bounds else { return }
                 let currentDockWidth = self.dockWidth
                 let targetX = self.calculateTargetX(isDockHidden: true, isOnRightSide: hostingController.view.frame.midX > screenBounds.width / 2, dockWidth: currentDockWidth, screenWidth: screenBounds.width)
                 let targetY = hostingController.view.frame.origin.y // Keep current Y
@@ -739,7 +801,7 @@ class AppInfoProvider {
     }
 
     func handleSwipeToHideOrShowGesture(for originalFrame: CGRect, translation: CGSize) -> Bool {
-        let screenWidth = keyWindow!.bounds.width
+        guard let screenWidth = keyWindow?.bounds.width else { return false }
         let isOnRightSide = originalFrame.origin.x > screenWidth / 2
         let isSwipingAway = (isOnRightSide && translation.width > 0) || (!isOnRightSide && translation.width < 0)
         
@@ -767,7 +829,7 @@ class AppInfoProvider {
             return false
         }
         
-        let screenWidth = keyWindow!.bounds.width
+        guard let screenWidth = keyWindow?.bounds.width else { return false }
         let isOnRightSide = originalFrame.origin.x > screenWidth / 2
         
         guard !self.isDockHidden else { return false }
@@ -801,7 +863,7 @@ class AppInfoProvider {
             print("[LC_RETURN] STALE_GUEST_CLEANED")
             return false
         }
-        guard let window = targetView.window else {
+        guard prepareVirtualWindowHost() != nil, let window = targetView.window else {
             print("[LC_RETURN] RETURN_FAILED reason=retained_view_has_no_window")
             return false
         }
@@ -1003,8 +1065,7 @@ class AppInfoProvider {
     
     // Add edge gesture recognition areas when dock is hidden
     private func setupEdgeGestureRecognizers() {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let keyWindow = windowScene.windows.first else { return }
+        guard let keyWindow = self.keyWindow else { return }
         
         keyWindow.gestureRecognizers?.removeAll { gesture in
             return gesture is UITapGestureRecognizer || gesture is UIScreenEdgePanGestureRecognizer
@@ -1128,7 +1189,7 @@ public struct MultitaskDockSwiftView: View {
                 let currentPhysicalFrame = hcFrame.offsetBy(dx: self.dragOffset.width, dy: self.dragOffset.height)
                 
                 if dockManager.isPositionChangeGesture(for: hcFrame, translation: value.translation) {
-                    let screenBounds = dockManager.keyWindow!.bounds
+                    guard let screenBounds = dockManager.keyWindow?.bounds else { return }
                     let targetX = dockManager.calculateTargetX(isDockHidden: false, isOnRightSide: currentPhysicalFrame.midX > screenBounds.width / 2, dockWidth: dockManager.dockWidth, screenWidth: screenBounds.width)
                     
                     let safeAreaInsets = dockManager.safeAreaInsets
@@ -1170,7 +1231,7 @@ public struct MultitaskDockSwiftView: View {
                     return
                 }
                 
-                let screenBounds = dockManager.keyWindow!.bounds
+                guard let screenBounds = dockManager.keyWindow?.bounds else { return }
                 let safeAreaInsets = dockManager.safeAreaInsets
                 let dockVerticalMargin = MultitaskDockManager.Constants.dockVerticalMargin
                 let minY = safeAreaInsets.top + dockVerticalMargin

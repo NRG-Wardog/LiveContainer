@@ -20,6 +20,13 @@
 }
 @end
 
+// LC_GUEST_DIAGNOSTIC_STORAGE_BEGIN
+// Process memory only. Tokens are internal and never included in exported text.
+static NSUInteger LCGuestDiagnosticGeneration = 0;
+static NSMutableArray<NSString *> *LCGuestDiagnosticPhases;
+static BOOL LCGuestDiagnosticTerminal = NO;
+// LC_GUEST_DIAGNOSTIC_STORAGE_END
+
 @implementation LCUtils
 #pragma mark Certificate & password
 
@@ -39,6 +46,47 @@
 
 
 #pragma mark Multitasking
+// LC_GUEST_DIAGNOSTIC_METHODS_BEGIN
++ (NSUInteger)beginGuestLaunchDiagnostics {
+    @synchronized(LCUtils.class) {
+        LCGuestDiagnosticGeneration++;
+        if (!LCGuestDiagnosticGeneration) LCGuestDiagnosticGeneration = 1;
+        LCGuestDiagnosticPhases = [NSMutableArray arrayWithObject:@"admitted"];
+        LCGuestDiagnosticTerminal = NO;
+        return LCGuestDiagnosticGeneration;
+    }
+}
+
++ (void)recordGuestLaunchDiagnostic:(NSUInteger)generation phase:(NSString *)phase {
+    if (![phase isKindOfClass:NSString.class]) return;
+    NSSet *allowed = [NSSet setWithArray:@[@"signing", @"signed", @"signing_failed",
+        @"launch_requested", @"extension_unavailable", @"native_window_requested",
+        @"host_attached", @"host_attachment_failed", @"virtual_window_requested",
+        @"lookup_failed", @"early_exit", @"launch_failed", @"pid_present", @"pid_absent",
+        @"callback_no_pid", @"completed"]];
+    NSString *canonical = [allowed member:phase];
+    if (!canonical) return;
+    phase = canonical; // Store the immutable allowlist token, never caller-owned mutable text.
+    @synchronized(LCUtils.class) {
+        if (!generation || generation != LCGuestDiagnosticGeneration || LCGuestDiagnosticTerminal) return;
+        [LCGuestDiagnosticPhases addObject:phase];
+        if (LCGuestDiagnosticPhases.count > 16) [LCGuestDiagnosticPhases removeObjectAtIndex:0];
+        LCGuestDiagnosticTerminal = [@[@"signing_failed", @"extension_unavailable", @"host_attachment_failed",
+            @"lookup_failed", @"early_exit", @"launch_failed", @"callback_no_pid", @"completed"] containsObject:phase];
+    }
+}
+
++ (NSString *)guestLaunchDiagnosticSnapshot {
+    @synchronized(LCUtils.class) {
+        NSString *state = !LCGuestDiagnosticGeneration ? @"not_started" :
+            (!LCGuestDiagnosticTerminal ? @"pending" :
+             ([LCGuestDiagnosticPhases.lastObject isEqualToString:@"completed"] ? @"callback_completed" : @"failed"));
+        return [NSString stringWithFormat:@"guest_launch_schema=1\nguest_launch_scope=host_boundary_not_guest_readiness\nguest_launch_state=%@\nguest_launch_phases=%@",
+            state, [LCGuestDiagnosticPhases componentsJoinedByString:@","] ?: @"none"];
+    }
+}
+// LC_GUEST_DIAGNOSTIC_METHODS_END
+
 + (NSString *)liveProcessBundleIdentifier {
     // first check if we have LiveProcess extension in our own bundle
     NSBundle *liveProcessBundle = [NSBundle bundleWithPath:[NSBundle.mainBundle.builtInPlugInsPath stringByAppendingPathComponent:@"LiveProcess.appex"]];
@@ -56,9 +104,29 @@
 }
 
 + (void)launchMultitaskGuestApp:(NSString *)displayName completionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
+    [self launchMultitaskGuestApp:displayName diagnosticGeneration:[self beginGuestLaunchDiagnostics] completionHandler:completionHandler];
+}
+
++ (void)launchMultitaskGuestApp:(NSString *)displayName diagnosticGeneration:(NSUInteger)generation completionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
+    [self recordGuestLaunchDiagnostic:generation phase:@"launch_requested"];
+    void (^finish)(NSNumber *, NSError *) = ^(NSNumber *pid, NSError *error) {
+        [self recordGuestLaunchDiagnostic:generation phase:pid.intValue > 0 ? @"pid_present" : @"pid_absent"];
+        NSString *phase = pid.intValue > 0 ? @"completed" : @"callback_no_pid";
+        if (error) {
+            phase = @"launch_failed";
+            if ([error.domain isEqualToString:@"LiveContainerReturn"]) {
+                if (error.code == 411) phase = @"lookup_failed";
+                else if (error.code == 412) phase = @"host_attachment_failed";
+                else if (error.code == 410) phase = @"early_exit";
+            }
+        }
+        [self recordGuestLaunchDiagnostic:generation phase:phase];
+        if (completionHandler) completionHandler(pid, error);
+    };
     if(!self.liveProcessBundleIdentifier) {
+        [self recordGuestLaunchDiagnostic:generation phase:@"extension_unavailable"];
         NSError *error = [NSError errorWithDomain:displayName code:2 userInfo:@{NSLocalizedDescriptionKey: @"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions"}];
-        if (completionHandler) completionHandler(nil, error);
+        finish(nil, error);
         return;
     }
     
@@ -72,19 +140,29 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         if (@available(iOS 16.1, *)) {
             if(UIApplication.sharedApplication.supportsMultipleScenes && [NSUserDefaults.lcSharedDefaults integerForKey:@"LCMultitaskMode"] == 1) {
-                [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId pidCallback:completionHandler];
+                [self recordGuestLaunchDiagnostic:generation phase:@"native_window_requested"];
+                [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId pidCallback:finish];
                 MultitaskDockManager *dock = [MultitaskDockManager shared];
                 [dock addRunningApp:displayName appUUID:dataUUID view:nil];
                 return;
             }
         }
         
-        UIViewController *rootVC = ((UIWindowScene *)UIApplication.sharedApplication.connectedScenes.anyObject).keyWindow.rootViewController;
+        MultitaskDockManager *dock = [MultitaskDockManager shared];
+        UIViewController *rootVC = [dock prepareVirtualWindowHost];
+        if (!rootVC) {
+            NSError *error = [NSError errorWithDomain:@"LiveContainerReturn" code:412
+                userInfo:@{NSLocalizedDescriptionKey: @"The guest window could not be attached to the active LiveContainer window. Please return to LiveContainer and try again."}];
+            finish(nil, error);
+            return;
+        }
+        [self recordGuestLaunchDiagnostic:generation phase:@"host_attached"];
+        [self recordGuestLaunchDiagnostic:generation phase:@"virtual_window_requested"];
         DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID rootVC:rootVC];
         // Wire PID callback
-        launcherView.pidAvailableHandler = completionHandler;
+        launcherView.pidAvailableHandler = finish;
         launcherView.view.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
-        launcherView.view.center = rootVC.view.center;
+        launcherView.view.center = CGPointMake(CGRectGetMidX(dock.windowHostingView.bounds), CGRectGetMidY(dock.windowHostingView.bounds));
     });
 }
 

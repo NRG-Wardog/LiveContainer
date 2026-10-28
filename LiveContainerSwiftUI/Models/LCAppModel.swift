@@ -324,7 +324,16 @@ class LCAppModel: ObservableObject, Hashable {
                 isAppRunning = false
             }}
         }
-        try await signApp(force: false)
+        // A legitimate new multitask attempt owns the running flag before
+        // resetting diagnostics. Blocked duplicate/resume taps do not reset it.
+        let guestDiagnosticGeneration = multitask ? LCUtils.beginGuestLaunchDiagnostics() : 0
+        if multitask { LCUtils.recordGuestLaunchDiagnostic(guestDiagnosticGeneration, phase: "signing") }
+        do { try await signApp(force: false) }
+        catch {
+            if multitask { LCUtils.recordGuestLaunchDiagnostic(guestDiagnosticGeneration, phase: "signing_failed") }
+            throw error
+        }
+        if multitask { LCUtils.recordGuestLaunchDiagnostic(guestDiagnosticGeneration, phase: "signed") }
         
         if let bundleIdOverride {
             UserDefaults.standard.set(bundleIdOverride, forKey: "selected")
@@ -346,7 +355,7 @@ class LCAppModel: ObservableObject, Hashable {
         if jitNeeded {
             if multitask, #available(iOS 17.4, *) {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                    LCUtils.launchMultitaskGuestApp(appInfo.displayName()) { pidNumber, error in
+                    LCUtils.launchMultitaskGuestApp(appInfo.displayName(), diagnosticGeneration: guestDiagnosticGeneration) { pidNumber, error in
                         if let error {
                             continuation.resume(throwing: error)
                             return
@@ -374,7 +383,7 @@ class LCAppModel: ObservableObject, Hashable {
                 }
             }
         } else if multitask, #available(iOS 16.0, *) {
-            try await LCUtils.launchMultitaskGuestApp(appInfo.displayName())
+            try await LCUtils.launchMultitaskGuestApp(appInfo.displayName(), diagnosticGeneration: guestDiagnosticGeneration)
         } else {
             if #available(iOS 26.0, *), FileManager.default.fileExists(atPath: "\(appInfo.bundlePath()!)/Frameworks/MetalANGLE.framework/MetalANGLE") {
                 let fileContents = "\(appInfo.bundlePath()!)/Frameworks/MetalANGLE.framework/MetalANGLE".data(using: .utf8)

@@ -56,14 +56,14 @@
         bridge.startupDiagnosticText = "event=failed stage=serviceReadiness code=failed cause=databaseLayoutConflict"
         let logs = LogsHarness()
         await logs.reload()
-        precondition(bridge.requests == 0 && logs.startup == bridge.startupDiagnosticText)
+        precondition(bridge.requests == 0 && logs.startup == bridge.startupDiagnosticText + "\n" + LCUtils.guestLaunchDiagnosticSnapshot())
         precondition(!logs.reloading && !logs.message.isEmpty && logs.tail.isEmpty)
         bridge.serviceReadyForOperationLogs = true
         await logs.reload()
         precondition(bridge.requests == 1 && logs.tail == "operation log fixture")
         bridge.failure = NSError(domain: "fixture", code: 1)
         await logs.reload()
-        precondition(bridge.requests == 2 && logs.startup == bridge.startupDiagnosticText && !logs.reloading)
+        precondition(bridge.requests == 2 && logs.startup == bridge.startupDiagnosticText + "\n" + LCUtils.guestLaunchDiagnosticSnapshot() && !logs.reloading)
         precondition(V3OperationLogLoadPolicy.canCopy(reloading: false, startup: logs.startup, operations: ""))
         precondition(!V3OperationLogLoadPolicy.canCopy(reloading: true, startup: logs.startup, operations: ""))
         precondition(V3OperationLogLoadPolicy.copyText(startup: logs.startup, operations: "") == logs.startup)
