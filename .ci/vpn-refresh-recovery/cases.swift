@@ -70,6 +70,8 @@ struct VPNRefreshRecoveryCases {
         var status = "pending"
         var retryClearedOldManifest = false
         var sourceReadyOnRetry = false
+        var graceProbes = 0
+        var mutationAdmissions = 0
     }
     @MainActor
     static func sourceFlow(beforeRepair: Bool = false, mode: DeviceConnectionMode = .localVPN,
@@ -78,7 +80,7 @@ struct VPNRefreshRecoveryCases {
                            usableAfterOpen: Bool = true, mixedBackend: Bool = false,
                            partialSuccess: Bool = false, source: String = "manual", background: Bool = false,
                            foreground: Bool = true, openSucceeds: Bool = true,
-                           loseOwnerOnOpen: Bool = false, uncertain: Bool = false) async -> SourceFlowResult {
+                           loseOwnerOnOpen: Bool = false, uncertain: Bool = false, ownedGrace: Bool = false) async -> SourceFlowResult {
         var observed = SourceFlowResult()
         let runID = UUID(uuidString: id)!
         LiveContainerAutoRefreshScheduler.reset(runID: runID, requestID: other, source: source)
@@ -105,10 +107,32 @@ struct VPNRefreshRecoveryCases {
                 observed.retryClearedOldManifest = LiveContainerAutoRefreshScheduler.defaults.object(
                     forKey: LiveContainerAutoRefreshScheduler.verificationKey) == nil
             }
-            let error = beforeRepair
+            var error = beforeRepair
                 ? fixtureReadinessBeforeRepair(mode: mode, pairing: pairing, coreDeviceSupported: supported)
                 : fixtureReadiness(mode: mode, pairing: pairing, coreDeviceSupported: supported)
+            if ownedGrace {
+                var graceTime = 0.0, localProbes = 0
+                do {
+                    try await V3OwnedRefreshReadinessWait.run(probe: {
+                        localProbes += 1; observed.graceProbes += 1; graceTime += 0.097
+                        if localProbes == 11 { graceTime = 9.466 }
+                        let decision = fixtureTransportDecision(mode: mode, pairing: pairing,
+                            coreDeviceSupported: supported)
+                        let result = fixtureReadinessResult(decision: decision)
+                        let transient: MinimuxerOwnedReadinessTransient?
+                        if case .failure(.noVPN) = result { transient = .vpnInterfacePending }
+                        else { transient = nil }
+                        return .init(result: result, transient: transient)
+                    }, checkOwnership: {
+                        guard LiveContainerAutoRefreshScheduler.ownsFixtureNetworkPreflight(
+                            runID: runID, requestID: other, source: source) else { throw CancellationError() }
+                    }, now: { graceTime }, sleep: { graceTime += Double($0) / 1e9 })
+                    error = nil
+                } catch let native as MinimuxerError { error = native.asOperationError }
+                catch let operation as OperationError { error = operation }
+            }
             if observed.attempts == 2 { observed.sourceReadyOnRetry = error == nil }
+            if error == nil { observed.mutationAdmissions += 1 }
             let ids = ["fixture.app.0", "fixture.app.1"]
             var entries: [[String: Any]] = []
             for index in ids.indices {
@@ -297,6 +321,26 @@ struct VPNRefreshRecoveryCases {
         check("addressless_uncertain_mutation_never_opens", sourceUncertain.status == "failure" && sourceUncertain.attempts == 1 && sourceUncertain.openedURLs.isEmpty)
         let sourceInitial = await sourceFlow(initialInterfaces: [], usableAfterOpen: false)
         check("source_initial_activation_consumes_single_allowance", sourceInitial.initialActivation == true && sourceInitial.status == "failure" && sourceInitial.attempts == 1 && sourceInitial.openedURLs.count == 1)
+        // Actual same-session chain: host preflight, current service grace,
+        // original native-error mapper, early-boundary serializer, binary plist,
+        // host eligibility and official activation orchestration. Only clock,
+        // network observations, UIKit and external mutation boundary are inert.
+        let wifiPreserved = V3RefreshEarlyFailureBoundary.readiness.preserving(
+            OperationError.noConnection(reason: "No wifi interface satisfied"), operations: [.refresh, .refresh])
+        let wifiWire = CombinedFailure.capture(wifiPreserved, operation: "refresh", stage: .command, id: id)
+        check("grace_wifi_negative_never_authorizes_vpn_activation", wifiWire.signingContext["refresh_failure_kind"] == "noConnection" && wifiWire.signingContext["refresh_readiness_reason"] == nil && !permits(wifiWire, manifest: manifest([wifiWire, wifiWire])))
+        let graceFlow = await sourceFlow(ownedGrace: true)
+        check("grace_eleven_pending_preserves_two_target_wire", graceFlow.firstFailures.count == 2 && graceFlow.firstFailures.allSatisfy { $0.signingContext == ["refresh_failure_kind": "noVPN", "refresh_readiness_reason": "vpnUnavailable"] })
+        check("grace_first_tap_opens_once_then_rechecks", graceFlow.status == "success" && graceFlow.initialActivation == false && graceFlow.attempts == 2 && graceFlow.openedURLs.count == 1 && graceFlow.graceProbes == 12)
+        check("grace_no_mutation_before_ready_then_one_admission", graceFlow.mutationAdmissions == 1 && graceFlow.sourceReadyOnRetry && graceFlow.retryClearedOldManifest)
+        let graceStillOff = await sourceFlow(usableAfterOpen: false, ownedGrace: true)
+        check("grace_still_off_never_reopens_or_mutates", graceStillOff.status == "failure" && graceStillOff.attempts == 2 && graceStillOff.openedURLs.count == 1 && graceStillOff.graceProbes == 22 && graceStillOff.mutationAdmissions == 0)
+        let graceMixed = await sourceFlow(mixedBackend: true, ownedGrace: true)
+        check("grace_mixed_manifest_does_not_activate", graceMixed.status == "failure" && graceMixed.attempts == 1 && graceMixed.openedURLs.isEmpty && graceMixed.mutationAdmissions == 0)
+        let gracePartial = await sourceFlow(partialSuccess: true, ownedGrace: true)
+        check("grace_partial_success_does_not_activate", gracePartial.status == "failure" && gracePartial.attempts == 1 && gracePartial.openedURLs.isEmpty)
+        let graceUncertain = await sourceFlow(uncertain: true, ownedGrace: true)
+        check("grace_uncertain_mutation_does_not_activate", graceUncertain.status != "success" && graceUncertain.attempts == 1 && graceUncertain.openedURLs.isEmpty && graceUncertain.mutationAdmissions == 0)
         let receiptURL = URL(fileURLWithPath: CommandLine.arguments[1]).deletingLastPathComponent().appendingPathComponent("sources.json")
         let receipt = try JSONSerialization.jsonObject(with: Data(contentsOf: receiptURL)) as! [String: Any]
         precondition(names == receipt["expected_case_names"] as! [String])

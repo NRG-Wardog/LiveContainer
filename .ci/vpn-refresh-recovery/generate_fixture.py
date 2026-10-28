@@ -48,6 +48,7 @@ def generate(root, output):
     transport_source, transport_inputs = transport_helper.generate_source(root, include_operation_classifier=False)
     runner = (root / RUNNER).read_text()
     early_capture = helper.block(runner, 'enum V3RefreshEarlyFailureBoundary {')
+    owned_wait = helper.block(runner, 'enum V3OwnedRefreshReadinessWait {')
     structured_capture = helper.block((root / PRODUCER).read_text(), 'func lcStructuredSigningFailure(')
     assert 'V3RefreshEarlyFailureBoundary.readiness.preserving(' in runner
     assert 'if error is CancellationError { throw error }' in runner
@@ -159,7 +160,7 @@ def generate(root, output):
 
     swift += helper.pure_model(model) + '\n' + errors + '\n' + producer + '\n'
     swift += 'func debugLog(_ text: String) {}\nfunc verboseLog(_ text: String) {}\n'
-    swift += transport_source + '\n' + early_capture + '\n' + structured_capture + '\n'
+    swift += transport_source + '\n' + owned_wait + '\n' + early_capture + '\n' + structured_capture + '\n'
     observation_policy = helper.block(host, 'enum LiveContainerVPNPostActivationPolicy {')
     observation_owner = helper.block(host, 'enum LiveContainerVPNPostActivationOwnership {')
     observation_state = helper.block(host, 'final class LiveContainerVPNPathObservation {')
@@ -177,7 +178,7 @@ def generate(root, output):
         'fixture_inputs_sha256': {x: sha(HERE / x) for x in ['generate_fixture.py', 'cases.swift', 'OriginalRefreshReadinessFacts.swift', 'cold-peer-source.json', 'PlatformDoubles.swift']},
         'generated_sha256': hashlib.sha256(swift.encode()).hexdigest(),
         'expected_case_names': names, 'expected_case_count': len(names),
-        'extracted_blocks': anchors + ['enum LiveContainerVPNPostActivationPolicy {', 'enum LiveContainerVPNPostActivationOwnership {', 'final class LiveContainerVPNPathObservation {', 'private static func ownsNetworkPreflight(', 'enum LiveContainerNetworkPreflight {', 'private static func performRefreshWithVPNRecovery(', 'private static func verifyRefreshManifest(', 'enum V3RefreshEarlyFailureBoundary {', 'func lcStructuredSigningFailure(', 'func lcRefreshFailureFacts(', 'public enum OperationError:'],
+        'extracted_blocks': anchors + ['enum LiveContainerVPNPostActivationPolicy {', 'enum LiveContainerVPNPostActivationOwnership {', 'final class LiveContainerVPNPathObservation {', 'private static func ownsNetworkPreflight(', 'enum LiveContainerNetworkPreflight {', 'private static func performRefreshWithVPNRecovery(', 'private static func verifyRefreshManifest(', 'enum V3OwnedRefreshReadinessWait {', 'enum V3RefreshEarlyFailureBoundary {', 'func lcStructuredSigningFailure(', 'func lcRefreshFailureFacts(', 'public enum OperationError:'],
         'baseline_classifier_sha256': cold_source['baseline_classifier_source']['extracted_sha256'],
         'fixture_observation_hook': {'source': HOST, 'anchor': 'final class LiveContainerVPNActivationState {',
             'original_sha256': hashlib.sha256(activation_state.encode()).hexdigest(),
