@@ -403,7 +403,7 @@ public struct CombinedFailure: Error, LocalizedError {
     }
 
     public enum SafeCause: String, CaseIterable {
-        case databaseLayoutBlocked, databaseLayoutConflict, databaseAppGroupUnavailable, databasePersistenceFailed, databaseStartupFailed
+        case databaseLayoutBlocked, databaseLayoutConflict, databaseAppGroupUnavailable, databasePersistenceFailed, databaseStartupFailed, databaseHostBundleUnavailable, databaseHostProfileUnavailable, databaseModelUnrecognized, databaseMigrationPathUnavailable, databaseMigrationFailed, databaseSaveFailed
         case networkConnectionLost
         case networkTimedOut
         case networkUnavailable
@@ -482,7 +482,7 @@ public struct CombinedFailure: Error, LocalizedError {
 
         fileprivate var inferredRetryable: Bool? {
             switch self {
-            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed:
+            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed, .databaseHostBundleUnavailable, .databaseHostProfileUnavailable, .databaseModelUnrecognized, .databaseMigrationPathUnavailable, .databaseMigrationFailed, .databaseSaveFailed:
                 return false
             case .networkConnectionLost, .networkTimedOut, .networkUnavailable,
                  .signingNetworkConnectionLost, .signingNetworkTimedOut, .signingNetworkUnavailable,
@@ -983,7 +983,7 @@ public struct CombinedFailure: Error, LocalizedError {
         guard let safeCause else { return false }
         return stage == .serviceReadiness && code == .failed && retryable == false &&
             [.databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable,
-             .databasePersistenceFailed, .databaseStartupFailed].contains(safeCause)
+             .databasePersistenceFailed, .databaseStartupFailed, .databaseHostBundleUnavailable, .databaseHostProfileUnavailable, .databaseModelUnrecognized, .databaseMigrationPathUnavailable, .databaseMigrationFailed, .databaseSaveFailed].contains(safeCause)
     }
     private var databaseStartupMessage: String? {
         guard isTerminalDatabaseStartupFailure else { return nil }
@@ -998,6 +998,18 @@ public struct CombinedFailure: Error, LocalizedError {
             return "SideStore could not open or prepare its saved database."
         case .databaseStartupFailed:
             return "SideStore database startup failed before readiness."
+        case .databaseHostBundleUnavailable:
+            return "SideStore could not read the installed host application bundle."
+        case .databaseHostProfileUnavailable:
+            return "SideStore could not read the host application provisioning profile."
+        case .databaseModelUnrecognized:
+            return "This build does not recognize the saved database model."
+        case .databaseMigrationPathUnavailable:
+            return "No supported migration path was found for the saved database."
+        case .databaseMigrationFailed:
+            return "Database migration reported a failure. The saved data state needs review."
+        case .databaseSaveFailed:
+            return "SideStore could not save its database changes during startup."
         default: return nil
         }
     }
@@ -1024,7 +1036,7 @@ public struct CombinedFailure: Error, LocalizedError {
         if code == .timedOut { return "SideStore could not \(timeoutAction) in time while \(timeoutContext)." }
         if let local = localRefreshMessage { return local }
         if let safeCause {            switch safeCause {
-            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed:
+            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed, .databaseHostBundleUnavailable, .databaseHostProfileUnavailable, .databaseModelUnrecognized, .databaseMigrationPathUnavailable, .databaseMigrationFailed, .databaseSaveFailed:
                 break
             case .networkConnectionLost: return "The network connection was lost during \(operation)."
             case .networkTimedOut: return "The network request timed out during \(operation)."
@@ -1238,7 +1250,7 @@ public struct CombinedFailure: Error, LocalizedError {
            safeCause != .responseTooLarge, let catalog = catalogFailureRecovery { return catalog }
         if let safeCause {
             switch safeCause {
-            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed:
+            case .databaseLayoutBlocked, .databaseLayoutConflict, .databaseAppGroupUnavailable, .databasePersistenceFailed, .databaseStartupFailed, .databaseHostBundleUnavailable, .databaseHostProfileUnavailable, .databaseModelUnrecognized, .databaseMigrationPathUnavailable, .databaseMigrationFailed, .databaseSaveFailed:
                 break
             case .networkConnectionLost, .networkTimedOut, .networkUnavailable:
                 return "Check the network used by this request, then retry when the connection is stable. If a device operation still fails, run Connection Check."
@@ -3496,6 +3508,12 @@ extension CombinedFailure.SafeCause {
         case .databaseAppGroupUnavailable: return "F71"
         case .databasePersistenceFailed: return "F72"
         case .databaseStartupFailed: return "F73"
+        case .databaseHostBundleUnavailable: return "F74"
+        case .databaseHostProfileUnavailable: return "F75"
+        case .databaseModelUnrecognized: return "F76"
+        case .databaseMigrationPathUnavailable: return "F77"
+        case .databaseMigrationFailed: return "F78"
+        case .databaseSaveFailed: return "F79"
 
         case .networkConnectionLost: return "F01"
         case .networkTimedOut: return "F02"
@@ -4267,7 +4285,7 @@ public struct V3StartupDiagnosticLog {
             let codes: Set<String> = ["unavailable", "invalidConfiguration", "permissionDenied", "timedOut",
                 "cancelled", "interrupted", "notReady", "busy", "invalidResponse", "unsupported", "failed"]
             let causes: Set<String> = ["databaseLayoutBlocked", "databaseLayoutConflict", "databaseAppGroupUnavailable",
-                "databasePersistenceFailed", "databaseStartupFailed"]
+                "databasePersistenceFailed", "databaseStartupFailed", "databaseHostBundleUnavailable", "databaseHostProfileUnavailable", "databaseModelUnrecognized", "databaseMigrationPathUnavailable", "databaseMigrationFailed", "databaseSaveFailed"]
             line += " stage=" + (stage.flatMap { stages.contains($0) ? $0 : nil } ?? "unknown")
             line += " code=" + (code.flatMap { codes.contains($0) ? $0 : nil } ?? "unknown")
             line += " cause=" + (cause.flatMap { causes.contains($0) ? $0 : nil } ?? "notRecorded")
@@ -5568,7 +5586,7 @@ enum V3ServiceReadinessReply: Equatable {
     // executable vocabulary-parity harness verifies every typed cause and
     // source step is accepted here while unknown values remain rejected.
     static let knownSafeCauseValues: Set<String> = [
-        "databaseLayoutBlocked", "databaseLayoutConflict", "databaseAppGroupUnavailable", "databasePersistenceFailed", "databaseStartupFailed",
+        "databaseLayoutBlocked", "databaseLayoutConflict", "databaseAppGroupUnavailable", "databasePersistenceFailed", "databaseStartupFailed", "databaseHostBundleUnavailable", "databaseHostProfileUnavailable", "databaseModelUnrecognized", "databaseMigrationPathUnavailable", "databaseMigrationFailed", "databaseSaveFailed",
         "networkConnectionLost", "networkTimedOut", "networkUnavailable",
         "anisetteServerUnavailable", "anisetteServerRejected", "anisetteRequestTimedOut",
         "anisetteRateLimited", "anisetteInvalidResponse", "anisetteUnknownFailure",
@@ -5656,7 +5674,7 @@ enum V3ServiceReadinessReply: Equatable {
                 failure.signingContext = fields
             }
             if ["databaseLayoutBlocked", "databaseLayoutConflict", "databaseAppGroupUnavailable",
-                "databasePersistenceFailed", "databaseStartupFailed"].contains(failure.safeCause ?? "") {
+                "databasePersistenceFailed", "databaseStartupFailed", "databaseHostBundleUnavailable", "databaseHostProfileUnavailable", "databaseModelUnrecognized", "databaseMigrationPathUnavailable", "databaseMigrationFailed", "databaseSaveFailed"].contains(failure.safeCause ?? "") {
                 guard ["snapshot", "status"].contains(failure.operation),
                       failure.stage == "serviceReadiness", failure.code == "failed",
                       failure.retryable == false else { return .invalid }

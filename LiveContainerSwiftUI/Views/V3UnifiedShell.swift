@@ -2844,6 +2844,112 @@ enum V3SideJITReachabilityFeedback {
     }
 }
 
+// V3_STARTUP_DIAGNOSIS_CARD_V1: presentation from typed evidence only.
+// A timeout identifies the failed boundary, never a guessed database/VPN cause.
+struct V3StartupDiagnosis: Equatable {
+    let category: String
+    let title: String
+    let observation: String
+    let nextAction: String
+    let technical: String
+
+    static func make(_ failure: CombinedFailure) -> Self? {
+        let stages: Set<CombinedFailure.Stage> = [.hostContainer, .storagePreparation,
+            .bookmarkCreation, .extensionDiscovery, .extensionLaunch, .xpcConnection, .serviceReadiness]
+        guard stages.contains(failure.stage) else { return nil }
+        var category = failure.stage.rawValue
+        let title: String
+        let observation: String
+        let action: String
+        if failure.isTerminalDatabaseStartupFailure, let observedCause = failure.safeCause {
+            category = observedCause.rawValue
+            switch failure.safeCause {
+            case .databaseLayoutBlocked:
+                title = "Previous data location needs review"
+                observation = "Startup stopped because previous private data or a pending shared-storage migration was found."
+                action = "Keep the original data in place. Copy Diagnostics so support can review a safe upgrade path."
+            case .databaseLayoutConflict:
+                title = "Database layout needs review"
+                observation = "Startup stopped because conflicting or unsupported database files were found. No database was selected automatically."
+                action = "Keep every existing copy. Copy Diagnostics; do not rename, merge, or delete database files yourself."
+            case .databaseAppGroupUnavailable:
+                title = "Shared storage is unavailable"
+                observation = "SideStore could not access the shared App Group storage required for startup."
+                action = "Copy Diagnostics and ask support to check this installation's App Group configuration. Keep the app and its data."
+            case .databasePersistenceFailed:
+                title = "Database loading failed"
+                observation = "The saved database did not finish opening or migrating successfully. The exact storage failure is not exposed."
+                action = "Keep the original database. Copy Diagnostics and the observed startup stage before trying any recovery."
+            case .databaseStartupFailed:
+                title = "Database startup failed"
+                observation = "Database selection or preparation failed. This result alone does not identify damaged data or an invalid account."
+                action = "Keep the original database. Copy Diagnostics and the observed startup stage before trying any recovery."
+            case .databaseHostBundleUnavailable:
+                title = "Installed host bundle is unreadable"
+                observation = "SideStore could not read the installed host application bundle."
+                action = "Copy Diagnostics and ask support to check the installed combined package. Keep the app and its data."
+            case .databaseHostProfileUnavailable:
+                title = "Host provisioning profile is unreadable"
+                observation = "SideStore could not read the host application provisioning profile."
+                action = "Copy Diagnostics and ask support to review the installed host profile. This does not prove that the account or certificate is invalid."
+            case .databaseModelUnrecognized:
+                title = "Database model is not recognized"
+                observation = "This build does not recognize the saved database model."
+                action = "Keep the original database. Copy Diagnostics so support can identify a compatible build; do not assume a downgrade is safe."
+            case .databaseMigrationPathUnavailable:
+                title = "Database upgrade path is unavailable"
+                observation = "No supported migration path was found for the saved database."
+                action = "Keep the original database. Copy Diagnostics so support can identify a compatible build; do not assume a downgrade is safe."
+            case .databaseMigrationFailed:
+                title = "Database migration failed"
+                observation = "Database migration reported a failure. The saved data state needs review."
+                action = "Stop manual file changes and keep all database files. Copy Diagnostics before another migration attempt."
+            case .databaseSaveFailed:
+                title = "Database save failed"
+                observation = "SideStore could not save its database changes during startup."
+                action = "Keep the existing data. Check available device storage and copy Diagnostics; do not clear data to retry."
+            default: return nil
+            }
+        } else {
+            switch failure.stage {
+            case .hostContainer:
+                title = "Host container is unavailable"
+            case .storagePreparation:
+                title = "Service storage preparation failed"
+            case .bookmarkCreation:
+                title = "Shared-folder access could not be prepared"
+            case .extensionDiscovery:
+                title = "Embedded service discovery failed"
+            case .extensionLaunch:
+                title = "Embedded service launch did not complete"
+            case .xpcConnection:
+                title = "Service communication failed"
+            case .serviceReadiness:
+                title = "Service startup did not complete"
+            default: return nil
+            }
+            switch failure.code {
+            case .cancelled:
+                observation = "This startup request was cancelled. No underlying startup cause was confirmed."
+            case .timedOut:
+                observation = "The expected startup response did not arrive in time. The exact cause is unknown; this does not prove a database, VPN, or account fault."
+            case .invalidResponse:
+                observation = "The startup response could not be validated. Its contents were not used to guess a cause."
+            case .interrupted:
+                observation = "The startup connection was interrupted before readiness could be confirmed."
+            case .notReady:
+                observation = "The service reported that startup is still pending. No terminal cause was reported."
+            default:
+                observation = "Startup failed at the indicated stage. No more specific safe cause was reported."
+            }
+            action = "Copy Diagnostics to identify the failed stage. Keep existing data; do not reset or reinstall the app based on this result alone."
+        }
+        return Self(category: category, title: title, observation: observation,
+            nextAction: action, technical: "startup_category=" + category + "\n" + failure.technicalDetails)
+    }
+}
+// V3_STARTUP_DIAGNOSIS_CARD_END
+
 struct V3UserFacingIssue: Equatable {
     let title: String
     let severity: V3StatusSeverity
@@ -8233,6 +8339,7 @@ final class V3SideStoreStatusStore: ObservableObject {
         }
     }
 
+    @Published private(set) var startupDiagnosis: V3StartupDiagnosis?
     @Published private(set) var terminalStartupFailure: CombinedFailure?
     @Published private(set) var account = "Not available"
     @Published private(set) var signing = "Unknown"
@@ -8521,6 +8628,7 @@ final class V3SideStoreStatusStore: ObservableObject {
 
     /// Presents a failure with the action its typed evidence supports.
     func present(_ error: Error) {
+        recordStartupDiagnosis(error)
         if let combined = error as? CombinedFailure {
             let structured = V3UserFacingIssue.make(combined)
             issue = structured
@@ -8686,6 +8794,16 @@ final class V3SideStoreStatusStore: ObservableObject {
             }
         }
     }
+
+    // Dismissing the alert does not erase support evidence. Only an accepted
+    // authoritative snapshot clears a previous startup failure.
+    private func recordStartupDiagnosis(_ error: Error) {
+        guard let failure = error as? CombinedFailure,
+              let diagnosis = V3StartupDiagnosis.make(failure) else { return }
+        startupDiagnosis = diagnosis
+    }
+
+    private func clearStartupDiagnosisAfterReady() { startupDiagnosis = nil }
 
     func clearIssue() {
         issue = nil
@@ -9150,6 +9268,7 @@ final class V3SideStoreStatusStore: ObservableObject {
         sources = (snapshot["sources"] as? [[String: Any]] ?? []).compactMap(V3SideStoreSource.init)
         settings = snapshot["settings"] as? [String: Bool] ?? [:]
         connected = true
+        clearStartupDiagnosisAfterReady()
         applyFullRecoveryEvidence(snapshot)
         return true
     }
@@ -18002,6 +18121,28 @@ extension V3JITLessPresentation {
     var tint: Color { status.tint }
 }
 
+struct V3StartupDiagnosisCard: View {
+    let diagnosis: V3StartupDiagnosis
+    @State private var copied = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            V3LocalizedLabel("Startup problem", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption.weight(.semibold)).foregroundColor(.orange)
+            V3LocalizedText(diagnosis.title).font(.headline)
+            V3LocalizedText(diagnosis.observation).font(.subheadline)
+            V3LocalizedText(diagnosis.nextAction).font(.footnote).foregroundColor(.secondary)
+            Button(LocalizedStringKey(copied ? "Copied" : "Copy Diagnostics")) {
+                UIPasteboard.general.string = diagnosis.technical + "\n" + V3ServiceBridge.shared.startupDiagnosticText
+                copied = true
+            }
+            .accessibilityIdentifier("V3_STARTUP_DIAGNOSIS_COPY")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("V3_STARTUP_DIAGNOSIS_CARD")
+        .onChange(of: diagnosis) { _ in copied = false }
+    }
+}
+
 struct V3HomeServiceHeader: View {
     @Environment(\.locale) private var dateLocale
 
@@ -18137,6 +18278,10 @@ private struct V3HomeView: View {
                         V3HomeServiceHeader(isConnected: status.connected, isLoading: status.loading,
                                             updatedAt: status.updatedAt) {
                             status.reload()
+                        }
+
+                        if let diagnosis = status.startupDiagnosis {
+                            V3StartupDiagnosisCard(diagnosis: diagnosis)
                         }
 
                         Divider()

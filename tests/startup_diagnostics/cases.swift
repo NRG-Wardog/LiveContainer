@@ -2,7 +2,7 @@
     @MainActor static func main() async throws {
         let id = "00000000-0000-0000-0000-000000000056"
         let causes = ["databaseLayoutBlocked", "databaseLayoutConflict", "databaseAppGroupUnavailable",
-                      "databasePersistenceFailed", "databaseStartupFailed"]
+                      "databasePersistenceFailed", "databaseStartupFailed", "databaseHostBundleUnavailable", "databaseHostProfileUnavailable", "databaseModelUnrecognized", "databaseMigrationPathUnavailable", "databaseMigrationFailed", "databaseSaveFailed"]
         func failure(_ cause: String?, code: String = "failed", retryable: Bool = false,
                      stage: String = "serviceReadiness") throws -> Data {
             var envelope: [String: Any] = ["version": 1, "operation": "snapshot", "stage": stage,
@@ -87,6 +87,6 @@
         status.terminalStartupFailure = nil
         setup.preserveUnknownStatusFacts(status: status)
         precondition(setup.account.state == "checking" && setup.pairing.state == "checking" && setup.jitless.state == "checking")
-        print("ISSUE56_HOST_BOUNDARIES_PASS terminal=5 malformed=16 delayed_success=1 no_callback_timeout=1 redaction=1 bounded_log=1 actual_log_reload=3 actual_setup=2 failed_to_success_snapshot=2 logs_copy=3")
+        print("ISSUE56_HOST_BOUNDARIES_PASS terminal=11 malformed=34 delayed_success=1 no_callback_timeout=1 redaction=1 bounded_log=1 actual_log_reload=3 actual_setup=2 failed_to_success_snapshot=2 logs_copy=3")
     }
 }

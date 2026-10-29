@@ -99232,6 +99232,1616 @@
           }
         }
       }
+    },
+    "Startup problem": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startup problem"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בעיה באתחול"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动问题"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動問題"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проблема запуска"
+          }
+        }
+      }
+    },
+    "Previous data location needs review": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous data location needs review"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "נדרשת בדיקה של מיקום הנתונים הקודם"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要检查原有数据位置"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要檢查原有資料位置"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужно проверить прежнее расположение данных"
+          }
+        }
+      }
+    },
+    "Startup stopped because previous private data or a pending shared-storage migration was found.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startup stopped because previous private data or a pending shared-storage migration was found."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "האתחול נעצר כי נמצאו נתונים פרטיים קודמים או העברה ממתינה לאחסון משותף."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发现原有私有数据或待处理的共享存储迁移，因此启动已停止。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發現原有私有資料或待處理的共享儲存空間遷移，因此啟動已停止。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск остановлен: обнаружены прежние приватные данные или незавершённый перенос в общее хранилище."
+          }
+        }
+      }
+    },
+    "Keep the original data in place. Copy Diagnostics so support can review a safe upgrade path.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the original data in place. Copy Diagnostics so support can review a safe upgrade path."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש להשאיר את הנתונים המקוריים במקומם. העתיקו את האבחון כדי שהתמיכה תוכל לבדוק דרך שדרוג בטוחה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请保留原始数据的位置。复制诊断信息，以便支持人员检查安全的升级路径。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保留原始資料的位置。複製診斷資訊，以便支援人員檢查安全的升級路徑。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оставьте исходные данные на месте. Скопируйте диагностику, чтобы поддержка могла проверить безопасный путь обновления."
+          }
+        }
+      }
+    },
+    "Keep every existing copy. Copy Diagnostics; do not rename, merge, or delete database files yourself.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep every existing copy. Copy Diagnostics; do not rename, merge, or delete database files yourself."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לשמור כל עותק קיים. העתיקו את האבחון; אין לשנות שמות, למזג או למחוק קובצי מסד נתונים באופן עצמאי."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请保留所有现有副本。复制诊断信息；不要自行重命名、合并或删除数据库文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保留所有現有副本。複製診斷資訊；請勿自行重新命名、合併或刪除資料庫檔案。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраните все имеющиеся копии. Скопируйте диагностику; не переименовывайте, не объединяйте и не удаляйте файлы базы самостоятельно."
+          }
+        }
+      }
+    },
+    "Shared storage is unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared storage is unavailable"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "האחסון המשותף אינו זמין"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共享存储不可用"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共享儲存空間無法使用"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общее хранилище недоступно"
+          }
+        }
+      }
+    },
+    "SideStore could not access the shared App Group storage required for startup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore could not access the shared App Group storage required for startup."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ל־SideStore אין גישה לאחסון App Group המשותף הנדרש לאתחול."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 无法访问启动所需的 App Group 共享存储。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 無法存取啟動所需的 App Group 共享儲存空間。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore не смог получить доступ к общему хранилищу App Group, необходимому для запуска."
+          }
+        }
+      }
+    },
+    "Copy Diagnostics and ask support to check this installation's App Group configuration. Keep the app and its data.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Diagnostics and ask support to check this installation's App Group configuration. Keep the app and its data."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העתיקו את האבחון ובקשו מהתמיכה לבדוק את הגדרת App Group של התקנה זו. יש לשמור את האפליקציה ואת נתוניה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制诊断信息，并请支持人员检查此次安装的 App Group 配置。请保留应用及其数据。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製診斷資訊，並請支援人員檢查此次安裝的 App Group 設定。請保留 App 及其資料。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопируйте диагностику и попросите поддержку проверить конфигурацию App Group этой установки. Сохраните приложение и его данные."
+          }
+        }
+      }
+    },
+    "Database loading failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database loading failed"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "טעינת מסד הנתונים נכשלה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库加载失败"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料庫載入失敗"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить базу данных"
+          }
+        }
+      }
+    },
+    "The saved database did not finish opening or migrating successfully. The exact storage failure is not exposed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved database did not finish opening or migrating successfully. The exact storage failure is not exposed."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פתיחת מסד הנתונים השמור או העברתו לא הסתיימו בהצלחה. פרטי כשל האחסון המדויק אינם מוצגים."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存的数据库未能成功完成打开或迁移。此处不显示具体的存储错误。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已儲存的資料庫未能成功完成開啟或遷移。此處不顯示具體的儲存錯誤。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось завершить открытие или миграцию сохранённой базы данных. Точная ошибка хранилища не раскрывается."
+          }
+        }
+      }
+    },
+    "Keep the original database. Copy Diagnostics and the observed startup stage before trying any recovery.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the original database. Copy Diagnostics and the observed startup stage before trying any recovery."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לשמור את מסד הנתונים המקורי. העתיקו את האבחון ואת שלב האתחול שנצפה לפני ניסיון שחזור כלשהו."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请保留原始数据库。在尝试任何恢复操作前，复制诊断信息和已观察到的启动阶段。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保留原始資料庫。在嘗試任何復原操作前，複製診斷資訊和已觀察到的啟動階段。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраните исходную базу данных. Перед любой попыткой восстановления скопируйте диагностику и зафиксированный этап запуска."
+          }
+        }
+      }
+    },
+    "Database startup failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database startup failed"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אתחול מסד הנתונים נכשל"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库启动失败"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料庫啟動失敗"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбой запуска базы данных"
+          }
+        }
+      }
+    },
+    "Database selection or preparation failed. This result alone does not identify damaged data or an invalid account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database selection or preparation failed. This result alone does not identify damaged data or an invalid account."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בחירת מסד הנתונים או הכנתו נכשלו. תוצאה זו לבדה אינה מעידה על נתונים פגומים או חשבון לא תקין."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库选择或准备失败。仅凭此结果无法认定数据损坏或账户无效。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料庫選取或準備失敗。僅憑此結果無法認定資料損壞或帳號無效。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выбрать или подготовить базу данных. Сам по себе этот результат не означает повреждение данных или недействительность учётной записи."
+          }
+        }
+      }
+    },
+    "Service storage preparation failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service storage preparation failed"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הכנת אחסון השירות נכשלה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务存储准备失败"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服務儲存空間準備失敗"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось подготовить хранилище службы"
+          }
+        }
+      }
+    },
+    "Shared-folder access could not be prepared": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared-folder access could not be prepared"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן להכין גישה לתיקייה המשותפת"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法准备共享文件夹访问权限"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法準備共享資料夾存取權限"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось подготовить доступ к общей папке"
+          }
+        }
+      }
+    },
+    "Embedded service launch did not complete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Embedded service launch did not complete"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפעלת השירות המוטמע לא הושלמה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内嵌服务未完成启动"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內嵌服務未完成啟動"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск встроенной службы не завершён"
+          }
+        }
+      }
+    },
+    "Service communication failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service communication failed"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "התקשורת עם השירות נכשלה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务通信失败"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服務通訊失敗"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбой связи со службой"
+          }
+        }
+      }
+    },
+    "Service startup did not complete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service startup did not complete"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אתחול השירות לא הושלם"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务未完成启动"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服務未完成啟動"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск службы не завершён"
+          }
+        }
+      }
+    },
+    "This startup request was cancelled. No underlying startup cause was confirmed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This startup request was cancelled. No underlying startup cause was confirmed."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בקשת האתחול הזו בוטלה. לא אושרה סיבה בסיסית לכשל באתחול."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此次启动请求已取消。尚未确认导致启动问题的具体原因。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此次啟動要求已取消。尚未確認導致啟動問題的具體原因。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот запрос запуска отменён. Конкретная причина проблемы запуска не подтверждена."
+          }
+        }
+      }
+    },
+    "The expected startup response did not arrive in time. The exact cause is unknown; this does not prove a database, VPN, or account fault.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The expected startup response did not arrive in time. The exact cause is unknown; this does not prove a database, VPN, or account fault."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תגובת האתחול הצפויה לא הגיעה בזמן. הסיבה המדויקת אינה ידועה; אין בכך הוכחה לתקלה במסד הנתונים, ב־VPN או בחשבון."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预期的启动响应未及时到达。具体原因未知；这不能证明数据库、VPN 或账户存在故障。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預期的啟動回應未及時到達。具體原因未知；這不能證明資料庫、VPN 或帳號存在故障。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ожидаемый ответ запуска не пришёл вовремя. Точная причина неизвестна; это не доказывает неисправность базы данных, VPN или учётной записи."
+          }
+        }
+      }
+    },
+    "The startup response could not be validated. Its contents were not used to guess a cause.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The startup response could not be validated. Its contents were not used to guess a cause."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן לאמת את תגובת האתחול. תוכנה לא שימש לניחוש הסיבה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证启动响应。未根据其内容猜测原因。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法驗證啟動回應。未根據其內容猜測原因。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить ответ запуска. Его содержимое не использовалось для предположений о причине."
+          }
+        }
+      }
+    },
+    "The startup connection was interrupted before readiness could be confirmed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The startup connection was interrupted before readiness could be confirmed."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "חיבור האתחול נקטע לפני שניתן היה לאשר מוכנות."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动连接在确认就绪之前中断。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動連線在確認就緒之前中斷。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Соединение при запуске прервано до подтверждения готовности."
+          }
+        }
+      }
+    },
+    "The service reported that startup is still pending. No terminal cause was reported.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The service reported that startup is still pending. No terminal cause was reported."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "השירות דיווח שהאתחול עדיין ממתין. לא דווחה סיבה סופית לכשל."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务报告启动仍在等待中。未报告终止性故障原因。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服務回報啟動仍在等待中。未回報終止性故障原因。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Служба сообщила, что запуск ещё ожидается. Причина окончательного сбоя не сообщена."
+          }
+        }
+      }
+    },
+    "Startup failed at the indicated stage. No more specific safe cause was reported.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startup failed at the indicated stage. No more specific safe cause was reported."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "האתחול נכשל בשלב המצוין. לא דווחה סיבה בטוחה ומפורטת יותר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动在所示阶段失败。未报告更具体且可安全显示的原因。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動在所示階段失敗。未回報更具體且可安全顯示的原因。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск завершился сбоем на указанном этапе. Более точная причина, которую можно безопасно показать, не сообщена."
+          }
+        }
+      }
+    },
+    "Copy Diagnostics to identify the failed stage. Keep existing data; do not reset or reinstall the app based on this result alone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Diagnostics to identify the failed stage. Keep existing data; do not reset or reinstall the app based on this result alone."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העתיקו את האבחון כדי לזהות את שלב הכשל. שמרו על הנתונים הקיימים; אין לאפס או להתקין מחדש את האפליקציה על סמך תוצאה זו בלבד."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制诊断信息以确定失败阶段。请保留现有数据；不要仅凭此结果重置或重新安装应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製診斷資訊以確定失敗階段。請保留現有資料；請勿僅憑此結果重置或重新安裝 App。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопируйте диагностику, чтобы определить этап сбоя. Сохраните данные; не сбрасывайте и не переустанавливайте приложение только на основании этого результата."
+          }
+        }
+      }
+    },
+    "Installed host bundle is unreadable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed host bundle is unreadable"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן לקרוא את חבילת האפליקציה המארחת המותקנת"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取已安装的宿主应用包"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取已安裝的宿主 App 套件"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся прочитать пакет установленного основного приложения"
+          }
+        }
+      }
+    },
+    "SideStore could not read the installed host application bundle.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore could not read the installed host application bundle."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore לא הצליח לקרוא את חבילת האפליקציה המארחת המותקנת."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 无法读取已安装的宿主应用包。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 無法讀取已安裝的宿主 App 套件。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore не смог прочитать пакет установленного основного приложения."
+          }
+        }
+      }
+    },
+    "Copy Diagnostics and ask support to check the installed combined package. Keep the app and its data.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Diagnostics and ask support to check the installed combined package. Keep the app and its data."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העתיקו את האבחון ובקשו מהתמיכה לבדוק את החבילה המשולבת המותקנת. יש לשמור את האפליקציה ואת נתוניה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制诊断信息，并请支持人员检查已安装的组合应用包。请保留应用及其数据。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製診斷資訊，並請支援人員檢查已安裝的整合 App 套件。請保留 App 及其資料。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопируйте диагностику и попросите поддержку проверить установленный объединённый пакет. Сохраните приложение и его данные."
+          }
+        }
+      }
+    },
+    "Host provisioning profile is unreadable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Host provisioning profile is unreadable"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן לקרוא את פרופיל ההקצאה של האפליקציה המארחת"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取宿主描述文件"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取宿主佈建描述檔"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся прочитать профиль подготовки основного приложения"
+          }
+        }
+      }
+    },
+    "SideStore could not read the host application provisioning profile.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore could not read the host application provisioning profile."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore לא הצליח לקרוא את פרופיל ההקצאה של האפליקציה המארחת."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 无法读取宿主应用的描述文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 無法讀取宿主 App 的佈建描述檔。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore не смог прочитать профиль подготовки основного приложения."
+          }
+        }
+      }
+    },
+    "Copy Diagnostics and ask support to review the installed host profile. This does not prove that the account or certificate is invalid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Diagnostics and ask support to review the installed host profile. This does not prove that the account or certificate is invalid."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העתיקו את האבחון ובקשו מהתמיכה לבדוק את פרופיל האפליקציה המארחת המותקן. אין בכך הוכחה שהחשבון או האישור אינם תקינים."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制诊断信息，并请支持人员检查已安装的宿主描述文件。这不能证明账户或证书无效。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製診斷資訊，並請支援人員檢查已安裝的宿主佈建描述檔。這不能證明帳號或憑證無效。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопируйте диагностику и попросите поддержку проверить установленный профиль основного приложения. Это не доказывает недействительность учётной записи или сертификата."
+          }
+        }
+      }
+    },
+    "Database model is not recognized": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database model is not recognized"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "מודל מסד הנתונים אינו מזוהה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法识别数据库模型"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法辨識資料庫模型"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель базы данных не распознана"
+          }
+        }
+      }
+    },
+    "This build does not recognize the saved database model.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build does not recognize the saved database model."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "גרסה זו אינה מזהה את מודל מסד הנתונים השמור."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此构建无法识别已保存的数据库模型。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此版本無法辨識已儲存的資料庫模型。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта сборка не распознаёт модель сохранённой базы данных."
+          }
+        }
+      }
+    },
+    "Keep the original database. Copy Diagnostics so support can identify a compatible build; do not assume a downgrade is safe.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the original database. Copy Diagnostics so support can identify a compatible build; do not assume a downgrade is safe."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לשמור את מסד הנתונים המקורי. העתיקו את האבחון כדי שהתמיכה תוכל לזהות גרסה תואמת; אין להניח ששנמוך בטוח."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请保留原始数据库。复制诊断信息，以便支持人员确定兼容的构建；不要假定降级是安全的。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保留原始資料庫。複製診斷資訊，以便支援人員確定相容的版本；請勿假定降級是安全的。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраните исходную базу данных. Скопируйте диагностику, чтобы поддержка могла подобрать совместимую сборку; не считайте переход на старую версию безопасным."
+          }
+        }
+      }
+    },
+    "Database upgrade path is unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database upgrade path is unavailable"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "מסלול שדרוג מסד הנתונים אינו זמין"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库升级路径不可用"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料庫升級路徑無法使用"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Путь обновления базы данных недоступен"
+          }
+        }
+      }
+    },
+    "No supported migration path was found for the saved database.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No supported migration path was found for the saved database."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא נמצא מסלול העברה נתמך למסד הנתונים השמור."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未找到适用于已保存数据库的受支持迁移路径。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到適用於已儲存資料庫的受支援遷移路徑。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для сохранённой базы данных не найден поддерживаемый путь миграции."
+          }
+        }
+      }
+    },
+    "Database migration failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database migration failed"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העברת מסד הנתונים נכשלה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库迁移失败"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料庫遷移失敗"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбой миграции базы данных"
+          }
+        }
+      }
+    },
+    "Database migration reported a failure. The saved data state needs review.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database migration reported a failure. The saved data state needs review."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תהליך העברת מסד הנתונים דיווח על כשל. יש לבדוק את מצב הנתונים השמורים."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库迁移报告失败。需要检查已保存数据的状态。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料庫遷移回報失敗。需要檢查已儲存資料的狀態。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При миграции базы данных произошёл сбой. Требуется проверить состояние сохранённых данных."
+          }
+        }
+      }
+    },
+    "Stop manual file changes and keep all database files. Copy Diagnostics before another migration attempt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop manual file changes and keep all database files. Copy Diagnostics before another migration attempt."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש להפסיק שינויים ידניים בקבצים ולשמור את כל קובצי מסד הנתונים. העתיקו את האבחון לפני ניסיון העברה נוסף."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请停止手动修改文件，并保留所有数据库文件。在再次尝试迁移前复制诊断信息。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請停止手動修改檔案，並保留所有資料庫檔案。在再次嘗試遷移前複製診斷資訊。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прекратите ручные изменения файлов и сохраните все файлы базы. Перед повторной попыткой миграции скопируйте диагностику."
+          }
+        }
+      }
+    },
+    "Database save failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database save failed"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "שמירת מסד הנתונים נכשלה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库保存失败"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料庫儲存失敗"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сохранить базу данных"
+          }
+        }
+      }
+    },
+    "SideStore could not save its database changes during startup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore could not save its database changes during startup."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore לא הצליח לשמור את שינויי מסד הנתונים במהלך האתחול."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 无法在启动期间保存数据库更改。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore 無法在啟動期間儲存資料庫變更。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SideStore не смог сохранить изменения базы данных при запуске."
+          }
+        }
+      }
+    },
+    "Keep the existing data. Check available device storage and copy Diagnostics; do not clear data to retry.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the existing data. Check available device storage and copy Diagnostics; do not clear data to retry."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יש לשמור על הנתונים הקיימים. בדקו את נפח האחסון הפנוי במכשיר והעתיקו את האבחון; אין למחוק נתונים כדי לנסות שוב."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请保留现有数据。检查设备可用存储空间并复制诊断信息；不要为重试而清除数据。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請保留現有資料。檢查裝置可用儲存空間並複製診斷資訊；請勿為重試而清除資料。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраните существующие данные. Проверьте свободное место на устройстве и скопируйте диагностику; не очищайте данные ради повторной попытки."
+          }
+        }
+      }
+    },
+    "Host container is unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Host container is unavailable"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "מכולת האפליקציה המארחת אינה זמינה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "宿主容器不可用"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "宿主容器無法使用"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контейнер основного приложения недоступен"
+          }
+        }
+      }
+    },
+    "Embedded service discovery failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Embedded service discovery failed"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "איתור השירות המוטמע נכשל"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内嵌服务发现失败"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內嵌服務探索失敗"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось обнаружить встроенную службу"
+          }
+        }
+      }
+    },
+    "Database layout needs review": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database layout needs review"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "נדרשת בדיקה של מבנה מסד הנתונים"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要检查数据库布局"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要檢查資料庫配置"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужно проверить структуру файлов базы данных"
+          }
+        }
+      }
+    },
+    "Startup stopped because conflicting or unsupported database files were found. No database was selected automatically.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startup stopped because conflicting or unsupported database files were found. No database was selected automatically."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "האתחול נעצר כי נמצאו קובצי מסד נתונים מתנגשים או לא נתמכים. לא נבחר מסד נתונים באופן אוטומטי."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发现冲突或不受支持的数据库文件，因此启动已停止。未自动选择任何数据库。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發現衝突或不受支援的資料庫檔案，因此啟動已停止。未自動選取任何資料庫。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск остановлен: обнаружены конфликтующие или неподдерживаемые файлы базы. База данных не была выбрана автоматически."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

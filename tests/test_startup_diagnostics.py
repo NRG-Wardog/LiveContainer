@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / 'SideStoreSupport/SideStore.swift'
 UI = ROOT / 'LiveContainerSwiftUI/Views/V3UnifiedShell.swift'
 CAUSES = ['databaseLayoutBlocked', 'databaseLayoutConflict', 'databaseAppGroupUnavailable',
-          'databasePersistenceFailed', 'databaseStartupFailed']
+          'databasePersistenceFailed', 'databaseStartupFailed', 'databaseHostBundleUnavailable', 'databaseHostProfileUnavailable', 'databaseModelUnrecognized', 'databaseMigrationPathUnavailable', 'databaseMigrationFailed', 'databaseSaveFailed']
 
 
 def block(source, anchor):
@@ -182,7 +182,7 @@ class StartupDiagnosticsTests(unittest.TestCase):
         keys += ['Open Operation Logs and copy the startup diagnostics. Keep the existing app and its data; do not delete, reset, or move its database as a workaround.',
                  'Startup Diagnostics',
                  'Service operation logs are unavailable because startup is not complete. Available safe startup diagnostics are shown below.']
-        self.assertEqual(len(keys), 8)
+        self.assertEqual(len(keys), 14)
         for key in keys:
             for language in ['en', 'he', 'zh-Hans', 'zh-Hant', 'ru']:
                 unit = catalog[key]['localizations'][language]['stringUnit']
@@ -209,6 +209,13 @@ class StartupDiagnosticsTests(unittest.TestCase):
             self.assertEqual(ran.returncode, 0, ran.stdout + ran.stderr)
             self.assertIn('ISSUE56_HOST_BOUNDARIES_PASS', ran.stdout)
             print(ran.stdout.strip())
+
+
+def load_tests(loader, tests, pattern):
+    # Keep the source-owned native runner authoritative for the added card boundary.
+    from test_startup_diagnosis_card import StartupDiagnosisCardTests
+    tests.addTests(loader.loadTestsFromTestCase(StartupDiagnosisCardTests))
+    return tests
 
 
 if __name__ == '__main__':
