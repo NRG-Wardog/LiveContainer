@@ -353,6 +353,10 @@ public enum V3DirectProfileVerificationPolicy {
 public struct V3RefreshUncertaintyTicket {
     public let runID: String
     public let updatedAt: Double
+    public init(runID: String, updatedAt: Double) {
+        self.runID = runID
+        self.updatedAt = updatedAt
+    }
 }
 public enum V3RefreshUncertaintyAcknowledgmentPolicy {
     public static let blockedMessage = "A previous installation may already have completed, but its result is unconfirmed. Check the app and its expiration before acknowledging that exact attempt. No new installation has started."

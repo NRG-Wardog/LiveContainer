@@ -120,4 +120,35 @@ class RefreshTruthTests(unittest.TestCase):
             self.assertIn('REFRESH_NOTIFICATION_RUNTIME_PASS',result.stdout)
             print(result.stdout)
 
+
+    @unittest.skipUnless(shutil.which('swiftc'), 'Native two-module compilation required on macOS CI')
+    def test_ticket_cross_module_visibility(self):
+        source = SUPPORT.read_text()
+        ticket = block(source, 'public struct V3RefreshUncertaintyTicket')
+        policy = block(source, 'public enum V3RefreshUncertaintyAcknowledgmentPolicy')
+        initializer = block(ticket, '    public init(runID: String, updatedAt: Double)')
+        self.assertIn('V3RefreshUncertaintyTicket(runID: runID, updatedAt: updated.doubleValue)', APP.read_text())
+        program = (Path(__file__).parent/'ticket_module_cases.swift').read_text()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            for current in [False, True]:
+                folder=root/('current' if current else 'before'); folder.mkdir()
+                module=folder/'SideStoreSupport.swift'; client=folder/'main.swift'; obj=folder/'SideStoreSupport.o'; binary=folder/'cases'
+                declaration=ticket if current else ticket.replace(initializer,'')
+                module.write_text('import Foundation\nimport CoreFoundation\n'+declaration+'\n'+policy)
+                client.write_text(program)
+                command=['swiftc','-parse-as-library','-emit-object','-emit-module','-module-name','SideStoreSupport',str(module),'-emit-module-path',str(folder/'SideStoreSupport.swiftmodule'),'-o',str(obj)]
+                compiled=subprocess.run(command,capture_output=True,text=True,timeout=120)
+                self.assertEqual(compiled.returncode,0,compiled.stdout+'\n'+compiled.stderr)
+                linked=subprocess.run(['swiftc','-I',str(folder),str(client),str(obj),'-o',str(binary)],capture_output=True,text=True,timeout=120)
+                if not current:
+                    self.assertNotEqual(linked.returncode,0,'Old internal memberwise initializer unexpectedly exported')
+                    self.assertIn('inaccessible',linked.stderr)
+                    continue
+                self.assertEqual(linked.returncode,0,linked.stdout+'\n'+linked.stderr)
+                result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=30)
+                self.assertEqual(result.returncode,0,result.stdout+'\n'+result.stderr)
+                self.assertIn('TICKET_CROSS_MODULE_PASS',result.stdout)
+                print(result.stdout)
+
 if __name__ == '__main__': unittest.main()
