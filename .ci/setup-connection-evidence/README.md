@@ -11,7 +11,7 @@ Proposed CI-only compile/run, not performed during local preparation:
     swiftc -swift-version 5 -parse-as-library "$OUTPUT/setup-connection.swift" -o "$OUTPUT/setup-connection"
     "$OUTPUT/setup-connection" "$OUTPUT/cases.json"
 
-Require the cases JSON status to be pass and its ordered case names/count to exactly match sources.json. Check the source hashes and generated SHA256. There are 25 cases, including arbitrary utun detection, matched readiness failures, stale/wrong correlation, newer signing/pending outcomes, strict success, malformed/ambiguous chronology, cancellation, and unknown-kind privacy.
+Require the cases JSON status to be pass and its ordered case names/count to exactly match sources.json. Check the source hashes and generated SHA256. There are 26 cases, including arbitrary utun detection, matched readiness failures, stale/wrong correlation, newer signing/pending outcomes, strict renewal-evidence success and legacy success rejection, malformed/ambiguous chronology, cancellation, and unknown-kind privacy.
 
 Generation is not native compilation, execution, UI rendering, VPN confirmation, or device acceptance. No pairing configuration or refresh fail-closed transport guard is changed by this policy. Green explicitly means the latest verified refresh with a currently detected tunnel interface, not provider identity or current service availability.
 

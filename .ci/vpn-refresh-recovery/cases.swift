@@ -82,7 +82,7 @@ struct VPNRefreshRecoveryCases {
                            foreground: Bool = true, openSucceeds: Bool = true,
                            loseOwnerOnOpen: Bool = false, uncertain: Bool = false, ownedGrace: Bool = false,
                            requiredWiFiStatus: String? = nil, requiredWiFiObserved: Bool = true,
-                           requiredWiFiUses: Bool = true, defaultWiFi: Bool = true) async -> SourceFlowResult {
+                           requiredWiFiUses: Bool = true, defaultWiFi: Bool = true, omitRenewalEvidence: Bool = false) async -> SourceFlowResult {
         var observed = SourceFlowResult()
         let runID = UUID(uuidString: id)!
         LiveContainerAutoRefreshScheduler.reset(runID: runID, requestID: other, source: source)
@@ -156,7 +156,12 @@ struct VPNRefreshRecoveryCases {
                 } else {
                     // Only the external completion boundary is synthetic. This
                     // records no real installation and never overrides readiness.
-                    entries.append(["bundle_id": ids[index], "success": true])
+                    var entry: [String: Any] = ["bundle_id": ids[index], "success": true]
+                    if !omitRenewalEvidence {
+                        entry["verification"] = ["version": 1, "mutationDispatched": true,
+                            "installAcknowledged": true, "profileStore": "matched", "renewal": "extended", "certificate": "valid"]
+                    }
+                    entries.append(entry)
                 }
             }
             let manifest: [String: Any] = ["version": 2, "schema": "LiveContainerRefreshManifestV2",
@@ -368,6 +373,8 @@ struct VPNRefreshRecoveryCases {
         check("remote_preserves_default_wifi_acceptance", remoteDefaultWiFi.status == "success" && remoteDefaultWiFi.attempts == 1 && remoteDefaultWiFi.openedURLs.isEmpty && remoteDefaultWiFi.mutationAdmissions == 1)
         let remoteDefaultOther = await sourceFlow(mode: .remoteServer, ownedGrace: true, requiredWiFiStatus: "satisfied", defaultWiFi: false)
         check("remote_preserves_default_nonwifi_rejection", remoteDefaultOther.status == "failure" && remoteDefaultOther.attempts == 1 && remoteDefaultOther.openedURLs.isEmpty && remoteDefaultOther.mutationAdmissions == 0 && remoteDefaultOther.graceProbes == 1)
+        let noRenewalEvidence = await sourceFlow(omitRenewalEvidence: true)
+        check("network_ready_without_renewal_proof_rejected", noRenewalEvidence.status == "failure")
         let receiptURL = URL(fileURLWithPath: CommandLine.arguments[1]).deletingLastPathComponent().appendingPathComponent("sources.json")
         let receipt = try JSONSerialization.jsonObject(with: Data(contentsOf: receiptURL)) as! [String: Any]
         precondition(names == receipt["expected_case_names"] as! [String])

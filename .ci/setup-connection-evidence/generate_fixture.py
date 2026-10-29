@@ -93,7 +93,7 @@ def generate(root, output):
             assert (unit['value'] == text) == (language == 'en')
     cases = (HERE / 'cases.swift').read_text()
     case_names = re.findall(r'^        check\("([^"]+)"', cases, re.M)
-    assert len(case_names) == len(set(case_names)) == 25
+    assert len(case_names) == len(set(case_names)) == 26
     swift = 'import Foundation\nimport CoreFoundation\n#if canImport(FoundationNetworking)\nimport FoundationNetworking\n#endif\n'
     swift += helper.pure_model(model) + '\n' + '\n\n'.join(extracted) + '\n' + cases
     output.mkdir(parents=True, exist_ok=True)

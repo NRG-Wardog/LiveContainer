@@ -81,6 +81,19 @@ expect(!V3HostProfileRenewalProof.record(in: &host, runID: run, baseline: baseli
 expect(!V3HostProfileRenewalProof.record(in: &host, runID: run, baseline: baseline, installedBundleID: "signed.host", observedIdentifier: "TEAM.signed.host", observedExpiration: Date(timeIntervalSince1970: 200), observedAt: observedAt), "unchanged_host_expiry_rejected")
 let sanitized = CombinedVerification.sanitized(["liveContainerAutoRefreshVerification": host, "liveContainerAutoRefreshHostHandoffRunID":run, "liveContainerAutoRefreshHostHandoff":true], runID:run)
 expect((sanitized["liveContainerAutoRefreshVerification"] as? [String:Any])?["host_profile_verification"] == nil, "remote_host_proof_dropped")
+func sanitize(_ value: [String:Any]) -> [String:Any] { CombinedVerification.sanitized(["liveContainerAutoRefreshVerification":value],runID:run) }
+let validSafe = sanitize(manifest())["liveContainerAutoRefreshVerification"] as! [String:Any]
+expect(V3RefreshEvidencePolicy.outcome(validSafe,runID:run) == .renewed, "valid_wire_evidence_preserved")
+let missingSafe = sanitize(manifest(nil))["liveContainerAutoRefreshVerification"] as! [String:Any]
+expect(V3RefreshEvidencePolicy.outcome(missingSafe,runID:run) == .unconfirmed, "missing_wire_evidence_unconfirmed")
+var duplicate = manifest(); let originalEntries = duplicate["results"] as! [[String:Any]]; duplicate["results"] = originalEntries + originalEntries
+expect(sanitize(duplicate).isEmpty, "duplicate_results_rejected_at_wire")
+var empty = manifest(); empty["results"] = [[String:Any]](); empty["expected_ids"] = [String]()
+expect(sanitize(empty).isEmpty, "empty_manifest_rejected_at_wire")
+var malformed = manifest(); malformed["results"] = [["bundle_id":"example.main","success":true,"verification":["version":true]]]
+let malformedSafe = sanitize(malformed)["liveContainerAutoRefreshVerification"] as! [String:Any]
+expect((malformedSafe["results"] as! [[String:Any]])[0]["verification"] == nil, "malformed_proof_dropped_at_wire")
+expect(V3RefreshEvidencePolicy.outcome(malformedSafe,runID:run) == .unconfirmed, "malformed_wire_never_green")
 let directLost: [String: Any] = ["state":"failed", "backendSettled":true, "verification":evidence("unknown",store:"unavailable",certificate:"unknown",ack:false)]
 expect(V3DirectProfileVerificationPolicy.blocksRetry(directLost, operation:"refresh"), "direct_lostack_settled_no_retry")
 expect(V3DirectProfileVerificationPolicy.requiresDeviceCheck(directLost, operation:"refresh"), "direct_lostack_devicecheck")

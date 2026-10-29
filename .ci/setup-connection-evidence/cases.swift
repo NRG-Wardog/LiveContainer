@@ -17,7 +17,8 @@ struct SetupConnectionCases {
          "health": "REFRESH_SUCCEEDED", "manifest_run_id": id,
          "manifest_summary": ["version": 2, "schema": "LiveContainerRefreshManifestSummaryV2", "run_id": id,
              "verified": true, "expected_count": 1, "result_count": 1, "failed_count": 0,
-             "skipped_count": 0, "requested_count": 1]]
+             "skipped_count": 0, "requested_count": 1, "evidence_version": 1, "renewal_outcome": "renewed",
+             "renewed_count": 1, "acknowledged_count": 1]]
     }
     static func main() throws {
         var cases: [String] = []
@@ -75,6 +76,9 @@ struct SetupConnectionCases {
         precondition(!observation.tunnelStep.detail.contains("SECRET_PROVIDER_PAYLOAD"))
         precondition(!observation.tunnelStep.detail.contains("VPN was off"))
         precondition(V3SetupConnectionCopy(rawValue: "SECRET_PROVIDER_PAYLOAD") == nil)
+        var legacy = good; var legacySummary = legacy["manifest_summary"] as! [String: Any]
+        legacySummary.removeValue(forKey: "evidence_version"); legacy["manifest_summary"] = legacySummary
+        check("legacy_success_without_renewal_proof_not_green", .detected, [first: legacy])
         let receiptURL = URL(fileURLWithPath: CommandLine.arguments[1]).deletingLastPathComponent().appendingPathComponent("sources.json")
         let receipt = try JSONSerialization.jsonObject(with: Data(contentsOf: receiptURL)) as! [String: Any]
         precondition(cases == receipt["expected_case_names"] as! [String])

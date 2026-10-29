@@ -104,7 +104,7 @@ def generate(root, output):
     assert cold_message.endswith('Cause: DeviceEndpointNotInitialized')
     assert 'message == ' + json.dumps(cold_message, ensure_ascii=False) in producer
     assert 'facts["refresh_readiness_reason"] = "peerAddressUnavailable"' in producer
-    for anchor in ['public struct CombinedFailure:', 'public enum CombinedVerification {']:
+    for anchor in ['public struct CombinedFailure:', 'public struct V3RefreshProfileEvidence {', 'public enum CombinedVerification {']:
         assert helper.block(service, anchor) == helper.block(model, anchor), anchor
 
     original = (HERE / 'OriginalRefreshReadinessFacts.swift').read_text()
