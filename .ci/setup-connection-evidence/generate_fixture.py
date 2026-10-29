@@ -12,6 +12,8 @@ HELPER = 'LiveContainer/.ci/comprehensive-diagnostics/generate_wire_fixture.py'
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 
 def host_activation_contract(model, helper):
+    # Bind the exact failure declaration; unrelated evidence enums also expose message.
+    model = helper.block(model, 'public struct CombinedFailure:')
     expected = '''private var localDevVPNActivationMessage: String? {
         guard operation == "refresh", stage == .network,
               safeCause == .localDevVPNUnavailable else { return nil }
@@ -41,6 +43,8 @@ def generate(root, output):
     ui = (root / UI).read_text(); model = (root / MODEL).read_text()
     mirror = (root / MODEL_MIRROR).read_text()
     activation = host_activation_contract(model, helper)
+    unrelated = 'enum UnrelatedEvidence { public var message: String { "not a failure" } }\n'
+    assert host_activation_contract(unrelated + model, helper) == activation
     assert host_activation_contract(mirror, helper) == activation
     mutations = {
         'operation': model.replace('guard operation == "refresh", stage == .network,', 'guard operation == "install", stage == .network,', 1),
