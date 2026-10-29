@@ -117,6 +117,261 @@ public enum CombinedRefreshTargetPolicy {
 }
 
 // LC_REFRESH_METADATA_SANITIZED_V1: never forward arbitrary saved result dictionaries.
+// V3_REFRESH_POSTINSTALL_EVIDENCE_V1: bounded observations, never a launch/trust guarantee.
+public enum V3RefreshRenewalOutcome: String {
+    case renewed, hostProfileAdvanced, installedUnchanged, acknowledgedUnverified, mutationUnconfirmed, verificationFailed, unconfirmed
+
+    public var isVerified: Bool { self == .renewed || self == .hostProfileAdvanced }
+    public var message: String {
+        switch self {
+        case .hostProfileAdvanced: return "The installed host profile expiration advanced. Other attempted targets, if any, passed profile-store verification. This does not establish the host certificate lifetime or guarantee future app launch or certificate trust."
+        case .renewed: return "The expected profiles were found on the device, and the effective validity of every attempted target increased. This does not guarantee future app launch or certificate trust."
+        case .installedUnchanged: return "Installation was acknowledged and the expected profiles were found, but expiration did not advance for every target. An imported profile may need renewal by its issuer."
+        case .acknowledgedUnverified: return "Installation was acknowledged, but renewed validity could not be confirmed. The operation will not be repeated automatically."
+        case .verificationFailed: return "Installation was acknowledged, but the observed profiles or validity did not match the expected result. The operation will not be repeated automatically."
+        case .mutationUnconfirmed: return "Installation was requested, but its result could not be confirmed. The operation will not be repeated automatically. Review device status before another action."
+        case .unconfirmed: return "The refresh result lacks the evidence needed to confirm renewed validity. Installation is not assumed and the operation will not be repeated automatically."
+        }
+    }
+    public var title: String {
+        switch self {
+        case .hostProfileAdvanced: return "Installed host profile expiration advanced"
+        case .renewed: return "Profile renewal verified"
+        case .installedUnchanged: return "Installed; expiration unchanged"
+        case .acknowledgedUnverified, .mutationUnconfirmed, .verificationFailed, .unconfirmed: return "Renewal not confirmed"
+        }
+    }
+}
+
+public struct V3RefreshProfileEvidence {
+    public let mutationDispatched: Bool
+    public let installAcknowledged: Bool
+    public let profileStore: String
+    public let renewal: String
+    public let certificate: String
+    public let reason: String?
+
+    public init?(_ value: Any?) {
+        guard let raw = value as? [String: Any],
+              Set(raw.keys).isSubset(of: ["version", "mutationDispatched", "installAcknowledged", "profileStore", "renewal", "certificate", "reason"]),
+              let version = raw["version"] as? NSNumber, CFGetTypeID(version) != CFBooleanGetTypeID(),
+              ["c", "s", "i", "l", "q", "C", "S", "I", "L", "Q"].contains(String(cString: version.objCType)), version.intValue == 1,
+              let dispatched = raw["mutationDispatched"] as? NSNumber, CFGetTypeID(dispatched) == CFBooleanGetTypeID(),
+              let acknowledged = raw["installAcknowledged"] as? NSNumber, CFGetTypeID(acknowledged) == CFBooleanGetTypeID(),
+              let store = raw["profileStore"] as? String, ["matched", "mismatch", "unavailable"].contains(store),
+              let renewal = raw["renewal"] as? String, ["extended", "unchanged", "shortened", "unknown"].contains(renewal),
+              let certificate = raw["certificate"] as? String, ["valid", "unknown", "invalid"].contains(certificate) else { return nil }
+        let reason = raw["reason"] as? String
+        if raw["reason"] != nil {
+            guard let reason, ["profileAbsent", "profileMismatch", "readbackUnavailable", "baselineUnavailable", "expiryUnchanged", "expiryShortened", "certificateUnknown", "certificateExpired", "certificateRevoked"].contains(reason) else { return nil }
+        }
+        // Contradictory observations cannot be promoted by a permissive parser.
+        guard !acknowledged.boolValue || dispatched.boolValue,
+              acknowledged.boolValue || (store == "unavailable" && renewal == "unknown"),
+              store == "matched" || renewal == "unknown" else { return nil }
+        if let reason {
+            switch reason {
+            case "profileAbsent", "profileMismatch": guard store == "mismatch" else { return nil }
+            case "readbackUnavailable": guard store == "unavailable" else { return nil }
+            case "baselineUnavailable": guard renewal == "unknown" else { return nil }
+            case "expiryUnchanged": guard renewal == "unchanged" else { return nil }
+            case "expiryShortened": guard renewal == "shortened" else { return nil }
+            case "certificateUnknown": guard certificate == "unknown" else { return nil }
+            case "certificateExpired", "certificateRevoked": guard certificate == "invalid" else { return nil }
+            default: return nil
+            }
+        }
+        self.mutationDispatched = dispatched.boolValue
+        self.installAcknowledged = acknowledged.boolValue
+        self.profileStore = store; self.renewal = renewal; self.certificate = certificate; self.reason = reason
+    }
+    public var isRenewed: Bool {
+        installAcknowledged && profileStore == "matched" && renewal == "extended" && certificate == "valid"
+    }
+    public var wire: [String: Any] {
+        var value: [String: Any] = ["version": 1, "mutationDispatched": mutationDispatched, "installAcknowledged": installAcknowledged,
+            "profileStore": profileStore, "renewal": renewal, "certificate": certificate]
+        if let reason { value["reason"] = reason }
+        return value
+    }
+}
+
+// This is host-owned installed-bundle metadata, not a device profile-store claim.
+public enum V3HostProfileRenewalProof {
+    // Same canonical original identity as SideStoreHooks.m hook_appbundleIdentifier.
+    public static let originalHostID = "com.kdt.livecontainer"
+    public static func record(in manifest: inout [String: Any], runID: String,
+                              baseline: [String: Any], installedBundleID: String,
+                              observedIdentifier: String, observedExpiration: Date,
+                              observedAt: Date) -> Bool {
+        guard baseline["run_id"] as? String == runID,
+              baseline["installed_bundle_id"] as? String == installedBundleID,
+              baseline["identifier"] as? String == observedIdentifier,
+              let previous = baseline["expiration"] as? Date,
+              observedExpiration > previous, observedExpiration > observedAt,
+              CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+              let handoff = manifest["host_handoff"] as? NSNumber, CFGetTypeID(handoff) == CFBooleanGetTypeID(), handoff.boolValue,
+              (manifest["expected_ids"] as? [String])?.contains(originalHostID) == true else { return false }
+        manifest["host_profile_verification"] = ["version": 1, "run_id": runID, "bundle_id": originalHostID,
+            "previous_expiration": previous, "observed_expiration": observedExpiration, "observed_at": observedAt]
+        return true
+    }
+    public static func matches(_ manifest: [String: Any], entry: [String: Any], runID: String) -> Bool {
+        guard let handoff = manifest["host_handoff"] as? NSNumber, CFGetTypeID(handoff) == CFBooleanGetTypeID(), handoff.boolValue,
+              entry["bundle_id"] as? String == originalHostID, entry["success"] as? Bool == true,
+              let proof = manifest["host_profile_verification"] as? [String: Any],
+              Set(proof.keys) == ["version", "run_id", "bundle_id", "previous_expiration", "observed_expiration", "observed_at"],
+              let version = proof["version"] as? NSNumber, CFGetTypeID(version) != CFBooleanGetTypeID(),
+              ["c", "s", "i", "l", "q", "C", "S", "I", "L", "Q"].contains(String(cString: version.objCType)), version.intValue == 1,
+              proof["run_id"] as? String == runID, proof["bundle_id"] as? String == originalHostID,
+              let previous = proof["previous_expiration"] as? Date,
+              let observed = proof["observed_expiration"] as? Date,
+              let at = proof["observed_at"] as? Date,
+              [previous, observed, at].allSatisfy({ $0.timeIntervalSince1970.isFinite }),
+              observed > previous, observed > at else { return false }
+        return true
+    }
+}
+
+public enum V3RefreshEvidencePolicy {
+    public static func outcome(_ manifest: [String: Any]?, runID: String) -> V3RefreshRenewalOutcome {
+        guard let manifest, CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+              let entries = manifest["results"] as? [[String: Any]] else { return .unconfirmed }
+        if entries.allSatisfy({ entry in
+            entry["success"] as? Bool == true && (V3RefreshProfileEvidence(entry["verification"])?.isRenewed == true ||
+                V3HostProfileRenewalProof.matches(manifest, entry: entry, runID: runID))
+        }) { return entries.contains(where: { V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }) ? .hostProfileAdvanced : .renewed }
+        let evidence = entries.compactMap { V3RefreshProfileEvidence($0["verification"]) }
+        if evidence.contains(where: { $0.mutationDispatched && !$0.installAcknowledged }) { return .mutationUnconfirmed }
+        guard evidence.count == entries.count else { return hasAcknowledgment(manifest, runID: runID) ? .acknowledgedUnverified : .unconfirmed }
+        guard evidence.contains(where: { $0.installAcknowledged }) else { return .unconfirmed }
+        if evidence.contains(where: { $0.installAcknowledged && ($0.profileStore == "mismatch" || $0.renewal == "shortened" || $0.certificate == "invalid") }) { return .verificationFailed }
+        if entries.allSatisfy({ $0["success"] as? Bool == true }) && evidence.allSatisfy({
+            $0.installAcknowledged && $0.profileStore == "matched" && $0.certificate == "valid" && ["extended", "unchanged"].contains($0.renewal)
+        }) { return .installedUnchanged }
+        return .acknowledgedUnverified
+    }
+    public static func hasAcknowledgment(_ manifest: [String: Any]?, runID: String) -> Bool {
+        guard let manifest, CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+              let entries = manifest["results"] as? [[String: Any]] else { return false }
+        return entries.contains { V3RefreshProfileEvidence($0["verification"])?.installAcknowledged == true ||
+            V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }
+    }
+    public static func terminalOutcome(_ manifest: [String: Any]?, runID: String) -> V3RefreshRenewalOutcome? {
+        guard let manifest, CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+              let entries = manifest["results"] as? [[String: Any]],
+              entries.allSatisfy({ $0["success"] as? Bool == true }) || hasAcknowledgment(manifest, runID: runID) ||
+                entries.contains(where: { V3RefreshProfileEvidence($0["verification"])?.mutationDispatched == true }) else { return nil }
+        return outcome(manifest, runID: runID)
+    }
+    public static func failurePresentation(_ manifest: [String: Any]?, runID: String,
+                                           stage: String, code: String) -> V3RefreshRenewalOutcome? {
+        if terminalOutcome(manifest, runID: runID) == .mutationUnconfirmed { return .mutationUnconfirmed }
+        guard stage == "refreshVerification", code == "missingResult",
+              let manifest, let entries = manifest["results"] as? [[String: Any]],
+              entries.allSatisfy({ $0["success"] as? Bool == true }),
+              let outcome = terminalOutcome(manifest, runID: runID), !outcome.isVerified else { return nil }
+        return outcome
+    }
+    public static func presentationOutcome(_ record: [String: Any], runID: String) -> V3RefreshRenewalOutcome? {
+        guard let value = record["renewal_presentation"] as? NSNumber,
+              CFGetTypeID(value) == CFBooleanGetTypeID(), value.boolValue,
+              let outcome = recordedOutcome(record, runID: runID), !outcome.isVerified else { return nil }
+        return outcome
+    }
+    public static func isPreMutationFailure(stage: String, sourceStep: String?) -> Bool {
+        if ["network", "extensionDiscovery", "extensionLaunch", "xpcConnection", "serviceReadiness"].contains(stage) { return true }
+        return ["refreshReadiness", "refreshPreflight", "certificateSelection", "certificateValidation", "provisioningProfileFetch", "refreshMetadataCache"].contains(sourceStep ?? "")
+    }
+    public static func canClearUncertainty(_ manifest: [String: Any]?, runID: String) -> Bool {
+        guard let manifest, CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+              let entries = manifest["results"] as? [[String: Any]] else { return false }
+        return entries.allSatisfy { entry in
+            if let evidence = V3RefreshProfileEvidence(entry["verification"]) {
+                return !evidence.mutationDispatched || evidence.installAcknowledged
+            }
+            if V3HostProfileRenewalProof.matches(manifest, entry: entry, runID: runID) { return true }
+            guard entry["success"] as? Bool == false,
+                  let wire = entry["failure"] as? [String: Any],
+                  let failure = CombinedFailure.decode(wire, expectedID: runID), failure.operation == "refresh" else { return false }
+            return isPreMutationFailure(stage: failure.stage.rawValue, sourceStep: failure.sourceStep?.rawValue)
+        }
+    }
+    public static func recordedOutcome(_ record: [String: Any], runID: String) -> V3RefreshRenewalOutcome? {
+        guard record["run_id"] as? String == runID,
+              let summary = record["manifest_summary"] as? [String: Any], summary["run_id"] as? String == runID,
+              let version = summary["evidence_version"] as? NSNumber,
+              CFGetTypeID(version) != CFBooleanGetTypeID(),
+              ["c", "s", "i", "l", "q", "C", "S", "I", "L", "Q"].contains(String(cString: version.objCType)), version.intValue == 1,
+              let raw = summary["renewal_outcome"] as? String else { return nil }
+        return V3RefreshRenewalOutcome(rawValue: raw)
+    }
+}
+
+public enum V3DirectProfileVerificationPolicy {
+    public static func applies(_ operation: String) -> Bool {
+        ["refresh", "resign", "install", "update", "reinstall", "activate", "restore"].contains(operation)
+    }
+    public static func outcome(_ reply: [String: Any], operation: String) -> V3RefreshRenewalOutcome? {
+        guard applies(operation) else { return nil }
+        guard let evidence = V3RefreshProfileEvidence(reply["verification"]) else {
+            return reply["state"] as? String == "completed" || reply["verification"] != nil ? .unconfirmed : nil
+        }
+        if evidence.mutationDispatched && !evidence.installAcknowledged { return .mutationUnconfirmed }
+        guard evidence.installAcknowledged else { return nil }
+        if evidence.isRenewed { return .renewed }
+        if evidence.profileStore == "matched" && evidence.renewal == "unchanged" && evidence.certificate == "valid" { return .installedUnchanged }
+        if evidence.profileStore == "mismatch" || evidence.renewal == "shortened" || evidence.certificate == "invalid" { return .verificationFailed }
+        return .acknowledgedUnverified
+    }
+    public static func blocksRetry(_ reply: [String: Any], operation: String) -> Bool {
+        guard applies(operation) else { return false }
+        if let evidence = V3RefreshProfileEvidence(reply["verification"]) { return evidence.mutationDispatched }
+        if reply["verification"] != nil { return true }
+        guard ["failed", "cancelled", "completed"].contains(reply["state"] as? String ?? "") else { return false }
+        if let wire = reply["failure"] as? [String: Any], let session = reply["session"] as? String,
+           let failure = CombinedFailure.decode(wire, expectedID: session) {
+            return !V3RefreshEvidencePolicy.isPreMutationFailure(stage: failure.stage.rawValue, sourceStep: failure.sourceStep?.rawValue)
+        }
+        return true
+    }
+    public static func stopTerminalPolling(_ reply: [String: Any], operation: String) -> Bool {
+        guard let settled = reply["backendSettled"] as? NSNumber,
+              CFGetTypeID(settled) == CFBooleanGetTypeID(), settled.boolValue,
+              ["completed", "failed", "cancelled"].contains(reply["state"] as? String ?? "") else { return false }
+        return requiresDeviceCheck(reply, operation: operation)
+    }
+    public static func requiresDeviceCheck(_ reply: [String: Any], operation: String) -> Bool {
+        guard applies(operation) else { return false }
+        if let unknown = reply["outcomeUnknown"] as? NSNumber,
+           CFGetTypeID(unknown) == CFBooleanGetTypeID(), unknown.boolValue { return true }
+        guard let outcome = outcome(reply, operation: operation) else { return false }
+        return !outcome.isVerified && outcome != .installedUnchanged
+    }
+}
+
+public struct V3RefreshUncertaintyTicket {
+    public let runID: String
+    public let updatedAt: Double
+}
+public enum V3RefreshUncertaintyAcknowledgmentPolicy {
+    public static let blockedMessage = "A previous installation may already have completed, but its result is unconfirmed. Check the app and its expiration before acknowledging that exact attempt. No new installation has started."
+    public static func canAcknowledge(ticket: V3RefreshUncertaintyTicket, marker: String?,
+                                     record: [String: Any]?, activeRunID: String?,
+                                     hostHandoffPending: Bool, directClaimPresent: Bool) -> Bool {
+        guard UUID(uuidString: ticket.runID)?.uuidString == ticket.runID,
+              marker == ticket.runID, ticket.updatedAt.isFinite,
+              let record, record["run_id"] as? String == ticket.runID, record["state"] as? String == "failed",
+              let updated = record["updated_at"] as? NSNumber, CFGetTypeID(updated) != CFBooleanGetTypeID(),
+              updated.doubleValue == ticket.updatedAt,
+              activeRunID?.isEmpty != false, !hostHandoffPending, !directClaimPresent else { return false }
+        return true
+    }
+    public static func mayRunAutomatically(manualOnlyAfterAcknowledgment: Bool) -> Bool {
+        !manualOnlyAfterAcknowledgment
+    }
+}
+
 public enum CombinedVerification {
     static let uncertainMutationKey = "liveContainerAutoRefreshUncertainMutationRunID"
     static func clearUncertainty(_ defaults: UserDefaults, runID: String) {
@@ -162,6 +417,7 @@ public enum CombinedVerification {
     }
     static func sanitized(_ payload: [String: Any], runID: String) -> [String: Any] {
         guard let manifest = payload["liveContainerAutoRefreshVerification"] as? [String: Any],
+              hasCompleteTerminalResults(manifest, runID: runID),
               manifest["run_id"] as? String == runID,
               let expected = manifest["expected_ids"] as? [String], expected.count <= 1024,
               expected.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 512 }),
@@ -217,6 +473,7 @@ public enum CombinedVerification {
                   let success = strictBoolean(entry["success"]) else { return [:] }
             var item: [String: Any] = ["bundle_id": identifier, "success": success]
             for key in ["refreshed_date", "expiration_date"] { if let value = entry[key] as? Date { item[key] = value } }
+            if let evidence = V3RefreshProfileEvidence(entry["verification"]) { item["verification"] = evidence.wire }
             if !success {
                 let native = NSError(domain: entry["error_domain"] as? String ?? "redacted", code: entry["error_code"] as? Int ?? 0,
                     userInfo: [NSLocalizedDescriptionKey: entry["error"] as? String ?? ""])
@@ -770,7 +1027,7 @@ public struct CombinedFailure: Error, LocalizedError {
                 guard ["invalidParameters", "invalidOperationContext", "notAuthenticated", "unknownResult",
                     "missingAppBundle", "missingProvisioningProfile", "certificateExpired", "certificateRevoked",
                     "customCertificateExpired", "customCertificateRevoked", "certificateChanged", "invalidApp",
-                    "invalidPairingFile", "pairingNotComplete", "noDevice", "noConnection", "noVPN", "invalidVPN",
+                    "invalidPairingFile", "pairingNotComplete", "noDevice", "noConnection", "noVPN", "invalidVPN", "certificateVerificationUnavailable",
                     "notReachable", "minimuxerNotStarted", "timedOut", "unknownOperation", "otherOperation"].contains(text) else { return nil }
             case "server_code":
                 guard text == "unknown" || (text.utf8.count <= 20 && Int(text).map({ String($0) }) == text) else { return nil }
@@ -943,6 +1200,9 @@ public struct CombinedFailure: Error, LocalizedError {
         }
     }
     private var localRefreshMessage: String? {
+        if sourceStep == .certificateValidation, signingContext["refresh_failure_kind"] == "certificateVerificationUnavailable" {
+            return "Certificate verification is unavailable. This does not mean the certificate was revoked. Check the connection and review this app’s verification status."
+        }
         switch localRefreshPrecondition {
         case "missingTargetAppBundle":
             return "SideStore could not prepare provisioning profiles because the target app bundle was missing from the refresh context."
@@ -1998,7 +2258,7 @@ public struct V3ProvisioningCauseDiagnostic {
     public let rows: [Row]
 
     public static let cases: [String: Set<String>] = [
-        "operation": ["noInstalledApps", "noSources", "notAuthenticated", "timedOut", "unableToConnectSideJIT", "unableToRespondSideJITDevice", "unknownResult", "cacheClearError", "certificateExpired", "certificateRevoked", "customCertificateExpired", "customCertificateRevoked", "forbidden", "invalidApp", "invalidPairingFile", "invalidParameters", "invalidResponse", "invalidVPN", "minimuxerNotStarted", "missingAppBundle", "missingAppGroup", "missingInfoPlist", "missingProvisioningProfile", "missingUpdate", "noConnection", "noDevice", "noVPN", "notReachable", "openAppFailed", "pairingNotComplete", "pledgeInactive", "SideJITIssue", "unknownUDID", "unknown", "appNotFound", "invalidOperationContext", "maximumAppIDLimitReached", "sourceNotAdded", "serverNotFound", "connectionFailed", "provisioningError", "certificateChanged"],
+        "operation": ["noInstalledApps", "noSources", "notAuthenticated", "timedOut", "unableToConnectSideJIT", "unableToRespondSideJITDevice", "unknownResult", "cacheClearError", "certificateExpired", "certificateRevoked", "certificateVerificationUnavailable", "customCertificateExpired", "customCertificateRevoked", "forbidden", "invalidApp", "invalidPairingFile", "invalidParameters", "invalidResponse", "invalidVPN", "minimuxerNotStarted", "missingAppBundle", "missingAppGroup", "missingInfoPlist", "missingProvisioningProfile", "missingUpdate", "noConnection", "noDevice", "noVPN", "notReachable", "openAppFailed", "pairingNotComplete", "pledgeInactive", "SideJITIssue", "unknownUDID", "unknown", "appNotFound", "invalidOperationContext", "maximumAppIDLimitReached", "sourceNotAdded", "serverNotFound", "connectionFailed", "provisioningError", "certificateChanged"],
         "minimuxer": ["noDevice", "noConnection", "notReachable", "noVPN", "invalidVPN", "invalidPairing", "notStarted", "pairingNotLoaded", "connectionModeNotConfigured", "createCoreDevice", "createLockdown", "getLockdownValue", "connect", "noService", "other"],
         "portal": ["unknown", "invalidParameters", "incorrectCredentials", "noTeams", "appSpecificPasswordRequired", "invalidDeviceID", "deviceAlreadyRegistered", "invalidCertificateRequest", "certificateDoesNotExist", "invalidAppIDName", "invalidBundleIdentifier", "bundleIdentifierUnavailable", "appIDDoesNotExist", "maximumAppIDLimitReached", "invalidAppGroup", "appGroupDoesNotExist", "invalidProvisioningProfileIdentifier", "provisioningProfileDoesNotExist", "requiresTwoFactorAuthentication", "userCancelled", "incorrectVerificationCode", "authenticationHandshakeFailed", "invalidAnisetteData", "tooManyCertificates", "tooManyAttempts", "accountRepairRequired", "invalid2FAResponse"],
         "server": ["badServerResponse", "invalidResponseFormat", "missingKey", "underlyingError"],
@@ -4904,6 +5164,14 @@ class RefreshHandler: NSObject {
             let decoded = CombinedFailure.fromEncodedString(error, expectedID: runID)
             var failure = decoded ?? CombinedFailure(operation: "refresh", stage: .command, id: runID)
             if let defaults = V3SharedAppGroup.sharedUserDefaults() {
+                if defaults.string(forKey: "liveContainerAutoRefreshExpectedRunID") == runID,
+                   defaults.string(forKey: "liveContainerAutoRefreshActiveRunID") == runID,
+                   let verification, verification.count <= 262144,
+                   let raw = try? PropertyListSerialization.propertyList(from: verification, format: nil) as? [String: Any],
+                   let manifest = CombinedVerification.sanitized(raw, runID: runID)["liveContainerAutoRefreshVerification"] as? [String: Any],
+                   CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID) {
+                    defaults.set(manifest, forKey: "liveContainerAutoRefreshVerification")
+                }
                 if let decoded,
                    let preserved = V3RefreshTerminalFailurePolicy.preservedFailure(
                     outer: decoded, verification: verification, runID: runID,
@@ -4914,17 +5182,22 @@ class RefreshHandler: NSObject {
                     failure = preserved.failure
                     defaults.set(preserved.manifest, forKey: "liveContainerAutoRefreshVerification")
                 }
-                CombinedVerification.clearUncertainty(defaults, runID: runID)
+                if V3RefreshEvidencePolicy.canClearUncertainty(defaults.dictionary(forKey: "liveContainerAutoRefreshVerification"), runID: runID) {
+                    CombinedVerification.clearUncertainty(defaults, runID: runID)
+                }
             }
             finishRefreshContinuation(.failure(failure))
             return
         }
         guard let verification, verification.count <= 262144,
-              let payload = try? PropertyListSerialization.propertyList(from: verification, format: nil) as? [String: Any],
-              let manifest = payload["liveContainerAutoRefreshVerification"] as? [String: Any],
-              manifest["run_id"] as? String == runID,
+              let rawPayload = try? PropertyListSerialization.propertyList(from: verification, format: nil) as? [String: Any],
               let defaults = V3SharedAppGroup.sharedUserDefaults() else {
             finishRefreshContinuation(.failure(CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .missingResult, id: runID)))
+            return
+        }
+        let payload = CombinedVerification.sanitized(rawPayload, runID: runID)
+        guard let manifest = payload["liveContainerAutoRefreshVerification"] as? [String: Any] else {
+            finishRefreshContinuation(.failure(CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .missingResult, id: runID, retryable: false)))
             return
         }
         defaults.set(manifest, forKey: "liveContainerAutoRefreshVerification")
@@ -4937,7 +5210,8 @@ class RefreshHandler: NSObject {
             finishRefreshContinuation(.failure(CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .missingResult, id: runID)))
             return
         }
-        if manifest["host_handoff"] as? Bool != true && !defaults.bool(forKey: "liveContainerAutoRefreshHostHandoff") {
+        if manifest["host_handoff"] as? Bool != true && !defaults.bool(forKey: "liveContainerAutoRefreshHostHandoff") &&
+            V3RefreshEvidencePolicy.canClearUncertainty(manifest, runID: runID) {
             CombinedVerification.clearUncertainty(defaults, runID: runID)
         }
         NSLog("[LIVE_CONTAINER_REFRESH] RESULT_RECEIVED run_id=%@", runID)
@@ -4982,6 +5256,21 @@ enum V3EmbeddedSideStoreLaunchPayload {
     }
 }
 
+@MainActor
+public enum V3RefreshNotificationLocalization {
+    // Installed only by the host. Other compiled targets safely retain source text.
+    public static var translate: (String) -> String = { $0 }
+    public static func localized(_ request: UNNotificationRequest) -> UNNotificationRequest {
+        let titleKey = "Refresh Results"
+        let bodyKey = "The operation completed. Open the app to review verification and expiration."
+        guard request.content.title == titleKey, request.content.body == bodyKey,
+              let content = request.content.mutableCopy() as? UNMutableNotificationContent else { return request }
+        content.title = translate(titleKey)
+        content.body = translate(bodyKey)
+        return UNNotificationRequest(identifier: request.identifier, content: content, trigger: request.trigger)
+    }
+}
+
 private final class CombinedServiceCallbacks: NSObject, RefreshServer {
     weak var owner: RefreshHandler?
     let identity: UUID
@@ -4999,7 +5288,7 @@ private final class CombinedServiceCallbacks: NSObject, RefreshServer {
     func add(_ request: UNNotificationRequest) {
         Task { @MainActor in
             guard self.owner?.launchIDForCallbacks == self.identity else { return }
-            UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+            UNUserNotificationCenter.current().add(V3RefreshNotificationLocalization.localized(request), withCompletionHandler: nil)
         }
     }
     func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
@@ -8030,6 +8319,11 @@ enum V3RefreshAllTerminalEvidencePolicy {
               expectedCount > 0, expectedCount <= 1024,
               integer(summary["result_count"]) == expectedCount,
               integer(summary["failed_count"]) == 0,
+              integer(summary["evidence_version"]) == 1,
+              let outcomeRaw = summary["renewal_outcome"] as? String,
+              V3RefreshRenewalOutcome(rawValue: outcomeRaw)?.isVerified == true,
+              integer(summary["renewed_count"]) == expectedCount,
+              integer(summary["acknowledged_count"]) == expectedCount,
               let skippedCount = integer(summary["skipped_count"]),
               skippedCount >= 0, skippedCount <= 1024,
               let requestedCount = integer(summary["requested_count"]),
@@ -8072,7 +8366,7 @@ enum V3HomeRefreshVerificationPolicy {
         }
         // A completed result set can still contain failures. The canonical
         // coverage check above already requires actual plist boolean values.
-        return results.allSatisfy { $0["success"] as? Bool == true }
+        return V3RefreshEvidencePolicy.outcome(manifest, runID: runID).isVerified
     }
 }
 
@@ -8147,10 +8441,19 @@ struct V3RefreshAllAttemptState {
                 V3RefreshAllTerminalEvidencePolicy.count("skipped_count",
                     in: record["manifest_summary"] as? [String: Any]) ?? 0
             terminalMessage = skippedCount == 0
-                ? "Refresh completed. All requested app results were verified."
-                : "Refresh completed. Results for this run were verified; \(skippedCount) running app(s) were skipped."
+                ? (V3RefreshEvidencePolicy.recordedOutcome(record, runID: runID)?.message ?? V3RefreshRenewalOutcome.renewed.message)
+                : "Profile renewal was verified for the attempted targets; \(skippedCount) running app(s) were skipped. Future launch and certificate trust are not guaranteed."
         case "failed":
             phase = .failed
+            if let blocked = record["uncertainty_blocked"] as? NSNumber,
+               CFGetTypeID(blocked) == CFBooleanGetTypeID(), blocked.boolValue {
+                terminalMessage = V3RefreshUncertaintyAcknowledgmentPolicy.blockedMessage
+                return true
+            }
+            if let outcome = V3RefreshEvidencePolicy.presentationOutcome(record, runID: runID), !outcome.isVerified {
+                terminalMessage = outcome.message
+                return true
+            }
             guard let failureWire = record["failure"] as? [String: Any],
                   let failure = CombinedFailure.decode(failureWire, expectedID: runID),
                   failure.operation == "refresh" else {
@@ -8203,7 +8506,7 @@ struct V3RefreshAllAttemptState {
     private static func manifestIsVerified(_ manifest: [String: Any]?, runID: String) -> Bool {
         guard let manifest, CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
               let results = manifest["results"] as? [[String: Any]] else { return false }
-        return results.allSatisfy { $0["success"] as? Bool == true }
+        return V3RefreshEvidencePolicy.outcome(manifest, runID: runID).isVerified
     }
 }
 
@@ -8304,7 +8607,8 @@ enum V3RefreshAllFailureDiagnostics {
             "retryable=\(retryable)",
             "safe_cause=\(failure.safeCause?.rawValue ?? "unknown")",
             "source_step=\(failure.sourceStep?.rawValue ?? "unknown")",
-            "safe_message=\(failure.safeMessage.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " "))"
+            "renewal_outcome=\(V3RefreshEvidencePolicy.recordedOutcome(record, runID: runID)?.rawValue ?? "unknown")",
+            "safe_message=\((V3RefreshEvidencePolicy.presentationOutcome(record, runID: runID)?.message ?? failure.safeMessage).replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " "))"
         ].joined(separator: "\n")
     }
 }

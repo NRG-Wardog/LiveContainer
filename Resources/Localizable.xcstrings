@@ -100842,6 +100842,941 @@
           }
         }
       }
+    },
+    "Installation was acknowledged and the expected profiles were found, but expiration did not advance for every target. An imported profile may need renewal by its issuer.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installation was acknowledged and the expected profiles were found, but expiration did not advance for every target. An imported profile may need renewal by its issuer."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ההתקנה אושרה והפרופילים הצפויים נמצאו, אך התוקף לא הוארך לכל היעדים. ייתכן שאת הפרופיל המיובא צריך לחדש אצל המנפיק."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установка подтверждена, ожидаемые профили найдены, но срок действия продлён не для всех целей. Импортированный профиль может потребовать продления у его издателя."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装已获确认，也已找到预期描述文件，但并非所有目标的到期时间都已延后。导入的描述文件可能需要由签发者续期。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安裝已獲確認，也已找到預期描述檔，但並非所有目標的到期時間都已延後。匯入的描述檔可能需要由簽發者續期。"
+          }
+        }
+      }
+    },
+    "Installation was acknowledged, but renewed validity could not be confirmed. The operation will not be repeated automatically.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installation was acknowledged, but renewed validity could not be confirmed. The operation will not be repeated automatically."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ההתקנה אושרה, אך לא ניתן לאמת שהתוקף הוארך. הפעולה לא תבוצע שוב באופן אוטומטי."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установка подтверждена, но продление срока действия подтвердить не удалось. Операция не будет повторена автоматически."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装已获确认，但无法确认有效期已延长。不会自动重复此操作。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安裝已獲確認，但無法確認有效期已延長。不會自動重複此操作。"
+          }
+        }
+      }
+    },
+    "Installation was acknowledged, but the observed profiles or validity did not match the expected result. The operation will not be repeated automatically.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installation was acknowledged, but the observed profiles or validity did not match the expected result. The operation will not be repeated automatically."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ההתקנה אושרה, אך הפרופילים שנצפו או תוקפם לא תאמו לתוצאה הצפויה. הפעולה לא תבוצע שוב באופן אוטומטי."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установка подтверждена, но обнаруженные профили или их срок действия не соответствуют ожидаемому результату. Операция не будет повторена автоматически."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装已获确认，但观察到的描述文件或有效期与预期结果不符。不会自动重复此操作。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安裝已獲確認，但觀察到的描述檔或有效期與預期結果不符。不會自動重複此操作。"
+          }
+        }
+      }
+    },
+    "The refresh result lacks the evidence needed to confirm renewed validity. Installation is not assumed and the operation will not be repeated automatically.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The refresh result lacks the evidence needed to confirm renewed validity. Installation is not assumed and the operation will not be repeated automatically."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בתוצאת הרענון חסרות הראיות הדרושות לאימות הארכת התוקף. לא מניחים שההתקנה הושלמה, והפעולה לא תבוצע שוב באופן אוטומטי."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В результате обновления недостаточно данных для подтверждения продления срока действия. Установка не считается подтверждённой, и операция не будет повторена автоматически."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷新结果缺少确认有效期延长所需的证据。不会假定安装已完成，也不会自动重复此操作。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新整理結果缺少確認有效期延長所需的證據。不會假定安裝已完成，也不會自動重複此操作。"
+          }
+        }
+      }
+    },
+    "Profile renewal verified": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile renewal verified"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "חידוש הפרופילים אומת"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продление профилей подтверждено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "描述文件续期已验证"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "描述檔續期已驗證"
+          }
+        }
+      }
+    },
+    "Installed; expiration unchanged": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed; expiration unchanged"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הותקן; התוקף לא השתנה"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установлено; срок действия не изменился"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已安装；到期时间未变"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已安裝；到期時間未變"
+          }
+        }
+      }
+    },
+    "Renewal not confirmed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renewal not confirmed"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש לא אומת"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продление не подтверждено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期未确认"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期未確認"
+          }
+        }
+      }
+    },
+    "Review the observed profile validity and signing setup before another action. No automatic retry will occur.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review the observed profile validity and signing setup before another action. No automatic retry will occur."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לפני פעולה נוספת, יש לבדוק את תוקף הפרופיל שנצפה ואת הגדרות החתימה. לא יתבצע ניסיון חוזר אוטומטי."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перед следующим действием проверьте обнаруженный срок действия профиля и настройки подписи. Автоматического повтора не будет."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再次操作前，请检查观察到的描述文件有效期和签名设置。不会自动重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再次操作前，請檢查觀察到的描述檔有效期和簽名設定。不會自動重試。"
+          }
+        }
+      }
+    },
+    "Profile renewal was verified for the attempted targets; %lld running app(s) were skipped. Future launch and certificate trust are not guaranteed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Profile renewal was verified for the attempted targets; %lld running app was skipped. Future launch and certificate trust are not guaranteed."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Profile renewal was verified for the attempted targets; %lld running apps were skipped. Future launch and certificate trust are not guaranteed."
+                }
+              }
+            }
+          }
+        },
+        "he": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "חידוש הפרופילים אומת ליעדים שנוסו; יישומים פעילים שדולגו: %lld. אין הבטחה להפעלה עתידית או למהימנות התעודה."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "חידוש הפרופילים אומת ליעדים שנוסו; יישומים פעילים שדולגו: %lld. אין הבטחה להפעלה עתידית או למהימנות התעודה."
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Продление профилей для обработанных целей подтверждено; пропущено работающих приложений: %lld. Запуск и доверие к сертификату в будущем не гарантируются."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Продление профилей для обработанных целей подтверждено; пропущено работающих приложений: %lld. Запуск и доверие к сертификату в будущем не гарантируются."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Продление профилей для обработанных целей подтверждено; пропущено работающих приложений: %lld. Запуск и доверие к сертификату в будущем не гарантируются."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Продление профилей для обработанных целей подтверждено; пропущено работающих приложений: %lld. Запуск и доверие к сертификату в будущем не гарантируются."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "已验证所处理目标的描述文件续期；跳过了 %lld 个正在运行的应用。不保证应用今后能启动或证书今后仍受信任。"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hant": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "已驗證所處理目標的描述檔續期；略過了 %lld 個正在執行的 App。不保證 App 日後能啟動或憑證日後仍受信任。"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Installation was requested, but its result could not be confirmed. The operation will not be repeated automatically. Review device status before another action.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installation was requested, but its result could not be confirmed. The operation will not be repeated automatically. Review device status before another action."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ההתקנה התבקשה, אך לא ניתן לאמת את תוצאתה. הפעולה לא תבוצע שוב באופן אוטומטי. יש לבדוק את מצב המכשיר לפני פעולה נוספת."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установка была запрошена, но её результат подтвердить не удалось. Операция не будет повторена автоматически. Перед следующим действием проверьте состояние устройства."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已请求安装，但无法确认结果。不会自动重复此操作。再次操作前，请检查设备状态。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已要求安裝，但無法確認結果。不會自動重複此操作。再次操作前，請檢查裝置狀態。"
+          }
+        }
+      }
+    },
+    "The installed host profile expiration advanced. Other attempted targets, if any, passed profile-store verification. This does not establish the host certificate lifetime or guarantee future app launch or certificate trust.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The installed host profile expiration advanced. Other attempted targets, if any, passed profile-store verification. This does not establish the host certificate lifetime or guarantee future app launch or certificate trust."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תוקף הפרופיל המותקן של היישום המארח הוארך. שאר היעדים שנוסו, אם היו, עברו אימות במאגר הפרופילים. הדבר אינו קובע את תוקף תעודת המארח ואינו מבטיח הפעלה עתידית או מהימנות של התעודה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок действия установленного профиля основного приложения продлён. Остальные обработанные цели, если они были, прошли проверку в хранилище профилей. Это не определяет срок действия сертификата основного приложения и не гарантирует запуск или доверие к сертификату в будущем."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已安装的主应用描述文件到期时间已延后。其他已处理目标（如有）已通过描述文件存储验证。这不能确定主应用证书的有效期，也不保证应用今后能启动或证书今后仍受信任。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已安裝的主 App 描述檔到期時間已延後。其他已處理目標（如有）已通過描述檔儲存區驗證。這無法確定主 App 憑證的有效期，也不保證 App 日後能啟動或憑證日後仍受信任。"
+          }
+        }
+      }
+    },
+    "Installed host profile expiration advanced": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed host profile expiration advanced"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תוקף פרופיל המארח המותקן הוארך"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок действия установленного профиля основного приложения продлён"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已安装的主应用描述文件有效期已延长"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已安裝的主 App 描述檔有效期已延長"
+          }
+        }
+      }
+    },
+    "Refresh Results": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh Results"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תוצאות הרענון"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Результаты обновления подписи"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷新结果"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新整理結果"
+          }
+        }
+      }
+    },
+    "The operation completed. Open the app to review verification and expiration.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The operation completed. Open the app to review verification and expiration."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפעולה הושלמה. יש לפתוח את היישום כדי לבדוק את תוצאות האימות ואת התוקף."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Операция завершена. Откройте приложение, чтобы проверить результат проверки и срок действия."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作已完成。请打开应用查看验证结果和到期时间。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作已完成。請開啟 App 查看驗證結果和到期時間。"
+          }
+        }
+      }
+    },
+    "Certificate verification is unavailable. This does not mean the certificate was revoked. Check the connection and review this app’s verification status.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certificate verification is unavailable. This does not mean the certificate was revoked. Check the connection and review this app’s verification status."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אימות התעודה אינו זמין. אין פירוש הדבר שהתעודה בוטלה. יש לבדוק את החיבור ואת מצב האימות של היישום."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка сертификата недоступна. Это не означает, что сертификат отозван. Проверьте подключение и статус проверки этого приложения."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "证书验证不可用。这并不表示证书已被吊销。请检查连接并查看此应用的验证状态。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "憑證驗證無法使用。這不表示憑證已遭撤銷。請檢查連線並查看此 App 的驗證狀態。"
+          }
+        }
+      }
+    },
+    "The installation was requested, but its result could not be confirmed. It will not be repeated automatically.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The installation was requested, but its result could not be confirmed. It will not be repeated automatically."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ההתקנה התבקשה, אך לא ניתן לאמת את תוצאתה. היא לא תבוצע שוב באופן אוטומטי."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установка была запрошена, но её результат подтвердить не удалось. Она не будет повторена автоматически."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已请求安装，但无法确认结果。不会自动重复安装。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已要求安裝，但無法確認結果。不會自動重複安裝。"
+          }
+        }
+      }
+    },
+    "The expected profiles were found on the device, and the effective validity of every attempted target increased. This does not guarantee future app launch or certificate trust.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The expected profiles were found on the device, and the effective validity of every attempted target increased. This does not guarantee future app launch or certificate trust."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפרופילים הצפויים נמצאו במכשיר, והתוקף האפקטיבי של כל יעד שנוסה הוארך. אין בכך הבטחה שהיישום ייפתח בעתיד או שהתעודה תישאר מהימנה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ожидаемые профили найдены на устройстве, и эффективный срок действия каждой обработанной цели увеличился. Это не гарантирует запуск приложения или доверие к сертификату в будущем."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在设备上找到预期描述文件，且每个已处理目标的实际有效期均已延长。这不保证应用今后能启动或证书今后仍受信任。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在裝置上找到預期描述檔，且每個已處理目標的實際有效期均已延長。這不保證 App 日後能啟動或憑證日後仍受信任。"
+          }
+        }
+      }
+    },
+    "The backend finished, but the installation result or renewed validity remains unconfirmed. Check device status, then reconcile this attempt before another action.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The backend finished, but the installation result or renewed validity remains unconfirmed. Check device status, then reconcile this attempt before another action."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "התהליך בשירות הסתיים, אך תוצאת ההתקנה או הארכת התוקף עדיין לא אומתו. יש לבדוק את מצב המכשיר ולהסדיר את הניסיון הזה לפני פעולה נוספת."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Операция службы завершилась, но результат установки или продление срока действия не подтверждены. Проверьте состояние устройства и согласуйте результат этой попытки перед следующим действием."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "后端操作已结束，但安装结果或有效期延长仍未确认。请检查设备状态，并在再次操作前核对此次尝试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "後端操作已結束，但安裝結果或有效期延長仍未確認。請檢查裝置狀態，並在再次操作前核對此次嘗試。"
+          }
+        }
+      }
+    },
+    "A previous installation may already have completed, but its result is unconfirmed. Check the app and its expiration before acknowledging that exact attempt. No new installation has started.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A previous installation may already have completed, but its result is unconfirmed. Check the app and its expiration before acknowledging that exact attempt. No new installation has started."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ייתכן שההתקנה הקודמת כבר הושלמה, אך תוצאתה לא אומתה. יש לבדוק את היישום ואת תוקפו לפני אישור הניסיון המסוים הזה. לא התחילה התקנה חדשה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущая установка могла уже завершиться, но её результат не подтверждён. Проверьте приложение и срок его действия перед подтверждением именно этой попытки. Новая установка не запускалась."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一次安装可能已经完成，但结果尚未确认。请先检查应用及其到期时间，再确认这一次特定尝试。尚未开始新的安装。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一次安裝可能已經完成，但結果尚未確認。請先檢查 App 及其到期時間，再確認這一次特定嘗試。尚未開始新的安裝。"
+          }
+        }
+      }
+    },
+    "The user acknowledged the previous uncertain attempt after checking device status. This is not verified renewal; no installation was repeated.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The user acknowledged the previous uncertain attempt after checking device status. This is not verified renewal; no installation was repeated."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "המשתמש אישר את הניסיון הקודם שתוצאתו לא ודאית, לאחר בדיקת מצב המכשיר. זה אינו חידוש מאומת; לא בוצעה התקנה חוזרת."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пользователь подтвердил предыдущую попытку с неопределённым результатом после проверки устройства. Это не подтверждает продление; повторная установка не выполнялась."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用户检查设备状态后确认了上一次结果不确定的尝试。这不代表续期已验证；没有重复安装。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用者檢查裝置狀態後確認了上一次結果不確定的嘗試。這不代表續期已驗證；沒有重複安裝。"
+          }
+        }
+      }
+    },
+    "Acknowledge this uncertain attempt?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acknowledge this uncertain attempt?"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לאשר את הניסיון שתוצאתו אינה ודאית?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтвердить эту попытку с неопределённым результатом?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认此次结果不确定的尝试？"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認此次結果不確定的嘗試？"
+          }
+        }
+      }
+    },
+    "I checked the app and its expiration": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I checked the app and its expiration"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בדקתי את היישום ואת תוקפו"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я проверил приложение и срок его действия"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我已检查应用及其到期时间"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我已檢查 App 及其到期時間"
+          }
+        }
+      }
+    },
+    "The attempt or operation ownership changed. Nothing was cleared. Reload status before continuing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The attempt or operation ownership changed. Nothing was cleared. Reload status before continuing."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הניסיון או הבעלות על הפעולה השתנו. דבר לא נוקה. יש לטעון מחדש את המצב לפני ההמשך."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попытка или владелец операции изменились. Ничего не очищено. Обновите статус перед продолжением."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尝试或操作归属已发生变化。没有清除任何内容。继续前请重新加载状态。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "嘗試或操作歸屬已發生變化。沒有清除任何內容。繼續前請重新載入狀態。"
+          }
+        }
+      }
+    },
+    "User acknowledged uncertainty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "User acknowledged uncertainty"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "המשתמש אישר תוצאה לא ודאית"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неопределённость подтверждена пользователем"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用户已确认结果不确定"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用者已確認結果不確定"
+          }
+        }
+      }
+    },
+    "Your device check was acknowledged. No installation was repeated and renewal was not marked verified. Start a separate manual refresh only if needed. Automatic refresh remains paused until a new manual refresh is verified.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your device check was acknowledged. No installation was repeated and renewal was not marked verified. Start a separate manual refresh only if needed. Automatic refresh remains paused until a new manual refresh is verified."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בדיקת המכשיר שביצעת נרשמה. לא בוצעה התקנה חוזרת והחידוש לא סומן כמאומת. יש להתחיל רענון ידני נפרד רק אם נדרש. הרענון האוטומטי נשאר מושהה עד לאימות רענון ידני חדש."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваше подтверждение проверки устройства сохранено. Установка не повторялась, а продление не отмечено как проверенное. Запустите отдельное ручное обновление подписи только при необходимости. Автоматическое обновление подписи приостановлено до проверки нового ручного обновления."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已记录你对设备状态的检查。未重复安装，也未将续期标记为已验证。仅在需要时另行启动一次手动刷新。自动刷新将保持暂停，直到新的手动刷新通过验证。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已記錄你對裝置狀態的檢查。未重複安裝，也未將續期標記為已驗證。僅在需要時另行啟動一次手動重新整理。自動重新整理將保持暫停，直到新的手動重新整理通過驗證。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

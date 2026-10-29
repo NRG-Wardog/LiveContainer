@@ -62,12 +62,16 @@ def local_refresh_keys(s):
         return set()
     source = '\n'.join(block(s['identity_diagnostics'], anchor) for anchor in LOCAL_REFRESH_ANCHORS)
     keys = set(re.findall(r'return "([^"]+)"', source))
-    assert len(keys) == 13, 'Exact finite local refresh formatter inventory'
+    assert len(keys) == 14 and 'Certificate verification is unavailable. This does not mean the certificate was revoked. Check the connection and review this app’s verification status.' in keys, 'Exact finite local refresh formatter inventory'
     return keys
 
 def overlay_keys(s):
     keys = connection_keys(s) | local_refresh_keys(s)
-    assert not keys or len(keys) == 27, 'Exact narrow status/profile overlay copy inventory'
+    if keys:
+        guidance = 'Review the observed profile validity and signing setup before another action. No automatic retry will occur.'
+        assert guidance in s['ui']
+        keys.add(guidance)
+    assert not keys or len(keys) == 29, 'Exact narrow status/profile overlay copy inventory'
     return keys
 
 def coverage(s, retained_baseline=None):

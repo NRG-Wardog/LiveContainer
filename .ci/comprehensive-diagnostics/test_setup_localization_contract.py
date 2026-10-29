@@ -49,7 +49,7 @@ def check(root, baseline, output):
     assert not current['missing'], current['missing']
     assert {row['key'] for row in previous['missing'] if row['language'] in g.BASELINE_LANGUAGES} <= {'JIT-Less', 'Wi-Fi', 'CoreDevice'}
     overlay_keys = g.overlay_keys(s)
-    assert len(overlay_keys) == 27
+    assert len(overlay_keys) == 29
     assert set(current['retained_baseline_copy']) == g.RETAINED_BASELINE_KEYS
     assert set(previous['keys']) <= set(current['keys'])
     assert not set(current['retained_baseline_copy']) & set(g.coverage(s)['keys'])
@@ -257,7 +257,11 @@ def check(root, baseline, output):
     startup_card_view = g.block(s['ui'], 'struct V3StartupDiagnosisCard: View {')
     assert 'V3LocalizedLabel("Startup problem", systemImage:' in startup_card_view
     assert not g.catalog_missing(startup_card_keys, catalog['strings'])
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys
+    truth_bytes = (HERE.parent / 'refresh-truth/localization_keys.json').read_bytes()
+    assert hashlib.sha256(truth_bytes).hexdigest() == '97b755273933757a04217e364264386c95ad958aeb72cec11370f0b5f5728604'
+    truth_keys = set(json.loads(truth_bytes))
+    assert len(truth_keys) == 25 and not g.catalog_missing({key for key in truth_keys if '%lld' not in key}, catalog['strings'])
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]
@@ -284,8 +288,15 @@ def check(root, baseline, output):
             candidate_row['localizations']['ru'] = baseline_row['localizations']['ru']
         assert candidate_row == baseline_row, key
     assert not set(baseline_catalog['strings']) - set(catalog['strings'])
+    truth_plural = 'Profile renewal was verified for the attempted targets; %lld running app(s) were skipped. Future launch and certificate trust are not guaranteed.'
+    assert {key for key in truth_keys if '%lld' in key} == {truth_plural}
     for key in added:
         for language in g.LANGUAGES:
+            if key == truth_plural:
+                plural = catalog['strings'][key]['localizations'][language]['variations']['plural']
+                assert set(plural) == ({'one','few','many','other'} if language == 'ru' else {'one','other'} if language in {'en','he'} else {'other'})
+                assert all(row['stringUnit']['state'] == 'translated' and row['stringUnit']['value'].count('%lld') == 1 for row in plural.values())
+                continue
             unit = catalog['strings'][key]['localizations'][language]['stringUnit']
             assert unit['state'] == 'translated' and unit['value']
             if (key in {'JIT-Less', 'Wi-Fi', 'CoreDevice'} and language in g.BASELINE_LANGUAGES) or language == 'en':
@@ -350,7 +361,7 @@ def check(root, baseline, output):
         'baseline_existing_source_missing': previous['missing'],
         'setup_view_except_typed_titles_and_exact_connection_overlay': 'byte_for_byte_unchanged',
         'exact_connection_scope_negative_control': 'unrelated_cancel_mutation_rejected',
-        'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': 27,
+        'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': 29,
         'startup_diagnosis_card_keys': sorted(startup_card_keys),
         'startup_card_missing_translation_mutation_cases': len(startup_card_mutation_checks),
         'startup_diagnostic_keys': sorted(startup_keys),

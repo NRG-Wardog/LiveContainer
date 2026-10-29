@@ -82,7 +82,13 @@ enum LiveContainerRefreshHistoryPresentation {
         "launch_or_resume": "Launch or resume",
     ]
     private static let results: [String: String] = [
-        "verified": "Verified by successful refresh",
+        "verified": "Profile renewal verified",
+        "hostProfileAdvanced": "Installed host profile expiration advanced",
+        "installedUnchanged": "Installed; expiration unchanged",
+        "acknowledgedUnverified": "Renewal not confirmed",
+        "verificationFailed": "Renewal not confirmed",
+        "unconfirmed": "Renewal not confirmed",
+        "mutationUnconfirmed": "Renewal not confirmed",
         "failure": "Failed",
         "failed": "Failed",
         "completed": "Completed",
@@ -93,6 +99,7 @@ enum LiveContainerRefreshHistoryPresentation {
         "host_verified_batch_unconfirmed": "Host verified; app batch unconfirmed",
         "coalesced": "Refresh already running",
         "explicit_retry": "Explicit retry",
+        "user_acknowledged_uncertainty": "User acknowledged uncertainty",
         "host_handoff_awaiting_relaunch": "Awaiting host relaunch",
         "guest_signature_invalid": "Guest Signature Invalid",
         "expired": "Expired",

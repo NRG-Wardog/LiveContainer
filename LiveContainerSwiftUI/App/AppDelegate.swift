@@ -683,6 +683,7 @@ enum LiveContainerAutoRefreshScheduler {
     static let configurationKey = "liveContainerAutoRefreshConfiguration"
     static let retryExhaustedKey = "liveContainerAutoRefreshRetryExhausted"
     static let uncertainMutationKey = "liveContainerAutoRefreshUncertainMutationRunID"
+    static let manualOnlyAfterUncertaintyKey = "liveContainerAutoRefreshManualOnlyAfterUncertainty"
     static let runStateChangedNotification = "LiveContainerAutoRefreshRunStateChanged"
 
     // V3_FAILURE_GUIDANCE_V1: lastErrorKey is rendered as red product copy on
@@ -805,7 +806,8 @@ enum LiveContainerAutoRefreshScheduler {
     }
 
     private static func compactWorkIsDue(now: Date, manual: Bool = false) -> Bool {
-        guard manual || defaults.string(forKey: uncertainMutationKey) == nil else { return false }
+        guard manual || (defaults.string(forKey: uncertainMutationKey) == nil &&
+            V3RefreshUncertaintyAcknowledgmentPolicy.mayRunAutomatically(manualOnlyAfterAcknowledgment: defaults.bool(forKey: manualOnlyAfterUncertaintyKey))) else { return false }
         return LiveContainerRefreshPolicy.workIsDue(now: now,
             eligible: defaults.object(forKey: earliestEligibleKey) as? Date,
             retry: defaults.object(forKey: nextRetryKey) as? Date,
@@ -822,6 +824,34 @@ enum LiveContainerAutoRefreshScheduler {
         defaults.set("REFRESH_DEADLINE_MISSED", forKey: healthStateKey)
         record(source: "watchdog", result: "missed_window", detail: "No verified refresh for the expected deadline. The task may have been delayed, failed, or never launched.")
         print("[LIVE_CONTAINER_REFRESH] MISSED_BACKGROUND_REFRESH deadline=\(deadline.timeIntervalSince1970)")
+    }
+
+    static func uncertaintyTicket() -> V3RefreshUncertaintyTicket? {
+        guard let runID = defaults.string(forKey: uncertainMutationKey),
+              let record = runLedger()[runID], let updated = record["updated_at"] as? NSNumber,
+              CFGetTypeID(updated) != CFBooleanGetTypeID() else { return nil }
+        let ticket = V3RefreshUncertaintyTicket(runID: runID, updatedAt: updated.doubleValue)
+        return canAcknowledgeUncertainty(ticket) ? ticket : nil
+    }
+    private static func canAcknowledgeUncertainty(_ ticket: V3RefreshUncertaintyTicket) -> Bool {
+        V3RefreshUncertaintyAcknowledgmentPolicy.canAcknowledge(ticket: ticket,
+            marker: defaults.string(forKey: uncertainMutationKey), record: runLedger()[ticket.runID],
+            activeRunID: activeRun?.uuidString ?? defaults.string(forKey: activeRunKey),
+            hostHandoffPending: defaults.bool(forKey: hostHandoffKey),
+            directClaimPresent: defaults.dictionary(forKey: directRunClaimKey) != nil)
+    }
+    @discardableResult
+    static func acknowledgeUncertaintyAfterUserDeviceCheck(_ ticket: V3RefreshUncertaintyTicket) -> Bool {
+        guard canAcknowledgeUncertainty(ticket) else { return false }
+        // Hold automatic work BEFORE releasing this exact marker. This is user acknowledgment,
+        // not device verification; no success date, deadline, ledger result or mutation is changed.
+        defaults.set(true, forKey: manualOnlyAfterUncertaintyKey)
+        defaults.removeObject(forKey: nextRetryKey)
+        defaults.set(true, forKey: retryExhaustedKey)
+        defaults.removeObject(forKey: uncertainMutationKey)
+        record(source: "manual", result: "user_acknowledged_uncertainty",
+            detail: "The user acknowledged the previous uncertain attempt after checking device status. This is not verified renewal; no installation was repeated.")
+        return true
     }
 
     private static func runLedger() -> [String: [String: Any]] {
@@ -846,6 +876,14 @@ enum LiveContainerAutoRefreshScheduler {
             "result_count": results.count, "failed_count": failed,
             "skipped_count": skipped.count,
             "requested_count": (manifest["requested_ids"] as? [String] ?? []).count]
+        if let outcome = V3RefreshEvidencePolicy.terminalOutcome(manifest, runID: runID) {
+            summary["evidence_version"] = 1
+            summary["renewal_outcome"] = outcome.rawValue
+            summary["profile_store_verified_count"] = results.filter { V3RefreshProfileEvidence($0["verification"])?.isRenewed == true }.count
+            summary["host_replacement_verified_count"] = results.filter { V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }.count
+            summary["renewed_count"] = results.filter { V3RefreshProfileEvidence($0["verification"])?.isRenewed == true || V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }.count
+            summary["acknowledged_count"] = results.filter { V3RefreshProfileEvidence($0["verification"])?.installAcknowledged == true || V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }.count
+        }
         if let verifiedAt = manifest["date"] as? Date { summary["verified_at"] = verifiedAt }
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
         for key in ["requested_ids", "expected_ids", "skipped_ids"] {
@@ -940,7 +978,7 @@ enum LiveContainerAutoRefreshScheduler {
            let profile = try? LiveContainerHostProfile.read(
                at: bundle.bundleURL.appendingPathComponent("embedded.mobileprovision"), expectedBundleID: bundleID) {
             defaults.set(["run_id": id.uuidString, "identifier": profile.identifier,
-                          "uuid": profile.uuid, "expiration": profile.expiration], forKey: hostBaselineKey)
+                          "uuid": profile.uuid, "expiration": profile.expiration, "installed_bundle_id": bundleID], forKey: hostBaselineKey)
         } else {
             defaults.removeObject(forKey: hostBaselineKey)
         }
@@ -1080,7 +1118,14 @@ enum LiveContainerAutoRefreshScheduler {
                 ?? CombinedFailure(operation: "refresh", stage: .refreshVerification, code: .missingResult, id: runID)
             return (false, pending, String(failure.localizedDescription.prefix(2048)), failure)
         }
-        return pending ? (false, true, "host_handoff_awaiting_relaunch", nil) : (true, false, "verified_installed_app_records", nil)
+        if pending { return (false, true, "host_handoff_awaiting_relaunch", nil) }
+        let outcome = V3RefreshEvidencePolicy.outcome(manifest, runID: runID)
+        guard outcome.isVerified else {
+            // Installation may already have committed. A verification failure never authorizes replay.
+            return (false, false, outcome.message, CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                code: .missingResult, id: runID, retryable: false))
+        }
+        return (true, false, "verified_profile_store_and_expiration", nil)
     }
 
     private static func structuredRefreshFailure(_ error: Error, runID: String) -> CombinedFailure {
@@ -1130,6 +1175,7 @@ enum LiveContainerAutoRefreshScheduler {
               manifest["run_id"] as? String == runID,
               var runRecord = runLedger()[runID],
               !["completed", "failed"].contains(runRecord["state"] as? String ?? "") else { return false }
+        guard V3RefreshEvidencePolicy.outcome(manifest, runID: runID).isVerified else { return false }
         guard activeRun == nil || activeRun?.uuidString == runID else { return false }
         if let storedActive = defaults.string(forKey: activeRunKey), storedActive != runID { return false }
 
@@ -1152,13 +1198,14 @@ enum LiveContainerAutoRefreshScheduler {
         let requestID = requestValue.isEmpty ? nil : requestValue
         let origin = runRecord["origin"] as? String
         let skippedCount = (manifest["skipped_ids"] as? [String])?.count ?? 0
-        let terminalDetail = skippedCount == 0 ? detail :
-            "Refresh completed for the verified app targets; \(skippedCount) running app(s) were skipped."
+        let terminalDetail = skippedCount == 0 ? V3RefreshEvidencePolicy.outcome(manifest, runID: runID).message :
+            "Profile renewal was verified for the attempted targets; \(skippedCount) running app(s) were skipped. Future launch and certificate trust are not guaranteed."
         if defaults.string(forKey: uncertainMutationKey) == runID { defaults.removeObject(forKey: uncertainMutationKey) }
         defaults.set(Date().addingTimeInterval(6 * 60 * 60), forKey: earliestEligibleKey)
         defaults.removeObject(forKey: nextRetryKey)
         defaults.set(0, forKey: retryCountKey)
         defaults.set(false, forKey: retryExhaustedKey)
+        defaults.set(false, forKey: manualOnlyAfterUncertaintyKey)
         defaults.set("REFRESH_SUCCEEDED", forKey: healthStateKey)
         defaults.set(Date(), forKey: lastSuccessfulKey)
         defaults.removeObject(forKey: lastErrorKey)
@@ -1177,7 +1224,7 @@ enum LiveContainerAutoRefreshScheduler {
         runRecord["terminal_at"] = Date().timeIntervalSince1970
         runRecord["updated_at"] = Date().timeIntervalSince1970
         saveRunRecord(runRecord, runID: runID)
-        record(source: source, result: "verified", detail: terminalDetail)
+        record(source: source, result: V3RefreshEvidencePolicy.outcome(manifest, runID: runID) == .hostProfileAdvanced ? "hostProfileAdvanced" : "verified", detail: terminalDetail)
         cancelDeadlineProtection()
         publishRunState("completed", runID: runID, requestID: requestID, origin: origin)
         notify(title: "Refresh completed", body: terminalDetail, kind: "verified", runID: runID,
@@ -1214,8 +1261,15 @@ enum LiveContainerAutoRefreshScheduler {
         } else {
             structured = CombinedFailure(operation: "refresh", stage: .refreshVerification, id: runID)
         }
+        let currentManifest = (runRecord["manifest"] as? [String: Any]) ?? defaults.dictionary(forKey: verificationKey)
+        let evidenceOutcome = V3RefreshEvidencePolicy.failurePresentation(currentManifest, runID: runID,
+            stage: structured.stage.rawValue, code: structured.code.rawValue)
+        runRecord["renewal_presentation"] = evidenceOutcome != nil
+        if let currentManifest, currentManifest["run_id"] as? String == runID {
+            runRecord["manifest"] = currentManifest
+        }
         let safeMessage = V3DiagnosticPresentation.label(
-            String(((suppliedFailureMatches ? message : nil) ?? structured.safeMessage).prefix(2048)), context: .refresh)
+            String((evidenceOutcome?.message ?? (suppliedFailureMatches ? message : nil) ?? structured.safeMessage).prefix(2048)), context: .refresh)
         // Persist a terminal intent before releasing the run marker. If iOS
         // stops LiveContainer between the release and final ledger write,
         // startup recovery can complete this exact failure instead of leaving
@@ -1228,7 +1282,7 @@ enum LiveContainerAutoRefreshScheduler {
         runRecord["active_run_id"] = "none"
         runRecord["manifest_run_id"] = ((runRecord["manifest"] as? [String: Any])?["run_id"] as? String) ?? "unknown"
         runRecord["source"] = source
-        runRecord["result"] = result
+        runRecord["result"] = evidenceOutcome?.rawValue ?? result
         runRecord["updated_at"] = Date().timeIntervalSince1970
         saveRunRecord(runRecord, runID: runID)
         if let activeRun { endRun(activeRun) }
@@ -1260,9 +1314,9 @@ enum LiveContainerAutoRefreshScheduler {
         runRecord["terminal_at"] = Date().timeIntervalSince1970
         runRecord["updated_at"] = Date().timeIntervalSince1970
         saveRunRecord(runRecord, runID: runID)
-        record(source: source, result: result, detail: safeMessage)
+        record(source: source, result: evidenceOutcome?.rawValue ?? result, detail: safeMessage)
         publishRunState("failed", runID: runID, requestID: requestID, origin: origin)
-        notify(title: "Refresh failed", body: safeMessage, kind: "failed", runID: runID,
+        notify(title: evidenceOutcome?.title ?? "Refresh failed", body: safeMessage, kind: "failed", runID: runID,
                requestID: requestID, origin: origin)
         return true
     }
@@ -1346,6 +1400,19 @@ enum LiveContainerAutoRefreshScheduler {
                 }
                 return
             }
+            guard var manifest = defaults.dictionary(forKey: verificationKey),
+                  V3HostProfileRenewalProof.record(in: &manifest, runID: runID, baseline: baseline,
+                    installedBundleID: bundleID, observedIdentifier: current.identifier,
+                    observedExpiration: current.expiration, observedAt: Date()) else {
+                // Incomplete/wrong-run baseline or host mapping never borrows another app's evidence.
+                let failed = markFailed(runID: runID, source: "relaunch", health: "HOST_REFRESH_UNVERIFIED",
+                    failure: CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                        code: .missingResult, id: runID, retryable: false),
+                    message: Self.hostRelaunchUnverifiedMessage, result: "host_baseline_unavailable")
+                if failed { clearHostHandoffState(runID: runID) }
+                return
+            }
+            defaults.set(manifest, forKey: verificationKey)
             defaults.set(true, forKey: hostVerifiedKey)
             print("[LIVE_CONTAINER_REFRESH] HOST_REFRESH_VERIFIED evidence=installed_profile_expiration_advanced")
             let batch = verifyRefreshManifest(runID: runID)
@@ -1433,8 +1500,15 @@ enum LiveContainerAutoRefreshScheduler {
         let correlatedRequestID = correlatedRequestValue.isEmpty ? nil : correlatedRequestValue
         let correlatedOrigin = runLedger()[runID.uuidString]?["origin"] as? String
         if manual, defaults.string(forKey: uncertainMutationKey) != nil {
-            record(source: source, result: "explicit_retry", detail: "Previous mutation completion was uncertain. This user-requested attempt will reload SideStore's authoritative app state.")
-            defaults.removeObject(forKey: uncertainMutationKey)
+            var blocked = runLedger()[runID.uuidString] ?? [:]
+            blocked["uncertainty_blocked"] = true
+            saveRunRecord(blocked, runID: runID.uuidString)
+            _ = markFailed(runID: runID.uuidString, source: source, health: "REFRESH_UNCONFIRMED",
+                failure: CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                    code: .missingResult, id: runID.uuidString, retryable: false),
+                message: V3RefreshUncertaintyAcknowledgmentPolicy.blockedMessage)
+            finish(false)
+            return
         }
         do {
             print("[LIVE_CONTAINER_REFRESH] NETWORK_PREFLIGHT_START run_id=\(runID.uuidString) request_id=\(correlatedRequestID ?? "none") origin=\(correlatedOrigin ?? "unknown") source=\(source)")
@@ -1509,7 +1583,9 @@ enum LiveContainerAutoRefreshScheduler {
             let structured = error as? CombinedFailure
             // This is a conservative scheduling policy, not a claim that an unknown
             // authentication retryability has become false in the authoritative error.
-            let requiresExplicitRetry = structured?.retryable == false || structured?.stage == .authentication || structured?.code == .cancelled
+            let terminalEvidence = V3RefreshEvidencePolicy.terminalOutcome(defaults.dictionary(forKey: verificationKey), runID: runID.uuidString)
+            let mutationUnclear = structured.map { !V3RefreshEvidencePolicy.isPreMutationFailure(stage: $0.stage.rawValue, sourceStep: $0.sourceStep?.rawValue) } ?? true
+            let requiresExplicitRetry = mutationUnclear || terminalEvidence != nil || structured?.retryable == false || structured?.stage == .authentication || structured?.code == .cancelled
             if defaults.string(forKey: uncertainMutationKey) == nil,
                !requiresExplicitRetry,
                !(error is CancellationError), !LiveContainerRefreshPolicy.isUserActionFailure(nsError),
@@ -1584,8 +1660,15 @@ enum LiveContainerAutoRefreshScheduler {
             case .finalizeVerified:
                 guard let manifest else { continue }
                 defaults.set(manifest, forKey: verificationKey)
-                _ = markVerified(runID: runID, source: "relaunch_recovery",
-                    detail: "All requested installed-app results were confirmed before LiveContainer closed.")
+                if V3RefreshEvidencePolicy.outcome(manifest, runID: runID).isVerified {
+                    _ = markVerified(runID: runID, source: "relaunch_recovery",
+                        detail: "All requested installed-app results were confirmed before LiveContainer closed.")
+                } else {
+                    _ = markFailed(runID: runID, source: "relaunch_recovery", health: "REFRESH_FAILED",
+                        failure: CombinedFailure(operation: "refresh", stage: .refreshVerification,
+                            code: .missingResult, id: runID, retryable: false),
+                        message: V3RefreshEvidencePolicy.outcome(manifest, runID: runID).message)
+                }
             case .finalizeFailed:
                 let failure = (record["failure"] as? [String: Any]).flatMap {
                     CombinedFailure.decode($0, expectedID: runID)
@@ -1610,6 +1693,7 @@ enum LiveContainerAutoRefreshScheduler {
         guard !registered else { return }
         guard requireSharedStore() else { return }
         registered = true
+        V3RefreshNotificationLocalization.translate = { V3Localization.string($0) }
         hostBundle = Bundle.main
         recoverOrphanedRunLedger()
         // A durable marker from a terminated process is not a live mutex.

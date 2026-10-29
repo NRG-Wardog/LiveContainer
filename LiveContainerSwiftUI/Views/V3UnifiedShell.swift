@@ -2365,6 +2365,11 @@ enum V3RefreshAllTerminalEvidencePolicy {
               expectedCount > 0, expectedCount <= 1024,
               integer(summary["result_count"]) == expectedCount,
               integer(summary["failed_count"]) == 0,
+              integer(summary["evidence_version"]) == 1,
+              let outcomeRaw = summary["renewal_outcome"] as? String,
+              V3RefreshRenewalOutcome(rawValue: outcomeRaw)?.isVerified == true,
+              integer(summary["renewed_count"]) == expectedCount,
+              integer(summary["acknowledged_count"]) == expectedCount,
               let skippedCount = integer(summary["skipped_count"]),
               skippedCount >= 0, skippedCount <= 1024,
               let requestedCount = integer(summary["requested_count"]),
@@ -2407,7 +2412,7 @@ enum V3HomeRefreshVerificationPolicy {
         }
         // A completed result set can still contain failures. The canonical
         // coverage check above already requires actual plist boolean values.
-        return results.allSatisfy { $0["success"] as? Bool == true }
+        return V3RefreshEvidencePolicy.outcome(manifest, runID: runID).isVerified
     }
 }
 
@@ -2482,10 +2487,19 @@ struct V3RefreshAllAttemptState {
                 V3RefreshAllTerminalEvidencePolicy.count("skipped_count",
                     in: record["manifest_summary"] as? [String: Any]) ?? 0
             terminalMessage = skippedCount == 0
-                ? "Refresh completed. All requested app results were verified."
-                : "Refresh completed. Results for this run were verified; \(skippedCount) running app(s) were skipped."
+                ? (V3RefreshEvidencePolicy.recordedOutcome(record, runID: runID)?.message ?? V3RefreshRenewalOutcome.renewed.message)
+                : "Profile renewal was verified for the attempted targets; \(skippedCount) running app(s) were skipped. Future launch and certificate trust are not guaranteed."
         case "failed":
             phase = .failed
+            if let blocked = record["uncertainty_blocked"] as? NSNumber,
+               CFGetTypeID(blocked) == CFBooleanGetTypeID(), blocked.boolValue {
+                terminalMessage = V3RefreshUncertaintyAcknowledgmentPolicy.blockedMessage
+                return true
+            }
+            if let outcome = V3RefreshEvidencePolicy.presentationOutcome(record, runID: runID), !outcome.isVerified {
+                terminalMessage = outcome.message
+                return true
+            }
             guard let failureWire = record["failure"] as? [String: Any],
                   let failure = CombinedFailure.decode(failureWire, expectedID: runID),
                   failure.operation == "refresh" else {
@@ -2538,7 +2552,7 @@ struct V3RefreshAllAttemptState {
     private static func manifestIsVerified(_ manifest: [String: Any]?, runID: String) -> Bool {
         guard let manifest, CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
               let results = manifest["results"] as? [[String: Any]] else { return false }
-        return results.allSatisfy { $0["success"] as? Bool == true }
+        return V3RefreshEvidencePolicy.outcome(manifest, runID: runID).isVerified
     }
 }
 
@@ -2627,7 +2641,8 @@ enum V3RefreshAllFailureDiagnostics {
             "requested_app_ids=\(safeIDs("requested_ids"))",
             "attempted_app_ids=\(safeIDs("expected_ids"))",
             "skipped_app_ids=\(safeIDs("skipped_ids"))",
-            "safe_message=\(failure.safeMessage.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " "))"
+            "renewal_outcome=\(V3RefreshEvidencePolicy.recordedOutcome(record, runID: runID)?.rawValue ?? "unknown")",
+            "safe_message=\((V3RefreshEvidencePolicy.presentationOutcome(record, runID: runID)?.message ?? failure.safeMessage).replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " "))"
         ].joined(separator: "\n")
     }
 }
@@ -8061,6 +8076,9 @@ struct V3RefreshAllButton: View {
     @State private var terminalFailure: V3OperationFailureDetails?
     @State private var copied = false
     @State private var monitor: Task<Void, Never>?
+    @State private var uncertaintyTicket: V3RefreshUncertaintyTicket?
+    @State private var showUncertaintyAcknowledgment = false
+    @State private var uncertaintyNotice = ""
     private let defaults = V3SharedRefreshStore.defaults
 
     private var phase: String { attempt.phase.rawValue }
@@ -8080,6 +8098,7 @@ struct V3RefreshAllButton: View {
             }
             .disabled(isBusy || isTerminal || !activeRun.isEmpty || status.presentation != nil || status.loading)
             .accessibilityValue(health.replacingOccurrences(of: "_", with: " ").lowercased())
+            if !uncertaintyNotice.isEmpty { V3LocalizedText(uncertaintyNotice).font(.footnote).foregroundColor(.orange) }
             if V3RefreshAllButtonPresentationPolicy.explainsConcurrentRun(
                 phase: attempt.phase, activeRunID: activeRun) {
                 Text("Another refresh is already running. Refresh All will be available when it finishes.")
@@ -8126,6 +8145,21 @@ struct V3RefreshAllButton: View {
                 }
             }
         }
+        .confirmationDialog("Acknowledge this uncertain attempt?", isPresented: $showUncertaintyAcknowledgment, titleVisibility: .visible) {
+            Button("I checked the app and its expiration") {
+                guard let ticket = uncertaintyTicket else { return }
+                uncertaintyNotice = LiveContainerAutoRefreshScheduler.acknowledgeUncertaintyAfterUserDeviceCheck(ticket)
+                    ? "Your device check was acknowledged. No installation was repeated and renewal was not marked verified. Start a separate manual refresh only if needed. Automatic refresh remains paused until a new manual refresh is verified."
+                    : "The attempt or operation ownership changed. Nothing was cleared. Reload status before continuing."
+                uncertaintyTicket = nil
+            }
+            Button("Cancel", role: .cancel) { uncertaintyTicket = nil }
+        } message: {
+            if let ticket = uncertaintyTicket {
+                V3LocalizedText(V3RefreshUncertaintyAcknowledgmentPolicy.blockedMessage)
+                Text(verbatim: "run_id=" + ticket.runID)
+            }
+        }
         .onChange(of: health) { _ in
             status.reload(manual: false)
             if phase == "refreshing" || phase == "verifying" { inspectSchedulerState() }
@@ -8145,6 +8179,14 @@ struct V3RefreshAllButton: View {
     }
 
     private func start() {
+        if defaults.string(forKey: "liveContainerAutoRefreshUncertainMutationRunID") != nil {
+            uncertaintyTicket = LiveContainerAutoRefreshScheduler.uncertaintyTicket()
+            if uncertaintyTicket != nil { showUncertaintyAcknowledgment = true }
+            else { uncertaintyNotice = V3RefreshUncertaintyAcknowledgmentPolicy.blockedMessage }
+            return
+        }
+        uncertaintyNotice = ""
+
         guard attempt.phase == .idle, !isBusy, !isTerminal, activeRun.isEmpty,
               status.presentation == nil, !status.loading else { return }
         let newRequestID = UUID().uuidString
@@ -8240,7 +8282,8 @@ struct V3RefreshAllButton: View {
         guard !isTerminal || phase == "failed" else { return }
         message = attempt.terminalMessage.isEmpty ? "Refresh failed. Check Refresh History for details." : attempt.terminalMessage
         terminalFailure = record.flatMap { value in
-            guard let wire = value["failure"] as? [String: Any],
+            guard V3RefreshEvidencePolicy.presentationOutcome(value, runID: runID) == nil,
+                  let wire = value["failure"] as? [String: Any],
                   let failure = CombinedFailure.decode(wire, expectedID: runID),
                   failure.operation == "refresh" else { return nil }
             return V3OperationFailureDetails(failure)
@@ -11235,6 +11278,8 @@ struct V3OperationSheet: View {
     @State private var progress = 0.0
     @State private var hasProgress = false
     @State private var terminalBackendSettled: Bool?
+    @State private var profileMutationObserved = false
+    @State private var directRenewalOutcome: V3RefreshRenewalOutcome?
     @State private var deviceCheckConfirmedForCompletion = false
     @State private var operationPhase = V3OperationPhase.working
     @State private var prompt: [String: Any]?
@@ -11258,7 +11303,7 @@ struct V3OperationSheet: View {
     @State private var stagedIPACleaned = false
     @State private var copied = false
     private var retryAllowed: Bool {
-        guard !retryBlocked else { return false }
+        guard !retryBlocked, !profileMutationObserved else { return false }
         if state == "requiresSource" { return sourceOffer != nil }
         if state == "cancelled" { return true }
         guard state == "failed", !isTransitioning else { return false }
@@ -11306,7 +11351,10 @@ struct V3OperationSheet: View {
                     HStack {
                         Text("Status")
                         Spacer()
-                        if state == "completed" {
+                        if let outcome = directRenewalOutcome, !outcome.isVerified {
+                            V3LocalizedLabel(outcome.title, systemImage: "exclamationmark.circle")
+                                .foregroundColor(.orange)
+                        } else if state == "completed" {
                             Label("Completed", systemImage: "checkmark.circle.fill")
                                 .foregroundColor(.green)
                         } else {
@@ -11700,6 +11748,7 @@ struct V3OperationSheet: View {
             }
             guard reply["session"] as? String == id else { return }
             apply(reply, generation: generation, sessionID: id)
+            if V3DirectProfileVerificationPolicy.stopTerminalPolling(reply, operation: request.operation) { return }
             if V3OperationCompletionPolicy.shouldContinuePolling(state: current,
                 backendSettled: V3ServiceBridge.strictBool(reply["backendSettled"]),
                 outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"])) {
@@ -11733,6 +11782,8 @@ struct V3OperationSheet: View {
         guard resolvesProvisionalUnknown ||
               attempt.accept(state: nextState, generation: generation, sessionID: sessionID) else { return }
         state = nextState
+        profileMutationObserved = profileMutationObserved || V3DirectProfileVerificationPolicy.blocksRetry(reply, operation: request.operation)
+        directRenewalOutcome = V3DirectProfileVerificationPolicy.outcome(reply, operation: request.operation) ?? directRenewalOutcome
         if !["working", "awaitingPrompt", "cancelling", "reconciling"].contains(nextState) {
             status.installTerminal(attemptID: request.installAttemptID,
                 operationID: request.id, outcome: nextState)
@@ -11765,17 +11816,19 @@ struct V3OperationSheet: View {
             terminalBackendSettled = V3ServiceBridge.strictBool(reply["backendSettled"])
             let outcomeUnknown = V3OperationCancellationResolutionPolicy.requiresReconciliation(
                 backendSettled: terminalBackendSettled,
-                outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]))
+                outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]) || V3DirectProfileVerificationPolicy.requiresDeviceCheck(reply, operation: request.operation))
             needsDeviceConfirmation = outcomeUnknown
             uncertainSessionID = outcomeUnknown ? sessionID : nil
-            retryBlocked = outcomeUnknown
+            retryBlocked = profileMutationObserved || outcomeUnknown
             recoveryDestination = nil
             if outcomeUnknown {
                 message = request.operation == "delete"
                     ? "SideStore has not confirmed that the app was removed or that deletion stopped." + "\nError ID: SS-CMD-D050"
                     : "SideStore has not confirmed that the device operation stopped." + "\nError ID: SS-CMD-D051"
-                whatToDo = "Keep this screen open while SideStore reconciles the result. Do not start another operation yet."
-                technicalDetails = "backend_settled=no outcome=unknown"
+                whatToDo = terminalBackendSettled == true
+                    ? "The backend finished, but the installation result or renewed validity remains unconfirmed. Check device status, then reconcile this attempt before another action."
+                    : "Keep this screen open while SideStore reconciles the result. Do not start another operation yet."
+                technicalDetails = "backend_settled=\(terminalBackendSettled == true ? "yes" : "no") outcome=unknown"
             } else {
                 let cancellation = V3OperationCancellationPresentationPolicy.resolve(
                     userRequested: userRequestedCancellation)
@@ -11833,44 +11886,50 @@ struct V3OperationSheet: View {
             let backendSettled = V3ServiceBridge.strictBool(reply["backendSettled"])
             terminalBackendSettled = backendSettled
             let outcomeUnknown = V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]) ||
-                backendSettled != true
+                V3DirectProfileVerificationPolicy.requiresDeviceCheck(reply, operation: request.operation) || backendSettled != true
             needsDeviceConfirmation = outcomeUnknown
             uncertainSessionID = outcomeUnknown ? sessionID : nil
-            retryBlocked = !V3OperationRetrySafetyPolicy.canRetry(
+            retryBlocked = profileMutationObserved || !V3OperationRetrySafetyPolicy.canRetry(
                 backendSettled: backendSettled,
                 outcomeUnknown: outcomeUnknown)
-            message = failureContext.whatHappened
-            whatToDo = outcomeUnknown
+            message = (directRenewalOutcome.map { $0.message + "\n" } ?? "") + failureContext.whatHappened
+            whatToDo = profileMutationObserved ? "Review the observed profile validity and signing setup before another action. No automatic retry will occur." : outcomeUnknown
                 ? "The backend has not confirmed that the operation stopped. Do not retry yet; wait for status reconciliation and reload before starting another mutation."
                 : failureContext.whatToDo
             technicalDetails = failureContext.technicalDetails +
-                (outcomeUnknown ? " backend_settled=no outcome=unknown" : "")
+                (outcomeUnknown ? " backend_settled=\(backendSettled == true ? "yes" : "no") outcome=unknown" : "")
             recoveryDestination = failureContext.currentFailure?.recoveryDestination
             if !outcomeUnknown { recordRefresh("failed", message) }
         default: break
         }
     }
     private func applyCompletionSettlement(_ reply: [String: Any], sessionID: String) {
+        profileMutationObserved = profileMutationObserved || V3DirectProfileVerificationPolicy.blocksRetry(reply, operation: request.operation)
+        directRenewalOutcome = V3DirectProfileVerificationPolicy.outcome(reply, operation: request.operation) ?? directRenewalOutcome
         terminalBackendSettled = V3ServiceBridge.strictBool(reply["backendSettled"])
-        let outcomeUnknown = V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"])
+        let outcomeUnknown = V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]) || V3DirectProfileVerificationPolicy.requiresDeviceCheck(reply, operation: request.operation)
         switch V3OperationCompletionPolicy.disposition(state: "completed",
             backendSettled: terminalBackendSettled, outcomeUnknown: outcomeUnknown) {
         case .completedAwaitingBackendSettlement, .outcomeUnknownAwaitingBackendSettlement:
             needsDeviceConfirmation = true
             uncertainSessionID = sessionID
             retryBlocked = true
-            message = request.operation == "delete"
+            message = directRenewalOutcome?.message ?? (request.operation == "delete"
                 ? "The app was removed from the device, but SideStore is still waiting for the delete callback to settle."
-                : request.title + " completed, but SideStore has not confirmed that its backend session settled."
-            whatToDo = "Keep this screen open while SideStore finishes cleanup. If it remains here, check the device, then use Reconcile After Checking Device before starting another mutation."
-            technicalDetails = "backend_settled=no outcome=verified_completion_pending_callback"
+                : request.title + " completed, but SideStore has not confirmed that its backend session settled.")
+            whatToDo = terminalBackendSettled == true
+                ? "The backend finished, but the installation result or renewed validity remains unconfirmed. Check device status, then reconcile this attempt before another action."
+                : "Keep this screen open while SideStore finishes cleanup. If it remains here, check the device, then use Reconcile After Checking Device before starting another mutation."
+            technicalDetails = terminalBackendSettled == true
+                ? "backend_settled=yes outcome=renewal_unconfirmed"
+                : "backend_settled=no outcome=completion_pending_callback"
             recoveryDestination = nil
         case .completed:
             needsDeviceConfirmation = false
             uncertainSessionID = nil
             deviceCheckConfirmedForCompletion = false
-            retryBlocked = false
-            message = request.title + " completed successfully."
+            retryBlocked = profileMutationObserved
+            message = directRenewalOutcome?.message ?? (request.title + " completed successfully.")
             whatToDo = "Reload app status to confirm the installed app and signing state."
             technicalDetails = ""
             recoveryDestination = nil
@@ -11990,11 +12049,15 @@ struct V3OperationSheet: View {
             do {
                 if let oldSession {
                     let reply = try await V3ServiceBridge.shared.request(operation: "opCancel", target: oldSession)
+                    guard attempt.transitionInFlight, attempt.generation == transitionGeneration,
+                          reply["session"] as? String == oldSession else { return }
+                    profileMutationObserved = profileMutationObserved || V3DirectProfileVerificationPolicy.blocksRetry(reply, operation: request.operation)
+                    directRenewalOutcome = V3DirectProfileVerificationPolicy.outcome(reply, operation: request.operation) ?? directRenewalOutcome
                     let disposition = V3OperationRetrySafetyPolicy.disposition(
                         state: reply["state"] as? String,
                         backendSettled: V3ServiceBridge.strictBool(reply["backendSettled"])
                             ?? V3ServiceBridge.strictBool(reply["stopConfirmed"]),
-                        outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]))
+                        outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]) || profileMutationObserved)
                     if disposition == .alreadyCompleted {
                         await oldTask?.value
                         guard attempt.transitionInFlight, attempt.generation == transitionGeneration else { return }
@@ -12086,7 +12149,7 @@ struct V3OperationSheet: View {
                     state: reply["state"] as? String,
                     backendSettled: V3ServiceBridge.strictBool(reply["backendSettled"]),
                     stopConfirmed: V3ServiceBridge.strictBool(reply["stopConfirmed"]),
-                    outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]))
+                    outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]) || V3DirectProfileVerificationPolicy.requiresDeviceCheck(reply, operation: request.operation))
                 let cancellationReplyIsCorrelated = V3OperationCancellationOutcomePolicy.isCorrelated(
                     expectedSessionID: oldSession, replySessionID: reply["session"] as? String)
                 if (keepDeletePoller && settledCancellationAcknowledgement != nil) ||
@@ -12099,7 +12162,7 @@ struct V3OperationSheet: View {
                             state: reply["state"] as? String,
                             backendSettled: V3ServiceBridge.strictBool(reply["backendSettled"]),
                             stopConfirmed: V3ServiceBridge.strictBool(reply["stopConfirmed"]),
-                            outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"])) {
+                            outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]) || V3DirectProfileVerificationPolicy.requiresDeviceCheck(reply, operation: request.operation)) {
                             // A delayed unsettled acknowledgment cannot discard
                             // the handle established by a newer delete poll.
                             state = settledCancellationAcknowledgement
@@ -17541,7 +17604,7 @@ final class V3SetupStore: ObservableObject {
         let manifest = runRecord["manifest"] as? [String: Any]
         let verifiedManifest = manifest.map {
             $0["run_id"] as? String == runID &&
-                CombinedVerification.hasCompleteTerminalResults($0, runID: runID)
+                V3RefreshEvidencePolicy.outcome($0, runID: runID).isVerified
         } ?? false
         let verifiedSummary = V3RefreshAllTerminalEvidencePolicy.verifiedSummary(
             runRecord["manifest_summary"] as? [String: Any], record: runRecord, runID: runID)
@@ -17552,6 +17615,14 @@ final class V3SetupStore: ObservableObject {
         case .pending:
             return false
         case .failed:
+            if let outcome = V3RefreshEvidencePolicy.presentationOutcome(runRecord, runID: runID), !outcome.isVerified {
+                recordFailure(operation: "refresh", stage: CombinedFailure.Stage.refreshVerification.rawValue,
+                    code: "missingResult", correlation: runID, retryable: "false")
+                verification = V3SetupStepState(state: "failed", detail: outcome.message)
+                verificationGuidance = "Review the observed profile validity and signing setup before another action. No automatic retry will occur."
+                finishTestAttempt(requestID: requestID, attemptID: attemptID)
+                return true
+            }
             let wire = runRecord["failure"] as? [String: Any]
             if let failure = wire.flatMap({ CombinedFailure.decode($0, expectedID: runID) }),
                failure.operation == "refresh" {
