@@ -26,6 +26,8 @@ INPUT_PATHS = {
     'pipeline': 'SideStore/SideStore/Core/Operations/PipelineExecutor.swift',
     'pipeline_steps': 'SideStore/SideStore/Core/Operations/OperationStep.swift',
     'app_operation': 'SideStore/SideStore/Core/Operations/AppOperation.swift',
+    'group': 'SideStore/SideStore/Core/Operations/RefreshGroup.swift',
+    'ocsp': 'SideStore/SideStore/Core/Certificates/OCSPValidator.swift',
     'refresh_operation': 'SideStore/SideStore/Core/Operations/PipelineOperations/RefreshAppOperation.swift',
     'operation_error': 'SideStore/SideStore/Core/Operations/Errors/OperationError.swift',
     'error_title': 'SideStore/Shared/Extensions/NSError+AltStore.swift',
@@ -80,6 +82,20 @@ def generate(root, output):
     swift += s['service_boundary_doubles'].split('struct RefreshFailureBoundaryHarness {', 1)[0] + '\n'
     swift += wire_fixture.pure_model(host) + '\n'
     swift += boundary_source + '\n'
+    # Exact profile-evidence implementation plus inert, forbidden parsing boundary.
+    swift += '''struct FixtureProfileCertificate { let serialNumber: String; let data: Data }
+struct ALTProvisioningProfile {
+    let uuid: UUID; let data: Data; let bundleIdentifier: String; let teamIdentifier: String
+    let expirationDate: Date; let certificates: [FixtureProfileCertificate]
+    init(data: Data) throws { preconditionFailure("Failure fixture must not parse provisioning data") }
+}
+'''
+    swift += block(s['refresh_operation'], 'struct V3RefreshVerification:') + '\n'
+    swift += block(s['ocsp'], 'public enum OCSPValidationError:') + '\n'
+    swift += 'final class RefreshGroup {\nprivate let lock = NSLock()\nprivate var verificationByApp: [String: V3RefreshVerification] = [:]\n'
+    for anchor in ['    func setVerification(', '    func verification(for ', '    func verificationSnapshot()']:
+        swift += block(s['group'], anchor) + '\n'
+    swift += '}\n'
     swift += block(host, 'enum V3RefreshTerminalFailurePolicy {') + '\n'
     swift += block(s['service'], 'enum V3HeadlessPairingFailure {') + '\n'
     swift += block(s['manager'], 'enum V3PersistedErrorSanitizer {') + '\n'

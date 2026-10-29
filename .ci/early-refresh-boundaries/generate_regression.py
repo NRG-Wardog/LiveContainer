@@ -33,6 +33,9 @@ SUPPORT_PATHS = [
     'LiveContainer/.ci/comprehensive-diagnostics/refresh_failure_harness.swift',
     'SideStore/tests/refresh_failure/pipeline_harness.swift',
     'SideStore/Dependencies/minimuxer/Sources/MinimuxerApi.swift',
+    'SideStore/SideStore/Core/Operations/PipelineOperations/RefreshAppOperation.swift',
+    'SideStore/SideStore/Core/Certificates/OCSPValidator.swift',
+    'SideStore/SideStore/Core/Operations/RefreshGroup.swift',
 ]
 
 def load_dependency(support_root):
@@ -60,6 +63,17 @@ def extract_chain(root, support_root, dependency):
     swift += support(SUPPORT_PATHS[1]) + '\n'
     swift += support(SUPPORT_PATHS[4]).split('struct RefreshFailureBoundaryHarness {', 1)[0] + '\n'
     swift += dependency.pure_model(host) + '\n'
+    # Exact current observation/error declarations; parsing is deliberately unreachable
+    # in these early-failure fixtures, so no profile bytes or success are fabricated.
+    swift += '''struct FixtureProfileCertificate { let serialNumber: String; let data: Data }
+struct ALTProvisioningProfile {
+    let uuid: UUID; let data: Data; let bundleIdentifier: String; let teamIdentifier: String
+    let expirationDate: Date; let certificates: [FixtureProfileCertificate]
+    init(data: Data) throws { preconditionFailure("Early failure fixture must not parse provisioning data") }
+}
+'''
+    swift += block(support(SUPPORT_PATHS[6]), 'struct V3RefreshVerification:') + '\n'
+    swift += block(support(SUPPORT_PATHS[7]), 'public enum OCSPValidationError:') + '\n'
     steps = s['pipeline_steps']
     swift += '\nprotocol OperationStep: Equatable, Hashable {}\n'
     swift += steps[steps.index('enum PipelineStep:'):steps.index('    fileprivate static let stepMap:')] + '}\n'
@@ -181,7 +195,7 @@ def generate_variant(root, support_root, variant, output_root):
     swift += block(source['runner'], '    func perform(_ operations:') + '\n'
     if variant == 'candidate':
         swift += block(source['runner'], '    private func performUsingAdmittedRoute(') + '\n'
-    swift += '''func performOperation(for operation: AppOperation, handler: PipelineExecutionHandler, group: RefreshGroup, operationsCount: Int = 1, refreshAdmission: (() throws -> Void)? = nil) async throws {
+    swift += '''func performOperation(for operation: AppOperation, handler: PipelineExecutionHandler, group: RefreshGroup, operationsCount: Int = 1, refreshAdmission: (() throws -> Void)? = nil, readProfiles: (() async throws -> [Data])? = nil) async throws {
 try refreshAdmission?()
 // The only mutation boundary is deliberately inert. Early-failure tests
 // assert zero visits; controls assert it is reached only after both checks.

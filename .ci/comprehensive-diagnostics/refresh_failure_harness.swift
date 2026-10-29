@@ -39,7 +39,7 @@ struct RefreshFailureCases {
     static func producer(_ failure: Error) -> CapturedServer {
         let app = InstalledApp(bundleIdentifier: appID, name: canary)
         let producer = ManifestProducer(apps: [app], runID: runID)
-        producer.persistAutomaticRefreshVerification(results: [appID: .failure(failure)], attemptedAppIDs: [appID])
+        producer.persistAutomaticRefreshVerification(results: [appID: .failure(failure)], attemptedAppIDs: [appID], group: RefreshGroup())
         let server = CapturedServer()
         SideStoreClient().reportStructuredRefreshFailure(IntentError(failure), server: server)
         check(server.calls == 1 && server.runID == runID, "actual callback emitted once")

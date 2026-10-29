@@ -107,6 +107,9 @@ final class FixtureCore {
         precondition(withNetworkCheck, "owned readiness must retain network checks")
         return networkResult
     }
+    func readInstalledProvisioningProfiles() async throws -> [Data] {
+        preconditionFailure("Early-failure fixture must not read device provisioning profiles")
+    }
     func beginTransportBatch() async { FixtureVisits.beginBatch += 1 }
     func endTransportBatch() async {
         if let releaseGate { await releaseGate.holdRelease() }

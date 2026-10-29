@@ -22,6 +22,13 @@ def generate(root, output):
     early = load(root / EARLY_GENERATOR, 'profile_early')
     dependency = early.load_dependency(root); block = dependency.block
     swift = early.extract_chain(root, root, dependency)
+    # Only the evidence storage surface is required by the real manifest producer.
+    # Its methods are extracted verbatim; no synthetic acknowledged result exists.
+    group_source = (root / early.SUPPORT_PATHS[8]).read_text()
+    swift += 'final class RefreshGroup {\nprivate let lock = NSLock()\nprivate var verificationByApp: [String: V3RefreshVerification] = [:]\n'
+    for anchor in ['    func setVerification(', '    func verification(for ', '    func verificationSnapshot()']:
+        swift += block(group_source, anchor) + '\n'
+    swift += '}\n'
     # extract_chain includes the full production AppOperation declaration. Match
     # the existing early fixture's inert interfaces without importing its unused
     # readiness, provider, database, or mutation shells.
