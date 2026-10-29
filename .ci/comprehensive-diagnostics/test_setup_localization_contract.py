@@ -174,7 +174,7 @@ def check(root, baseline, output):
     owned_notice = g.block(s['ui'], 'private var ownedODASourceNotice: String? {')
     assert set(re.findall(r'return "([^"]+)"', owned_notice)) == owned_oda_keys
     assert 'default: return nil' in owned_notice
-    # Issue56 owns exactly eight startup strings. Bind the allowlist to the
+    # Startup outcomes own exactly fourteen diagnostic strings. Bind the allowlist to the
     # actual finite producers, not to whatever happens to appear in the catalog.
     startup_messages = {
         'SideStore stopped startup because its private data layout could not be verified.',
@@ -182,11 +182,17 @@ def check(root, baseline, output):
         'SideStore could not access its required shared storage.',
         'SideStore could not open or prepare its saved database.',
         'SideStore database startup failed before readiness.',
+        'SideStore could not read the installed host application bundle.',
+        'SideStore could not read the host application provisioning profile.',
+        'This build does not recognize the saved database model.',
+        'No supported migration path was found for the saved database.',
+        'Database migration reported a failure. The saved data state needs review.',
+        'SideStore could not save its database changes during startup.',
     }
     startup_recovery = 'Open Operation Logs and copy the startup diagnostics. Keep the existing app and its data; do not delete, reset, or move its database as a workaround.'
     startup_logs_message = 'Service operation logs are unavailable because startup is not complete. Available safe startup diagnostics are shown below.'
     startup_keys = startup_messages | {startup_recovery, startup_logs_message, 'Startup Diagnostics'}
-    assert len(startup_keys) == 8
+    assert len(startup_keys) == 14
     startup_producer = g.block(s['identity_diagnostics'], 'private var databaseStartupMessage: String? {')
     assert set(re.findall(r'return "([^"]+)"', startup_producer)) == startup_messages
     recovery = g.block(s['identity_diagnostics'], 'public var recovery: String {')
@@ -196,7 +202,62 @@ def check(root, baseline, output):
     assert 'Section("Startup Diagnostics") {' in startup_logs
     assert 'message = "' + startup_logs_message + '"' in startup_logs
     assert not g.catalog_missing(startup_keys, catalog['strings'])
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys
+    # Explicit reviewed card vocabulary, bound to the actual finite producer.
+    # Neither arbitrary new source copy nor catalog additions expand this set.
+    startup_card_keys = {
+        'Copy Diagnostics and ask support to check the installed combined package. Keep the app and its data.',
+        "Copy Diagnostics and ask support to check this installation's App Group configuration. Keep the app and its data.",
+        'Copy Diagnostics and ask support to review the installed host profile. This does not prove that the account or certificate is invalid.',
+        'Copy Diagnostics to identify the failed stage. Keep existing data; do not reset or reinstall the app based on this result alone.',
+        'Database layout needs review',
+        'Database loading failed',
+        'Database migration failed',
+        'Database migration reported a failure. The saved data state needs review.',
+        'Database model is not recognized',
+        'Database save failed',
+        'Database selection or preparation failed. This result alone does not identify damaged data or an invalid account.',
+        'Database startup failed',
+        'Database upgrade path is unavailable',
+        'Embedded service discovery failed',
+        'Embedded service launch did not complete',
+        'Host container is unavailable',
+        'Host provisioning profile is unreadable',
+        'Installed host bundle is unreadable',
+        'Keep every existing copy. Copy Diagnostics; do not rename, merge, or delete database files yourself.',
+        'Keep the existing data. Check available device storage and copy Diagnostics; do not clear data to retry.',
+        'Keep the original data in place. Copy Diagnostics so support can review a safe upgrade path.',
+        'Keep the original database. Copy Diagnostics and the observed startup stage before trying any recovery.',
+        'Keep the original database. Copy Diagnostics so support can identify a compatible build; do not assume a downgrade is safe.',
+        'No supported migration path was found for the saved database.',
+        'Previous data location needs review',
+        'Service communication failed',
+        'Service startup did not complete',
+        'Service storage preparation failed',
+        'Shared storage is unavailable',
+        'Shared-folder access could not be prepared',
+        'SideStore could not access the shared App Group storage required for startup.',
+        'SideStore could not read the host application provisioning profile.',
+        'SideStore could not read the installed host application bundle.',
+        'SideStore could not save its database changes during startup.',
+        'Startup failed at the indicated stage. No more specific safe cause was reported.',
+        'Startup problem',
+        'Startup stopped because conflicting or unsupported database files were found. No database was selected automatically.',
+        'Startup stopped because previous private data or a pending shared-storage migration was found.',
+        'Stop manual file changes and keep all database files. Copy Diagnostics before another migration attempt.',
+        'The expected startup response did not arrive in time. The exact cause is unknown; this does not prove a database, VPN, or account fault.',
+        'The saved database did not finish opening or migrating successfully. The exact storage failure is not exposed.',
+        'The service reported that startup is still pending. No terminal cause was reported.',
+        'The startup connection was interrupted before readiness could be confirmed.',
+        'The startup response could not be validated. Its contents were not used to guess a cause.',
+        'This build does not recognize the saved database model.',
+        'This startup request was cancelled. No underlying startup cause was confirmed.',
+    }
+    startup_card_producer = g.block(s['ui'], 'struct V3StartupDiagnosis: Equatable {')
+    assert set(re.findall(r'(?:title|observation|action) = "([^"]+)"', startup_card_producer)) | {'Startup problem'} == startup_card_keys
+    startup_card_view = g.block(s['ui'], 'struct V3StartupDiagnosisCard: View {')
+    assert 'V3LocalizedLabel("Startup problem", systemImage:' in startup_card_view
+    assert not g.catalog_missing(startup_card_keys, catalog['strings'])
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]
@@ -247,7 +308,7 @@ def check(root, baseline, output):
             localizations[language] = saved
             mutation_checks.append(key + '|' + language)
     # Keep the historical setup case counts unchanged. The separate startup
-    # scope rejects each missing translation independently (8 keys x 5 locales).
+    # scope rejects each missing translation independently (14 diagnostic keys x 5 locales).
     startup_mutation_checks = []
     for key in sorted(startup_keys):
         for language in g.LANGUAGES:
@@ -257,7 +318,17 @@ def check(root, baseline, output):
             assert {'key': key, 'language': language} in failure
             localizations[language] = saved
             startup_mutation_checks.append(key + '|' + language)
-    assert len(startup_mutation_checks) == 40
+    assert len(startup_mutation_checks) == 70
+    startup_card_mutation_checks = []
+    for key in sorted(startup_card_keys):
+        for language in g.LANGUAGES:
+            localizations = catalog['strings'][key]['localizations']
+            saved = localizations.pop(language)
+            failure = g.catalog_missing(startup_card_keys, catalog['strings'])
+            assert {'key': key, 'language': language} in failure
+            localizations[language] = saved
+            startup_card_mutation_checks.append(key + '|' + language)
+    assert len(startup_card_mutation_checks) == 230
     manifest = g.generate(root, output, baseline)
     assert len(manifest['expected_case_names']) == len(set(manifest['expected_case_names'])) == manifest['expected_native_case_count']
     assert set(manifest['expected_case_names']) == set(g.expected_case_names(current | {'baseline_missing': negative}))
@@ -280,6 +351,8 @@ def check(root, baseline, output):
         'setup_view_except_typed_titles_and_exact_connection_overlay': 'byte_for_byte_unchanged',
         'exact_connection_scope_negative_control': 'unrelated_cancel_mutation_rejected',
         'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': 27,
+        'startup_diagnosis_card_keys': sorted(startup_card_keys),
+        'startup_card_missing_translation_mutation_cases': len(startup_card_mutation_checks),
         'startup_diagnostic_keys': sorted(startup_keys),
         'startup_missing_translation_mutation_cases': len(startup_mutation_checks),
         'reviewed_russian_corrections_sha256': hashlib.sha256(reviewed_bytes).hexdigest(),
