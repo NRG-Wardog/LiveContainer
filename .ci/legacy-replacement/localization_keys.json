@@ -1,0 +1,18 @@
+[
+  "Review App Replacement",
+  "Replacement, Not Refresh",
+  "This replaces only the selected app using its cached source. It is not a retry of the failed refresh.",
+  "The cached source is not proof of the installed app's entitlements. Data, Keychain and App Group access may change or be lost. Preservation is not guaranteed.",
+  "All available extensions will use separate profiles. A matching saved signing identity is required; this action will not switch certificates or remove extensions.",
+  "No automatic backup will be performed. SideStore's Back Up action itself replaces the app and is not a risk-free preparation step.",
+  "Checking Replacement Requirements...",
+  "Replacement review could not be completed. Nothing was installed.",
+  "I understand that app data and secure storage access may change or be lost.",
+  "Re-sign and Replace This App",
+  "Another operation is active or unresolved. Finish its recovery before reviewing replacement.",
+  "The cached app source is missing or changed. Replacement is unavailable; nothing was installed.",
+  "The saved app and extension identities cannot be matched safely. Replacement is unavailable.",
+  "The matching signing certificate and private key are unavailable. Replacement will not switch certificates.",
+  "This replacement review is no longer current. Close it and review the app again.",
+  "This app is not eligible for replacement from the recorded refresh failure."
+]

@@ -102525,6 +102525,550 @@
           }
         }
       }
+    },
+    "Review App Replacement": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review App Replacement"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בדיקת החלפת האפליקציה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查应用替换"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檢查 App 替換"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка замены приложения"
+          }
+        }
+      }
+    },
+    "Replacement, Not Refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replacement, Not Refresh"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החלפה, לא רענון"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "替换，而非刷新"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "替換，而非重新整理"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Замена, а не обновление подписи"
+          }
+        }
+      }
+    },
+    "This replaces only the selected app using its cached source. It is not a retry of the failed refresh.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This replaces only the selected app using its cached source. It is not a retry of the failed refresh."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פעולה זו מחליפה רק את האפליקציה שנבחרה באמצעות העותק השמור שלה. זה אינו ניסיון חוזר לרענון שנכשל."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此操作仅使用缓存的源文件替换所选应用，不会重试失败的刷新。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此操作僅使用快取的來源檔案替換所選 App，不會重試失敗的重新整理。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будет заменено только выбранное приложение с использованием его кэшированного исходника. Это не повторная попытка неудавшегося обновления подписи."
+          }
+        }
+      }
+    },
+    "The cached source is not proof of the installed app's entitlements. Data, Keychain and App Group access may change or be lost. Preservation is not guaranteed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The cached source is not proof of the installed app's entitlements. Data, Keychain and App Group access may change or be lost. Preservation is not guaranteed."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העותק השמור אינו מוכיח אילו הרשאות יש לאפליקציה המותקנת. נתונים וגישה ל־Keychain ולקבוצות אפליקציות עלולים להשתנות או ללכת לאיבוד. שמירתם אינה מובטחת."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缓存的源文件不能证明已安装应用的权限。数据、钥匙串及 App Group 的访问权限可能改变或丢失，无法保证保留。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快取的來源檔案無法證明已安裝 App 的權限。資料、鑰匙圈及 App Group 的存取權限可能改變或遺失，無法保證保留。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кэшированный исходник не подтверждает права установленного приложения. Данные и доступ к Связке ключей и группам приложений могут измениться или быть потеряны. Сохранность не гарантируется."
+          }
+        }
+      }
+    },
+    "All available extensions will use separate profiles. A matching saved signing identity is required; this action will not switch certificates or remove extensions.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All available extensions will use separate profiles. A matching saved signing identity is required; this action will not switch certificates or remove extensions."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "כל ההרחבות הזמינות ישתמשו בפרופילים נפרדים. נדרשת זהות חתימה שמורה ותואמת; הפעולה לא תחליף אישורים ולא תסיר הרחבות."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有可用扩展将使用独立描述文件。必须有匹配的已保存签名身份；此操作不会更换证书或移除扩展。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有可用延伸功能將使用獨立描述檔。必須有相符的已儲存簽署身分；此操作不會更換憑證或移除延伸功能。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для всех доступных расширений будут использованы отдельные профили. Требуется подходящая сохранённая подпись; сертификаты не будут заменены, а расширения не будут удалены."
+          }
+        }
+      }
+    },
+    "No automatic backup will be performed. SideStore's Back Up action itself replaces the app and is not a risk-free preparation step.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No automatic backup will be performed. SideStore's Back Up action itself replaces the app and is not a risk-free preparation step."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא יבוצע גיבוי אוטומטי. פעולת הגיבוי של SideStore מחליפה בעצמה את האפליקציה ואינה צעד הכנה נטול סיכון."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不会自动备份。SideStore 的“备份”操作本身就会替换应用，并非无风险的准备步骤。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不會自動備份。SideStore 的「備份」操作本身就會替換 App，並非無風險的準備步驟。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматическое резервное копирование не выполняется. Действие «Создать резервную копию» в SideStore само заменяет приложение и не является безопасным подготовительным шагом."
+          }
+        }
+      }
+    },
+    "Checking Replacement Requirements...": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking Replacement Requirements..."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בודק את הדרישות להחלפה..."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查替换要求…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在檢查替換需求…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка условий замены…"
+          }
+        }
+      }
+    },
+    "Replacement review could not be completed. Nothing was installed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replacement review could not be completed. Nothing was installed."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה להשלים את בדיקת ההחלפה. לא הותקן דבר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法完成替换检查。未安装任何内容。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法完成替換檢查。未安裝任何內容。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось завершить проверку замены. Ничего не установлено."
+          }
+        }
+      }
+    },
+    "I understand that app data and secure storage access may change or be lost.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I understand that app data and secure storage access may change or be lost."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ברור לי שנתוני האפליקציה והגישה לאחסון המאובטח עלולים להשתנות או ללכת לאיבוד."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我理解应用数据及安全存储访问权限可能改变或丢失。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我瞭解 App 資料及安全儲存空間的存取權限可能改變或遺失。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я понимаю, что данные приложения и доступ к защищённому хранилищу могут измениться или быть потеряны."
+          }
+        }
+      }
+    },
+    "Another operation is active or unresolved. Finish its recovery before reviewing replacement.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another operation is active or unresolved. Finish its recovery before reviewing replacement."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פעולה אחרת עדיין פעילה או שתוצאתה אינה ידועה. יש להשלים את בירור התוצאה לפני בדיקת ההחלפה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "另一项操作正在运行或结果尚未确定。请先完成其恢复，再检查替换。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "另一項操作正在執行或結果尚未確定。請先完成其復原，再檢查替換。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другая операция выполняется или её результат неизвестен. Сначала завершите её восстановление."
+          }
+        }
+      }
+    },
+    "The cached app source is missing or changed. Replacement is unavailable; nothing was installed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The cached app source is missing or changed. Replacement is unavailable; nothing was installed."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "העותק השמור של האפליקציה חסר או השתנה. ההחלפה אינה זמינה; לא הותקן דבר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缓存的应用源文件缺失或已改变。无法替换；未安装任何内容。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快取的 App 來源檔案遺失或已變更。無法替換；未安裝任何內容。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кэшированный исходник приложения отсутствует или изменился. Замена недоступна; ничего не установлено."
+          }
+        }
+      }
+    },
+    "The saved app and extension identities cannot be matched safely. Replacement is unavailable.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved app and extension identities cannot be matched safely. Replacement is unavailable."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן להתאים בבטחה את הזהויות השמורות של האפליקציה וההרחבות. ההחלפה אינה זמינה."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法安全匹配已保存的应用及扩展身份。无法替换。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法安全比對已儲存的 App 及延伸功能身分。無法替換。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось безопасно сопоставить сохранённые идентификаторы приложения и расширений. Замена недоступна."
+          }
+        }
+      }
+    },
+    "The matching signing certificate and private key are unavailable. Replacement will not switch certificates.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The matching signing certificate and private key are unavailable. Replacement will not switch certificates."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אישור החתימה והמפתח הפרטי התואמים אינם זמינים. ההחלפה לא תשתמש באישור אחר."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匹配的签名证书及私钥不可用。替换操作不会改用其他证书。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "相符的簽署憑證及私密金鑰無法使用。替換操作不會改用其他憑證。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подходящий сертификат подписи и закрытый ключ недоступны. Замена не будет использовать другой сертификат."
+          }
+        }
+      }
+    },
+    "This replacement review is no longer current. Close it and review the app again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This replacement review is no longer current. Close it and review the app again."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בדיקת ההחלפה הזו אינה עדכנית עוד. יש לסגור אותה ולבדוק את האפליקציה מחדש."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此替换检查已失效。请关闭后重新检查此应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此替換檢查已失效。請關閉後重新檢查此 App。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Результаты этой проверки устарели. Закройте её и проверьте приложение заново."
+          }
+        }
+      }
+    },
+    "This app is not eligible for replacement from the recorded refresh failure.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app is not eligible for replacement from the recorded refresh failure."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "האפליקציה אינה מתאימה להחלפה על סמך כשל הרענון שתועד."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "根据记录的刷新失败，此应用不符合替换条件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "根據記錄的重新整理失敗，此 App 不符合替換條件。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По записанному сбою обновления подписи это приложение не подходит для замены."
+          }
+        }
+      }
+    },
+    "Re-sign and Replace This App": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-sign and Replace This App"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "חתימה מחדש והחלפת האפליקציה"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新签名并替换此应用"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新簽署並替換此 App"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переподписать и заменить приложение"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -265,8 +265,14 @@ def check(root, baseline, output):
     assert hashlib.sha256(observation_bytes).hexdigest() == 'b28ff28aacfde5d5b75c01b586527bc8efa5da388d6f1b0923533db49c91c4ec'
     observation_keys = set(json.loads(observation_bytes))
     assert len(observation_keys) == 22 and observation_keys <= overlay_keys
+    replacement_bytes = (root / '.ci/legacy-replacement/localization_keys.json').read_bytes()
+    assert hashlib.sha256(replacement_bytes).hexdigest() == 'ede98066b4c7f38ad38da1165e5aadeea7c3d0a15105bbe3ed5e52c7974563e3'
+    replacement_keys = set(json.loads(replacement_bytes))
+    assert len(replacement_keys) == 16 and not g.catalog_missing(replacement_keys, catalog['strings'])
+    replacement_source = g.block(s['ui'], 'enum V3LegacyReplacementPolicy {') + g.block(s['ui'], 'struct V3LegacyReplacementAction: View {')
+    assert all(json.dumps(key, ensure_ascii=False) in replacement_source for key in replacement_keys)
     historical_connection_keys = {'Device connection verified by the latest successful refresh. This is not a live VPN check.', 'Refresh verified; CoreDevice transport was not independently recorded.'}
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]
@@ -345,6 +351,13 @@ def check(root, baseline, output):
             localizations[language] = saved
             startup_card_mutation_checks.append(key + '|' + language)
     assert len(startup_card_mutation_checks) == 230
+    # Separate replacement copy coverage does not change historical setup cases.
+    for key in replacement_keys:
+        for language in g.LANGUAGES:
+            localizations = catalog['strings'][key]['localizations']
+            saved = localizations.pop(language)
+            assert {'key': key, 'language': language} in g.catalog_missing(replacement_keys, catalog['strings'])
+            localizations[language] = saved
     manifest = g.generate(root, output, baseline)
     assert len(manifest['expected_case_names']) == len(set(manifest['expected_case_names'])) == manifest['expected_native_case_count']
     assert set(manifest['expected_case_names']) == set(g.expected_case_names(current | {'baseline_missing': negative}))

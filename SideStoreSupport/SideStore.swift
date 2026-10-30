@@ -310,7 +310,7 @@ public enum V3RefreshEvidencePolicy {
 
 public enum V3DirectProfileVerificationPolicy {
     public static func applies(_ operation: String) -> Bool {
-        ["refresh", "resign", "install", "update", "reinstall", "activate", "restore"].contains(operation)
+        ["refresh", "resign", "install", "update", "reinstall", "activate", "restore", "legacyReplacement"].contains(operation)
     }
     public static func outcome(_ reply: [String: Any], operation: String) -> V3RefreshRenewalOutcome? {
         guard applies(operation) else { return nil }
@@ -5533,7 +5533,7 @@ enum V3WireContract {
         return (id, operation)
     }
 
-    static let operations: Set<String> = ["snapshot", "catalog", "appIcon", "cancel", "refreshSources",
+    static let operations: Set<String> = ["legacyReplacementPrepare", "snapshot", "catalog", "appIcon", "cancel", "refreshSources",
         "refreshAdmissionBegin", "refreshAdmissionEnd",
         "signOut", "syncAppIDs", "clearCache", "jit", "backupResult",
         "authBegin", "authPoll", "authRespond", "authCancel", "authRetryProvisioning", "authReconcileStorage",
@@ -5547,7 +5547,7 @@ enum V3WireContract {
         "anisetteList", "anisetteReset", "anisetteSync",
         "sidesignGet", "sidesignSet", "sidesignReset", "sidesignImport", "sidesignExport",
         "logTail", "healthSnapshot", "accountExport", "accountImport"]
-    static let readOperations: Set<String> = ["snapshot", "catalog", "appIcon",
+    static let readOperations: Set<String> = ["legacyReplacementPrepare", "snapshot", "catalog", "appIcon",
         "authPoll", "opPoll", "opCancel", "ipaCleanup", "ipaActiveTokens", "authCancel", "certList", "certExportActive", "certPortalList",
         "devTeams", "devDevices", "devAppIDs", "devGroups", "devProfiles",
         "sourcePreview", "settingsGet",
@@ -5581,7 +5581,7 @@ enum V3WireContract {
             "opRecoveryReconcile", "directRecoveryInspect", "directRecoveryReconcile", "cancel"].contains(operation),
            !canonicalSecretToken(target) { return nil }
         if operation == "ipaCleanup", !canonicalLowercaseFileToken(target) { return nil }
-        if ["appIcon", "jit"].contains(operation),
+        if ["appIcon", "jit", "legacyReplacementPrepare"].contains(operation),
            !acceptsCoreDataTarget(target, entity: "InstalledApp") { return nil }
         if ["sourcePreview", "sourceAddConfirmed"].contains(operation), !isHTTPURL(target) { return nil }
         if operation == "backupResult", !canonicalSecretToken(target) { return nil }
@@ -5609,6 +5609,7 @@ enum V3WireContract {
     }
 
     private static let requiredPayloadOperations: Set<String> = [
+        "legacyReplacementPrepare",
         "authBegin", "authRetryProvisioning", "authRespond", "opAnswer", "opStart", "opRecoveryPrepare",
         "cancel", "accountExport", "accountImport", "settingsSet", "sidesignSet", "refreshAdmissionEnd",
         "recoveryDiscardUnreadable", "directRecoveryReconcile", "backupResult"
@@ -5653,6 +5654,9 @@ enum V3WireContract {
                 canonicalSecretToken(payload["nonce"]) &&
                 ["backup", "restore"].contains(payload["action"] as? String ?? "") &&
                 ["success", "failure"].contains(payload["result"] as? String ?? "")
+        case "legacyReplacementPrepare":
+            return Set(payload.keys) == Set(["runID", "requestID"]) &&
+                canonicalSecretToken(payload["runID"]) && canonicalSecretToken(payload["requestID"])
         case "snapshot":
             return Set(payload.keys) == Set(["readinessOnly"]) &&
                 strictBool(payload["readinessOnly"]) == true
@@ -5664,7 +5668,7 @@ enum V3WireContract {
             guard baseKeys.isSubset(of: Set(payload.keys)), Set(payload.keys).isSubset(of: allowedKeys),
                   payload["provisioningLogin"] == nil || strictBool(payload["provisioningLogin"]) != nil,
                   payload["finishPendingCertificateActivation"] == nil || strictBool(payload["finishPendingCertificateActivation"]) != nil,
-                  payload["finishPendingCertificateActivation"] == nil || strictBool(payload["provisioningLogin"]) == true,
+                  strictBool(payload["finishPendingCertificateActivation"]) != true || strictBool(payload["provisioningLogin"]) == true,
                   let session = payload["session"] as? String,
                   canonicalSecretToken(session), session == target,
                   let sessionDeadline = payload["sessionDeadline"] as? Date,
@@ -5692,7 +5696,10 @@ enum V3WireContract {
             return Set(payload.keys) == Set([credentialAnswerKey]) &&
                 credentialAnswerIsBounded(payload[credentialAnswerKey])
         case "opStart":
-            guard Set(payload.keys) == Set(["kind", "target", "session"]),
+            let replacement = payload["kind"] as? String == "legacyReplacement"
+            let keys: Set<String> = replacement ? ["kind", "target", "session", "riskAcknowledgmentVersion", "userConfirmed"] : ["kind", "target", "session"]
+            guard Set(payload.keys) == keys,
+                  !replacement || (strictInt(payload["riskAcknowledgmentVersion"]) == 1 && strictBool(payload["userConfirmed"]) == true),
                   let kind = payload["kind"] as? String, !kind.isEmpty, kind.utf8.count <= 128,
                   let operationTarget = payload["target"] as? String, operationTarget.utf8.count <= 4096,
                   let session = payload["session"] as? String, canonicalSecretToken(session) else { return false }
@@ -5760,6 +5767,7 @@ enum V3WireContract {
 
     private static func acceptsOperationTarget(kind: String, target: String) -> Bool {
         switch kind {
+        case "legacyReplacement": return canonicalSecretToken(target)
         case "installSharedIPA":
             return canonicalLowercaseFileToken(target)
         case "installURL":
@@ -7712,7 +7720,7 @@ struct V3OperationRecoveryRecord: Equatable {
 
     static let allowedKinds: Set<String> = [
         "install", "installURL", "installSharedIPA", "update", "refreshApp",
-        "activate", "deactivate", "remove", "delete", "backup", "restore", "refreshAll"
+        "activate", "deactivate", "remove", "delete", "backup", "restore", "refreshAll", "legacyReplacement"
     ]
 
     init?(sessionID: String, kind: String, phase: Phase, stagedIPAToken: String? = nil) {

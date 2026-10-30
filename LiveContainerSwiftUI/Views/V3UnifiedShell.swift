@@ -1628,7 +1628,7 @@ struct V3OperationRecoveryRecord: Equatable {
 
     static let allowedKinds: Set<String> = [
         "install", "installURL", "installSharedIPA", "update", "refreshApp",
-        "activate", "deactivate", "remove", "delete", "backup", "restore", "refreshAll"
+        "activate", "deactivate", "remove", "delete", "backup", "restore", "refreshAll", "legacyReplacement"
     ]
 
     init?(sessionID: String, kind: String, phase: Phase, stagedIPAToken: String? = nil) {
@@ -2739,6 +2739,121 @@ struct V3StatusPresentation: Equatable {
 // A source failure, a certificate failure, an auth failure and a pairing failure
 // each get the action that can actually resolve them. Connection evidence opens
 // Connection Settings; it does not claim that reloading status retried a mutation.
+// V3_LEGACY_REPLACEMENT_UI_V1: user-requested replacement, never a refresh replay.
+// Private target identity stays in memory/wire, never in diagnostic text.
+struct V3LegacyReplacementCandidate: Equatable {
+    let runID: String
+    let requestID: String
+    let target: String
+    let bundleID: String
+}
+
+enum V3LegacyReplacementPolicy {
+    static func integer(_ value: Any?, equals expected: Int) -> Bool {
+        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+              ["c", "s", "i", "l", "q", "C", "S", "I", "L", "Q"].contains(String(cString: number.objCType)) else { return false }
+        return number.stringValue == String(expected)
+    }
+    static func boolean(_ value: Any?, equals expected: Bool) -> Bool {
+        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return false }
+        return number.boolValue == expected
+    }
+    static func canonical(_ value: String) -> Bool { UUID(uuidString: value)?.uuidString == value }
+    static func candidate(manifest: [String: Any]?, ledger: [String: Any]?, target: String,
+                          bundleID: String, isHost: Bool, isActive: Bool,
+                          activeRunID: String?, uncertain: Bool) -> V3LegacyReplacementCandidate? {
+        guard !isHost, isActive, !uncertain, activeRunID?.isEmpty != false,
+              !target.isEmpty, target.utf8.count <= 4096,
+              let manifest, let runID = manifest["run_id"] as? String, canonical(runID),
+              integer(manifest["version"], equals: 2),
+              CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+              let record = ledger?[runID] as? [String: Any], record["run_id"] as? String == runID,
+              record["state"] as? String == "failed",
+              let requestID = record["request_id"] as? String, canonical(requestID),
+              let entries = manifest["results"] as? [[String: Any]],
+              let entry = entries.first(where: { $0["bundle_id"] as? String == bundleID }),
+              boolean(entry["success"], equals: false),
+              let evidence = V3RefreshProfileEvidence(entry["verification"]),
+              !evidence.mutationDispatched, !evidence.installAcknowledged,
+              let wire = entry["failure"] as? [String: Any],
+              let failure = CombinedFailure.decode(wire, expectedID: runID),
+              failure.operation == "refresh", failure.stage == .command,
+              failure.sourceStep == .refreshApplication, failure.code == .failed,
+              failure.signingContext["refresh_failure_kind"] == "invalidParameters",
+              failure.signingContext["refresh_target_scope"] == "nonHost",
+              failure.signingContext["local_precondition"] == "legacyProofUnavailable" else { return nil }
+        return .init(runID: runID, requestID: requestID, target: target, bundleID: bundleID)
+    }
+    static let reasons: Set<String> = ["notEligible", "busy", "sourceUnavailable", "sourceChanged",
+        "identityUnavailable", "identityMismatch", "certificateUnavailable", "certificateMismatch", "staleAssessment"]
+    static func guidance(_ reason: String) -> String {
+        switch reason {
+        case "busy": return "Another operation is active or unresolved. Finish its recovery before reviewing replacement."
+        case "sourceUnavailable", "sourceChanged": return "The cached app source is missing or changed. Replacement is unavailable; nothing was installed."
+        case "identityUnavailable", "identityMismatch": return "The saved app and extension identities cannot be matched safely. Replacement is unavailable."
+        case "certificateUnavailable", "certificateMismatch": return "The matching signing certificate and private key are unavailable. Replacement will not switch certificates."
+        case "staleAssessment": return "This replacement review is no longer current. Close it and review the app again."
+        default: return "This app is not eligible for replacement from the recorded refresh failure."
+        }
+    }
+}
+
+struct V3LegacyReplacementAttempt {
+    private(set) var generation = UUID()
+    private(set) var candidate: V3LegacyReplacementCandidate?
+    private(set) var token: String?
+    private(set) var reason = "notEligible"
+    private var expiresAt: TimeInterval = 0
+    mutating func begin(_ candidate: V3LegacyReplacementCandidate) -> UUID {
+        cancel(); self.candidate = candidate; return generation
+    }
+    mutating func cancel() {
+        generation = UUID(); candidate = nil; token = nil; expiresAt = 0; reason = "notEligible"
+    }
+    @discardableResult mutating func receive(_ reply: [String: Any], generation expected: UUID,
+                                            current: V3LegacyReplacementCandidate?, now: TimeInterval) -> Bool {
+        guard generation == expected, candidate != nil, candidate == current, now.isFinite else { return false }
+        token = nil; expiresAt = 0; reason = "notEligible"
+        guard V3LegacyReplacementPolicy.integer(reply["version"], equals: 1),
+              V3LegacyReplacementPolicy.integer(reply["riskAcknowledgmentVersion"], equals: 1) else { return false }
+        let base: Set<String> = ["version", "eligible", "reason", "riskAcknowledgmentVersion"]
+        if V3LegacyReplacementPolicy.boolean(reply["eligible"], equals: false) {
+            guard Set(reply.keys) == base, let value = reply["reason"] as? String,
+                  V3LegacyReplacementPolicy.reasons.contains(value) else { return false }
+            reason = value; return true
+        }
+        guard V3LegacyReplacementPolicy.boolean(reply["eligible"], equals: true),
+              Set(reply.keys) == base.union(["token", "expiresInSeconds", "extensionCount"]),
+              reply["reason"] as? String == "available",
+              let value = reply["token"] as? String, V3LegacyReplacementPolicy.canonical(value),
+              V3LegacyReplacementPolicy.integer(reply["expiresInSeconds"], equals: 120),
+              (1...128).contains(where: { V3LegacyReplacementPolicy.integer(reply["extensionCount"], equals: $0) }) else { return false }
+        token = value; expiresAt = now + 120; reason = "available"; return true
+    }
+    mutating func confirm(current: V3LegacyReplacementCandidate?, now: TimeInterval,
+                          acknowledged: Bool, blocked: Bool) -> String? {
+        guard acknowledged, !blocked, candidate != nil, current == candidate,
+              now.isFinite, now < expiresAt, let value = token else { token = nil; reason = "staleAssessment"; return nil }
+        token = nil; expiresAt = 0 // One local confirmation. A new token requires a new explicit review.
+        return value
+    }
+}
+struct V3LegacyReplacementConfirmation {
+    private var token: String?
+    private var candidate: V3LegacyReplacementCandidate?
+    var isPending: Bool { token != nil }
+    mutating func stage(token: String, candidate: V3LegacyReplacementCandidate) {
+        self.token = token; self.candidate = candidate
+    }
+    mutating func cancel() { token = nil; candidate = nil }
+    mutating func take(current: V3LegacyReplacementCandidate?, foreground: Bool) -> String? {
+        defer { cancel() }
+        guard foreground, candidate != nil, candidate == current else { return nil }
+        return token
+    }
+}
+// V3_LEGACY_REPLACEMENT_UI_END
+
 enum V3IssueAction: String, Equatable, CaseIterable {
     case retrySource
     case reloadSources
@@ -8349,15 +8464,17 @@ struct V3OperationRequest: Identifiable {
     let title: String
     let installAttemptID: UUID?
     let recoverySessionID: String?
+    let legacyReplacementConsent: Bool
 
     init(id: UUID = UUID(), operation: String, target: String, title: String,
-         installAttemptID: UUID? = nil, recoverySessionID: String? = nil) {
+         installAttemptID: UUID? = nil, recoverySessionID: String? = nil, legacyReplacementConsent: Bool = false) {
         self.id = id
         self.operation = operation
         self.target = target
         self.title = title
         self.installAttemptID = installAttemptID
         self.recoverySessionID = recoverySessionID
+        self.legacyReplacementConsent = legacyReplacementConsent
     }
 }
 
@@ -9481,7 +9598,8 @@ final class V3SideStoreStatusStore: ObservableObject {
         return true
     }
 
-    func perform(_ operation: String, target: String = "", title: String, value: Bool? = nil) {
+    func perform(_ operation: String, target: String = "", title: String, value: Bool? = nil, legacyReplacementConsent: Bool = false) {
+        guard operation != "legacyReplacement" || legacyReplacementConsent else { return }
         // A second operation while one is presented must explain itself
         // instead of silently doing nothing (which looks like the first tap
         // was ignored and invites blind retries).
@@ -9500,9 +9618,9 @@ final class V3SideStoreStatusStore: ObservableObject {
         case "clearCache": clearCache()
         case "refreshSources": refreshSources()
         case "jit": jit(target: target)
-        case "install", "installURL", "installSharedIPA", "update", "refreshApp",
+        case "install", "installURL", "installSharedIPA", "update", "refreshApp", "legacyReplacement",
              "activate", "deactivate", "remove", "delete", "backup", "restore":
-            let request = V3OperationRequest(operation: operation, target: target, title: title)
+            let request = V3OperationRequest(operation: operation, target: target, title: title, legacyReplacementConsent: legacyReplacementConsent)
             presentation = request
         default: break
         }
@@ -10091,6 +10209,115 @@ struct V3InstalledAppIcon: View {
     }
 }
 
+struct V3LegacyReplacementAction: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var status: V3SideStoreStatusStore
+    let app: V3SideStoreApp
+    @State private var attempt = V3LegacyReplacementAttempt()
+    @State private var showingReview = false
+    @State private var busy = false
+    @State private var acknowledged = false
+    @State private var reviewFailed = false
+    @State private var task: Task<Void, Never>?
+    @State private var confirmation = V3LegacyReplacementConfirmation()
+    @State private var revision = 0
+    private var current: V3LegacyReplacementCandidate? {
+        let defaults = V3SharedRefreshStore.defaults
+        return V3LegacyReplacementPolicy.candidate(
+            manifest: defaults.dictionary(forKey: "liveContainerAutoRefreshVerification"),
+            ledger: defaults.dictionary(forKey: "liveContainerAutoRefreshRunLedger"),
+            target: app.identifier, bundleID: app.bundleID, isHost: app.isHost, isActive: app.isActive,
+            activeRunID: defaults.string(forKey: "liveContainerAutoRefreshActiveRunID"),
+            uncertain: defaults.string(forKey: "liveContainerAutoRefreshUncertainMutationRunID") != nil)
+    }
+    var body: some View {
+        let _ = revision
+        Group {
+            if current != nil {
+                Button("Review App Replacement") { prepare() }
+                    .disabled(busy || status.loading || status.presentation != nil)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            revision &+= 1
+            if showingReview, attempt.candidate != current {
+                task?.cancel(); attempt.cancel(); acknowledged = false; busy = false
+            }
+        }
+        .sheet(isPresented: $showingReview, onDismiss: finishReview) {
+            NavigationView {
+                List {
+                    Section("App") { Text(app.name) }
+                    Section("Replacement, Not Refresh") {
+                        Text("This replaces only the selected app using its cached source. It is not a retry of the failed refresh.")
+                        Text("The cached source is not proof of the installed app's entitlements. Data, Keychain and App Group access may change or be lost. Preservation is not guaranteed.")
+                        Text("All available extensions will use separate profiles. A matching saved signing identity is required; this action will not switch certificates or remove extensions.")
+                        Text("No automatic backup will be performed. SideStore's Back Up action itself replaces the app and is not a risk-free preparation step.")
+                    }
+                    if busy {
+                        ProgressView("Checking Replacement Requirements...")
+                    } else if reviewFailed {
+                        Text("Replacement review could not be completed. Nothing was installed.")
+                    } else if attempt.token == nil {
+                        V3LocalizedText(V3LegacyReplacementPolicy.guidance(attempt.reason))
+                    } else {
+                        Toggle("I understand that app data and secure storage access may change or be lost.", isOn: $acknowledged)
+                        Button("Re-sign and Replace This App", role: .destructive) { confirm() }
+                            .disabled(!acknowledged || status.loading || status.presentation != nil)
+                    }
+                }
+                .navigationTitle("Review App Replacement")
+                .toolbar { ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { task?.cancel(); showingReview = false }
+                } }
+            }
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase != .active {
+                task?.cancel(); attempt.cancel(); acknowledged = false; busy = false
+                confirmation.cancel()
+            }
+        }
+        .onDisappear { task?.cancel(); if !confirmation.isPending { attempt.cancel() } }
+    }
+    private func prepare() {
+        guard !busy, !showingReview, let candidate = current,
+              !status.loading, status.presentation == nil else { return }
+        let generation = attempt.begin(candidate)
+        acknowledged = false; reviewFailed = false; confirmation.cancel()
+        showingReview = true; busy = true
+        task = Task { @MainActor in
+            do {
+                let reply = try await V3ServiceBridge.shared.request(operation: "legacyReplacementPrepare",
+                    target: candidate.target, payload: ["runID": candidate.runID, "requestID": candidate.requestID])
+                guard !Task.isCancelled, showingReview, attempt.generation == generation else { return }
+                reviewFailed = !attempt.receive(reply, generation: generation, current: current,
+                    now: ProcessInfo.processInfo.systemUptime)
+            } catch {
+                guard !Task.isCancelled, showingReview, attempt.generation == generation else { return }
+                reviewFailed = true
+            }
+            if attempt.generation == generation { busy = false }
+        }
+    }
+    private func confirm() {
+        let candidate = current
+        guard let candidate, let token = attempt.confirm(current: candidate, now: ProcessInfo.processInfo.systemUptime,
+                acknowledged: acknowledged, blocked: busy || status.loading || status.presentation != nil) else {
+            acknowledged = false; return
+        }
+        confirmation.stage(token: token, candidate: candidate)
+        showingReview = false
+    }
+    private func finishReview() {
+        task?.cancel(); task = nil; busy = false; acknowledged = false
+        let token = confirmation.take(current: current, foreground: scenePhase == .active)
+        attempt.cancel()
+        guard let token else { return }
+        status.perform("legacyReplacement", target: token, title: "Re-sign and Replace This App", legacyReplacementConsent: true)
+    }
+}
+
 struct V3AppActions: View {
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @EnvironmentObject private var sharedModel: SharedModel
@@ -10106,6 +10333,7 @@ struct V3AppActions: View {
             status.refreshTarget = app.isHost ? nil : app.identifier
             status.refreshPresented = true
         }
+        V3LegacyReplacementAction(app: app)
         if app.hasUpdate { Button("Update") { action("update", "Update " + app.name) } }
         if !app.isHost {
             Button(LocalizedStringKey(app.isActive ? "Deactivate" : "Activate")) { action(app.isActive ? "deactivate" : "activate", app.isActive ? "Deactivate app" : "Activate app") }
@@ -11304,7 +11532,7 @@ struct V3OperationSheet: View {
     @State private var stagedIPACleaned = false
     @State private var copied = false
     private var retryAllowed: Bool {
-        guard !retryBlocked, !profileMutationObserved else { return false }
+        guard request.operation != "legacyReplacement", !retryBlocked, !profileMutationObserved else { return false }
         if state == "requiresSource" { return sourceOffer != nil }
         if state == "cancelled" { return true }
         guard state == "failed", !isTransitioning else { return false }
@@ -11586,9 +11814,14 @@ struct V3OperationSheet: View {
                     throw CombinedFailure(operation: request.operation, stage: .command,
                         code: .staleResult, id: generation.uuidString, retryable: false)
                 }
-                reply = try await V3ServiceBridge.shared.request(operation: "opStart",
-                    payload: ["kind": request.operation, "target": request.target,
-                              "session": generation.uuidString])
+                var startPayload: [String: Any] = ["kind": request.operation, "target": request.target,
+                                                  "session": generation.uuidString]
+                if request.operation == "legacyReplacement" {
+                    guard request.legacyReplacementConsent else { throw CancellationError() }
+                    startPayload["riskAcknowledgmentVersion"] = 1
+                    startPayload["userConfirmed"] = true
+                }
+                reply = try await V3ServiceBridge.shared.request(operation: "opStart", payload: startPayload)
             }
             if !recovering, reply["failedToStart"] as? Bool == true {
                 handleStartFailure(reply, generation: generation)
