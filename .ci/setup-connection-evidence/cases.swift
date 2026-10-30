@@ -18,7 +18,8 @@ struct SetupConnectionCases {
          "manifest_summary": ["version": 2, "schema": "LiveContainerRefreshManifestSummaryV2", "run_id": id,
              "verified": true, "expected_count": 1, "result_count": 1, "failed_count": 0,
              "skipped_count": 0, "requested_count": 1, "evidence_version": 1, "renewal_outcome": "renewed",
-             "renewed_count": 1, "acknowledged_count": 1]]
+             "renewed_count": 1, "acknowledged_count": 1,
+             "transport_observation": ["version": 1, "readiness": "ready", "scope": "ownedBatch"]]]
     }
     static func main() throws {
         var cases: [String] = []
@@ -28,7 +29,7 @@ struct SetupConnectionCases {
             let observed = V3SetupConnectionEvidencePolicy.observe(interfacePresent: present, ledger: ledger,
                 activeRunID: active, hostHandoffPending: handoff, uncertainMutationRunID: uncertain)
             precondition(observed.evidence == expected, name)
-            precondition(observed.isVerified == (expected == .verified), name + " green gate")
+            precondition(observed.isVerified == (expected == .verified && present), name + " green gate")
             if expected != .verified {
                 precondition(observed.tunnelStep.state != "complete" && observed.tunnelStep.state != "verified", name + " no green tunnel")
                 precondition(observed.coreDeviceStep.state != "complete" && observed.coreDeviceStep.state != "verified", name + " no green device")
@@ -53,7 +54,7 @@ struct SetupConnectionCases {
         check("newer_readiness_supersedes_old_success", .vpnNotReady,
             [first: good, second: record(second, at: 2, failure: failure(second))])
         check("latest_full_summary_verifies", .verified, [first: good])
-        check("no_interface_no_current_green", .notDetected, [first: good], present: false)
+        check("no_interface_no_current_green", .verified, [first: good], present: false)
         check("active_run_suppresses_old_green", .checking, [first: good], active: second)
         check("handoff_suppresses_old_green", .checking, [first: good], handoff: true)
         check("uncertainty_suppresses_old_green", .checking, [first: good], uncertain: second)
@@ -77,7 +78,7 @@ struct SetupConnectionCases {
         precondition(!observation.tunnelStep.detail.contains("VPN was off"))
         precondition(V3SetupConnectionCopy(rawValue: "SECRET_PROVIDER_PAYLOAD") == nil)
         var legacy = good; var legacySummary = legacy["manifest_summary"] as! [String: Any]
-        legacySummary.removeValue(forKey: "evidence_version"); legacy["manifest_summary"] = legacySummary
+        legacySummary.removeValue(forKey: "evidence_version"); legacySummary.removeValue(forKey: "transport_observation"); legacy["manifest_summary"] = legacySummary
         check("legacy_success_without_renewal_proof_not_green", .detected, [first: legacy])
         let receiptURL = URL(fileURLWithPath: CommandLine.arguments[1]).deletingLastPathComponent().appendingPathComponent("sources.json")
         let receipt = try JSONSerialization.jsonObject(with: Data(contentsOf: receiptURL)) as! [String: Any]

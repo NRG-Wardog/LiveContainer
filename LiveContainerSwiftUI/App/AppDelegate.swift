@@ -884,6 +884,9 @@ enum LiveContainerAutoRefreshScheduler {
             summary["renewed_count"] = results.filter { V3RefreshProfileEvidence($0["verification"])?.isRenewed == true || V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }.count
             summary["acknowledged_count"] = results.filter { V3RefreshProfileEvidence($0["verification"])?.installAcknowledged == true || V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }.count
         }
+        summary["target_diagnostics"] = V3RefreshTargetDiagnostics.rows(manifest, runID: runID)
+        if CombinedVerification.hasCompleteTerminalResults(manifest, runID: runID),
+           let observation = V3RefreshTransportObservation.validated(manifest["transport_observation"]) { summary["transport_observation"] = observation }
         if let verifiedAt = manifest["date"] as? Date { summary["verified_at"] = verifiedAt }
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
         for key in ["requested_ids", "expected_ids", "skipped_ids"] {

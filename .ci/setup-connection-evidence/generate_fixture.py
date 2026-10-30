@@ -70,7 +70,8 @@ def generate(root, output):
     assert 'failure.operation == "refresh", failure.code == .failed' in policy
     assert 'failure.sourceStep == .refreshReadiness' in policy
     assert '["invalidVPN", "noVPN"].contains(kind ?? "")' in policy
-    assert 'V3RefreshAllTerminalEvidencePolicy.verifiedSummary(' in policy
+    assert 'V3RefreshTransportObservation.recorded(in: record, runID: runID)' in policy
+    assert 'verifiedSummary(' not in policy
     assert 'localizedDescription' not in policy and 'NSUnderlyingErrorKey' not in policy
     assert 'tunnelComplete: connectionVerified' in ui
     assert 'tunnelComplete: LiveContainerNetworkPreflight.hasTunnelInterface()' not in ui

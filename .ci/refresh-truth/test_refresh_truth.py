@@ -76,7 +76,7 @@ class RefreshTruthTests(unittest.TestCase):
         source, shell = SUPPORT.read_text(), SHELL.read_text()
         combined = block(source, 'public enum CombinedVerification')
 
-        snippets = [block(source,marker) for marker in ['public enum V3RefreshRenewalOutcome','public struct V3RefreshProfileEvidence','public enum V3HostProfileRenewalProof','public enum V3RefreshEvidencePolicy','public enum V3DirectProfileVerificationPolicy','public struct V3RefreshUncertaintyTicket','public enum V3RefreshUncertaintyAcknowledgmentPolicy']]
+        snippets = [block(source,marker) for marker in ['public enum V3RefreshTransportObservation','public enum V3RefreshRenewalOutcome','public struct V3RefreshProfileEvidence','public enum V3HostProfileRenewalProof','public enum V3RefreshEvidencePolicy','public enum V3DirectProfileVerificationPolicy','public struct V3RefreshUncertaintyTicket','public enum V3RefreshUncertaintyAcknowledgmentPolicy']]
         snippets += [combined]
         snippets += [block(shell,marker) for marker in ['enum V3RefreshAllPhase','enum V3RefreshAllTerminalEvidencePolicy','enum V3HomeRefreshVerificationPolicy','struct V3RefreshAllAttemptState']]
         stub = """struct CombinedFailure {

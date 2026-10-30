@@ -101777,6 +101777,754 @@
           }
         }
       }
+    },
+    "The refresh has no provisioning profiles to install.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The refresh has no provisioning profiles to install."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אין לרענון פרופילי הקצאה להתקנה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для обновления подписи нет профилей подготовки для установки."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次刷新没有可安装的描述文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次重新整理沒有可安裝的描述檔。"
+          }
+        }
+      }
+    },
+    "The installed app record required for this refresh is missing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The installed app record required for this refresh is missing."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "רשומת היישום המותקן הנדרשת לרענון חסרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсутствует запись установленного приложения, необходимая для обновления подписи."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少本次刷新所需的已安装应用记录。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少本次重新整理所需的已安裝 App 紀錄。"
+          }
+        }
+      }
+    },
+    "The main app provisioning profile could not be selected.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The main app provisioning profile could not be selected."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה לבחור את פרופיל ההקצאה של היישום הראשי."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выбрать профиль подготовки основного приложения."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法选出主应用的描述文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法選出主 App 的描述檔。"
+          }
+        }
+      }
+    },
+    "The verified signing certificate required to select profiles is missing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The verified signing certificate required to select profiles is missing."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "התעודה המאומתת הנדרשת לבחירת פרופילים חסרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсутствует проверенный сертификат подписи, необходимый для выбора профилей."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少选择描述文件所需的已验证签名证书。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少選擇描述檔所需的已驗證簽署憑證。"
+          }
+        }
+      }
+    },
+    "The selected main profile does not authorize the app identity.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected main profile does not authorize the app identity."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפרופיל הראשי שנבחר אינו מאשר את זהות היישום."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбранный основной профиль не разрешает идентификатор приложения."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选主描述文件不允许该应用标识。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選主描述檔不允許該 App 識別碼。"
+          }
+        }
+      }
+    },
+    "The selected main profile has already expired.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected main profile has already expired."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תוקף הפרופיל הראשי שנבחר כבר פג."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок действия выбранного основного профиля уже истёк."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选主描述文件已过期。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選主描述檔已過期。"
+          }
+        }
+      }
+    },
+    "The selected main profile does not contain the verified signing certificate.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected main profile does not contain the verified signing certificate."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הפרופיל הראשי שנבחר אינו מכיל את תעודת החתימה המאומתת."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбранный основной профиль не содержит проверенный сертификат подписи."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选主描述文件不包含已验证的签名证书。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選主描述檔不包含已驗證的簽署憑證。"
+          }
+        }
+      }
+    },
+    "An app extension is outside the parent app identity.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An app extension is outside the parent app identity."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "זהות הרחבת יישום אינה שייכת לזהות יישום האב."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идентификатор расширения не принадлежит родительскому приложению."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "某个应用扩展的标识不属于其父应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "某個 App 延伸功能的識別碼不屬於其父 App。"
+          }
+        }
+      }
+    },
+    "A selected extension profile does not authorize that extension.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A selected extension profile does not authorize that extension."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פרופיל הרחבה שנבחר אינו מאשר את זהות ההרחבה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбранный профиль расширения не разрешает это расширение."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选扩展描述文件不允许该扩展。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選延伸功能描述檔不允許該延伸功能。"
+          }
+        }
+      }
+    },
+    "A selected extension profile has already expired.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A selected extension profile has already expired."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תוקף פרופיל הרחבה שנבחר כבר פג."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок действия выбранного профиля расширения уже истёк."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选扩展描述文件已过期。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選延伸功能描述檔已過期。"
+          }
+        }
+      }
+    },
+    "A selected extension profile does not contain the verified signing certificate.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A selected extension profile does not contain the verified signing certificate."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פרופיל הרחבה שנבחר אינו מכיל את תעודת החתימה המאומתת."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбранный профиль расширения не содержит проверенный сертификат подписи."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选扩展描述文件不包含已验证的签名证书。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選延伸功能描述檔不包含已驗證的簽署憑證。"
+          }
+        }
+      }
+    },
+    "An extension profile belongs to a different team than the main profile.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An extension profile belongs to a different team than the main profile."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "פרופיל הרחבה שייך לצוות שונה מזה של הפרופיל הראשי."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиль расширения принадлежит другой команде, чем основной профиль."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扩展描述文件与主描述文件所属的团队不同。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "延伸功能描述檔與主描述檔所屬的團隊不同。"
+          }
+        }
+      }
+    },
+    "The older installed app identity could not be safely matched to the new profiles.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The older installed app identity could not be safely matched to the new profiles."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה להתאים בבטחה את זהות היישום הישן המותקן לפרופילים החדשים."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось безопасно сопоставить идентификатор ранее установленного приложения с новыми профилями."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法安全地将旧版已安装应用的标识与新描述文件匹配。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法安全地將舊版已安裝 App 的識別碼與新描述檔配對。"
+          }
+        }
+      }
+    },
+    "The older host app identity could not be safely verified for this refresh.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The older host app identity could not be safely verified for this refresh."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא ניתן היה לאמת בבטחה את זהות יישום המארח הישן עבור הרענון."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось безопасно проверить идентификатор ранее установленного приложения-хоста для этого обновления подписи."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法为本次刷新安全地验证旧版宿主应用的标识。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法為本次重新整理安全地驗證舊版宿主 App 的識別碼。"
+          }
+        }
+      }
+    },
+    "A required app extension has no selected provisioning profile.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A required app extension has no selected provisioning profile."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא נבחר פרופיל הקצאה להרחבת יישום נדרשת."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для обязательного расширения приложения не выбран профиль подготовки."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "某个必需的应用扩展没有选定的描述文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "某個必要的 App 延伸功能沒有選定的描述檔。"
+          }
+        }
+      }
+    },
+    "The profile selection contains unexpected app identities.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The profile selection contains unexpected app identities."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בחירת הפרופילים כוללת זהויות יישום לא צפויות."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В наборе выбранных профилей есть неожиданные идентификаторы приложений."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选描述文件包含意外的应用标识。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選描述檔包含非預期的 App 識別碼。"
+          }
+        }
+      }
+    },
+    "The same profile UUID refers to conflicting profile contents.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The same profile UUID refers to conflicting profile contents."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אותו UUID של פרופיל מתייחס לתכני פרופיל סותרים."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Один и тот же UUID профиля соответствует разному содержимому профилей."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同一描述文件 UUID 对应的内容存在冲突。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同一描述檔 UUID 對應的內容存在衝突。"
+          }
+        }
+      }
+    },
+    "The profile selection contains an unexpected profile UUID.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The profile selection contains an unexpected profile UUID."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "בחירת הפרופילים כוללת UUID לא צפוי של פרופיל."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В наборе выбранных профилей есть неожиданный UUID профиля."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所选描述文件包含意外的描述文件 UUID。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所選描述檔包含非預期的描述檔 UUID。"
+          }
+        }
+      }
+    },
+    "The target app bundle required for this refresh is missing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The target app bundle required for this refresh is missing."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "חבילת יישום היעד הנדרשת לרענון חסרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсутствует пакет целевого приложения, необходимый для обновления подписи."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少本次刷新所需的目标应用包。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少本次重新整理所需的目標 App 套件。"
+          }
+        }
+      }
+    },
+    "This target stopped before profile installation. Copy Diagnostics to check its profile selection. Do not reset account or VPN settings based on this error alone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This target stopped before profile installation. Copy Diagnostics to check its profile selection. Do not reset account or VPN settings based on this error alone."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "יעד זה נעצר לפני התקנת הפרופילים. יש להעתיק את האבחון לבדיקת בחירת הפרופילים שלו. אין לאפס את הגדרות החשבון או ה־VPN על סמך שגיאה זו בלבד."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обработка этой цели остановилась до установки профилей. Скопируйте диагностику для проверки выбранных профилей. Не сбрасывайте настройки учётной записи или VPN только на основании этой ошибки."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此目标在安装描述文件前已停止。请复制诊断信息以检查其描述文件选择。不要仅凭此错误重置账户或 VPN 设置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此目標在安裝描述檔前已停止。請複製診斷資訊以檢查其描述檔選擇。不要僅憑此錯誤重設帳號或 VPN 設定。"
+          }
+        }
+      }
+    },
+    "Device connection was available during this refresh. This is not a live check; connection settings may have changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device connection was available during this refresh. This is not a live check; connection settings may have changed."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החיבור למכשיר היה זמין במהלך רענון זה. זו אינה בדיקה בזמן אמת; ייתכן שהגדרות החיבור השתנו."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение к устройству было доступно во время этого обновления подписи. Это не проверка текущего состояния; настройки подключения могли измениться."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次刷新期间设备连接可用。这不是实时检查；连接设置可能已更改。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次重新整理期間裝置連線可用。這不是即時檢查；連線設定可能已變更。"
+          }
+        }
+      }
+    },
+    "Device connection was observed during this refresh; CoreDevice transport was not independently recorded. This does not verify renewal.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device connection was observed during this refresh; CoreDevice transport was not independently recorded. This does not verify renewal."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החיבור למכשיר נצפה במהלך רענון זה; תעבורת CoreDevice לא תועדה בנפרד. הדבר אינו מאמת את חידוש התוקף."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Во время этого обновления подписи наблюдалось подключение к устройству; транспорт CoreDevice отдельно не зафиксирован. Это не подтверждает продление срока действия."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次刷新期间观察到了设备连接；未单独记录 CoreDevice 传输。这并不验证有效期已延长。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次重新整理期間觀察到了裝置連線；未單獨記錄 CoreDevice 傳輸。這並不驗證有效期已延長。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

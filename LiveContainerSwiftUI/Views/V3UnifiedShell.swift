@@ -2642,6 +2642,7 @@ enum V3RefreshAllFailureDiagnostics {
             "attempted_app_ids=\(safeIDs("expected_ids"))",
             "skipped_app_ids=\(safeIDs("skipped_ids"))",
             "renewal_outcome=\(V3RefreshEvidencePolicy.recordedOutcome(record, runID: runID)?.rawValue ?? "unknown")",
+            V3RefreshTargetDiagnostics.copiedDetails(record, runID: runID),
             "safe_message=\((V3RefreshEvidencePolicy.presentationOutcome(record, runID: runID)?.message ?? failure.safeMessage).replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " "))"
         ].joined(separator: "\n")
     }
@@ -16960,8 +16961,8 @@ enum V3SetupConnectionCopy: String, CaseIterable {
     case checking = "Refresh is still being checked. Tunnel readiness is not verified."
     case vpnNotReady = "The latest refresh could not use the VPN connection. Enable LocalDevVPN, return here, and retry."
     case readinessFailed = "Device connection readiness failed during the latest refresh. Copy Diagnostics for details."
-    case verified = "Device connection verified by the latest successful refresh. This is not a live VPN check."
-    case coreDeviceTransportUnrecorded = "Refresh verified; CoreDevice transport was not independently recorded."
+    case verified = "Device connection was available during this refresh. This is not a live check; connection settings may have changed."
+    case coreDeviceTransportUnrecorded = "Device connection was observed during this refresh; CoreDevice transport was not independently recorded. This does not verify renewal."
     case coreDeviceReadinessFailed = "Not verified: device connection readiness failed during the latest refresh."
     case waiting = "Waiting for a verified refresh result."
     case coreDeviceNotChecked = "Not checked. A detected tunnel interface does not verify device readiness."
@@ -16976,7 +16977,8 @@ enum V3SetupConnectionEvidencePolicy {
     struct Observation {
         let evidence: Evidence
         let runID: String?
-        var isVerified: Bool { evidence == .verified }
+        var interfacePresent = true
+        var isVerified: Bool { evidence == .verified && interfacePresent }
 
         var tunnelStep: V3SetupStepState {
             switch evidence {
@@ -16991,7 +16993,8 @@ enum V3SetupConnectionEvidencePolicy {
             case .readinessFailed:
                 return V3SetupStepState(state: "failed", detail: V3SetupConnectionCopy.readinessFailed.rawValue)
             case .verified:
-                return V3SetupStepState(state: "verified", detail: V3SetupConnectionCopy.verified.rawValue)
+                return V3SetupStepState(state: interfacePresent ? "detected" : "actionRequired",
+                    detail: interfacePresent ? V3SetupConnectionCopy.verified.rawValue : V3SetupConnectionCopy.notDetected.rawValue)
             }
         }
 
@@ -17052,11 +17055,10 @@ enum V3SetupConnectionEvidencePolicy {
             let evidence: Evidence = ["invalidVPN", "noVPN"].contains(kind ?? "") ? .vpnNotReady : .readinessFailed
             return Observation(evidence: evidence, runID: runID)
         }
-        // Only the established full terminal-summary predicate may verify.
-        // A newer signing failure is not a success receipt for this policy.
-        if interfacePresent, V3RefreshAllTerminalEvidencePolicy.verifiedSummary(
-            record["manifest_summary"] as? [String: Any], record: record, runID: runID) {
-            return Observation(evidence: .verified, runID: runID)
+        // Only an explicit owned-batch readiness observation may establish historical
+        // transport availability. Renewal/installation evidence is a separate axis.
+        if V3RefreshTransportObservation.recorded(in: record, runID: runID) {
+            return Observation(evidence: .verified, runID: runID, interfacePresent: interfacePresent)
         }
         return Observation(evidence: unverified, runID: runID)
     }
