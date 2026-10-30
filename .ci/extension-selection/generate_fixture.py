@@ -47,7 +47,7 @@ def generate(root, output):
     assert 'RemoveAppExtensionsOperation(context: context, localAppExtensions: localAppExtensions)' in s['executor']
     assert 'let handler = V3HeadlessPipelineHandler(sessionID: id)' in s['service']
     assert 'handler: handler, context: baseContext)' in s['service']
-    parts = []
+    parts = [block(s['service'], 'struct V3LegacyReplacementBinding:')]
     for key, anchor in [('handlers','enum ExtensionRemovalDecision:'), ('handlers','enum V3ReuseMainExplanation {'), ('service','enum V3ExtensionRemovalPromptPolicy {'), ('service','enum V3PromptSelectionPolicy {'), ('ui','enum V3MultiSelectPromptAnswerPolicy {'), ('removal','public enum AppExtensionCustomization:'), ('removal','final class RemoveAppExtensionsOperation:')]:
         parts.append(block(s[key], anchor))
     handler = block(s['service'], '    func selectAppExtensionsToRemove(appBundle: ALTApplication,')
@@ -60,7 +60,10 @@ def generate(root, output):
     for case in ('cancel', 'keepAll', 'keepAllValidatedReuseMain', 'removeAll', 'removeSelected'):
         assert re.search(r'case\s+' + case + r'\b', decision), case
     for member in ('var validatedReuseMain = false', 'var isAltStoreApp = false',
-                   'enum Info { static let activeBundleIdentifier'):
+                   'enum Info { static let activeBundleIdentifier',
+                   'let legacyReplacementBinding: V3LegacyReplacementBinding? = nil',
+                   'func validateLegacyReplacementAdmission() async throws',
+                   'func validateLegacyReplacementBundle(_ app: ALTApplication, signed: Bool) throws'):
         assert member in fixture, member
 
     actual_cases = re.findall(r'try await run\("([^"]+)"', (Path(__file__).parent/'Cases.swift').read_text())

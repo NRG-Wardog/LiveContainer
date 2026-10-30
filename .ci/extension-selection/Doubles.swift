@@ -33,6 +33,12 @@ class BasePipelineOperation<C, R> {
     func setProgress(_ value: Int64) { progress.completedUnitCount = value }
 }
 final class InstallAppOperationContext {
+    // These existing cases never request replacement. Its source-owned suite
+    // exercises that path; fail if this ordinary-path boundary is crossed.
+    let legacyReplacementBinding: V3LegacyReplacementBinding? = nil
+    func validateLegacyReplacementAdmission() async throws { fatalError("Unexpected replacement admission in ordinary fixture") }
+    func validateLegacyReplacementBundle(_ app: ALTApplication, signed: Bool) throws { fatalError("Unexpected replacement bundle in ordinary fixture") }
+
     var targetAppBundle: ALTApplication?
     var useMainProfile = false
     var validatedReuseMain = false
