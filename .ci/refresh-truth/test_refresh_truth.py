@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -21,6 +22,18 @@ def block(text, marker):
         if depth == 0: return text[start:end+1]
     raise AssertionError(marker)
 
+def validate_retry_admission(shell):
+    """Inspect only the retry property; all three exclusions must fail closed first."""
+    retry = block(shell, 'private var retryAllowed: Bool')
+    match = re.match(r'private var retryAllowed: Bool\s*\{\s*guard ([^{}]*?) else\s*\{\s*return false\s*\}', retry, re.S)
+    if match is None:
+        raise AssertionError('Retry admission must start with a fail-closed guard')
+    conditions = [value.strip() for value in match.group(1).split(',')]
+    expected = {'request.operation != "legacyReplacement"', '!retryBlocked', '!profileMutationObserved'}
+    if len(conditions) != len(expected) or set(conditions) != expected:
+        raise AssertionError('Retry admission must retain replacement, uncertainty and mutation exclusions')
+    return retry
+
 class RefreshTruthTests(unittest.TestCase):
     def test_production_gates_and_projections(self):
         source, shell, app, history = (p.read_text() for p in [SUPPORT, SHELL, APP, HISTORY])
@@ -28,7 +41,14 @@ class RefreshTruthTests(unittest.TestCase):
         self.assertIn('item["verification"] = evidence.wire', source)
         self.assertIn('V3RefreshEvidencePolicy.outcome(manifest, runID: runID).isVerified', app)
         self.assertIn('let requiresExplicitRetry = mutationUnclear || terminalEvidence != nil ||', app)
-        self.assertIn('guard !retryBlocked, !profileMutationObserved', shell)
+        retry = validate_retry_admission(shell)
+        for condition in ['request.operation != "legacyReplacement"', '!retryBlocked', '!profileMutationObserved']:
+            with self.subTest(missing_retry_exclusion=condition):
+                changed = retry.replace(condition, 'true', 1)
+                with self.assertRaisesRegex(AssertionError, 'Retry admission must retain'):
+                    validate_retry_admission(changed)
+        with self.assertRaisesRegex(AssertionError, 'fail-closed guard'):
+            validate_retry_admission(retry.replace('else { return false }', 'else { return true }', 1))
         self.assertIn('outcomeUnknown: V3OperationReplyFieldPolicy.outcomeUnknown(reply["outcomeUnknown"]) || profileMutationObserved', shell)
         self.assertIn('if let outcome = directRenewalOutcome, !outcome.isVerified', shell)
         hooks = (ROOT/'SideStoreSupport/SideStoreHooks.m').read_text()
