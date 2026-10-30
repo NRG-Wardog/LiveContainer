@@ -101,7 +101,14 @@ def validate(candidate_root, baseline_root, output, variants=('baseline', 'candi
                   'post-native cancellation identity preserved' in swift,
                   'candidate: new network/admission negative controls retained')
             check(block((root / generator.EXTRA_INPUTS['runner']).read_text(),
-                        '    private func performUsingAdmittedRoute(') in swift,
+                        '    private func performUsingAdmittedRoute(') in swift and
+                  block((root / generator.EXTRA_INPUTS['runner']).read_text(),
+                        'private struct V3TransportObservationConfiguration:') in swift and
+                  block((root / generator.EXTRA_INPUTS['group']).read_text(),
+                        'struct V3OwnedTransportObservation {') in swift and
+                  block((candidate_root / generator.SUPPORT_PATHS[6]).read_text(),
+                        'struct V3RefreshSelectionFailure:') in swift and
+                  wrapper.index('let runID = refreshIdentifier') < wrapper.index('group.bindTransportObservation(to: runID)') < wrapper.index('withCheckedThrowingContinuation'),
                   'candidate: exact admitted-route readiness/preflight body extracted')
             check(block((root / generator.EXTRA_INPUTS['runner']).read_text(), helper) in swift,
                   'candidate: actual integrated annotation helper extracted')

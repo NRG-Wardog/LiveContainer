@@ -92,7 +92,11 @@ struct ALTProvisioningProfile {
 '''
     swift += block(s['refresh_operation'], 'struct V3RefreshVerification:') + '\n'
     swift += block(s['ocsp'], 'public enum OCSPValidationError:') + '\n'
+    swift += block(s['group'], 'struct V3OwnedTransportObservation {') + '\n'
     swift += 'final class RefreshGroup {\nprivate let lock = NSLock()\nprivate var verificationByApp: [String: V3RefreshVerification] = [:]\n'
+    swift += 'private var transportObservation = V3OwnedTransportObservation()\n'
+    for anchor in ['    func bindTransportObservation(', '    func recordTransportReady(', '    func transportObservationWire(']:
+        swift += block(s['group'], anchor) + '\n'
     for anchor in ['    func setVerification(', '    func verification(for ', '    func verificationSnapshot()']:
         swift += block(s['group'], anchor) + '\n'
     swift += '}\n'

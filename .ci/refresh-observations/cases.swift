@@ -7,11 +7,11 @@ func failure(token: String = "missingMainProfile", scope: String = "nonHost", st
  signingContext:["local_precondition":token,"refresh_target_scope":scope,"refresh_failure_kind":kind])
 }
 check(failure().signingContext["local_precondition"] == "missingMainProfile", "typed_guard_preserved")
-check(failure().safeMessage.contains("main app provisioning profile"), "specific_safe_guard_copy")
-check(failure(token:"SECRET_RAW_MESSAGE").signingContext["local_precondition"] == nil, "unknown_guard_dropped")
+check(failure().safeMessage.contains("main app provisioning profile") && CombinedFailure.refreshSelectionPreconditions.allSatisfy { token in let value = failure(token: token); return value.safeMessage == value.message + "\n" + value.diagnosticLabel && !value.safeMessage.contains("no safe underlying cause") }, "specific_safe_guard_copy")
+check(failure(token:"SECRET_RAW_MESSAGE").signingContext["local_precondition"] == nil && failure(token:"SECRET_RAW_MESSAGE").safeMessage.contains("no safe underlying cause") && !failure(token:"SECRET_RAW_MESSAGE").safeMessage.contains("SECRET_RAW_MESSAGE"), "unknown_guard_dropped")
 check(failure(token:"SECRET_RAW_MESSAGE").signingContext["refresh_target_scope"] == nil, "orphan_scope_dropped")
 check(failure(scope:"SECRET_ACCOUNT").signingContext["refresh_target_scope"] == nil && failure(scope:"SECRET_ACCOUNT").code == .failed, "bad_scope_primary_failure_retained")
-check(failure(step:.refreshReadiness).signingContext["local_precondition"] == nil, "wrong_source_guard_dropped")
+check(failure(step:.refreshReadiness).signingContext["local_precondition"] == nil && failure(step:.refreshReadiness).safeMessage.contains("no safe underlying cause"), "wrong_source_guard_dropped")
 check(failure(stage:.signing).signingContext["local_precondition"] == nil, "wrong_stage_guard_dropped")
 check(failure(kind:"noVPN").signingContext["local_precondition"] == nil, "wrong_kind_guard_dropped")
 var nonstring=failure().wire; var context=nonstring["signingContext"] as! [String:Any];context["local_precondition"]=true;context["refresh_target_scope"]=99;nonstring["signingContext"]=context

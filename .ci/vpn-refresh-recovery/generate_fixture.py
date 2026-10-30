@@ -38,6 +38,13 @@ def verify_cold_guard_negative_controls(text, pinned_guard, block):
             continue
         raise AssertionError('Cold guard negative control was accepted: ' + old)
 
+def validate_classifier_dependency(swift, declaration):
+    # The composite disables the transport generator's classifier, then includes
+    # the actual classifier itself. Its production dependency must accompany it.
+    assert swift.count(declaration) == 1, 'Actual selection failure dependency missing or duplicated'
+    assert swift.count('struct V3RefreshSelectionFailure:') == 1, 'Selection failure dependency replaced or duplicated'
+    assert 'error as? V3RefreshSelectionFailure' in swift, 'Actual selection classifier dependency changed'
+
 def generate(root, output):
     root, output = root.resolve(), output.resolve()
     spec = importlib.util.spec_from_file_location('vpn_wire_extract', root / HELPER)
@@ -98,6 +105,7 @@ def generate(root, output):
     assert 'if let previous = completed[id]' in helper.block(service, 'private func receive(')
     assert 'record = nil' in helper.block(service, 'mutating func settleRefreshAdmission(')
     producer = helper.block((root / PRODUCER).read_text(), 'func lcRefreshFailureFacts(')
+    selection_failure = helper.block(transport_inputs['selection'].read_text(), 'struct V3RefreshSelectionFailure:')
     # Cross-layer classifier must remain exact; no broad noDevice matching.
     cold_source = json.loads((HERE / 'cold-peer-source.json').read_text())
     cold_message = cold_source['exact_local_noDevice_message']
@@ -158,7 +166,7 @@ def generate(root, output):
     instrumented_state = activation_state.replace('var leftHost = false', observed_storage, 1)
     assert instrumented_state.replace(observed_storage, 'var leftHost = false', 1) == activation_state
 
-    swift += helper.pure_model(model) + '\n' + errors + '\n' + producer + '\n'
+    swift += helper.pure_model(model) + '\n' + errors + '\n' + selection_failure + '\n' + producer + '\n'
     swift += 'func debugLog(_ text: String) {}\nfunc verboseLog(_ text: String) {}\n'
     swift += transport_source + '\n' + owned_wait + '\n' + early_capture + '\n' + structured_capture + '\n'
     observation_policy = helper.block(host, 'enum LiveContainerVPNPostActivationPolicy {')
@@ -168,6 +176,7 @@ def generate(root, output):
     swift += platform + '\n' + original + '\n' + cold_constant + policy + '\n@MainActor\n' + waiter
     swift += '\n@MainActor\n' + instrumented_state + '\n' + marker + '\n@MainActor\n' + network_preflight + '\n' + cases
 
+    validate_classifier_dependency(swift, selection_failure)
     output.mkdir(parents=True, exist_ok=True)
     (output / 'vpn-refresh-recovery.swift').write_text(swift)
     receipt = {'schema': 'vpn-refresh-recovery-sources-v1', 'status': 'STATIC_PASS_GENERATED_NOT_COMPILED_NOT_RUN',

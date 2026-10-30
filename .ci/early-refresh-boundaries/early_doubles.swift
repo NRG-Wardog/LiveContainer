@@ -93,8 +93,28 @@ public enum MinimuxerError: Error, LocalizedError {
     case getLockdownValue(String), connect(String), noService(String), opaque(String)
     public var errorDescription: String? { "SECRET_CANARY_ACCOUNT_TOKEN_PAIRING_012345" }
 }
-enum minimuxer {
-    static let core = FixtureCore()
+// Inert external facade/configuration observations. The production snapshot and
+// run-owned transport state machine are extracted unchanged by the generator.
+let minimuxer = FixtureFacade()
+final class FixtureFacade {
+    let core = FixtureCore()
+    let gateway = FixtureGateway()
+}
+final class FixtureGateway {
+    enum PortKind { case rppairing }
+    var coreDeviceTransportEnabled = true
+    func getPort(for kind: PortKind) -> UInt16 { 0 }
+}
+final class ConnectionConfig {
+    static let shared = ConnectionConfig()
+    var useLocalVPN = true
+    var overrideTunnelPeerIp = ""
+    var remoteServerIp = ""
+}
+final class V3PairingTransportReceipt {
+    static let shared = V3PairingTransportReceipt()
+    private let generation = UUID()
+    func observationGeneration() -> UUID { generation }
 }
 final class FixtureCore {
     var result: Result<Bool, MinimuxerError> = .success(true)

@@ -25,7 +25,11 @@ def generate(root, output):
     # Only the evidence storage surface is required by the real manifest producer.
     # Its methods are extracted verbatim; no synthetic acknowledged result exists.
     group_source = (root / early.SUPPORT_PATHS[8]).read_text()
+    swift += block(group_source, 'struct V3OwnedTransportObservation {') + '\n'
     swift += 'final class RefreshGroup {\nprivate let lock = NSLock()\nprivate var verificationByApp: [String: V3RefreshVerification] = [:]\n'
+    swift += 'private var transportObservation = V3OwnedTransportObservation()\n'
+    for anchor in ['    func bindTransportObservation(', '    func recordTransportReady(', '    func transportObservationWire(']:
+        swift += block(group_source, anchor) + '\n'
     for anchor in ['    func setVerification(', '    func verification(for ', '    func verificationSnapshot()']:
         swift += block(group_source, anchor) + '\n'
     swift += '}\n'

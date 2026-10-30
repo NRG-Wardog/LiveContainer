@@ -39,6 +39,13 @@ with tempfile.TemporaryDirectory() as temporary:
     assert 'failure.technicalDetails' in renderer
     assert 'failure.signingContext[' not in renderer and 'failure.underlyingDomain' not in renderer
     assert 'localizedDescription' not in renderer and 'userInfo' not in renderer
+    group_source=(a.sources/g.INPUT_PATHS['group']).read_text()
+    for anchor in ['struct V3OwnedTransportObservation {', '    func bindTransportObservation(',
+                   '    func recordTransportReady(', '    func transportObservationWire(']:
+        declaration=g.block(group_source,anchor)
+        assert generated.count(declaration)==1,anchor
+    assert 'private var transportObservation = V3OwnedTransportObservation()' in generated
+    assert 'attemptedAppIDs: [appID], group: RefreshGroup(), runID: runID)' in generated
     assert receipt['status']=='generated_not_compiled' and receipt['swift_executed'] is False
     assert receipt['native_provider_executed'] is False and receipt['network_executed'] is False
     assert set(g.INPUT_PATHS).issubset(receipt['inputs_sha256'])

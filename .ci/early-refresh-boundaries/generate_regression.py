@@ -73,6 +73,7 @@ struct ALTProvisioningProfile {
 }
 '''
     swift += block(support(SUPPORT_PATHS[6]), 'struct V3RefreshVerification:') + '\n'
+    swift += block(support(SUPPORT_PATHS[6]), 'struct V3RefreshSelectionFailure:') + '\n'
     swift += block(support(SUPPORT_PATHS[7]), 'public enum OCSPValidationError:') + '\n'
     steps = s['pipeline_steps']
     swift += '\nprotocol OperationStep: Equatable, Hashable {}\n'
@@ -186,6 +187,9 @@ def generate_variant(root, support_root, variant, output_root):
     swift += block(source['auth'], '    public func getAuthenticatedTeam()') + '\n'
     swift += block(source['auth'], '    private func resolveActiveTeam()') + '\n}\n'
     swift += '\n' + block(source['preflight'], 'final class PreflightChecksOperation:') + '\n'
+    if variant == 'candidate':
+        swift += '\n' + block(source['group'], 'struct V3OwnedTransportObservation {') + '\n'
+        swift += '\n' + block(source['runner'], 'private struct V3TransportObservationConfiguration:') + '\n'
     swift += '\n' + block(source['group'], 'final class RefreshGroup:') + '\n'
     if variant == 'candidate':
         swift += '\n' + block(source['runner'], 'enum V3RefreshEarlyFailureBoundary {') + '\n'
@@ -216,6 +220,11 @@ func refreshThroughActualManager(_ apps: [InstalledApp]) async throws -> [String
         // Keep the extracted callback exact. A callback is not task completion:
         // the baseline runner can still own its transport lease afterward.
 '''
+    if variant == 'candidate':
+        # The callback closes over the run captured before queueing in production.
+        # Bind the actual group to that same immutable fixture run, not a fabricated success.
+        swift = swift.replace('    let group = RefreshGroup(dbContext: NSManagedObjectContext())\n',
+            '    let runID = refreshIdentifier\n    let group = RefreshGroup(dbContext: NSManagedObjectContext())\n    group.bindTransportObservation(to: runID)\n', 1)
     swift += completion + '\n'
     swift += '''            _ = AppManager.shared.refresh(apps, presentingViewController: nil, group: group)
     }
