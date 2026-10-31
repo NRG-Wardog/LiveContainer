@@ -6,8 +6,8 @@ func check(_ value: @autoclosure () -> Bool, _ name: String) { precondition(valu
 func proof(_ dispatched: Bool = false, _ ack: Bool = false, renewed: Bool = false) -> [String:Any] {
  ["version":1,"mutationDispatched":dispatched,"installAcknowledged":ack,"profileStore":ack ? "matched":"unavailable","renewal":ack ? (renewed ? "extended":"unchanged"):"unknown","certificate":ack ? "valid":"unknown"]
 }
-func failure(_ guardToken: String = "legacyProofUnavailable", scope: String = "nonHost", step: CombinedFailure.SourceStep = .refreshApplication) -> CombinedFailure {
- CombinedFailure(operation:"refresh",stage:.command,code:.failed,id:run,sourceStep:step,
+func failure(_ guardToken: String = "legacyProofUnavailable", scope: String = "nonHost", step: CombinedFailure.SourceStep = .refreshApplication, stage: CombinedFailure.Stage = .command) -> CombinedFailure {
+ CombinedFailure(operation:"refresh",stage:stage,code:.failed,id:run,sourceStep:step,
  signingContext:["local_precondition":guardToken,"refresh_target_scope":scope,"refresh_failure_kind":"invalidParameters"])
 }
 func manifest(failed: Bool = true, evidence: [String:Any]? = proof(), error: CombinedFailure = failure()) -> [String:Any] {
@@ -107,7 +107,7 @@ start["riskAcknowledgmentVersion"]=1;start["userConfirmed"]=false
 check(!wire("opStart",payload:start),"negative_consent_rejected")
 print("LEGACY_REPLACEMENT_HOST_PASS")
 
-check(failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch).safeMessage.contains("existing matching profile"), "preservation_fetch_guard_allowed")
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch, stage: .signing).safeMessage.contains("existing matching profile"), "preservation_fetch_guard_allowed")
 check(failure("preservationAuthorizationChanged").safeMessage.contains("change existing authorization"), "preservation_refresh_guard_allowed")
 check(failure("legacyProofUnavailable", step: .provisioningProfileFetch).safeMessage.contains("The installed app was preserved.") == false, "legacy_guard_not_broadened_to_fetch")
 check(failure("preservationEvidenceUnavailable", step: .provisioningProfileCreation).safeMessage.contains("The installed app was preserved.") == false, "preservation_guard_wrong_stage_rejected")
@@ -115,3 +115,17 @@ check(failure("preservationUnknown").safeMessage.contains("The installed app was
 check(failure("preservationEvidenceUnavailable").safeMessage.contains("preserved"), "preservation_failure_explains_unchanged_app")
 
 check(failure("preservationEvidenceUnavailable", step: .provisioningProfileRetrieval).safeMessage.contains("The installed app was preserved.") == false, "preservation_network_retrieval_guard_rejected")
+
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch).signingContext["local_precondition"] == nil, "preservation_command_fetch_context_rejected")
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch, stage: .signing).signingContext["local_precondition"] == "preservationEvidenceUnavailable", "preservation_signing_fetch_context_retained")
+check(failure("preservationUnknown", step: .provisioningProfileFetch, stage: .signing).signingContext["local_precondition"] == nil, "preservation_signing_fetch_unknown_rejected")
+check(failure("legacyProofUnavailable", step: .provisioningProfileFetch, stage: .signing).signingContext["local_precondition"] == nil, "legacy_signing_fetch_context_rejected")
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileRetrieval, stage: .signing).signingContext["local_precondition"] == nil, "preservation_signing_inner_retrieval_rejected")
+let fetchPreservation = failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch, stage: .signing)
+check(CombinedFailure.decode(fetchPreservation.wire, expectedID: run)?.safeMessage == fetchPreservation.safeMessage, "preservation_signing_fetch_wire_roundtrip")
+
+let wrongPreservationKind = CombinedFailure(operation: "refresh", stage: .signing, code: .failed, id: run, sourceStep: .provisioningProfileFetch, signingContext: ["local_precondition": "preservationEvidenceUnavailable", "refresh_failure_kind": "certificateVerificationUnavailable"])
+check(wrongPreservationKind.signingContext["local_precondition"] == nil, "preservation_wrong_failure_kind_rejected")
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch, stage: .installation).signingContext["local_precondition"] == nil, "preservation_installation_stage_rejected")
+check(failure("unknownTeamType", step: .provisioningProfileFetch, stage: .signing).signingContext["local_precondition"] == "unknownTeamType", "old_preparation_guard_retained")
+check(failure("unknownTeamType", step: .provisioningProfileFetch).signingContext["local_precondition"] == nil, "old_preparation_wrong_stage_rejected")

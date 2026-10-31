@@ -86,7 +86,8 @@ class RefreshTruthTests(unittest.TestCase):
         self.assertIn('guard preservation == "authorizationPreserved" else { return nil }', evidence)
         self.assertIn('value["preservation"] = preservation', evidence)
         selection = block(source, "private var refreshSelectionPrecondition:")
-        self.assertIn("sourceStep == .provisioningProfileFetch && Self.preservationRefreshPreconditions.contains(token)", selection)
+        self.assertIn("stage == .signing && sourceStep == .provisioningProfileFetch && Self.preservationRefreshPreconditions.contains(token)", selection)
+        self.assertIn("stage == .command && sourceStep == .refreshApplication", selection)
 
     def test_localization_coverage(self):
         catalog=json.loads((ROOT/'Resources/Localizable.xcstrings').read_text())['strings']
