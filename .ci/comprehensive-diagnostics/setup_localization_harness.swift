@@ -88,9 +88,19 @@ struct SetupLocalizationHarness {
                     let wanted: String
                     switch key {
                     case "Refresh is still being checked. Tunnel readiness is not verified.",
-                         "Refresh verified; CoreDevice transport was not independently recorded.":
+                         "Refresh verified; CoreDevice transport was not independently recorded.",
+                         "Refresh stopped because a profile contains unsupported or incomplete authorization data. The installed app was preserved.",
+                         "Refresh stopped because existing profile authorizations are ambiguous or conflicting. The installed app was preserved.",
+                         "Refresh stopped because one profile identifier refers to conflicting profile contents. The installed app was preserved.",
+                         "Refresh stopped because the device profile inventory changed during verification. The installed app was preserved.",
+                         "Refresh stopped because the existing developer account app identity could not be matched without changing it. The installed app was preserved.",
+                         "Refresh stopped because the existing matching profile could not be verified on the device. The installed app was preserved.",
+                         "Refresh stopped because the existing signing certificate is no longer valid. Profile-only renewal cannot extend the certificate. The installed app was preserved.",
+                         "Refresh stopped because the historical app identity and signing certificate could not be linked. The installed app was preserved.",
+                         "Refresh stopped because the new profile does not extend effective validity. The installed app was preserved.",
+                         "Refresh stopped because the new profile would change existing authorization or signing certificates. The installed app was preserved.":
                         // Missing exact copy can still match the unchanged, reviewed
-                        // "Refresh %@" format. Pin only these two known collisions;
+                        // "Refresh %@" format. Pin only these twelve reviewed collisions;
                         // do not mistake that inherited fallback for a translated key.
                         let format = selected.localizedString(forKey: "Refresh %@", value: missing, table: nil)
                         precondition(format != missing && !format.isEmpty, "Missing baseline Refresh format: " + code)

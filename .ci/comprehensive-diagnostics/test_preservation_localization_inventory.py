@@ -2,6 +2,7 @@
 from pathlib import Path
 import importlib.util
 import json
+import re
 import unittest
 
 HERE = Path(__file__).resolve().parent
@@ -10,7 +11,38 @@ spec = importlib.util.spec_from_file_location('setup_inventory', HERE / 'generat
 g = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(g)
 
+
+# This allowlist admits only known inherited formatter collisions, never a prefix rule.
+BASELINE_REFRESH_COLLISIONS = {
+    'Refresh is still being checked. Tunnel readiness is not verified.',
+    'Refresh verified; CoreDevice transport was not independently recorded.',
+} | g.PRESERVATION_DIAGNOSTIC_KEYS
+
+def validate_baseline_refresh_collisions(harness):
+    switch = g.block(harness, 'switch key {')
+    cases = switch.split('default:', 1)[0]
+    literals = set(re.findall(r'"([^"]+)"', cases.split('// Missing exact copy', 1)[0]))
+    assert literals == BASELINE_REFRESH_COLLISIONS
+    assert 'hasPrefix' not in switch
+    assert 'wanted = unavailable' in switch
+    assert 'check(exact == missing && V3DisplayMessage.raw(key).rendered(language: language, bundle: baseline) == wanted,' in harness
+    assert 'precondition(language == .english || wanted != expected[code]![key]!' in harness
+    assert 'String(key.dropFirst("Refresh ".count))' in switch
+    assert 'selected.localizedString(forKey: "Refresh %@", value: missing, table: nil)' in switch
+
 class PreservationLocalizationInventory(unittest.TestCase):
+    def test_exact_baseline_formatter_collisions(self):
+        harness = (HERE / 'setup_localization_harness.swift').read_text()
+        validate_baseline_refresh_collisions(harness)
+        self.assertEqual(len(BASELINE_REFRESH_COLLISIONS), 12)
+        for key in BASELINE_REFRESH_COLLISIONS:
+            with self.subTest(key=key), self.assertRaises(AssertionError):
+                validate_baseline_refresh_collisions(harness.replace(key, 'Refresh arbitrary unknown message', 1))
+        with self.assertRaises(AssertionError):
+            validate_baseline_refresh_collisions(harness.replace('check(exact == missing &&', 'check(true &&', 1))
+        with self.assertRaises(AssertionError):
+            validate_baseline_refresh_collisions(harness.replace('language == .english || wanted != expected[code]![key]!', 'true', 1))
+
     def test_reviewed_formatter_transition(self):
         source = g.read_sources(ROOT)
         self.assertEqual(g.local_refresh_keys(source), g.CURRENT_LOCAL_REFRESH_KEYS)
