@@ -84,6 +84,7 @@ enum LiveContainerRefreshHistoryPresentation {
     private static let results: [String: String] = [
         "verified": "Profile renewal verified",
         "hostProfileAdvanced": "Installed host profile expiration advanced",
+        "profileOnlyRenewed": "Profile-only renewal verified",
         "installedUnchanged": "Installed; expiration unchanged",
         "acknowledgedUnverified": "Renewal not confirmed",
         "verificationFailed": "Renewal not confirmed",

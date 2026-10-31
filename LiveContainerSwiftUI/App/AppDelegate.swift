@@ -1201,7 +1201,9 @@ enum LiveContainerAutoRefreshScheduler {
         let requestID = requestValue.isEmpty ? nil : requestValue
         let origin = runRecord["origin"] as? String
         let skippedCount = (manifest["skipped_ids"] as? [String])?.count ?? 0
-        let terminalDetail = skippedCount == 0 ? V3RefreshEvidencePolicy.outcome(manifest, runID: runID).message :
+        let renewalOutcome = V3RefreshEvidencePolicy.outcome(manifest, runID: runID)
+        let terminalDetail = skippedCount == 0 ? renewalOutcome.message :
+            (renewalOutcome == .profileOnlyRenewed ? renewalOutcome.message + "\n" : "") +
             "Profile renewal was verified for the attempted targets; \(skippedCount) running app(s) were skipped. Future launch and certificate trust are not guaranteed."
         if defaults.string(forKey: uncertainMutationKey) == runID { defaults.removeObject(forKey: uncertainMutationKey) }
         defaults.set(Date().addingTimeInterval(6 * 60 * 60), forKey: earliestEligibleKey)
@@ -1227,7 +1229,7 @@ enum LiveContainerAutoRefreshScheduler {
         runRecord["terminal_at"] = Date().timeIntervalSince1970
         runRecord["updated_at"] = Date().timeIntervalSince1970
         saveRunRecord(runRecord, runID: runID)
-        record(source: source, result: V3RefreshEvidencePolicy.outcome(manifest, runID: runID) == .hostProfileAdvanced ? "hostProfileAdvanced" : "verified", detail: terminalDetail)
+        record(source: source, result: renewalOutcome == .renewed ? "verified" : renewalOutcome.rawValue, detail: terminalDetail)
         cancelDeadlineProtection()
         publishRunState("completed", runID: runID, requestID: requestID, origin: origin)
         notify(title: "Refresh completed", body: terminalDetail, kind: "verified", runID: runID,

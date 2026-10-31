@@ -106,3 +106,12 @@ check(!wire("opStart",payload:start),"floating_consent_version_rejected")
 start["riskAcknowledgmentVersion"]=1;start["userConfirmed"]=false
 check(!wire("opStart",payload:start),"negative_consent_rejected")
 print("LEGACY_REPLACEMENT_HOST_PASS")
+
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch).safeMessage.contains("existing matching profile"), "preservation_fetch_guard_allowed")
+check(failure("preservationAuthorizationChanged").safeMessage.contains("change existing authorization"), "preservation_refresh_guard_allowed")
+check(failure("legacyProofUnavailable", step: .provisioningProfileFetch).safeMessage.contains("The installed app was preserved.") == false, "legacy_guard_not_broadened_to_fetch")
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileCreation).safeMessage.contains("The installed app was preserved.") == false, "preservation_guard_wrong_stage_rejected")
+check(failure("preservationUnknown").safeMessage.contains("The installed app was preserved.") == false, "preservation_unknown_guard_rejected")
+check(failure("preservationEvidenceUnavailable").safeMessage.contains("preserved"), "preservation_failure_explains_unchanged_app")
+
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileRetrieval).safeMessage.contains("The installed app was preserved.") == false, "preservation_network_retrieval_guard_rejected")

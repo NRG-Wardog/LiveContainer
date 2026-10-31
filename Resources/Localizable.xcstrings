@@ -1,6 +1,461 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Profile-only renewal verified": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile-only renewal verified"
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "אומת חידוש הפרופיל בלבד"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтверждено обновление только профиля"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅描述文件续期已验证"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅描述檔續期已驗證"
+          }
+        }
+      }
+    },
+    "Profile-store expiration advanced. Preservation-mode targets were not re-signed or replaced. Selection of these renewed profiles by the app and its extensions has not been independently verified.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile-store expiration advanced. Preservation-mode targets were not re-signed or replaced. Selection of these renewed profiles by the app and its extensions has not been independently verified."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תוקף הפרופיל במאגר הפרופילים הוארך. יעדים במצב שימור לא נחתמו מחדש ולא הוחלפו. לא אומת באופן עצמאי שהאפליקציה וההרחבות שלה משתמשות בפרופילים שחודשו."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок действия в хранилище профилей продлён. Приложения в режиме сохранения не переподписывались и не заменялись. Выбор обновлённых профилей приложением и его расширениями независимо не проверен."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "描述文件存储中的有效期已延长。保留模式下的目标未重新签名或替换。尚未独立验证应用及其扩展是否选用这些已续期的描述文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "描述檔儲存區中的有效期已延長。保留模式下的目標未重新簽署或替換。尚未獨立驗證 App 及其延伸功能是否選用這些已續期的描述檔。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because a profile contains unsupported or incomplete authorization data. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because a profile contains unsupported or incomplete authorization data. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי פרופיל מכיל נתוני הרשאה לא נתמכים או לא מלאים. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: профиль содержит неподдерживаемые или неполные данные разрешений. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：描述文件包含不支持或不完整的授权数据。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：描述檔包含不支援或不完整的授權資料。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because existing profile authorizations are ambiguous or conflicting. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because existing profile authorizations are ambiguous or conflicting. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי ההרשאות בפרופילים הקיימים אינן חד־משמעיות או סותרות. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: разрешения существующих профилей неоднозначны или противоречат друг другу. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：现有描述文件授权不明确或存在冲突。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：現有描述檔授權不明確或存在衝突。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because one profile identifier refers to conflicting profile contents. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because one profile identifier refers to conflicting profile contents. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי מזהה פרופיל אחד מתייחס לתכנים סותרים. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: один идентификатор профиля относится к разному содержимому. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：同一描述文件标识对应冲突的内容。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：同一描述檔識別碼對應衝突的內容。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because the device profile inventory changed during verification. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because the device profile inventory changed during verification. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי רשימת הפרופילים במכשיר השתנתה במהלך האימות. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: список профилей устройства изменился во время проверки. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：验证期间设备描述文件清单发生变化。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：驗證期間裝置描述檔清單發生變化。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because the existing developer account app identity could not be matched without changing it. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because the existing developer account app identity could not be matched without changing it. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי לא ניתן להתאים את זהות האפליקציה הקיימת בחשבון המפתח בלי לשנות אותה. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: не удалось сопоставить существующую идентичность приложения в учётной записи разработчика без её изменения. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：无法在不更改的情况下匹配开发者账户中的现有应用标识。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：無法在不變更的情況下比對開發者帳號中的現有 App 識別資訊。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because the existing matching profile could not be verified on the device. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because the existing matching profile could not be verified on the device. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי לא ניתן לאמת במכשיר את הפרופיל הקיים המתאים. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: не удалось проверить соответствующий существующий профиль на устройстве. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：无法验证设备上的匹配现有描述文件。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：無法驗證裝置上的相符現有描述檔。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because the existing signing certificate is no longer valid. Profile-only renewal cannot extend the certificate. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because the existing signing certificate is no longer valid. Profile-only renewal cannot extend the certificate. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי תעודת החתימה הקיימת אינה בתוקף. חידוש הפרופיל בלבד אינו מאריך את התעודה. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: существующий сертификат подписи больше не действителен. Обновление только профиля не продлевает сертификат. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：现有签名证书已失效。仅续期描述文件无法延长证书有效期。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：現有簽署憑證已失效。僅續期描述檔無法延長憑證有效期。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because the historical app identity and signing certificate could not be linked. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because the historical app identity and signing certificate could not be linked. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי לא ניתן לקשר את זהות האפליקציה ותעודת החתימה ההיסטוריות. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: не удалось связать прежнюю идентичность приложения и сертификат подписи. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：无法关联历史应用标识和签名证书。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：無法關聯歷史 App 識別資訊與簽署憑證。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because the new profile does not extend effective validity. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because the new profile does not extend effective validity. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי הפרופיל החדש אינו מאריך את התוקף בפועל. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: новый профиль не продлевает фактический срок действия. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：新描述文件未延长实际有效期。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：新描述檔未延長實際有效期。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because the new profile would change existing authorization or signing certificates. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because the new profile would change existing authorization or signing certificates. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "החידוש נעצר כי הפרופיל החדש ישנה הרשאות קיימות או תעודות חתימה. האפליקציה המותקנת נשמרה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: новый профиль изменил бы существующие разрешения или сертификаты подписи. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "续期已停止：新描述文件将更改现有授权或签名证书。已保留安装的应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "續期已停止：新描述檔將變更現有授權或簽署憑證。已保留安裝的 App。"
+          }
+        }
+      }
+    },
+    "The installed app could not be linked to sufficient refresh evidence. This does not mean its signature is invalid. The app has not been replaced.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The installed app could not be linked to sufficient refresh evidence. This does not mean its signature is invalid. The app has not been replaced."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "לא נמצאו די ראיות כדי לקשר את האפליקציה המותקנת לחידוש. אין פירוש הדבר שהחתימה שלה אינה תקינה. האפליקציה לא הוחלפה."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недостаточно данных для связи установленного приложения с обновлением. Это не означает, что его подпись недействительна. Приложение не заменено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有足够证据将已安装的应用与续期关联。这并不意味着其签名无效。应用未被替换。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有足夠證據將已安裝的 App 與續期關聯。這並不意味著其簽章無效。App 未被替換。"
+          }
+        }
+      }
+    },
     "\nA retained guest still owns this container. Close its existing window before relaunching.": {
       "extractionState": "manual",
       "localizations": {

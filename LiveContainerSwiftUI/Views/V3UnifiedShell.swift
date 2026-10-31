@@ -10333,7 +10333,7 @@ struct V3AppActions: View {
             status.refreshTarget = app.isHost ? nil : app.identifier
             status.refreshPresented = true
         }
-        V3LegacyReplacementAction(app: app)
+        // Missing refresh evidence is not a reason to offer app replacement.
         if app.hasUpdate { Button("Update") { action("update", "Update " + app.name) } }
         if !app.isHost {
             Button(LocalizedStringKey(app.isActive ? "Deactivate" : "Activate")) { action(app.isActive ? "deactivate" : "activate", app.isActive ? "Deactivate app" : "Activate app") }

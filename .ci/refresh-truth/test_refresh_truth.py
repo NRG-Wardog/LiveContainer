@@ -75,6 +75,19 @@ class RefreshTruthTests(unittest.TestCase):
         for marker in ['enum V3RefreshAllTerminalEvidencePolicy', 'enum V3HomeRefreshVerificationPolicy', 'struct V3RefreshAllAttemptState']:
             self.assertEqual(block(source,marker), block(shell,marker), marker)
 
+    def test_preservation_is_scoped_and_not_replacement(self):
+        source, shell, app, history = (p.read_text() for p in [SUPPORT, SHELL, APP, HISTORY])
+        self.assertNotIn('V3LegacyReplacementAction(app: app)', shell)
+        self.assertIn('case .profileOnlyRenewed:', source)
+        self.assertIn('Selection of these renewed profiles by the app and its extensions has not been independently verified.', source)
+        self.assertIn('renewalOutcome == .renewed ? "verified" : renewalOutcome.rawValue', app)
+        self.assertIn('"profileOnlyRenewed": "Profile-only renewal verified"', history)
+        evidence = block(source, 'public struct V3RefreshProfileEvidence')
+        self.assertIn('guard preservation == "authorizationPreserved" else { return nil }', evidence)
+        self.assertIn('value["preservation"] = preservation', evidence)
+        selection = block(source, "private var refreshSelectionPrecondition:")
+        self.assertIn("sourceStep == .provisioningProfileFetch && Self.preservationRefreshPreconditions.contains(token)", selection)
+
     def test_localization_coverage(self):
         catalog=json.loads((ROOT/'Resources/Localizable.xcstrings').read_text())['strings']
         keys=json.loads((Path(__file__).parent/'localization_keys.json').read_text())

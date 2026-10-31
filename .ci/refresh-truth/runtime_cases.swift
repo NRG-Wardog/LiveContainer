@@ -131,3 +131,35 @@ expect(!mayAcknowledge(handoff:true), "pending_host_rejected")
 expect(!mayAcknowledge(direct:true), "direct_owner_rejected")
 expect(!V3RefreshUncertaintyAcknowledgmentPolicy.mayRunAutomatically(manualOnlyAfterAcknowledgment:true), "acknowledgment_never_automatic_retry")
 print("REFRESH_TRUTH_RUNTIME_PASS")
+
+// Preservation is a scoped claim, not a substitute for mutation/readback evidence.
+var preserved = evidence()
+preserved["preservation"] = "authorizationPreserved"
+expect(V3RefreshProfileEvidence(preserved)?.wire["preservation"] as? String == "authorizationPreserved", "preservation_roundtrip")
+expect(V3RefreshEvidencePolicy.outcome(manifest(preserved), runID: run) == .profileOnlyRenewed, "preservation_scoped_outcome")
+expect(V3DirectProfileVerificationPolicy.outcome(["verification": preserved], operation: "refresh") == .profileOnlyRenewed, "preservation_direct_outcome")
+expect(V3RefreshRenewalOutcome.profileOnlyRenewed.isVerified, "preservation_profile_store_verified")
+expect(V3RefreshAllTerminalEvidencePolicy.verifiedSummary(summary("profileOnlyRenewed", renewed: 1), record: record("profileOnlyRenewed", state: "completed", renewed: 1), runID: run), "preservation_summary_scoped_success")
+var preservationUnknown = preserved; preservationUnknown["preservation"] = "appLaunchVerified"
+expect(V3RefreshProfileEvidence(preservationUnknown) == nil, "preservation_unknown_rejected")
+var preservationWrongType = preserved; preservationWrongType["preservation"] = true
+expect(V3RefreshProfileEvidence(preservationWrongType) == nil, "preservation_type_rejected")
+var preservationUnchanged = evidence("unchanged"); preservationUnchanged["preservation"] = "authorizationPreserved"
+expect(V3RefreshEvidencePolicy.outcome(manifest(preservationUnchanged), runID: run) == .installedUnchanged, "preservation_does_not_promote_unchanged")
+var preservationUnconfirmed = evidence("unknown", store: "unavailable", ack: false); preservationUnconfirmed["preservation"] = "authorizationPreserved"
+expect(V3RefreshEvidencePolicy.outcome(manifest(preservationUnconfirmed), runID: run) == .mutationUnconfirmed, "preservation_lost_ack_not_success")
+expect(V3DirectProfileVerificationPolicy.blocksRetry(["verification": preservationUnconfirmed], operation: "refresh"), "preservation_lost_ack_blocks_retry")
+var preservationBadCertificate = evidence(certificate: "invalid"); preservationBadCertificate["preservation"] = "authorizationPreserved"
+expect(V3RefreshEvidencePolicy.outcome(manifest(preservationBadCertificate), runID: run) == .verificationFailed, "preservation_does_not_promote_bad_certificate")
+
+let preservedSafe = sanitize(manifest(preserved))["liveContainerAutoRefreshVerification"] as! [String:Any]
+expect(V3RefreshEvidencePolicy.outcome(preservedSafe, runID: run) == .profileOnlyRenewed, "preservation_sanitizer_keeps_scope")
+var mixedPreserved = mixed
+mixedPreserved["results"] = [["bundle_id": "example.main", "success": true, "verification": preserved], ["bundle_id": "example.other", "success": true, "verification": evidence()]]
+expect(V3RefreshEvidencePolicy.outcome(mixedPreserved, runID: run) == .profileOnlyRenewed, "preservation_mixed_results_keep_scope")
+
+var mixedHostPreserved = host
+mixedHostPreserved["expected_ids"] = [V3HostProfileRenewalProof.originalHostID, "example.main"]
+mixedHostPreserved["requested_ids"] = [V3HostProfileRenewalProof.originalHostID, "example.main"]
+mixedHostPreserved["results"] = [["bundle_id": V3HostProfileRenewalProof.originalHostID, "success": true], ["bundle_id": "example.main", "success": true, "verification": preserved]]
+expect(V3RefreshEvidencePolicy.outcome(mixedHostPreserved, runID: run) == .profileOnlyRenewed, "preservation_mixed_host_keeps_scope")

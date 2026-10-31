@@ -119,11 +119,12 @@ public enum CombinedRefreshTargetPolicy {
 // LC_REFRESH_METADATA_SANITIZED_V1: never forward arbitrary saved result dictionaries.
 // V3_REFRESH_POSTINSTALL_EVIDENCE_V1: bounded observations, never a launch/trust guarantee.
 public enum V3RefreshRenewalOutcome: String {
-    case renewed, hostProfileAdvanced, installedUnchanged, acknowledgedUnverified, mutationUnconfirmed, verificationFailed, unconfirmed
+    case renewed, hostProfileAdvanced, profileOnlyRenewed, installedUnchanged, acknowledgedUnverified, mutationUnconfirmed, verificationFailed, unconfirmed
 
-    public var isVerified: Bool { self == .renewed || self == .hostProfileAdvanced }
+    public var isVerified: Bool { self == .renewed || self == .hostProfileAdvanced || self == .profileOnlyRenewed }
     public var message: String {
         switch self {
+        case .profileOnlyRenewed: return "Profile-store expiration advanced. Preservation-mode targets were not re-signed or replaced. Selection of these renewed profiles by the app and its extensions has not been independently verified."
         case .hostProfileAdvanced: return "The installed host profile expiration advanced. Other attempted targets, if any, passed profile-store verification. This does not establish the host certificate lifetime or guarantee future app launch or certificate trust."
         case .renewed: return "The expected profiles were found on the device, and the effective validity of every attempted target increased. This does not guarantee future app launch or certificate trust."
         case .installedUnchanged: return "Installation was acknowledged and the expected profiles were found, but expiration did not advance for every target. An imported profile may need renewal by its issuer."
@@ -135,6 +136,7 @@ public enum V3RefreshRenewalOutcome: String {
     }
     public var title: String {
         switch self {
+        case .profileOnlyRenewed: return "Profile-only renewal verified"
         case .hostProfileAdvanced: return "Installed host profile expiration advanced"
         case .renewed: return "Profile renewal verified"
         case .installedUnchanged: return "Installed; expiration unchanged"
@@ -150,10 +152,11 @@ public struct V3RefreshProfileEvidence {
     public let renewal: String
     public let certificate: String
     public let reason: String?
+    public let preservation: String?
 
     public init?(_ value: Any?) {
         guard let raw = value as? [String: Any],
-              Set(raw.keys).isSubset(of: ["version", "mutationDispatched", "installAcknowledged", "profileStore", "renewal", "certificate", "reason"]),
+              Set(raw.keys).isSubset(of: ["version", "mutationDispatched", "installAcknowledged", "profileStore", "renewal", "certificate", "reason", "preservation"]),
               let version = raw["version"] as? NSNumber, CFGetTypeID(version) != CFBooleanGetTypeID(),
               ["c", "s", "i", "l", "q", "C", "S", "I", "L", "Q"].contains(String(cString: version.objCType)), version.intValue == 1,
               let dispatched = raw["mutationDispatched"] as? NSNumber, CFGetTypeID(dispatched) == CFBooleanGetTypeID(),
@@ -161,6 +164,10 @@ public struct V3RefreshProfileEvidence {
               let store = raw["profileStore"] as? String, ["matched", "mismatch", "unavailable"].contains(store),
               let renewal = raw["renewal"] as? String, ["extended", "unchanged", "shortened", "unknown"].contains(renewal),
               let certificate = raw["certificate"] as? String, ["valid", "unknown", "invalid"].contains(certificate) else { return nil }
+        let preservation = raw["preservation"] as? String
+        if raw["preservation"] != nil {
+            guard preservation == "authorizationPreserved" else { return nil }
+        }
         let reason = raw["reason"] as? String
         if raw["reason"] != nil {
             guard let reason, ["profileAbsent", "profileMismatch", "readbackUnavailable", "baselineUnavailable", "expiryUnchanged", "expiryShortened", "certificateUnknown", "certificateExpired", "certificateRevoked"].contains(reason) else { return nil }
@@ -184,6 +191,7 @@ public struct V3RefreshProfileEvidence {
         self.mutationDispatched = dispatched.boolValue
         self.installAcknowledged = acknowledged.boolValue
         self.profileStore = store; self.renewal = renewal; self.certificate = certificate; self.reason = reason
+        self.preservation = preservation
     }
     public var isRenewed: Bool {
         installAcknowledged && profileStore == "matched" && renewal == "extended" && certificate == "valid"
@@ -192,6 +200,7 @@ public struct V3RefreshProfileEvidence {
         var value: [String: Any] = ["version": 1, "mutationDispatched": mutationDispatched, "installAcknowledged": installAcknowledged,
             "profileStore": profileStore, "renewal": renewal, "certificate": certificate]
         if let reason { value["reason"] = reason }
+        if let preservation { value["preservation"] = preservation }
         return value
     }
 }
@@ -240,7 +249,13 @@ public enum V3RefreshEvidencePolicy {
         if entries.allSatisfy({ entry in
             entry["success"] as? Bool == true && (V3RefreshProfileEvidence(entry["verification"])?.isRenewed == true ||
                 V3HostProfileRenewalProof.matches(manifest, entry: entry, runID: runID))
-        }) { return entries.contains(where: { V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }) ? .hostProfileAdvanced : .renewed }
+        }) {
+            // A profile-store observation is not installed app/extension launch proof.
+            if entries.contains(where: { entry in
+                guard let evidence = V3RefreshProfileEvidence(entry["verification"]) else { return false }
+                return evidence.isRenewed && evidence.preservation == "authorizationPreserved"
+            }) { return .profileOnlyRenewed }
+            return entries.contains(where: { V3HostProfileRenewalProof.matches(manifest, entry: $0, runID: runID) }) ? .hostProfileAdvanced : .renewed }
         let evidence = entries.compactMap { V3RefreshProfileEvidence($0["verification"]) }
         if evidence.contains(where: { $0.mutationDispatched && !$0.installAcknowledged }) { return .mutationUnconfirmed }
         guard evidence.count == entries.count else { return hasAcknowledgment(manifest, runID: runID) ? .acknowledgedUnverified : .unconfirmed }
@@ -319,7 +334,7 @@ public enum V3DirectProfileVerificationPolicy {
         }
         if evidence.mutationDispatched && !evidence.installAcknowledged { return .mutationUnconfirmed }
         guard evidence.installAcknowledged else { return nil }
-        if evidence.isRenewed { return .renewed }
+        if evidence.isRenewed { return evidence.preservation == "authorizationPreserved" ? .profileOnlyRenewed : .renewed }
         if evidence.profileStore == "matched" && evidence.renewal == "unchanged" && evidence.certificate == "valid" { return .installedUnchanged }
         if evidence.profileStore == "mismatch" || evidence.renewal == "shortened" || evidence.certificate == "invalid" { return .verificationFailed }
         return .acknowledgedUnverified
@@ -1029,7 +1044,8 @@ public struct CombinedFailure: Error, LocalizedError {
         guard let strings = V3AuthenticationDiagnostics.sanitizingWireContext(fields) else { return nil }
         return validatedSigningContext(strings)
     }
-    public static let refreshSelectionPreconditions: Set<String> = ["missingTargetAppBundle", "missingRefreshProfiles", "missingInstalledRecord", "missingMainProfile", "missingVerifiedCertificate", "mainProfileIdentityMismatch", "mainProfileExpired", "mainProfileCertificateMismatch", "extensionOutsideParent", "extensionProfileIdentityMismatch", "extensionProfileExpired", "extensionProfileCertificateMismatch", "extensionTeamMismatch", "legacyProofUnavailable", "legacyHostProofUnavailable", "missingExtensionProfile", "unexpectedProfileKeys", "inconsistentProfileUUID", "unexpectedProfileUUID"]
+    public static let refreshSelectionPreconditions: Set<String> = ["missingTargetAppBundle", "missingRefreshProfiles", "missingInstalledRecord", "missingMainProfile", "missingVerifiedCertificate", "mainProfileIdentityMismatch", "mainProfileExpired", "mainProfileCertificateMismatch", "extensionOutsideParent", "extensionProfileIdentityMismatch", "extensionProfileExpired", "extensionProfileCertificateMismatch", "extensionTeamMismatch", "legacyProofUnavailable", "legacyHostProofUnavailable", "missingExtensionProfile", "unexpectedProfileKeys", "inconsistentProfileUUID", "unexpectedProfileUUID", "preservationIdentityUnavailable", "preservationMalformedProfile", "preservationEvidenceUnavailable", "preservationAuthorityConflict", "preservationUUIDConflict", "preservationAuthorizationChanged", "preservationExpiredCertificate", "preservationNotExtended", "preservationSnapshotChanged", "preservationPortalIdentityUnavailable"]
+    public static let preservationRefreshPreconditions: Set<String> = ["preservationIdentityUnavailable", "preservationMalformedProfile", "preservationEvidenceUnavailable", "preservationAuthorityConflict", "preservationUUIDConflict", "preservationAuthorizationChanged", "preservationExpiredCertificate", "preservationNotExtended", "preservationSnapshotChanged", "preservationPortalIdentityUnavailable"]
     private static let refreshLocalPreconditions: Set<String> = refreshSelectionPreconditions.union(["unknownTeamType", "unresolvedAppGroupPlaceholder", "missingProgressWeight", "invalidProgressReuse", "missingPipelineStepMapping"])
     public static func validatedSigningContext(_ value: [String: String]) -> [String: String]? {
         var fields = V3AuthenticationDiagnostics.sanitizingContext(V3TemporaryADIConsumption.sanitizingContext(value))
@@ -1296,10 +1312,11 @@ public struct CombinedFailure: Error, LocalizedError {
     }
     private var refreshSelectionPrecondition: String? {
         guard operation == "refresh", stage == .command, code == .failed,
-              sourceStep == .refreshApplication,
               signingContext["refresh_failure_kind"] == "invalidParameters",
               let token = signingContext["local_precondition"],
-              Self.refreshSelectionPreconditions.contains(token) else { return nil }
+              Self.refreshSelectionPreconditions.contains(token),
+              sourceStep == .refreshApplication ||
+                (sourceStep == .provisioningProfileFetch && Self.preservationRefreshPreconditions.contains(token)) else { return nil }
         return token
     }
     private var localRefreshMessage: String? {
@@ -1317,7 +1334,17 @@ public struct CombinedFailure: Error, LocalizedError {
         case "extensionProfileExpired": return "A selected extension profile has already expired."
         case "extensionProfileCertificateMismatch": return "A selected extension profile does not contain the verified signing certificate."
         case "extensionTeamMismatch": return "An extension profile belongs to a different team than the main profile."
-        case "legacyProofUnavailable": return "The older installed app identity could not be safely matched to the new profiles."
+        case "preservationIdentityUnavailable": return "Refresh stopped because the historical app identity and signing certificate could not be linked. The installed app was preserved."
+        case "preservationMalformedProfile": return "Refresh stopped because a profile contains unsupported or incomplete authorization data. The installed app was preserved."
+        case "preservationEvidenceUnavailable": return "Refresh stopped because the existing matching profile could not be verified on the device. The installed app was preserved."
+        case "preservationAuthorityConflict": return "Refresh stopped because existing profile authorizations are ambiguous or conflicting. The installed app was preserved."
+        case "preservationUUIDConflict": return "Refresh stopped because one profile identifier refers to conflicting profile contents. The installed app was preserved."
+        case "preservationAuthorizationChanged": return "Refresh stopped because the new profile would change existing authorization or signing certificates. The installed app was preserved."
+        case "preservationExpiredCertificate": return "Refresh stopped because the existing signing certificate is no longer valid. Profile-only renewal cannot extend the certificate. The installed app was preserved."
+        case "preservationNotExtended": return "Refresh stopped because the new profile does not extend effective validity. The installed app was preserved."
+        case "preservationSnapshotChanged": return "Refresh stopped because the device profile inventory changed during verification. The installed app was preserved."
+        case "preservationPortalIdentityUnavailable": return "Refresh stopped because the existing developer account app identity could not be matched without changing it. The installed app was preserved."
+        case "legacyProofUnavailable": return "The installed app could not be linked to sufficient refresh evidence. This does not mean its signature is invalid. The app has not been replaced."
         case "legacyHostProofUnavailable": return "The older host app identity could not be safely verified for this refresh."
         case "missingExtensionProfile": return "A required app extension has no selected provisioning profile."
         case "unexpectedProfileKeys": return "The profile selection contains unexpected app identities."

@@ -23,5 +23,18 @@
   "I checked the app and its expiration",
   "Your device check was acknowledged. No installation was repeated and renewal was not marked verified. Start a separate manual refresh only if needed. Automatic refresh remains paused until a new manual refresh is verified.",
   "The attempt or operation ownership changed. Nothing was cleared. Reload status before continuing.",
-  "User acknowledged uncertainty"
+  "User acknowledged uncertainty",
+  "Profile-only renewal verified",
+  "Profile-store expiration advanced. Preservation-mode targets were not re-signed or replaced. Selection of these renewed profiles by the app and its extensions has not been independently verified.",
+  "The installed app could not be linked to sufficient refresh evidence. This does not mean its signature is invalid. The app has not been replaced.",
+  "Refresh stopped because the historical app identity and signing certificate could not be linked. The installed app was preserved.",
+  "Refresh stopped because a profile contains unsupported or incomplete authorization data. The installed app was preserved.",
+  "Refresh stopped because the existing matching profile could not be verified on the device. The installed app was preserved.",
+  "Refresh stopped because existing profile authorizations are ambiguous or conflicting. The installed app was preserved.",
+  "Refresh stopped because one profile identifier refers to conflicting profile contents. The installed app was preserved.",
+  "Refresh stopped because the new profile would change existing authorization or signing certificates. The installed app was preserved.",
+  "Refresh stopped because the existing signing certificate is no longer valid. Profile-only renewal cannot extend the certificate. The installed app was preserved.",
+  "Refresh stopped because the new profile does not extend effective validity. The installed app was preserved.",
+  "Refresh stopped because the device profile inventory changed during verification. The installed app was preserved.",
+  "Refresh stopped because the existing developer account app identity could not be matched without changing it. The installed app was preserved."
 ]
