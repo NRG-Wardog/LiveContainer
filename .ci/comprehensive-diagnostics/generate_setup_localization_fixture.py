@@ -57,12 +57,70 @@ def connection_keys(s):
     assert len(keys) == 11, 'Exact finite setup connection copy inventory'
     return keys | set(CONNECTION_LABELS)
 
+# Exact reviewed source inventory, not a count-only allowance. Historical copy remains
+# in the catalog; only the legacy missing-proof producer wording is replaced.
+BASELINE_LOCAL_REFRESH_KEYS = {
+    'A required app extension has no selected provisioning profile.',
+    'A selected extension profile does not authorize that extension.',
+    'A selected extension profile does not contain the verified signing certificate.',
+    'A selected extension profile has already expired.',
+    'An app extension is outside the parent app identity.',
+    'An extension profile belongs to a different team than the main profile.',
+    'Certificate verification is unavailable. This does not mean the certificate was revoked. Check the connection and review this app’s verification status.',
+    "Check the app's signing entitlements and build configuration. Copy Diagnostics before retrying with a corrected build.",
+    'Check the local VPN connection and its SideStore configuration, then retry.',
+    'Copy Diagnostics to review the local refresh setup. This observation does not establish an account or provisioning-service failure.',
+    'LiveContainer could not open LocalDevVPN. Install/open it, enable the connection, then retry.',
+    'LocalDevVPN did not return before the activation wait ended. Return to LiveContainer and retry after enabling it.',
+    'SideStore could not prepare provisioning profiles because the target app bundle was missing from the refresh context.',
+    'SideStore did not recognize the selected team type while preparing provisioning features.',
+    "SideStore's refresh readiness check could not find a usable local VPN connection.",
+    "SideStore's refresh readiness check could not validate the local VPN connection.",
+    "The app's signing entitlements still contain an unresolved app-group placeholder.",
+    'The installed app record required for this refresh is missing.',
+    'The main app provisioning profile could not be selected.',
+    'The older host app identity could not be safely verified for this refresh.',
+    'The older installed app identity could not be safely matched to the new profiles.',
+    'The profile selection contains an unexpected profile UUID.',
+    'The profile selection contains unexpected app identities.',
+    'The refresh has no provisioning profiles to install.',
+    'The refresh pipeline could not map the provisioning-profile operation to its step.',
+    'The refresh pipeline has an invalid progress reuse limit for provisioning-profile preparation.',
+    'The refresh pipeline has no progress entry for provisioning-profile preparation.',
+    'The same profile UUID refers to conflicting profile contents.',
+    'The selected main profile does not authorize the app identity.',
+    'The selected main profile does not contain the verified signing certificate.',
+    'The selected main profile has already expired.',
+    'The target app bundle required for this refresh is missing.',
+    'The verified signing certificate required to select profiles is missing.',
+    'This target stopped before profile installation. Copy Diagnostics to check its profile selection. Do not reset account or VPN settings based on this error alone.',
+}
+PRESERVATION_DIAGNOSTIC_KEYS = {
+    'Refresh stopped because a profile contains unsupported or incomplete authorization data. The installed app was preserved.',
+    'Refresh stopped because existing profile authorizations are ambiguous or conflicting. The installed app was preserved.',
+    'Refresh stopped because one profile identifier refers to conflicting profile contents. The installed app was preserved.',
+    'Refresh stopped because the device profile inventory changed during verification. The installed app was preserved.',
+    'Refresh stopped because the existing developer account app identity could not be matched without changing it. The installed app was preserved.',
+    'Refresh stopped because the existing matching profile could not be verified on the device. The installed app was preserved.',
+    'Refresh stopped because the existing signing certificate is no longer valid. Profile-only renewal cannot extend the certificate. The installed app was preserved.',
+    'Refresh stopped because the historical app identity and signing certificate could not be linked. The installed app was preserved.',
+    'Refresh stopped because the new profile does not extend effective validity. The installed app was preserved.',
+    'Refresh stopped because the new profile would change existing authorization or signing certificates. The installed app was preserved.',
+}
+PRESERVATION_OUTCOME_KEYS = {
+    'Profile-only renewal verified',
+    'Profile-store expiration advanced. Preservation-mode targets were not re-signed or replaced. Selection of these renewed profiles by the app and its extensions has not been independently verified.',
+}
+LOCAL_REFRESH_REPLACEMENTS = {'The older installed app identity could not be safely matched to the new profiles.': 'The installed app could not be linked to sufficient refresh evidence. This does not mean its signature is invalid. The app has not been replaced.'}
+PRESERVATION_LOCALIZATION_KEYS = PRESERVATION_DIAGNOSTIC_KEYS | set(LOCAL_REFRESH_REPLACEMENTS.values()) | PRESERVATION_OUTCOME_KEYS
+CURRENT_LOCAL_REFRESH_KEYS = (BASELINE_LOCAL_REFRESH_KEYS - set(LOCAL_REFRESH_REPLACEMENTS)) | set(LOCAL_REFRESH_REPLACEMENTS.values()) | PRESERVATION_DIAGNOSTIC_KEYS
+
 def local_refresh_keys(s):
     if LOCAL_REFRESH_ANCHORS[0] not in s['identity_diagnostics']:
         return set()
     source = '\n'.join(block(s['identity_diagnostics'], anchor) for anchor in LOCAL_REFRESH_ANCHORS)
     keys = set(re.findall(r'return "([^"]+)"', source))
-    assert len(keys) == 34 and 'Certificate verification is unavailable. This does not mean the certificate was revoked. Check the connection and review this app’s verification status.' in keys, 'Exact finite local refresh formatter inventory'
+    assert keys in (BASELINE_LOCAL_REFRESH_KEYS, CURRENT_LOCAL_REFRESH_KEYS), 'Exact finite local refresh formatter inventory'
     return keys
 
 def overlay_keys(s):
@@ -71,7 +129,7 @@ def overlay_keys(s):
         guidance = 'Review the observed profile validity and signing setup before another action. No automatic retry will occur.'
         assert guidance in s['ui']
         keys.add(guidance)
-    assert not keys or len(keys) == 49, 'Exact narrow status/profile overlay copy inventory'
+    assert not keys or keys == connection_keys(s) | local_refresh_keys(s) | {guidance}, 'Exact narrow status/profile overlay copy inventory'
     return keys
 
 def coverage(s, retained_baseline=None):

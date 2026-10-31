@@ -13,6 +13,34 @@ spec = importlib.util.spec_from_file_location('setup_generator', HERE / 'generat
 g = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(g)
 
+BASELINE_REFRESH_TRUTH_KEYS = {
+    'A previous installation may already have completed, but its result is unconfirmed. Check the app and its expiration before acknowledging that exact attempt. No new installation has started.',
+    'Acknowledge this uncertain attempt?',
+    'Certificate verification is unavailable. This does not mean the certificate was revoked. Check the connection and review this app’s verification status.',
+    'I checked the app and its expiration',
+    'Installation was acknowledged and the expected profiles were found, but expiration did not advance for every target. An imported profile may need renewal by its issuer.',
+    'Installation was acknowledged, but renewed validity could not be confirmed. The operation will not be repeated automatically.',
+    'Installation was acknowledged, but the observed profiles or validity did not match the expected result. The operation will not be repeated automatically.',
+    'Installation was requested, but its result could not be confirmed. The operation will not be repeated automatically. Review device status before another action.',
+    'Installed host profile expiration advanced',
+    'Installed; expiration unchanged',
+    'Profile renewal verified',
+    'Profile renewal was verified for the attempted targets; %lld running app(s) were skipped. Future launch and certificate trust are not guaranteed.',
+    'Refresh Results',
+    'Renewal not confirmed',
+    'Review the observed profile validity and signing setup before another action. No automatic retry will occur.',
+    'The attempt or operation ownership changed. Nothing was cleared. Reload status before continuing.',
+    'The backend finished, but the installation result or renewed validity remains unconfirmed. Check device status, then reconcile this attempt before another action.',
+    'The expected profiles were found on the device, and the effective validity of every attempted target increased. This does not guarantee future app launch or certificate trust.',
+    'The installation was requested, but its result could not be confirmed. It will not be repeated automatically.',
+    'The installed host profile expiration advanced. Other attempted targets, if any, passed profile-store verification. This does not establish the host certificate lifetime or guarantee future app launch or certificate trust.',
+    'The operation completed. Open the app to review verification and expiration.',
+    'The refresh result lacks the evidence needed to confirm renewed validity. Installation is not assumed and the operation will not be repeated automatically.',
+    'The user acknowledged the previous uncertain attempt after checking device status. This is not verified renewal; no installation was repeated.',
+    'User acknowledged uncertainty',
+    'Your device check was acknowledged. No installation was repeated and renewal was not marked verified. Start a separate manual refresh only if needed. Automatic refresh remains paused until a new manual refresh is verified.',
+}
+
 def project_reviewed_live_language_display(source, baseline):
     """Project only the exact reviewed live-state/bridge and picker wiring.
 
@@ -49,7 +77,8 @@ def check(root, baseline, output):
     assert not current['missing'], current['missing']
     assert {row['key'] for row in previous['missing'] if row['language'] in g.BASELINE_LANGUAGES} <= {'JIT-Less', 'Wi-Fi', 'CoreDevice'}
     overlay_keys = g.overlay_keys(s)
-    assert len(overlay_keys) == 49
+    assert g.local_refresh_keys(s) == g.CURRENT_LOCAL_REFRESH_KEYS
+    assert len(overlay_keys) == len(g.connection_keys(s) | g.CURRENT_LOCAL_REFRESH_KEYS | {'Review the observed profile validity and signing setup before another action. No automatic retry will occur.'})
     assert set(current['retained_baseline_copy']) == g.RETAINED_BASELINE_KEYS
     assert set(previous['keys']) <= set(current['keys'])
     assert not set(current['retained_baseline_copy']) & set(g.coverage(s)['keys'])
@@ -258,13 +287,16 @@ def check(root, baseline, output):
     assert 'V3LocalizedLabel("Startup problem", systemImage:' in startup_card_view
     assert not g.catalog_missing(startup_card_keys, catalog['strings'])
     truth_bytes = (HERE.parent / 'refresh-truth/localization_keys.json').read_bytes()
-    assert hashlib.sha256(truth_bytes).hexdigest() == '97b755273933757a04217e364264386c95ad958aeb72cec11370f0b5f5728604'
+    assert hashlib.sha256(truth_bytes).hexdigest() == 'f43fd7dbcb7f20c8b4fb228d3a6ad611dceae18f7ebe38e95b3494696cdbb2c1'
     truth_keys = set(json.loads(truth_bytes))
-    assert len(truth_keys) == 25 and not g.catalog_missing({key for key in truth_keys if '%lld' not in key}, catalog['strings'])
+    assert truth_keys == BASELINE_REFRESH_TRUTH_KEYS | g.PRESERVATION_LOCALIZATION_KEYS
+    assert not g.catalog_missing({key for key in truth_keys if '%lld' not in key}, catalog['strings'])
     observation_bytes = (root / '.ci/refresh-observations/localization_keys.json').read_bytes()
     assert hashlib.sha256(observation_bytes).hexdigest() == 'b28ff28aacfde5d5b75c01b586527bc8efa5da388d6f1b0923533db49c91c4ec'
     observation_keys = set(json.loads(observation_bytes))
-    assert len(observation_keys) == 22 and observation_keys <= overlay_keys
+    assert len(observation_keys) == 22
+    assert observation_keys - overlay_keys == set(g.LOCAL_REFRESH_REPLACEMENTS)
+    assert observation_keys <= overlay_keys | set(g.LOCAL_REFRESH_REPLACEMENTS)
     replacement_bytes = (root / '.ci/legacy-replacement/localization_keys.json').read_bytes()
     assert hashlib.sha256(replacement_bytes).hexdigest() == 'ede98066b4c7f38ad38da1165e5aadeea7c3d0a15105bbe3ed5e52c7974563e3'
     replacement_keys = set(json.loads(replacement_bytes))
@@ -272,7 +304,7 @@ def check(root, baseline, output):
     replacement_source = g.block(s['ui'], 'enum V3LegacyReplacementPolicy {') + g.block(s['ui'], 'struct V3LegacyReplacementAction: View {')
     assert all(json.dumps(key, ensure_ascii=False) in replacement_source for key in replacement_keys)
     historical_connection_keys = {'Device connection verified by the latest successful refresh. This is not a live VPN check.', 'Refresh verified; CoreDevice transport was not independently recorded.'}
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys | set(g.LOCAL_REFRESH_REPLACEMENTS)
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]
@@ -379,7 +411,7 @@ def check(root, baseline, output):
         'baseline_existing_source_missing': previous['missing'],
         'setup_view_except_typed_titles_and_exact_connection_overlay': 'byte_for_byte_unchanged',
         'exact_connection_scope_negative_control': 'unrelated_cancel_mutation_rejected',
-        'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': 49,
+        'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': len(overlay_keys),
         'startup_diagnosis_card_keys': sorted(startup_card_keys),
         'startup_card_missing_translation_mutation_cases': len(startup_card_mutation_checks),
         'startup_diagnostic_keys': sorted(startup_keys),
