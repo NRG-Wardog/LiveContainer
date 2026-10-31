@@ -92,3 +92,83 @@ check(V3RefreshTargetDiagnostics.copiedDetails(["run_id":run,"state":"failed","m
 check(V3RefreshTargetDiagnostics.copiedDetails(["run_id":run,"state":"running","manifest_summary":actualSummary],runID:run).isEmpty, "nonterminal_target_summary_rejected")
 check(failure(operation:"install").signingContext["local_precondition"] == nil, "wrong_operation_guard_dropped")
 print("REFRESH_OBSERVATIONS_PASS")
+
+func conflictFailure(_ detail: String = "signerMissing", token: String = "preservationAuthorityConflict", kind: String = "invalidParameters", stage: CombinedFailure.Stage = .signing, step: CombinedFailure.SourceStep = .provisioningProfileFetch, operation: String = "refresh") -> CombinedFailure {
+ CombinedFailure(operation: operation, stage: stage, code: .failed, id: run, sourceStep: step,
+ signingContext: ["local_precondition": token, "refresh_target_scope": "nonHost", "refresh_failure_kind": kind, "preservation_conflict": detail])
+}
+let conflict = conflictFailure()
+check(conflict.signingContext["preservation_conflict"] == "signerMissing" && conflict.signingContext["refresh_target_scope"] == "nonHost", "conflict_real_fetch_scope_retained")
+check(CombinedFailure.decode(conflict.wire, expectedID: run)?.signingContext == conflict.signingContext, "conflict_wire_roundtrip")
+check(CombinedFailure.preservationConflictKinds.count == 12 && CombinedFailure.preservationConflictKinds.allSatisfy { conflictFailure($0).signingContext["preservation_conflict"] == $0 }, "conflict_all_finite_tokens_roundtrip")
+check(conflictFailure(stage: .command, step: .refreshApplication).signingContext["preservation_conflict"] == "signerMissing", "conflict_refresh_application_scope_retained")
+check(conflictFailure(stage: .command).signingContext["preservation_conflict"] == nil && conflictFailure(stage: .command).signingContext["refresh_target_scope"] == nil, "conflict_wrong_stage_dropped")
+check(conflictFailure(step: .provisioningProfileRetrieval).signingContext["preservation_conflict"] == nil, "conflict_wrong_step_dropped")
+check(conflictFailure(operation: "install").signingContext["preservation_conflict"] == nil, "conflict_wrong_operation_dropped")
+check(conflictFailure(kind: "noVPN").signingContext["preservation_conflict"] == nil, "conflict_wrong_kind_dropped")
+check(conflictFailure(token: "preservationNotExtended").signingContext["preservation_conflict"] == nil && conflictFailure(token: "preservationNotExtended").signingContext["local_precondition"] == "preservationNotExtended", "conflict_wrong_guard_primary_retained")
+check(conflictFailure("SECRET_PROFILE_ACCOUNT").signingContext["preservation_conflict"] == nil && !conflictFailure("SECRET_PROFILE_ACCOUNT").technicalDetails.contains("SECRET_PROFILE_ACCOUNT"), "conflict_unknown_private_text_dropped")
+check(conflictFailure("").signingContext["preservation_conflict"] == nil, "conflict_empty_dropped")
+var malformedConflict = conflict.wire; var malformedContext = malformedConflict["signingContext"] as! [String: Any]
+malformedContext["preservation_conflict"] = ["profile": "SECRET_PROFILE_ACCOUNT"]; malformedConflict["signingContext"] = malformedContext
+check(CombinedFailure.decode(malformedConflict, expectedID: run)?.signingContext["local_precondition"] == "preservationAuthorityConflict" && CombinedFailure.decode(malformedConflict, expectedID: run)?.signingContext["preservation_conflict"] == nil, "conflict_malformed_optional_primary_retained")
+var conflictManifest = manifest
+// Deliberately reverse expected order against lexical result order.
+conflictManifest["expected_ids"] = ["private.target.two", "private.target.one"]
+conflictManifest["results"] = [["bundle_id": "private.target.one", "success": true, "verification": proof(true)], ["bundle_id": "private.target.two", "success": false, "failure": conflict.wire, "verification": proof(false)]]
+let conflictRows = V3RefreshTargetDiagnostics.rows(conflictManifest, runID: run)
+check(conflictRows[0]["operation"] as? String == "failed" && conflictRows[1]["operation"] as? String == "completed", "conflict_rows_bind_expected_not_sorted_results")
+check(conflictRows[0]["scope"] as? String == "nonHost" && conflictRows[0]["guard"] as? String == "preservationAuthorityConflict" && conflictRows[0]["preservationConflict"] as? String == "signerMissing", "conflict_rows_preserve_fetch_diagnosis")
+let conflictSummary = ActualSummary.terminalManifestSummary(conflictManifest, runID: run, verified: false)
+func conflictCopy(_ summary: [String: Any]) -> String { V3RefreshTargetDiagnostics.copiedDetails(["run_id": run, "state": "failed", "manifest_summary": summary], runID: run) }
+check(conflictCopy(conflictSummary).contains("preservation_conflict=signerMissing") && !conflictCopy(conflictSummary).contains("private.target"), "conflict_copy_finite_no_identity_data")
+var oldConflictRows = conflictRows; oldConflictRows[0].removeValue(forKey: "preservationConflict"); var oldConflictSummary = conflictSummary; oldConflictSummary["target_diagnostics"] = oldConflictRows
+check(!conflictCopy(oldConflictSummary).isEmpty && !conflictCopy(oldConflictSummary).contains("preservation_conflict="), "conflict_old_rows_backward_compatible")
+var poisonedConflictRows = conflictRows; poisonedConflictRows[0]["preservationConflict"] = "SECRET_PROFILE_ACCOUNT"; var poisonedConflictSummary = conflictSummary; poisonedConflictSummary["target_diagnostics"] = poisonedConflictRows
+check(!conflictCopy(poisonedConflictSummary).isEmpty && !conflictCopy(poisonedConflictSummary).contains("SECRET_PROFILE_ACCOUNT"), "conflict_row_unknown_optional_ignored")
+poisonedConflictRows[0]["preservationConflict"] = true; poisonedConflictSummary["target_diagnostics"] = poisonedConflictRows
+check(!conflictCopy(poisonedConflictSummary).isEmpty && !conflictCopy(poisonedConflictSummary).contains("preservation_conflict="), "conflict_row_malformed_optional_ignored")
+poisonedConflictRows[0]["preservationConflict"] = "signerMissing"; poisonedConflictRows[0]["guard"] = "preservationNotExtended"; poisonedConflictSummary["target_diagnostics"] = poisonedConflictRows
+check(!conflictCopy(poisonedConflictSummary).contains("preservation_conflict="), "conflict_row_wrong_guard_ignored")
+check(conflictFailure(String(repeating: "SECRET", count: 200)).code == .failed && conflictFailure(String(repeating: "SECRET", count: 200)).signingContext["local_precondition"] == "preservationAuthorityConflict" && !conflictFailure(String(repeating: "SECRET", count: 200)).technicalDetails.contains("SECRET"), "conflict_oversized_optional_primary_retained")
+check(failure(token: "unknownTeamType", step: .provisioningProfileFetch, stage: .signing).signingContext["refresh_target_scope"] == nil, "conflict_scope_not_granted_to_other_preparation")
+poisonedConflictRows[0]["unrelatedPrivateKey"] = "SECRET_PROFILE_ACCOUNT"; poisonedConflictSummary["target_diagnostics"] = poisonedConflictRows
+check(conflictCopy(poisonedConflictSummary).isEmpty, "conflict_unrelated_row_key_rejected")
+let fullConflictContext: [String: String] = ["refresh_failure_kind": "invalidParameters", "local_precondition": "preservationAuthorityConflict", "refresh_target_scope": "nonHost",
+ "account_binding": "verified", "team_binding": "verified", "session_generation": "1", "capability_count": "1", "app_group_count": "0", "extension_count": "0", "capability_names": "push", "enabled_capability_names": "push",
+ "signing_certificate_present": "true", "preferred_parent_id_match": "false", "profile_mode": "team", "auth_diagnostic_state": "recorded",
+ "team_sha256": String(repeating: "a", count: 64), "requested_bundle_sha256": String(repeating: "b", count: 64), "requested_app_group_sha256": String(repeating: "c", count: 64), "capabilities_sha256": String(repeating: "d", count: 64), "provisioning_bundle_sha256": String(repeating: "e", count: 64)]
+check(fullConflictContext.count == 20 && CombinedFailure.validatedSigningContext(fullConflictContext) == fullConflictContext, "conflict_capacity_baseline_valid")
+var extendedConflictContext = fullConflictContext; extendedConflictContext["preservation_conflict"] = "signerMissing"
+check(CombinedFailure.validatedSigningContext(extendedConflictContext) == fullConflictContext, "conflict_capacity_preserves_existing_facts")
+var extendedConflictWire = conflict.wire; extendedConflictWire["signingContext"] = extendedConflictContext
+check(CombinedFailure.decode(extendedConflictWire, expectedID: run)?.signingContext == fullConflictContext, "conflict_wire_capacity_preserves_existing_facts")
+
+func signerSourceFailure(_ source: String? = "verifiedRefreshCache", present: String = "true", hash: String? = String(repeating: "a", count: 64), token: String = "preservationIdentityUnavailable", kind: String = "invalidParameters", stage: CombinedFailure.Stage = .signing, step: CombinedFailure.SourceStep = .provisioningProfileFetch) -> CombinedFailure {
+ var fields = ["local_precondition": token, "refresh_target_scope": "nonHost", "refresh_failure_kind": kind, "signing_certificate_present": present]
+ if let source { fields["signing_certificate_source"] = source }
+ if let hash { fields["signing_certificate_serial_sha256"] = hash }
+ return CombinedFailure(operation: "refresh", stage: stage, code: .failed, id: run, sourceStep: step, signingContext: fields)
+}
+let sourceVerified = signerSourceFailure()
+check(sourceVerified.signingContext["signing_certificate_source"] == "verifiedRefreshCache" && sourceVerified.signingContext["signing_certificate_serial_sha256"] == String(repeating: "a", count: 64), "signer_source_verified_hash_retained")
+check(CombinedFailure.decode(sourceVerified.wire, expectedID: run)?.signingContext == sourceVerified.signingContext, "signer_source_wire_roundtrip")
+check(signerSourceFailure("unavailable", present: "false", hash: nil).signingContext["signing_certificate_source"] == "unavailable", "signer_source_unavailable_no_claim")
+check(signerSourceFailure("unavailable").signingContext["signing_certificate_source"] == nil && signerSourceFailure("unavailable").signingContext["local_precondition"] == "preservationIdentityUnavailable", "signer_source_unavailable_conflicting_claim_dropped")
+check(signerSourceFailure(hash: nil).signingContext["signing_certificate_source"] == nil, "signer_source_verified_missing_hash_dropped")
+check(signerSourceFailure(present: "false").signingContext["signing_certificate_source"] == nil, "signer_source_verified_false_present_dropped")
+check(signerSourceFailure("SECRET_PRIVATE_CERT").signingContext["signing_certificate_source"] == nil && !signerSourceFailure("SECRET_PRIVATE_CERT").technicalDetails.contains("SECRET_PRIVATE_CERT"), "signer_source_private_unknown_dropped")
+check(signerSourceFailure(String(repeating: "SECRET", count: 200)).signingContext["local_precondition"] == "preservationIdentityUnavailable", "signer_source_oversized_primary_retained")
+check(signerSourceFailure(stage: .command).signingContext["signing_certificate_source"] == nil, "signer_source_wrong_stage_dropped")
+check(signerSourceFailure(step: .certificateValidation).signingContext["signing_certificate_source"] == nil, "signer_source_wrong_step_dropped")
+check(signerSourceFailure(kind: "noVPN").signingContext["signing_certificate_source"] == nil, "signer_source_wrong_kind_dropped")
+check(signerSourceFailure(token: "unknownTeamType").signingContext["signing_certificate_source"] == nil && signerSourceFailure(token: "unknownTeamType").signingContext["local_precondition"] == "unknownTeamType", "signer_source_wrong_guard_primary_retained")
+check(signerSourceFailure(stage: .command, step: .refreshApplication).signingContext["signing_certificate_source"] == "verifiedRefreshCache", "signer_source_refresh_application_allowed")
+check(signerSourceFailure(nil).signingContext["signing_certificate_serial_sha256"] == String(repeating: "a", count: 64), "signer_source_old_label_absent_retained")
+var malformedSourceWire = sourceVerified.wire; var malformedSourceContext = malformedSourceWire["signingContext"] as! [String: Any]; malformedSourceContext["signing_certificate_source"] = ["certificate": "SECRET_PRIVATE_CERT"]; malformedSourceWire["signingContext"] = malformedSourceContext
+check(CombinedFailure.decode(malformedSourceWire, expectedID: run)?.signingContext["local_precondition"] == "preservationIdentityUnavailable" && CombinedFailure.decode(malformedSourceWire, expectedID: run)?.signingContext["signing_certificate_source"] == nil, "signer_source_nonstring_primary_retained")
+var sourceCapacityContext = fullConflictContext; sourceCapacityContext["signing_certificate_present"] = "false"
+var sourceExtendedCapacity = sourceCapacityContext; sourceExtendedCapacity["signing_certificate_source"] = "unavailable"
+check(CombinedFailure.validatedSigningContext(sourceExtendedCapacity) == sourceCapacityContext, "signer_source_capacity_preserves_prior_facts")
+var bothExtensions = sourceExtendedCapacity; bothExtensions["preservation_conflict"] = "signerMissing"
+check(CombinedFailure.validatedSigningContext(bothExtensions) == sourceCapacityContext, "signer_source_and_conflict_capacity_preserve_prior_facts")

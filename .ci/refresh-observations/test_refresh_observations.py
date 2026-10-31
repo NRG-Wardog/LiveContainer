@@ -26,6 +26,22 @@ class ObservationTests(unittest.TestCase):
         failure=g.block(host,'public struct CombinedFailure:')
         self.assertIn('sourceStep == .refreshApplication',failure)
         self.assertIn('context.removeValue(forKey: "refresh_target_scope")',failure)
+    def test_conflict_wire_is_bounded_and_mirrored(self):
+        source=HOST.read_text();failure=g.block(source,'public struct CombinedFailure:')
+        self.assertIn('public static let preservationConflictKinds:', failure)
+        self.assertIn('fields["local_precondition"] != "preservationAuthorityConflict"', failure)
+        self.assertIn('fields["refresh_failure_kind"] != "invalidParameters"', failure)
+        sanitizer=g.block(failure,'public static func validatedSigningContext(')
+        self.assertLess(sanitizer.index('supplied.removeValue(forKey: "preservation_conflict")'), sanitizer.index('V3AuthenticationDiagnostics.sanitizingContext'))
+        rows=g.block(source,'public enum V3RefreshTargetDiagnostics {')
+        self.assertIn('expected.prefix(maximumTargets).enumerated()', rows)
+        self.assertIn('failure?.stage == .signing && failure?.sourceStep == .provisioningProfileFetch', rows)
+        self.assertIn('rowKeys.isSubset(of: Set(row.keys))', rows)
+        self.assertIn('rowKeys.union(["preservationConflict"])', rows)
+        import os
+        peer=Path(os.environ.get('SIDESTORE_SOURCE_ROOT',str(ROOT.parent/'SideStore')))/'AltStore/AppDelegate.swift'
+        self.assertEqual(failure,g.block(peer.read_text(),'public struct CombinedFailure:'))
+
     def test_localization(self):
         keys=json.loads((Path(__file__).parent/'localization_keys.json').read_text())
         catalog=json.loads((ROOT/'Resources/Localizable.xcstrings').read_text())['strings']
