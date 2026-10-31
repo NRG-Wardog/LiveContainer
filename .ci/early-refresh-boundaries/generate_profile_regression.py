@@ -17,6 +17,18 @@ def load(path, name):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
 
+def validate_signing_source_closure(swift, pipeline, block):
+    # Full catch extraction must include its real new dependencies, not inert hashes.
+    for anchor in ['func lcPreservationCertificateFacts(', 'func lcSigningHash(']:
+        exact = block(pipeline, anchor)
+        assert swift.count(exact) == 1, 'Exact signing dependency: ' + anchor
+    assert swift.count('import CryptoKit\n') == 1, 'Real SHA256 dependency'
+    context = block(swift, 'struct FixtureSigningContext {')
+    for declaration in ['let isPreservationRefresh = false',
+                        'let verifiedRefreshCertificate: FixtureVerifiedCertificate? = nil']:
+        assert declaration in context, 'Typed fixture context: ' + declaration
+    assert 'struct FixtureVerifiedCertificate { let serial: String; let data: Data }' in swift
+
 def generate(root, output):
     root, output = Path(root).resolve(), Path(output).resolve()
     early = load(root / EARLY_GENERATOR, 'profile_early')
@@ -52,13 +64,16 @@ def generate(root, output):
     swift = swift.replace(needle, needle + '\n    case incorrectCredentials, appSpecificPasswordRequired, requiresTwoFactorAuthentication, incorrectVerificationCode, authenticationHandshakeFailed, invalidAnisetteData, tooManyAttempts, accountRepairRequired, invalid2FAResponse')
     pipeline = (root / early.INPUT_PATHS['pipeline']).read_text()
     boundary = block(block(pipeline, '    private func executeStep('), '        } catch {')
+    swift += '\nimport CryptoKit\n' + block(pipeline, 'func lcPreservationCertificateFacts(') + '\n' + block(pipeline, 'func lcSigningHash(') + '\n'
     swift += '''\nstruct FixtureSigningBundle { let appExtensions: [Int] = [] }
 struct FixtureSigningCertificate { let serialNumber = "UNREACHABLE" }
+struct FixtureVerifiedCertificate { let serial: String; let data: Data }
 struct FixtureSigningContext {
+    let isPreservationRefresh = false
+    let verifiedRefreshCertificate: FixtureVerifiedCertificate? = nil
     let targetAppBundle: FixtureSigningBundle? = nil
     let targetSigningCertificate: FixtureSigningCertificate? = nil
 }
-func lcSigningHash(_ value: String) -> String { preconditionFailure("No certificate or identifiers may be hashed by this fixture") }
 func fixturePipelineBoundary(_ error: Error, step: PipelineStep, appOperation: AppOperation) throws {
     let context = FixtureSigningContext()
     var result: Any?
@@ -87,6 +102,26 @@ func fixturePipelineBoundary(_ error: Error, step: PipelineStep, appOperation: A
         host = (root / early.INPUT_PATHS['host']).read_text(); service = (root / early.INPUT_PATHS['service']).read_text()
         check(block(host, anchor) == block(service, anchor), 'mirrored ' + anchor)
         check(block(host, anchor) in swift, 'exact shared model ' + anchor)
+    validate_signing_source_closure(swift, pipeline, block)
+    check(True, 'exact preservation helper real SHA256 and typed context closure')
+    removed_dependencies = [block(pipeline, 'func lcPreservationCertificateFacts('),
+                            block(pipeline, 'func lcSigningHash('), 'import CryptoKit\n',
+                            'let isPreservationRefresh = false',
+                            'let verifiedRefreshCertificate: FixtureVerifiedCertificate? = nil']
+    for index, dependency in enumerate(removed_dependencies):
+        try:
+            validate_signing_source_closure(swift.replace(dependency, '', 1), pipeline, block)
+        except AssertionError:
+            check(True, 'missing signing closure dependency rejected ' + str(index))
+        else:
+            raise AssertionError('Missing signing dependency escaped static closure check')
+    fake_hash = 'func lcSigningHash(_ value: String) -> String { return "fake" }'
+    try:
+        validate_signing_source_closure(swift.replace(block(pipeline, 'func lcSigningHash('), fake_hash, 1), pipeline, block)
+    except AssertionError:
+        check(True, 'fake signing hash substitution rejected')
+    else:
+        raise AssertionError('Fake signing hash escaped static closure check')
     check(boundary in swift, 'exact existing PipelineExecutor catch body')
     check('lcRefreshFailureFacts(error, sourceStep: sourceStep)' in boundary, 'observed profile source gates classifier')
     check(block(pipeline, 'func lcRefreshFailureFacts(') in swift, 'exact typed classifier')
@@ -109,7 +144,7 @@ func fixturePipelineBoundary(_ error: Error, step: PipelineStep, appOperation: A
         'expected_case_count': len(CASE_NAMES), 'expected_case_names': CASE_NAMES,
         'limits': ['Synthetic typed errors reproduce the known local guard texts; the original guard methods are not executed.',
                    'Exact production catch, typed classifier, capture, manifest, IPC, ledger and Copy are source-extracted.',
-                   'Hashing, app context, transport and persistence boundaries are inert.',
+                   'Real production SHA256 helper is included; default app context, transport and persistence boundaries are inert.',
                    'Swift assertions require approved compilation/execution; generation is not a runtime or device result.']}
     (output / 'profile-sources.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print('PROFILE_PRECONDITION_STATIC_PASS_GENERATED_NOT_COMPILED_NOT_RUN checks=' + str(len(checks)))
