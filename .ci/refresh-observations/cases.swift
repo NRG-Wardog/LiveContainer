@@ -100,7 +100,7 @@ func conflictFailure(_ detail: String = "signerMissing", token: String = "preser
 let conflict = conflictFailure()
 check(conflict.signingContext["preservation_conflict"] == "signerMissing" && conflict.signingContext["refresh_target_scope"] == "nonHost", "conflict_real_fetch_scope_retained")
 check(CombinedFailure.decode(conflict.wire, expectedID: run)?.signingContext == conflict.signingContext, "conflict_wire_roundtrip")
-check(CombinedFailure.preservationConflictKinds.count == 12 && CombinedFailure.preservationConflictKinds.allSatisfy { conflictFailure($0).signingContext["preservation_conflict"] == $0 }, "conflict_all_finite_tokens_roundtrip")
+check(CombinedFailure.preservationConflictKinds.count == 17 && CombinedFailure.preservationConflictKinds.allSatisfy { conflictFailure($0).signingContext["preservation_conflict"] == $0 }, "conflict_all_finite_tokens_roundtrip")
 check(conflictFailure(stage: .command, step: .refreshApplication).signingContext["preservation_conflict"] == "signerMissing", "conflict_refresh_application_scope_retained")
 check(conflictFailure(stage: .command).signingContext["preservation_conflict"] == nil && conflictFailure(stage: .command).signingContext["refresh_target_scope"] == nil, "conflict_wrong_stage_dropped")
 check(conflictFailure(step: .provisioningProfileRetrieval).signingContext["preservation_conflict"] == nil, "conflict_wrong_step_dropped")
@@ -172,3 +172,23 @@ var sourceExtendedCapacity = sourceCapacityContext; sourceExtendedCapacity["sign
 check(CombinedFailure.validatedSigningContext(sourceExtendedCapacity) == sourceCapacityContext, "signer_source_capacity_preserves_prior_facts")
 var bothExtensions = sourceExtendedCapacity; bothExtensions["preservation_conflict"] = "signerMissing"
 check(CombinedFailure.validatedSigningContext(bothExtensions) == sourceCapacityContext, "signer_source_and_conflict_capacity_preserve_prior_facts")
+
+// Finite semantic-alternative failures remain distinct across wire and per-target copy.
+func semanticConflictRoundtrip(_ token: String) -> Bool {
+ let failure = conflictFailure(token)
+ guard let decoded = CombinedFailure.decode(failure.wire, expectedID: run),
+       decoded.signingContext["preservation_conflict"] == token,
+       decoded.technicalDetails.contains("preservation_conflict=" + token) else { return false }
+ var sample = conflictManifest
+ sample["results"] = [["bundle_id": "private.target.one", "success": true, "verification": proof(true)],
+                       ["bundle_id": "private.target.two", "success": false, "failure": decoded.wire, "verification": proof(false)]]
+ let summary = ActualSummary.terminalManifestSummary(sample, runID: run, verified: false)
+ let copy = conflictCopy(summary)
+ return copy.contains("preservation_conflict=" + token) && !copy.contains("private.target") &&
+        !copy.contains("BEGIN CERTIFICATE") && !copy.contains("DER-Encoded-Profile")
+}
+check(semanticConflictRoundtrip("embeddedDERUnsupportedSigner"), "semantic_unsupported_signer_distinct")
+check(semanticConflictRoundtrip("embeddedDERSignerTimeInvalid"), "semantic_signer_time_distinct")
+check(semanticConflictRoundtrip("embeddedDERVerificationFailed"), "semantic_crypto_failure_distinct")
+check(semanticConflictRoundtrip("embeddedDERUnsupportedRepresentation"), "semantic_unsupported_representation_distinct")
+check(semanticConflictRoundtrip("embeddedDERBindingMismatch"), "semantic_binding_mismatch_distinct")
