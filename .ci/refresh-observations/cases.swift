@@ -192,3 +192,86 @@ check(semanticConflictRoundtrip("embeddedDERSignerTimeInvalid"), "semantic_signe
 check(semanticConflictRoundtrip("embeddedDERVerificationFailed"), "semantic_crypto_failure_distinct")
 check(semanticConflictRoundtrip("embeddedDERUnsupportedRepresentation"), "semantic_unsupported_representation_distinct")
 check(semanticConflictRoundtrip("embeddedDERBindingMismatch"), "semantic_binding_mismatch_distinct")
+
+// Diagnostic-only unknown inner CMS signer. Never changes the preservation refusal.
+let cmsKey = V3CMSSignerDiagnostic.contextKey
+let cmsHash = String(repeating: "f", count: 64)
+let cmsVerified = "cs1|installed|passed|passed|passed|passed|failed|1110|" + cmsHash
+let cmsUnchecked = "cs1|candidate|unchecked|unchecked|unchecked|unchecked|failed|unchecked|unknown"
+func cmsFailure(_ raw: String = cmsVerified, operation: String = "refresh", stage: CombinedFailure.Stage = .signing, step: CombinedFailure.SourceStep = .provisioningProfileFetch, cause: CombinedFailure.SafeCause? = nil, conflict: String = "embeddedDERUnsupportedSigner") -> CombinedFailure {
+ CombinedFailure(operation: operation, stage: stage, code: .failed, id: run, safeCause: cause, sourceStep: step,
+ signingContext: ["local_precondition": "preservationAuthorityConflict", "refresh_target_scope": "nonHost", "refresh_failure_kind": "invalidParameters", "preservation_conflict": conflict, cmsKey: raw])
+}
+let cms = cmsFailure()
+check(cms.signingContext[cmsKey] == cmsVerified && cms.code == .failed, "cms_diagnostic_never_accepts_unknown_signer")
+check(CombinedFailure.decode(cms.wire, expectedID: run)?.signingContext == cms.signingContext, "cms_wire_roundtrip")
+check(CombinedFailure.fromEncodedString(cms.encodedString, expectedID: run)?.signingContext == cms.signingContext, "cms_binary_plist_roundtrip")
+check(cms.technicalDetails.contains("cms_signer_signature=passed") && cms.technicalDetails.contains("cms_signer_sha256=" + cmsHash) && !cms.technicalDetails.contains("cs1|"), "cms_copy_explicit_labels_not_opaque_value")
+check(cms.technicalDetails.contains("cms_signer_leaf_name_observed=yes") && cms.technicalDetails.contains("cms_signer_app_developer_marker_observed=no") && cms.technicalDetails.contains("cms_signer_diagnostic_only=yes"), "cms_roles_are_observations_not_authority")
+check(cmsFailure(cmsUnchecked).technicalDetails.contains("cms_signer_signature=unchecked") && !cmsFailure(cmsUnchecked).technicalDetails.contains("cms_signer_signature=failed"), "cms_pin_miss_never_implies_invalid_signature")
+check(cmsFailure(operation: "install").signingContext[cmsKey] == nil, "cms_wrong_operation_dropped")
+check(cmsFailure(stage: .command).signingContext[cmsKey] == nil, "cms_wrong_stage_dropped")
+check(cmsFailure(step: .certificateValidation).signingContext[cmsKey] == nil, "cms_wrong_step_dropped")
+check(cmsFailure(stage: .command, step: .refreshApplication).signingContext[cmsKey] == cmsVerified, "cms_refresh_application_scope_allowed")
+check(cmsFailure(cause: .certificateUnavailable).signingContext[cmsKey] == nil, "cms_wrong_safe_cause_dropped")
+check(cmsFailure(conflict: "embeddedDERVerificationFailed").signingContext[cmsKey] == nil, "cms_wrong_conflict_dropped")
+check(cmsFailure("SECRET_PROFILE_CERT_CN_OID").signingContext[cmsKey] == nil && !cmsFailure("SECRET_PROFILE_CERT_CN_OID").technicalDetails.contains("SECRET"), "cms_opaque_private_metadata_dropped")
+check(cmsFailure(String(repeating: "SECRET", count: 200)).signingContext["preservation_conflict"] == "embeddedDERUnsupportedSigner" && cmsFailure(String(repeating: "SECRET", count: 200)).signingContext[cmsKey] == nil, "cms_oversize_primary_retained")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified + "|SECRET") == nil, "cms_extra_slot_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "cs1|", with: "cs2|")) == nil, "cms_unknown_schema_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "installed|", with: "unknown|")) == nil, "cms_unknown_input_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "|failed|", with: "|passed|")) == nil, "cms_not_pin_miss_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "1110", with: "true")) == nil, "cms_nonbit_roles_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "1110", with: "11100")) == nil, "cms_overlong_roles_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: cmsHash, with: cmsHash.uppercased())) == nil, "cms_noncanonical_hash_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: cmsHash, with: "unknown")) != nil, "cms_verified_hash_unavailable_allowed")
+check(V3CMSSignerDiagnostic(encoded: cmsUnchecked.replacingOccurrences(of: "|unknown", with: "|" + cmsHash)) == nil, "cms_unverified_hash_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsUnchecked.replacingOccurrences(of: "|unchecked|unknown", with: "|1110|unknown")) == nil, "cms_unverified_roles_rejected")
+check(["installed", "candidate", "freshInstalled", "freshCandidate"].allSatisfy { V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "installed", with: $0)) != nil }, "cms_all_finite_inputs")
+var cmsDense = fullConflictContext; cmsDense.removeValue(forKey: "capabilities_sha256"); cmsDense["preservation_conflict"] = "embeddedDERUnsupportedSigner"
+check(cmsDense.count == 20 && CombinedFailure.validatedSigningContext(cmsDense) == cmsDense, "cms_capacity_baseline_twenty")
+var cmsOverflow = cmsDense; cmsOverflow[cmsKey] = cmsVerified
+check(CombinedFailure.validatedSigningContext(cmsOverflow) == cmsDense, "cms_capacity_preserves_twenty_prior_facts")
+var cmsMalformedWire = cms.wire; var cmsMalformedContext = cms.signingContext as [String: Any]; cmsMalformedContext[cmsKey] = ["CN": "SECRET_CERTIFICATE"]
+cmsMalformedWire["signingContext"] = cmsMalformedContext
+check(CombinedFailure.decode(cmsMalformedWire, expectedID: run)?.signingContext[cmsKey] == nil && CombinedFailure.decode(cmsMalformedWire, expectedID: run)?.signingContext["preservation_conflict"] == "embeddedDERUnsupportedSigner", "cms_wrong_type_primary_retained")
+cmsMalformedWire["signingContext"] = cmsOverflow
+check(CombinedFailure.decode(cmsMalformedWire, expectedID: run)?.signingContext == cmsDense, "cms_wire_overflow_preserves_prior_facts")
+var cmsManifest = conflictManifest
+cmsManifest["results"] = [["bundle_id": "private.target.one", "success": true, "verification": proof(true)], ["bundle_id": "private.target.two", "success": false, "failure": cms.wire, "verification": proof(false)]]
+let cmsSummary = ActualSummary.terminalManifestSummary(cmsManifest, runID: run, verified: false)
+let cmsCopy = conflictCopy(cmsSummary)
+check(cmsCopy.contains("cms_signer_sha256=" + cmsHash) && cmsCopy.contains("cms_signer_signature=passed") && !cmsCopy.contains("private.target"), "cms_per_target_summary_copy_roundtrip")
+var cmsRows = V3RefreshTargetDiagnostics.rows(cmsManifest, runID: run)
+check(cmsRows[0]["cmsSignerDiagnostic"] as? String == cmsVerified && cmsRows[1]["cmsSignerDiagnostic"] == nil, "cms_per_target_not_global")
+var cmsPoisonedSummary = cmsSummary; cmsRows[0]["cmsSignerDiagnostic"] = ["CN": "SECRET_CERTIFICATE"]; cmsPoisonedSummary["target_diagnostics"] = cmsRows
+check(!conflictCopy(cmsPoisonedSummary).contains("SECRET") && !conflictCopy(cmsPoisonedSummary).contains("cms_signer_"), "cms_summary_wrong_type_dropped")
+cmsRows[0]["cmsSignerDiagnostic"] = cmsVerified; cmsRows[0]["preservationConflict"] = "embeddedDERVerificationFailed"; cmsPoisonedSummary["target_diagnostics"] = cmsRows
+check(!conflictCopy(cmsPoisonedSummary).contains("cms_signer_"), "cms_summary_wrong_conflict_dropped")
+check(!cmsCopy.contains("BEGIN CERTIFICATE") && !cmsCopy.contains("DER-Encoded-Profile") && !cmsCopy.contains("signing_certificate_serial_sha256"), "cms_copy_no_certificate_content_or_cached_signer_conflation")
+
+check(V3CMSSignerDiagnostic(encoded: cmsVerified + "\n") == nil, "cms_hash_trailing_newline_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "|passed|", with: "|trusted|")) == nil, "cms_unknown_check_state_rejected")
+check(V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "1110", with: "unchecked")) == nil, "cms_verified_roles_required")
+check((0..<16).allSatisfy { number in let bits = (0..<4).map { (number & (1 << $0)) == 0 ? "0" : "1" }.joined(); return V3CMSSignerDiagnostic(encoded: cmsVerified.replacingOccurrences(of: "1110", with: bits)) != nil }, "cms_all_sixteen_observation_masks")
+var cmsWrongKind = cms.signingContext; cmsWrongKind["refresh_failure_kind"] = "noVPN"
+check(CombinedFailure.validatedSigningContext(cmsWrongKind)?[cmsKey] == nil, "cms_wrong_failure_kind_dropped")
+var cmsWrongGuard = cms.signingContext; cmsWrongGuard["local_precondition"] = "preservationNotExtended"
+check(CombinedFailure.validatedSigningContext(cmsWrongGuard)?[cmsKey] == nil, "cms_wrong_guard_dropped")
+var cmsWrongCode = cms.wire; cmsWrongCode["code"] = "cancelled"
+check(CombinedFailure.decode(cmsWrongCode, expectedID: run)?.signingContext[cmsKey] == nil, "cms_wrong_code_dropped")
+var cmsHost = cms.signingContext; cmsHost["refresh_target_scope"] = "host"
+check(CombinedFailure.validatedSigningContext(cmsHost)?[cmsKey] == nil, "cms_wrong_host_scope_dropped")
+cmsHost.removeValue(forKey: "refresh_target_scope")
+check(CombinedFailure.validatedSigningContext(cmsHost)?[cmsKey] == nil, "cms_missing_scope_dropped")
+cmsRows = V3RefreshTargetDiagnostics.rows(cmsManifest, runID: run); cmsRows[0]["scope"] = "host"; cmsPoisonedSummary["target_diagnostics"] = cmsRows
+check(!conflictCopy(cmsPoisonedSummary).contains("cms_signer_"), "cms_summary_wrong_host_scope_dropped")
+cmsRows[0]["scope"] = "nonHost"; cmsRows[0]["dispatched"] = "yes"; cmsPoisonedSummary["target_diagnostics"] = cmsRows
+check(!conflictCopy(cmsPoisonedSummary).contains("cms_signer_"), "cms_summary_mutated_target_dropped")
+cmsRows[0]["dispatched"] = "unknown"; cmsPoisonedSummary["target_diagnostics"] = cmsRows
+check(!conflictCopy(cmsPoisonedSummary).contains("cms_signer_"), "cms_summary_unknown_mutation_dropped")
+let cmsProducer = V3RefreshSelectionFailure(reason: .preservationAuthorityConflict, scope: .nonHost, preservationConflict: "embeddedDERUnsupportedSigner", cmsSignerDiagnostic: cmsVerified)
+let cmsProducedFailure = CombinedFailure(operation: "refresh", stage: .signing, code: .failed, id: run, sourceStep: .provisioningProfileFetch, signingContext: cmsProducer.facts)
+check(CombinedFailure.decode(cmsProducedFailure.wire, expectedID: run)?.signingContext[cmsKey] == cmsVerified, "cms_actual_producer_to_wire_handoff")
+check([cmsVerified, cmsUnchecked, "SECRET", cmsVerified + "\n", cmsVerified + "|SECRET", cmsVerified.replacingOccurrences(of: "1110", with: "unchecked")].allSatisfy { V3RefreshSelectionFailure.validCMSSignerDiagnostic($0) == (V3CMSSignerDiagnostic(encoded: $0) != nil) }, "cms_producer_wire_validator_parity")
+check(V3RefreshSelectionFailure(reason: .preservationAuthorityConflict, scope: .host, preservationConflict: "embeddedDERUnsupportedSigner", cmsSignerDiagnostic: cmsVerified).facts[cmsKey] == nil, "cms_producer_host_drops_diagnostic")

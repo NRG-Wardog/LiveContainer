@@ -1,6 +1,7 @@
 from pathlib import Path
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -37,10 +38,19 @@ class ObservationTests(unittest.TestCase):
         self.assertIn('expected.prefix(maximumTargets).enumerated()', rows)
         self.assertIn('failure?.stage == .signing && failure?.sourceStep == .provisioningProfileFetch', rows)
         self.assertIn('rowKeys.isSubset(of: Set(row.keys))', rows)
-        self.assertIn('rowKeys.union(["preservationConflict"])', rows)
+        self.assertIn('rowKeys.union(["preservationConflict", "cmsSignerDiagnostic"])', rows)
         import os
         peer=Path(os.environ.get('SIDESTORE_SOURCE_ROOT',str(ROOT.parent/'SideStore')))/'AltStore/AppDelegate.swift'
         self.assertEqual(failure,g.block(peer.read_text(),'public struct CombinedFailure:'))
+        self.assertEqual(g.block(source, 'public struct V3CMSSignerDiagnostic {'), g.block(peer.read_text(), 'public struct V3CMSSignerDiagnostic {'))
+        diagnostic = g.block(source, 'public struct V3CMSSignerDiagnostic {')
+        self.assertIn('encoded.utf8.count <= 200', diagnostic)
+        self.assertIn('fields.count == 9', diagnostic)
+        self.assertIn('fields[6] == "failed"', diagnostic)
+        self.assertIn('fields[7] == "unchecked", fields[8] == "unknown"', diagnostic)
+        self.assertLess(sanitizer.index('supplied.removeValue(forKey: V3CMSSignerDiagnostic.contextKey)'), sanitizer.index('V3AuthenticationDiagnostics.sanitizingContext'))
+        self.assertIn('guard fields.count <= 20', sanitizer)
+
 
     def test_localization(self):
         keys=json.loads((Path(__file__).parent/'localization_keys.json').read_text())
@@ -56,6 +66,8 @@ class ObservationTests(unittest.TestCase):
         source='import Foundation\nimport CoreFoundation\n'+g.pure_model(host)+'\n'
         source+='\n'.join(g.block(ui,x) for x in ['struct V3SetupStepState:', 'enum V3SetupConnectionCopy:', 'enum V3SetupConnectionEvidencePolicy {'])
         source+='\nenum ActualSummary {\n'+g.block(APP.read_text(),'    private static func terminalManifestSummary(').replace('private static','static',1)+'\n}\n'
+        peer=Path(os.environ.get('SIDESTORE_SOURCE_ROOT',str(ROOT.parent/'SideStore')))
+        source+='\n'+g.block((peer/'SideStore/Core/Operations/PipelineOperations/RefreshAppOperation.swift').read_text(), 'struct V3RefreshSelectionFailure:')+'\n'
         cases=(Path(__file__).parent/'cases.swift').read_text();source+='\n'+cases
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary).resolve();swift=root/'main.swift';binary=root/'cases';swift.write_text(source)
