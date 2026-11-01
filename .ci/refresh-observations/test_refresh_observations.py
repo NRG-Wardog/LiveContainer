@@ -60,15 +60,40 @@ class ObservationTests(unittest.TestCase):
             self.assertEqual(set(catalog[key]['localizations']),{'en','he','ru','zh-Hans','zh-Hant'})
             for entry in catalog[key]['localizations'].values():
                 self.assertEqual(entry['stringUnit']['state'],'translated');self.assertTrue(entry['stringUnit']['value'])
-    @unittest.skipUnless(shutil.which('swiftc'),'Actual source Swift execution requires macOS CI')
-    def test_actual_source(self):
+    def fixture_source(self):
         host,ui=HOST.read_text(),UI.read_text()
         source='import Foundation\nimport CoreFoundation\n'+g.pure_model(host)+'\n'
         source+='\n'.join(g.block(ui,x) for x in ['struct V3SetupStepState:', 'enum V3SetupConnectionCopy:', 'enum V3SetupConnectionEvidencePolicy {'])
         source+='\nenum ActualSummary {\n'+g.block(APP.read_text(),'    private static func terminalManifestSummary(').replace('private static','static',1)+'\n}\n'
         peer=Path(os.environ.get('SIDESTORE_SOURCE_ROOT',str(ROOT.parent/'SideStore')))
         source+='\n'+g.block((peer/'SideStore/Core/Operations/PipelineOperations/RefreshAppOperation.swift').read_text(), 'struct V3RefreshSelectionFailure:')+'\n'
+        # Exercise the actual NSError bridge, not a manually nil-safeCause model.
+        pipeline=(peer/'SideStore/Core/Operations/PipelineExecutor.swift').read_text()
+        doubles=(peer/'tests/refresh_failure/pipeline_harness.swift').read_text()
+        for anchor in ['enum DeveloperPortalError:', 'enum ServerError:']:
+            source+='\n'+g.block(doubles,anchor)+'\n'
+        for anchor in ['func lcSafeSigningCause(', 'func lcStructuredSigningFailure(']:
+            source+='\n'+g.block(pipeline,anchor)+'\n'
+        source+='\n'+g.block(ui,'enum V3RefreshAllFailureDiagnostics {')+'\n'
         cases=(Path(__file__).parent/'cases.swift').read_text();source+='\n'+cases
+        return source,cases
+
+    def test_real_signing_bridge_source_closure(self):
+        source,cases=self.fixture_source()
+        peer=Path(os.environ.get('SIDESTORE_SOURCE_ROOT',str(ROOT.parent/'SideStore')))
+        pipeline=(peer/'SideStore/Core/Operations/PipelineExecutor.swift').read_text()
+        for anchor in ['func lcSafeSigningCause(', 'func lcStructuredSigningFailure(']:
+            self.assertEqual(source.count(g.block(pipeline,anchor)),1)
+        self.assertEqual(source.count(g.block(UI.read_text(),'enum V3RefreshAllFailureDiagnostics {')),1)
+        self.assertIn('lcStructuredSigningFailure(cmsProducer, stage: "signing"',cases)
+        self.assertIn('CombinedFailure.capture(cmsMarked, operation: "refresh"',cases)
+        self.assertIn('CombinedVerification.sanitized(["liveContainerAutoRefreshVerification": cmsBridgeManifest]',cases)
+        self.assertIn('V3RefreshAllFailureDiagnostics.text(requestID: other',cases)
+        self.assertIn('cms_signer_sha256=unknown',cases)
+
+    @unittest.skipUnless(shutil.which('swiftc'),'Actual source Swift execution requires macOS CI')
+    def test_actual_source(self):
+        source,cases=self.fixture_source()
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary).resolve();swift=root/'main.swift';binary=root/'cases';swift.write_text(source)
             result=subprocess.run(['swiftc',str(swift),'-o',str(binary)],capture_output=True,text=True,timeout=180)

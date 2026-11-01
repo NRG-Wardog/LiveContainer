@@ -275,3 +275,60 @@ let cmsProducedFailure = CombinedFailure(operation: "refresh", stage: .signing, 
 check(CombinedFailure.decode(cmsProducedFailure.wire, expectedID: run)?.signingContext[cmsKey] == cmsVerified, "cms_actual_producer_to_wire_handoff")
 check([cmsVerified, cmsUnchecked, "SECRET", cmsVerified + "\n", cmsVerified + "|SECRET", cmsVerified.replacingOccurrences(of: "1110", with: "unchecked")].allSatisfy { V3RefreshSelectionFailure.validCMSSignerDiagnostic($0) == (V3CMSSignerDiagnostic(encoded: $0) != nil) }, "cms_producer_wire_validator_parity")
 check(V3RefreshSelectionFailure(reason: .preservationAuthorityConflict, scope: .host, preservationConflict: "embeddedDERUnsupportedSigner", cmsSignerDiagnostic: cmsVerified).facts[cmsKey] == nil, "cms_producer_host_drops_diagnostic")
+
+// Production-shaped c89d975a regression: the real signing NSError wrapper adds
+// unknownSigningCause. Direct CombinedFailure(... safeCause: nil) hid this loss.
+var cmsBridgeFacts = cmsProducer.facts
+cmsBridgeFacts.merge(["extension_count": "5", "signing_certificate_present": "true",
+                     "signing_certificate_serial_sha256": String(repeating: "a", count: 64),
+                     "signing_certificate_source": "verifiedRefreshCache"]) { _, observed in observed }
+check(cmsBridgeFacts.count == 9, "cms_bridge_realistic_eight_prior_fields_plus_diagnostic")
+let cmsMarked = lcStructuredSigningFailure(cmsProducer, stage: "signing", sourceStep: "provisioningProfileFetch", facts: cmsBridgeFacts)
+check(cmsMarked.userInfo["LCStructuredFailureCauseV1"] as? String == "unknownSigningCause", "cms_bridge_actual_wrapper_unknown_cause")
+let cmsCaptured = CombinedFailure.capture(cmsMarked, operation: "refresh", stage: .refreshVerification, id: run)
+check(cmsCaptured.safeCause == .unknownSigningCause && cmsCaptured.signingContext == cmsBridgeFacts, "cms_bridge_capture_keeps_all_nine_fields")
+let cmsBridgeData = try! PropertyListSerialization.data(fromPropertyList: cmsCaptured.wire, format: .binary, options: 0)
+let cmsBridgePlist = try! PropertyListSerialization.propertyList(from: cmsBridgeData, format: nil) as! [String: Any]
+let cmsRestored = CombinedFailure.decode(cmsBridgePlist, expectedID: run)!
+check(cmsBridgeData.count <= 4096 && cmsRestored.signingContext == cmsBridgeFacts, "cms_bridge_binary_roundtrip_within_cap")
+check(cmsRestored.stage == .signing && cmsRestored.sourceStep == .provisioningProfileFetch && cmsRestored.code == .failed && cmsRestored.safeCause == .unknownSigningCause, "cms_bridge_primary_failure_unchanged")
+var cmsBridgeManifest = cmsManifest
+cmsBridgeManifest["results"] = [["bundle_id": "private.target.one", "success": true, "verification": proof(true)], ["bundle_id": "private.target.two", "success": false, "failure": cmsRestored.wire, "verification": proof(false)]]
+let cmsBridgeSanitized = CombinedVerification.sanitized(["liveContainerAutoRefreshVerification": cmsBridgeManifest], runID: run)["liveContainerAutoRefreshVerification"] as! [String: Any]
+let cmsBridgeSummary = ActualSummary.terminalManifestSummary(cmsBridgeSanitized, runID: run, verified: false)
+let cmsBridgeRecord: [String: Any] = ["request_id": other, "run_id": run, "state": "failed", "failure": cmsRestored.wire, "manifest_summary": cmsBridgeSummary]
+let cmsWholeLog = V3RefreshAllFailureDiagnostics.text(requestID: other, runID: run, record: cmsBridgeRecord)!
+check(cmsWholeLog.components(separatedBy: "cms_signer_signature=passed").count == 3 && cmsWholeLog.components(separatedBy: "cms_signer_sha256=" + cmsHash).count == 3, "cms_bridge_whole_log_top_and_target_diagnostic")
+check(cmsWholeLog.contains("target_1: scope=nonHost operation_status=failed") && cmsWholeLog.contains("mutation_dispatched=no") && cmsWholeLog.contains("target_2: scope=unknown operation_status=completed") && cmsWholeLog.contains("mutation_dispatched=yes"), "cms_bridge_mixed_target_batch_preserved")
+check(cmsWholeLog.contains("extension_count=5") && cmsWholeLog.contains("signing_certificate_source=verifiedRefreshCache") && cmsWholeLog.contains("signing_certificate_serial_sha256=" + String(repeating: "a", count: 64)), "cms_bridge_existing_cache_facts_preserved")
+check(!cmsWholeLog.contains("BEGIN CERTIFICATE") && !cmsWholeLog.contains("SECRET") && !cmsWholeLog.contains("cs1|"), "cms_bridge_whole_log_privacy")
+check(cmsFailure(cause: .unknownSigningCause).signingContext[cmsKey] == cmsVerified && cmsFailure(cause: .certificateUnavailable).signingContext[cmsKey] == nil, "cms_unknown_cause_only_exception_concrete_cause_still_rejected")
+
+check(!cmsWholeLog.components(separatedBy: "\n").first(where: { $0.hasPrefix("target_2:") })!.contains("cms_signer_"), "cms_bridge_completed_host_does_not_inherit_diagnostic")
+let cmsUnverifiedDiagnostic = "cs1|installed|passed|failed|unchecked|unchecked|failed|unchecked|unknown"
+let cmsUnverifiedProducer = V3RefreshSelectionFailure(reason: .preservationAuthorityConflict, scope: .nonHost, preservationConflict: "embeddedDERUnsupportedSigner", cmsSignerDiagnostic: cmsUnverifiedDiagnostic)
+var cmsUnverifiedFacts = cmsBridgeFacts; cmsUnverifiedFacts[cmsKey] = cmsUnverifiedProducer.facts[cmsKey]
+let cmsUnverifiedMarked = lcStructuredSigningFailure(cmsUnverifiedProducer, stage: "signing", sourceStep: "provisioningProfileFetch", facts: cmsUnverifiedFacts)
+let cmsUnverifiedCaptured = CombinedFailure.capture(cmsUnverifiedMarked, operation: "refresh", stage: .refreshVerification, id: run)
+let cmsUnverifiedData = try! PropertyListSerialization.data(fromPropertyList: cmsUnverifiedCaptured.wire, format: .binary, options: 0)
+let cmsUnverifiedPlist = try! PropertyListSerialization.propertyList(from: cmsUnverifiedData, format: nil) as! [String: Any]
+let cmsUnverifiedRestored = CombinedFailure.decode(cmsUnverifiedPlist, expectedID: run)!
+check(cmsUnverifiedRestored.safeCause == .unknownSigningCause && cmsUnverifiedRestored.signingContext == cmsUnverifiedFacts, "cms_bridge_unverified_finite_observation_roundtrip")
+var cmsUnverifiedManifest = cmsBridgeManifest
+cmsUnverifiedManifest["results"] = [["bundle_id": "private.target.one", "success": true, "verification": proof(true)], ["bundle_id": "private.target.two", "success": false, "failure": cmsUnverifiedRestored.wire, "verification": proof(false)]]
+let cmsUnverifiedSanitized = CombinedVerification.sanitized(["liveContainerAutoRefreshVerification": cmsUnverifiedManifest], runID: run)["liveContainerAutoRefreshVerification"] as! [String: Any]
+let cmsUnverifiedSummary = ActualSummary.terminalManifestSummary(cmsUnverifiedSanitized, runID: run, verified: false)
+let cmsUnverifiedRecord: [String: Any] = ["request_id": other, "run_id": run, "state": "failed", "failure": cmsUnverifiedRestored.wire, "manifest_summary": cmsUnverifiedSummary]
+let cmsUnverifiedLog = V3RefreshAllFailureDiagnostics.text(requestID: other, runID: run, record: cmsUnverifiedRecord)!
+check(cmsUnverifiedLog.components(separatedBy: "cms_signer_chain=failed").count == 3 && cmsUnverifiedLog.components(separatedBy: "cms_signer_signature=unchecked").count == 3, "cms_bridge_unverified_whole_log_top_and_target")
+check(cmsUnverifiedLog.components(separatedBy: "cms_signer_sha256=unknown").count == 3 && !cmsUnverifiedLog.contains(cmsHash) && !cmsUnverifiedLog.contains("cms_signer_leaf_name_observed=yes"), "cms_bridge_unverified_never_gains_fingerprint_or_role")
+check(!cmsUnverifiedLog.components(separatedBy: "\n").first(where: { $0.hasPrefix("target_2:") })!.contains("cms_signer_"), "cms_bridge_unverified_does_not_inherit_to_completed_host")
+check(cmsFailure(cause: .signingNetworkTimedOut).signingContext[cmsKey] == nil, "cms_bridge_specific_transport_cause_still_rejected")
+
+var cmsUnknownWrongOperation = cmsRestored.wire; cmsUnknownWrongOperation["operation"] = "install"
+check(CombinedFailure.decode(cmsUnknownWrongOperation, expectedID: run)?.signingContext[cmsKey] == nil, "cms_unknown_cause_wrong_operation_still_rejected")
+var cmsUnknownHostContext = cmsRestored.signingContext; cmsUnknownHostContext["refresh_target_scope"] = "host"
+var cmsUnknownHostWire = cmsRestored.wire; cmsUnknownHostWire["signingContext"] = cmsUnknownHostContext
+check(CombinedFailure.decode(cmsUnknownHostWire, expectedID: run)?.signingContext[cmsKey] == nil, "cms_unknown_cause_wrong_host_still_rejected")
+var cmsUnknownWrongStep = cmsRestored.wire; cmsUnknownWrongStep["sourceStep"] = "certificateValidation"
+check(CombinedFailure.decode(cmsUnknownWrongStep, expectedID: run)?.signingContext[cmsKey] == nil, "cms_unknown_cause_wrong_step_still_rejected")
