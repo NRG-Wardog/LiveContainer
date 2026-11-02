@@ -332,3 +332,73 @@ var cmsUnknownHostWire = cmsRestored.wire; cmsUnknownHostWire["signingContext"] 
 check(CombinedFailure.decode(cmsUnknownHostWire, expectedID: run)?.signingContext[cmsKey] == nil, "cms_unknown_cause_wrong_host_still_rejected")
 var cmsUnknownWrongStep = cmsRestored.wire; cmsUnknownWrongStep["sourceStep"] = "certificateValidation"
 check(CombinedFailure.decode(cmsUnknownWrongStep, expectedID: run)?.signingContext[cmsKey] == nil, "cms_unknown_cause_wrong_step_still_rejected")
+
+// Apple-origin read failures are finite diagnostics, not CMS trust decisions.
+let originKey = "apple_profile_origin"
+let originKinds = ["requestUnavailable", "recordNotFound", "ambiguousRecord", "responseMismatch", "invalidResponse", "responseTooLarge", "operationCancelled", "operationExpired", "ownershipChanged"]
+func originFailure(_ value: String = "recordNotFound", operation: String = "refresh", stage: CombinedFailure.Stage = .signing, step: CombinedFailure.SourceStep = .provisioningProfileFetch, cause: CombinedFailure.SafeCause? = .unknownSigningCause, scope: String = "nonHost", token: String = "preservationEvidenceUnavailable", kind: String = "invalidParameters") -> CombinedFailure {
+ CombinedFailure(operation: operation, stage: stage, code: .failed, id: run, safeCause: cause, sourceStep: step,
+ signingContext: ["local_precondition": token, "refresh_target_scope": scope, "refresh_failure_kind": kind, originKey: value])
+}
+check(CombinedFailure.appleProfileOriginKinds == Set(originKinds), "origin_exact_finite_vocabulary")
+check(originFailure().signingContext[originKey] == "recordNotFound" && originFailure().code == .failed, "origin_diagnostic_does_not_authorize_refresh")
+check(CombinedFailure.fromEncodedString(originFailure().encodedString, expectedID: run)?.signingContext == originFailure().signingContext, "origin_binary_roundtrip")
+check(originFailure(stage: .command, step: .refreshApplication).signingContext[originKey] == "recordNotFound", "origin_refresh_application_scope")
+check(originFailure(operation: "install").signingContext[originKey] == nil, "origin_wrong_operation_dropped")
+check(originFailure(stage: .command).signingContext[originKey] == nil, "origin_wrong_stage_dropped")
+check(originFailure(step: .certificateValidation).signingContext[originKey] == nil, "origin_wrong_step_dropped")
+check(originFailure(scope: "host").signingContext[originKey] == nil && originFailure(scope: "unknown").signingContext[originKey] == nil, "origin_wrong_scope_dropped")
+check(originFailure(token: "preservationAuthorityConflict").signingContext[originKey] == nil, "origin_wrong_guard_dropped")
+check(originFailure(kind: "noVPN").signingContext[originKey] == nil, "origin_wrong_kind_dropped")
+check(originFailure(cause: .certificateUnavailable).signingContext[originKey] == nil && originFailure(cause: nil).signingContext[originKey] != nil, "origin_specific_cause_rejected_placeholder_allowed")
+check(originFailure("SECRET_ACCOUNT_PROFILE_UUID").signingContext[originKey] == nil && !originFailure("SECRET_ACCOUNT_PROFILE_UUID").technicalDetails.contains("SECRET"), "origin_opaque_value_stripped")
+check(originFailure(String(repeating: "x", count: 33)).signingContext[originKey] == nil && originFailure(String(repeating: "x", count: 33)).signingContext["local_precondition"] == "preservationEvidenceUnavailable", "origin_oversize_primary_retained")
+var originWrongType = originFailure().wire; var originTypedContext = originFailure().signingContext as [String: Any]; originTypedContext[originKey] = ["profile": "SECRET"]
+originWrongType["signingContext"] = originTypedContext
+check(CombinedFailure.decode(originWrongType, expectedID: run)?.signingContext[originKey] == nil && CombinedFailure.decode(originWrongType, expectedID: run)?.signingContext["local_precondition"] == "preservationEvidenceUnavailable", "origin_wrong_type_primary_retained")
+var originMissingScope = originFailure().signingContext; originMissingScope.removeValue(forKey: "refresh_target_scope")
+check(CombinedFailure.validatedSigningContext(originMissingScope)?[originKey] == nil, "origin_missing_scope_dropped")
+var originDense = fullConflictContext; originDense["local_precondition"] = "preservationEvidenceUnavailable"
+var originOverCapacity = originDense; originOverCapacity[originKey] = "recordNotFound"
+check(originDense.count == 20 && CombinedFailure.validatedSigningContext(originOverCapacity) == originDense, "origin_capacity_prior_twenty_facts_preserved")
+var originOverflowWire = originFailure().wire; originOverflowWire["signingContext"] = originOverCapacity
+check(CombinedFailure.decode(originOverflowWire, expectedID: run)?.signingContext == originDense, "origin_wire_capacity_preserved")
+var originWrongCode = originFailure().wire; originWrongCode["code"] = "cancelled"
+check(CombinedFailure.decode(originWrongCode, expectedID: run)?.signingContext[originKey] == nil, "origin_wrong_code_dropped")
+
+func actualOriginLog(_ kind: String) -> (CombinedFailure, String, [String: Any]) {
+ let producer = V3RefreshSelectionFailure(reason: .preservationEvidenceUnavailable, scope: .nonHost, appleProfileOrigin: kind)
+ var facts = producer.facts
+ facts.merge(["extension_count": "5", "signing_certificate_present": "true", "signing_certificate_serial_sha256": String(repeating: "a", count: 64), "signing_certificate_source": "verifiedRefreshCache"]) { _, observed in observed }
+ let marked = lcStructuredSigningFailure(producer, stage: "signing", sourceStep: "provisioningProfileFetch", facts: facts)
+ precondition(marked.userInfo["LCStructuredFailureCauseV1"] as? String == "unknownSigningCause")
+ let captured = CombinedFailure.capture(marked, operation: "refresh", stage: .refreshVerification, id: run)
+ let data = try! PropertyListSerialization.data(fromPropertyList: captured.wire, format: .binary, options: 0)
+ precondition(data.count <= 4096)
+ let decoded = try! PropertyListSerialization.propertyList(from: data, format: nil) as! [String: Any]
+ let restored = CombinedFailure.decode(decoded, expectedID: run)!
+ precondition(restored.signingContext == facts && restored.safeCause == .unknownSigningCause && restored.code == .failed)
+ var batch = cmsManifest
+ batch["results"] = [["bundle_id": "private.target.one", "success": true, "verification": proof(true)], ["bundle_id": "private.target.two", "success": false, "failure": restored.wire, "verification": proof(false)]]
+ let sanitized = CombinedVerification.sanitized(["liveContainerAutoRefreshVerification": batch], runID: run)["liveContainerAutoRefreshVerification"] as! [String: Any]
+ let summary = ActualSummary.terminalManifestSummary(sanitized, runID: run, verified: false)
+ let record: [String: Any] = ["request_id": other, "run_id": run, "state": "failed", "failure": restored.wire, "manifest_summary": summary]
+ return (restored, V3RefreshAllFailureDiagnostics.text(requestID: other, runID: run, record: record)!, summary)
+}
+check(originKinds.allSatisfy { kind in let (_,log,_) = actualOriginLog(kind); return log.components(separatedBy: "apple_profile_origin=" + kind).count == 3 && !log.contains("cms_signer_signature=") && !log.contains("SECRET") }, "origin_all_nine_actual_producer_wrapper_manifest_whole_log")
+let (originRestored,originWholeLog,originSummary) = actualOriginLog("recordNotFound")
+check(originWholeLog.contains("extension_count=5") && originWholeLog.contains("signing_certificate_source=verifiedRefreshCache") && originRestored.stage == .signing && originRestored.sourceStep == .provisioningProfileFetch, "origin_existing_failure_and_cache_facts_preserved")
+check(!originWholeLog.components(separatedBy: "\n").first(where: { $0.hasPrefix("target_2:") })!.contains("apple_profile_origin="), "origin_completed_host_never_inherits_nonhost_failure")
+var originRows = originSummary["target_diagnostics"] as! [[String: Any]]
+var originPoisonedSummary = originSummary; originRows[0]["appleProfileOrigin"] = ["account": "SECRET"]; originPoisonedSummary["target_diagnostics"] = originRows
+check(!conflictCopy(originPoisonedSummary).contains("apple_profile_origin=") && !conflictCopy(originPoisonedSummary).contains("SECRET"), "origin_target_wrong_type_ignored")
+originRows[0]["appleProfileOrigin"] = "SECRET"; originPoisonedSummary["target_diagnostics"] = originRows
+check(!conflictCopy(originPoisonedSummary).contains("SECRET"), "origin_target_unknown_value_ignored")
+originRows[0]["appleProfileOrigin"] = "recordNotFound"; originRows[0]["dispatched"] = "yes"; originPoisonedSummary["target_diagnostics"] = originRows
+check(!conflictCopy(originPoisonedSummary).contains("apple_profile_origin="), "origin_target_mutation_dispatched_ignored")
+originRows[0]["dispatched"] = "unknown"; originPoisonedSummary["target_diagnostics"] = originRows
+check(!conflictCopy(originPoisonedSummary).contains("apple_profile_origin="), "origin_target_unknown_mutation_ignored")
+originRows[0]["dispatched"] = "no"; originRows[0]["scope"] = "host"; originPoisonedSummary["target_diagnostics"] = originRows
+check(!conflictCopy(originPoisonedSummary).contains("apple_profile_origin="), "origin_target_wrong_scope_ignored")
+originRows[0]["scope"] = "nonHost"; originRows[0]["guard"] = "preservationAuthorityConflict"; originPoisonedSummary["target_diagnostics"] = originRows
+check(!conflictCopy(originPoisonedSummary).contains("apple_profile_origin="), "origin_target_wrong_guard_ignored")

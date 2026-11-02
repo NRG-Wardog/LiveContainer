@@ -38,7 +38,7 @@ class ObservationTests(unittest.TestCase):
         self.assertIn('expected.prefix(maximumTargets).enumerated()', rows)
         self.assertIn('failure?.stage == .signing && failure?.sourceStep == .provisioningProfileFetch', rows)
         self.assertIn('rowKeys.isSubset(of: Set(row.keys))', rows)
-        self.assertIn('rowKeys.union(["preservationConflict", "cmsSignerDiagnostic"])', rows)
+        self.assertIn('rowKeys.union(["preservationConflict", "cmsSignerDiagnostic", "appleProfileOrigin"])', rows)
         import os
         peer=Path(os.environ.get('SIDESTORE_SOURCE_ROOT',str(ROOT.parent/'SideStore')))/'AltStore/AppDelegate.swift'
         self.assertEqual(failure,g.block(peer.read_text(),'public struct CombinedFailure:'))
@@ -50,6 +50,11 @@ class ObservationTests(unittest.TestCase):
         self.assertIn('fields[7] == "unchecked", fields[8] == "unknown"', diagnostic)
         self.assertLess(sanitizer.index('supplied.removeValue(forKey: V3CMSSignerDiagnostic.contextKey)'), sanitizer.index('V3AuthenticationDiagnostics.sanitizingContext'))
         self.assertIn('guard fields.count <= 20', sanitizer)
+        self.assertIn('public static let appleProfileOriginKinds:', failure)
+        self.assertIn('origin.utf8.count > 32', sanitizer)
+        self.assertIn('fields["local_precondition"] != "preservationEvidenceUnavailable"', sanitizer)
+        self.assertLess(sanitizer.index('supplied.removeValue(forKey: "apple_profile_origin")'), sanitizer.index('V3AuthenticationDiagnostics.sanitizingContext'))
+
 
 
     def test_localization(self):
@@ -90,6 +95,11 @@ class ObservationTests(unittest.TestCase):
         self.assertIn('CombinedVerification.sanitized(["liveContainerAutoRefreshVerification": cmsBridgeManifest]',cases)
         self.assertIn('V3RefreshAllFailureDiagnostics.text(requestID: other',cases)
         self.assertIn('cms_signer_sha256=unknown',cases)
+        self.assertIn('lcStructuredSigningFailure(producer, stage: "signing"',cases)
+        self.assertIn('CombinedFailure.capture(marked, operation: "refresh"',cases)
+        self.assertIn('appleProfileOrigin: kind',cases)
+        self.assertIn('origin_all_nine_actual_producer_wrapper_manifest_whole_log',cases)
+
 
     @unittest.skipUnless(shutil.which('swiftc'),'Actual source Swift execution requires macOS CI')
     def test_actual_source(self):
