@@ -14,6 +14,16 @@ with tempfile.TemporaryDirectory() as temporary:
     output=Path(temporary)
     receipt=g.generate(a.sources,output)
     generated=(output/'refresh-failure.swift').read_text()
+    refresh_operation=(a.sources/g.INPUT_PATHS['refresh_operation']).read_text()
+    assert generated.count('struct V3RefreshVerification:') == 1
+    assert generated.count(g.block(refresh_operation, 'struct V3RefreshVerification:')) == 1
+    assert generated.count(g.block(refresh_operation, 'enum V3PreservationPostDispatchFailure:')) == 1
+    try:
+        g.validate_verification_declaration(generated + '\n' + g.block(refresh_operation, 'struct V3RefreshVerification:'), refresh_operation)
+    except AssertionError as error:
+        assert 'Duplicate verification declaration' in str(error)
+    else:
+        raise AssertionError('Duplicate declaration negative control was accepted')
     host=(a.sources/g.INPUT_PATHS['host']).read_text()
     scheduler=(a.sources/g.INPUT_PATHS['scheduler']).read_text()
     client=(a.sources/g.INPUT_PATHS['client']).read_text()

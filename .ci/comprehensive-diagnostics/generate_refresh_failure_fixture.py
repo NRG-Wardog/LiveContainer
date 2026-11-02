@@ -49,6 +49,11 @@ spec.loader.exec_module(wire_fixture)
 block = wire_fixture.block
 
 
+def validate_verification_declaration(generated, production):
+    assert generated.count('struct V3RefreshVerification:') == 1, 'Duplicate verification declaration'
+    assert block(production, 'struct V3RefreshVerification:') in generated, 'Complete production verification missing'
+
+
 def generate(root, output):
     paths = {name: root/path for name,path in INPUT_PATHS.items()}
     s = {name: path.read_text() for name, path in paths.items()}
@@ -56,7 +61,8 @@ def generate(root, output):
     boundary_spec = importlib.util.spec_from_file_location('refresh_boundary_contract', paths['refresh_contract'])
     boundary_module = importlib.util.module_from_spec(boundary_spec)
     boundary_spec.loader.exec_module(boundary_module)
-    boundary_source, boundary_paths = boundary_module.generate_source(root/'SideStore')
+    # This composition supplies the complete actual verification declaration below.
+    boundary_source, boundary_paths = boundary_module.generate_source(root/'SideStore', include_verification_support=False)
     assert set(boundary_paths.values()).issubset(set(paths.values())), 'Unreceipted service source dependency'
 
     before = (HERE/'refresh_completed_baseline.swift').read_text().rstrip()
@@ -127,6 +133,7 @@ static func notify(title: String, body: String, kind: String, runID: String, req
     swift += before_copy.replace('enum V3RefreshAllFailureDiagnostics {', 'enum BeforeKindRefreshDiagnostics {', 1) + '\n'
     swift += block(s['ui'], 'enum V3RefreshAllFailureDiagnostics {') + '\n'
     swift += (HERE/'refresh_failure_harness.swift').read_text()
+    validate_verification_declaration(swift, s['refresh_operation'])
     output.mkdir(parents=True, exist_ok=True)
     (output/'refresh-failure.swift').write_text(swift)
     inputs = dict(paths)
