@@ -1,6 +1,111 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Profile-store expiration advanced while observed profile constraints were kept unchanged. Preservation-mode targets were not re-signed or replaced. This does not verify which profiles the app or its extensions use, future launch, or Keychain access.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile-store expiration advanced while observed profile constraints were kept unchanged. Preservation-mode targets were not re-signed or replaced. This does not verify which profiles the app or its extensions use, future launch, or Keychain access."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "תוקף הפרופיל במאגר הוארך תוך שמירה על מגבלות הפרופיל שנצפו. יעדים במצב שימור לא נחתמו מחדש ולא הוחלפו. אין בכך אימות של הפרופילים שבהם משתמשים היישום או ההרחבות שלו, של הפעלה עתידית או של גישה ל־Keychain."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок действия в хранилище профилей продлён без изменения наблюдаемых ограничений профиля. Объекты в режиме сохранения не переподписывались и не заменялись. Это не подтверждает, какие профили используют приложение и его расширения, будущий запуск или доступ к Keychain."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "描述文件存储中的有效期已延长，观察到的描述文件限制保持不变。保留模式下的目标未被重新签名或替换。这并不验证应用及其扩展实际使用哪些描述文件、未来能否启动或能否访问钥匙串。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "描述檔儲存區中的有效期已延長，觀察到的描述檔限制維持不變。保留模式下的目標未被重新簽署或取代。這並不驗證 App 及其延伸功能實際使用哪些描述檔、未來能否啟動或能否存取鑰匙圈。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because the profiles could not be read and matched safely. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because the profiles could not be read and matched safely. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הרענון נעצר משום שלא ניתן היה לקרוא ולהתאים את הפרופילים בבטחה. היישום המותקן נשמר."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: не удалось безопасно прочитать и сопоставить профили. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷新已停止，因为无法安全地读取并匹配描述文件。已安装的应用保持不变。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新整理已停止，因為無法安全地讀取並比對描述檔。已安裝的 App 維持不變。"
+          }
+        }
+      }
+    },
+    "Refresh stopped because observed profile constraints are ambiguous or conflicting. The installed app was preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh stopped because observed profile constraints are ambiguous or conflicting. The installed app was preserved."
+          }
+        },
+        "he": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "הרענון נעצר משום שמגבלות הפרופיל שנצפו אינן חד־משמעיות או סותרות. היישום המותקן נשמר."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление остановлено: наблюдаемые ограничения профиля неоднозначны или противоречат друг другу. Установленное приложение сохранено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷新已停止，因为观察到的描述文件限制不明确或相互冲突。已安装的应用保持不变。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新整理已停止，因為觀察到的描述檔限制不明確或互相衝突。已安裝的 App 維持不變。"
+          }
+        }
+      }
+    },
     "Profile-only renewal verified": {
       "extractionState": "manual",
       "localizations": {

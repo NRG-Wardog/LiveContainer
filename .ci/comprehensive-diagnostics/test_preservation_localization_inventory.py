@@ -65,6 +65,8 @@ class PreservationLocalizationInventory(unittest.TestCase):
     def test_new_copy_owned_by_actual_producers(self):
         source = g.read_sources(ROOT)
         outcomes = g.block(source['identity_diagnostics'], 'public enum V3RefreshRenewalOutcome:')
+        self.assertIn('observed profile constraints were kept unchanged', outcomes)
+        self.assertIn('future launch, or Keychain access', outcomes)
         for key in g.PRESERVATION_OUTCOME_KEYS:
             self.assertIn('return "' + key + '"', outcomes)
         messages = g.block(source['identity_diagnostics'], 'private var localRefreshMessage:')
@@ -73,6 +75,9 @@ class PreservationLocalizationInventory(unittest.TestCase):
 
     def test_all_new_locales_and_historical_copy_retained(self):
         catalog = json.loads(g.read_sources(ROOT)['catalog'])['strings']
+        self.assertEqual(len(g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS), 3)
+        self.assertTrue(set(g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS.values()).issubset(g.PRESERVATION_LOCALIZATION_KEYS))
+        self.assertFalse(g.catalog_missing(set(g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS), catalog))
         self.assertFalse(g.catalog_missing(g.PRESERVATION_LOCALIZATION_KEYS | set(g.LOCAL_REFRESH_REPLACEMENTS), catalog))
         for key in g.PRESERVATION_LOCALIZATION_KEYS:
             for language in g.LANGUAGES:

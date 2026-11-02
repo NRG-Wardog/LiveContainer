@@ -124,7 +124,7 @@ public enum V3RefreshRenewalOutcome: String {
     public var isVerified: Bool { self == .renewed || self == .hostProfileAdvanced || self == .profileOnlyRenewed }
     public var message: String {
         switch self {
-        case .profileOnlyRenewed: return "Profile-store expiration advanced. Preservation-mode targets were not re-signed or replaced. Selection of these renewed profiles by the app and its extensions has not been independently verified."
+        case .profileOnlyRenewed: return "Profile-store expiration advanced while observed profile constraints were kept unchanged. Preservation-mode targets were not re-signed or replaced. This does not verify which profiles the app or its extensions use, future launch, or Keychain access."
         case .hostProfileAdvanced: return "The installed host profile expiration advanced. Other attempted targets, if any, passed profile-store verification. This does not establish the host certificate lifetime or guarantee future app launch or certificate trust."
         case .renewed: return "The expected profiles were found on the device, and the effective validity of every attempted target increased. This does not guarantee future app launch or certificate trust."
         case .installedUnchanged: return "Installation was acknowledged and the expected profiles were found, but expiration did not advance for every target. An imported profile may need renewal by its issuer."
@@ -152,6 +152,8 @@ public struct V3RefreshProfileEvidence {
     public let renewal: String
     public let certificate: String
     public let reason: String?
+    // Legacy wire name: observed constraints retained; not historical-profile authenticity,
+    // installed-binary selection, future launch, or Keychain usability attestation.
     public let preservation: String?
 
     public init?(_ value: Any?) {
@@ -282,6 +284,22 @@ public enum V3RefreshEvidencePolicy {
     public static func failurePresentation(_ manifest: [String: Any]?, runID: String,
                                            stage: String, code: String) -> V3RefreshRenewalOutcome? {
         if terminalOutcome(manifest, runID: runID) == .mutationUnconfirmed { return .mutationUnconfirmed }
+        // A failed native refresh may have an ACK without verified preservation.
+        // Match the actual producer boundary; do not hide persistence/guest errors.
+        if stage == "command", code == "failed",
+           let terminal = terminalOutcome(manifest, runID: runID),
+           (terminal == .verificationFailed || terminal == .acknowledgedUnverified),
+           let entries = manifest?["results"] as? [[String: Any]],
+           entries.contains(where: { entry in
+               guard entry["success"] as? Bool == false,
+                     let evidence = V3RefreshProfileEvidence(entry["verification"]),
+                     evidence.installAcknowledged,
+                     ["mismatch", "unavailable"].contains(evidence.profileStore),
+                     let wire = entry["failure"] as? [String: Any],
+                     let failure = CombinedFailure.decode(wire, expectedID: runID) else { return false }
+               return failure.operation == "refresh" && failure.stage == .command &&
+                   failure.code == .failed && failure.sourceStep == .refreshApplication
+           }) { return terminal }
         guard stage == "refreshVerification", code == "missingResult",
               let manifest, let entries = manifest["results"] as? [[String: Any]],
               entries.allSatisfy({ $0["success"] as? Bool == true }),
@@ -303,7 +321,11 @@ public enum V3RefreshEvidencePolicy {
               let entries = manifest["results"] as? [[String: Any]] else { return false }
         return entries.allSatisfy { entry in
             if let evidence = V3RefreshProfileEvidence(entry["verification"]) {
-                return !evidence.mutationDispatched || evidence.installAcknowledged
+                if !evidence.mutationDispatched { return true }
+                // ACK alone cannot release a retry hold after failed readback.
+                return entry["success"] as? Bool == true && evidence.installAcknowledged &&
+                    evidence.profileStore == "matched" && evidence.certificate == "valid" &&
+                    ["extended", "unchanged"].contains(evidence.renewal)
             }
             if V3HostProfileRenewalProof.matches(manifest, entry: entry, runID: runID) { return true }
             guard entry["success"] as? Bool == false,
@@ -1495,8 +1517,8 @@ public struct CombinedFailure: Error, LocalizedError {
         case "extensionTeamMismatch": return "An extension profile belongs to a different team than the main profile."
         case "preservationIdentityUnavailable": return "Refresh stopped because the historical app identity and signing certificate could not be linked. The installed app was preserved."
         case "preservationMalformedProfile": return "Refresh stopped because a profile contains unsupported or incomplete authorization data. The installed app was preserved."
-        case "preservationEvidenceUnavailable": return "Refresh stopped because the existing matching profile could not be verified on the device. The installed app was preserved."
-        case "preservationAuthorityConflict": return "Refresh stopped because existing profile authorizations are ambiguous or conflicting. The installed app was preserved."
+        case "preservationEvidenceUnavailable": return "Refresh stopped because the profiles could not be read and matched safely. The installed app was preserved."
+        case "preservationAuthorityConflict": return "Refresh stopped because observed profile constraints are ambiguous or conflicting. The installed app was preserved."
         case "preservationUUIDConflict": return "Refresh stopped because one profile identifier refers to conflicting profile contents. The installed app was preserved."
         case "preservationAuthorizationChanged": return "Refresh stopped because the new profile would change existing authorization or signing certificates. The installed app was preserved."
         case "preservationExpiredCertificate": return "Refresh stopped because the existing signing certificate is no longer valid. Profile-only renewal cannot extend the certificate. The installed app was preserved."

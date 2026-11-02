@@ -138,7 +138,7 @@ preserved["preservation"] = "authorizationPreserved"
 expect(V3RefreshProfileEvidence(preserved)?.wire["preservation"] as? String == "authorizationPreserved", "preservation_roundtrip")
 expect(V3RefreshEvidencePolicy.outcome(manifest(preserved), runID: run) == .profileOnlyRenewed, "preservation_scoped_outcome")
 expect(V3DirectProfileVerificationPolicy.outcome(["verification": preserved], operation: "refresh") == .profileOnlyRenewed, "preservation_direct_outcome")
-expect(V3RefreshRenewalOutcome.profileOnlyRenewed.isVerified, "preservation_profile_store_verified")
+expect(V3RefreshRenewalOutcome.profileOnlyRenewed.isVerified && V3RefreshRenewalOutcome.profileOnlyRenewed.message.contains("observed profile constraints were kept unchanged") && V3RefreshRenewalOutcome.profileOnlyRenewed.message.contains("future launch, or Keychain access"), "preservation_profile_store_verified")
 expect(V3RefreshAllTerminalEvidencePolicy.verifiedSummary(summary("profileOnlyRenewed", renewed: 1), record: record("profileOnlyRenewed", state: "completed", renewed: 1), runID: run), "preservation_summary_scoped_success")
 var preservationUnknown = preserved; preservationUnknown["preservation"] = "appLaunchVerified"
 expect(V3RefreshProfileEvidence(preservationUnknown) == nil, "preservation_unknown_rejected")
@@ -163,3 +163,23 @@ mixedHostPreserved["expected_ids"] = [V3HostProfileRenewalProof.originalHostID, 
 mixedHostPreserved["requested_ids"] = [V3HostProfileRenewalProof.originalHostID, "example.main"]
 mixedHostPreserved["results"] = [["bundle_id": V3HostProfileRenewalProof.originalHostID, "success": true], ["bundle_id": "example.main", "success": true, "verification": preserved]]
 expect(V3RefreshEvidencePolicy.outcome(mixedHostPreserved, runID: run) == .profileOnlyRenewed, "preservation_mixed_host_keeps_scope")
+
+// Native post-dispatch failure retains its ACK without enabling another mutation.
+func acknowledgedNativeFailure(_ store: String, step: CombinedFailure.SourceStep = .refreshApplication) -> [String: Any] {
+    var value = manifest(evidence("unknown", store: store, certificate: "unknown"), success: false)
+    var rows = value["results"] as! [[String: Any]]
+    rows[0]["failure"] = CombinedFailure(operation: "refresh", stage: .command, code: .failed, id: run, sourceStep: step).wire
+    value["results"] = rows
+    return value
+}
+let nativeMismatch = acknowledgedNativeFailure("mismatch")
+let nativeUnavailable = acknowledgedNativeFailure("unavailable")
+expect(V3RefreshEvidencePolicy.failurePresentation(nativeMismatch, runID: run, stage: "command", code: "failed") == .verificationFailed, "native_ack_mismatch_failure_guidance")
+expect(V3RefreshEvidencePolicy.failurePresentation(nativeUnavailable, runID: run, stage: "command", code: "failed") == .acknowledgedUnverified, "native_ack_unavailable_failure_guidance")
+expect(!V3RefreshEvidencePolicy.canClearUncertainty(nativeMismatch, runID: run), "native_ack_mismatch_retains_hold")
+expect(!V3RefreshEvidencePolicy.canClearUncertainty(nativeUnavailable, runID: run), "native_ack_unavailable_retains_hold")
+expect(!V3RefreshEvidencePolicy.canClearUncertainty(manifest(evidence(), success: false), runID: run), "native_ack_persistence_failure_retains_hold")
+expect(V3RefreshEvidencePolicy.canClearUncertainty(manifest(evidence("unchanged")), runID: run), "verified_unchanged_can_settle")
+expect(V3RefreshEvidencePolicy.failurePresentation(nativeMismatch, runID: run, stage: "persistence", code: "failed") == nil, "native_mismatch_does_not_hide_persistence")
+expect(V3RefreshEvidencePolicy.failurePresentation(acknowledgedNativeFailure("mismatch", step: .refreshReadiness), runID: run, stage: "command", code: "failed") == nil, "native_mismatch_wrong_source_not_promoted")
+expect(V3RefreshEvidencePolicy.failurePresentation(nativeMismatch, runID: UUID().uuidString, stage: "command", code: "failed") == nil, "native_mismatch_stale_run_not_promoted")

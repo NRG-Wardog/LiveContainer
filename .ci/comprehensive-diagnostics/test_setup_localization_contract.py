@@ -287,7 +287,13 @@ def check(root, baseline, output):
     assert 'V3LocalizedLabel("Startup problem", systemImage:' in startup_card_view
     assert not g.catalog_missing(startup_card_keys, catalog['strings'])
     truth_bytes = (HERE.parent / 'refresh-truth/localization_keys.json').read_bytes()
-    assert hashlib.sha256(truth_bytes).hexdigest() == 'f43fd7dbcb7f20c8b4fb228d3a6ad611dceae18f7ebe38e95b3494696cdbb2c1'
+    # Exact three-copy successor: recover the byte-pinned historical inventory,
+    # rather than accepting a new hash or arbitrary additional localized keys.
+    historical_truth_bytes = truth_bytes
+    for old, new in g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS.items():
+        assert truth_bytes.count(new.encode()) == 1 and old.encode() not in truth_bytes
+        historical_truth_bytes = historical_truth_bytes.replace(new.encode(), old.encode())
+    assert hashlib.sha256(historical_truth_bytes).hexdigest() == 'f43fd7dbcb7f20c8b4fb228d3a6ad611dceae18f7ebe38e95b3494696cdbb2c1'
     truth_keys = set(json.loads(truth_bytes))
     assert truth_keys == BASELINE_REFRESH_TRUTH_KEYS | g.PRESERVATION_LOCALIZATION_KEYS
     assert not g.catalog_missing({key for key in truth_keys if '%lld' not in key}, catalog['strings'])
@@ -304,7 +310,7 @@ def check(root, baseline, output):
     replacement_source = g.block(s['ui'], 'enum V3LegacyReplacementPolicy {') + g.block(s['ui'], 'struct V3LegacyReplacementAction: View {')
     assert all(json.dumps(key, ensure_ascii=False) in replacement_source for key in replacement_keys)
     historical_connection_keys = {'Device connection verified by the latest successful refresh. This is not a live VPN check.', 'Refresh verified; CoreDevice transport was not independently recorded.'}
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys | set(g.LOCAL_REFRESH_REPLACEMENTS)
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys | set(g.LOCAL_REFRESH_REPLACEMENTS) | set(g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS)
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]

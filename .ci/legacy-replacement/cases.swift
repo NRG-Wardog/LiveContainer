@@ -107,7 +107,7 @@ start["riskAcknowledgmentVersion"]=1;start["userConfirmed"]=false
 check(!wire("opStart",payload:start),"negative_consent_rejected")
 print("LEGACY_REPLACEMENT_HOST_PASS")
 
-check(failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch, stage: .signing).safeMessage.contains("existing matching profile"), "preservation_fetch_guard_allowed")
+check(failure("preservationEvidenceUnavailable", step: .provisioningProfileFetch, stage: .signing).safeMessage.contains("profiles could not be read and matched safely"), "preservation_fetch_guard_allowed")
 check(failure("preservationAuthorizationChanged").safeMessage.contains("change existing authorization"), "preservation_refresh_guard_allowed")
 check(failure("legacyProofUnavailable", step: .provisioningProfileFetch).safeMessage.contains("The installed app was preserved.") == false, "legacy_guard_not_broadened_to_fetch")
 check(failure("preservationEvidenceUnavailable", step: .provisioningProfileCreation).safeMessage.contains("The installed app was preserved.") == false, "preservation_guard_wrong_stage_rejected")

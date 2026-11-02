@@ -38,6 +38,12 @@ class RefreshTruthTests(unittest.TestCase):
     def test_production_gates_and_projections(self):
         source, shell, app, history = (p.read_text() for p in [SUPPORT, SHELL, APP, HISTORY])
         self.assertIn('V3RefreshProfileEvidence(entry["verification"])', source)
+        failure = block(source, 'public static func failurePresentation(')
+        for gate in ['failure.sourceStep == .refreshApplication', 'failure.stage == .command', 'evidence.installAcknowledged', '["mismatch", "unavailable"].contains(evidence.profileStore)']:
+            self.assertIn(gate, failure)
+        clearing = block(source, 'public static func canClearUncertainty(')
+        self.assertIn('entry["success"] as? Bool == true && evidence.installAcknowledged', clearing)
+        self.assertIn('evidence.profileStore == "matched" && evidence.certificate == "valid"', clearing)
         self.assertIn('item["verification"] = evidence.wire', source)
         self.assertIn('V3RefreshEvidencePolicy.outcome(manifest, runID: runID).isVerified', app)
         self.assertIn('let requiresExplicitRetry = mutationUnclear || terminalEvidence != nil ||', app)
@@ -79,7 +85,7 @@ class RefreshTruthTests(unittest.TestCase):
         source, shell, app, history = (p.read_text() for p in [SUPPORT, SHELL, APP, HISTORY])
         self.assertNotIn('V3LegacyReplacementAction(app: app)', shell)
         self.assertIn('case .profileOnlyRenewed:', source)
-        self.assertIn('Selection of these renewed profiles by the app and its extensions has not been independently verified.', source)
+        self.assertIn('This does not verify which profiles the app or its extensions use, future launch, or Keychain access.', source)
         self.assertIn('renewalOutcome == .renewed ? "verified" : renewalOutcome.rawValue', app)
         self.assertIn('"profileOnlyRenewed": "Profile-only renewal verified"', history)
         evidence = block(source, 'public struct V3RefreshProfileEvidence')
@@ -108,23 +114,13 @@ class RefreshTruthTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('swiftc'), 'Native Swift execution required on macOS CI')
     def test_actual_source_runtime(self):
         source, shell = SUPPORT.read_text(), SHELL.read_text()
-        combined = block(source, 'public enum CombinedVerification')
-
-        snippets = [block(source,marker) for marker in ['public enum V3RefreshTransportObservation','public enum V3RefreshRenewalOutcome','public struct V3RefreshProfileEvidence','public enum V3HostProfileRenewalProof','public enum V3RefreshEvidencePolicy','public enum V3DirectProfileVerificationPolicy','public struct V3RefreshUncertaintyTicket','public enum V3RefreshUncertaintyAcknowledgmentPolicy']]
-        snippets += [combined]
+        # Actual shared wire model: failed-row guidance must not use a decoder stub.
+        start = source.index('public struct CombinedRefreshTargetPlan:')
+        last = block(source, 'public enum V3DiagnosticPresentation {')
+        model = source[start:source.index(last, start)+len(last)]
+        snippets = [block(source, 'public struct V3AuthServiceSnapshot:'), model]
         snippets += [block(shell,marker) for marker in ['enum V3RefreshAllPhase','enum V3RefreshAllTerminalEvidencePolicy','enum V3HomeRefreshVerificationPolicy','struct V3RefreshAllAttemptState']]
-        stub = """struct CombinedFailure {
- enum Stage: String { case command, refreshVerification }
- struct SourceStep { let rawValue: String }
- let operation = "refresh"; let safeMessage = "unexpected generic failure"
- let stage: Stage = .command; let sourceStep: SourceStep? = nil
- let underlyingDomain = "redacted"; let underlyingCode = 0
- let message = "fixture error"; let localizedDescription = "fixture error"; let wire: [String:Any] = [:]
- static func decode(_ raw: [String: Any], expectedID: String) -> CombinedFailure? { nil }
- static func capture(_ error: NSError, operation: String, stage: Stage, id: String) -> CombinedFailure { CombinedFailure() }
- static func safeWireUnderlying(domain: String, code: Int) -> (domain: String, code: Int) { ("redacted", 0) }
-}"""
-        program = 'import Foundation\nimport CoreFoundation\n' + stub + '\n' + '\n'.join(snippets) + '\n' + (Path(__file__).parent/'runtime_cases.swift').read_text()
+        program = 'import Foundation\nimport CoreFoundation\n' + '\n'.join(snippets) + '\n' + (Path(__file__).parent/'runtime_cases.swift').read_text()
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp).resolve(); swift=root/'main.swift'; binary=root/'cases'
             swift.write_text(program)
