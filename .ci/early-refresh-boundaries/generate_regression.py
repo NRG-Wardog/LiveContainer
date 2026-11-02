@@ -140,6 +140,29 @@ CASE_NAMES = [
     'cellular_existing_policy', 'cached_team_existing_policy',
 ]
 
+def validate_progress_contract(swift, runner, variant, block):
+    """Finite source/API closure; never substitute a default/reconstructed progress."""
+    stub = block(swift, 'func performOperation(')
+    if variant == 'candidate':
+        signature = 'func performOperation(for operation: AppOperation, handler: PipelineExecutionHandler, group: RefreshGroup, operationProgress: Progress, operationsCount: Int = 1, refreshAdmission: (() throws -> Void)? = nil, readProfiles: (() async throws -> [Data])? = nil) async throws {'
+        assert runner.count(signature) == stub.count(signature) == 1, 'required typed owned progress parameter'
+        route = block(runner, '    private func performUsingAdmittedRoute(')
+        assert route.count('operationProgress: owned.progress, operationsCount: operationsCount') == 2, 'both dispatches forward original owned progress'
+        assert route in swift, 'exact progress-owning route retained'
+        assert 'precondition(operationProgress === progress.originals[operation.bundleIdentifier], "original owned progress reaches inert mutation")' in stub, 'mutation checks original progress identity'
+        assert 'progress.originals' not in stub.split('precondition(', 1)[0], 'no synthetic identity reassignment'
+    else:
+        assert 'operationProgress' not in stub, 'pinned baseline API stays unchanged'
+    registry = block(swift, 'final class FixtureProgressRegistry {')
+    assert 'originals[operation.bundleIdentifier] = value' in registry
+    assert 'values[operation.bundleIdentifier] = replacePublishedProgress ? Progress.discreteProgress(totalUnitCount: 100) : value' in registry
+    assert 'checkOwnedProgressForwarding()' in swift
+    assert 'runner.progress.replacePublishedProgress = true' in swift
+    assert 'let (results, _) = await run([hostID, "com.fixture.progress-normal"])' in swift
+    assert 'FixtureVisits.mutation == 2' in swift
+    assert 'if fixtureCandidate { await checkOwnedProgressForwarding() }' in swift
+
+
 def generate_variant(root, support_root, variant, output_root):
     root, output_root = Path(root).resolve(), Path(output_root).resolve()
     dependency = load_dependency(support_root)
@@ -199,8 +222,13 @@ def generate_variant(root, support_root, variant, output_root):
     swift += block(source['runner'], '    func perform(_ operations:') + '\n'
     if variant == 'candidate':
         swift += block(source['runner'], '    private func performUsingAdmittedRoute(') + '\n'
-    swift += '''func performOperation(for operation: AppOperation, handler: PipelineExecutionHandler, group: RefreshGroup, operationsCount: Int = 1, refreshAdmission: (() throws -> Void)? = nil, readProfiles: (() async throws -> [Data])? = nil) async throws {
+    progress_parameter = 'operationProgress: Progress, ' if variant == 'candidate' else ''
+    swift += 'func performOperation(for operation: AppOperation, handler: PipelineExecutionHandler, group: RefreshGroup, ' + progress_parameter + '''operationsCount: Int = 1, refreshAdmission: (() throws -> Void)? = nil, readProfiles: (() async throws -> [Data])? = nil) async throws {
 try refreshAdmission?()
+'''
+    if variant == 'candidate':
+        swift += 'precondition(operationProgress === progress.originals[operation.bundleIdentifier], "original owned progress reaches inert mutation")\n'
+    swift += '''
 // The only mutation boundary is deliberately inert. Early-failure tests
 // assert zero visits; controls assert it is reached only after both checks.
 FixtureVisits.mutation += 1
@@ -239,6 +267,7 @@ func refreshThroughActualManager(_ apps: [InstalledApp]) async throws -> [String
     swift += common_assertions + '\n'
     swift += 'let fixtureCandidate = ' + ('true' if variant == 'candidate' else 'false') + '\n'
     swift += (HERE / 'early_cases.swift').read_text()
+    validate_progress_contract(swift, source['runner'], variant, block)
     output = output_root / variant
     output.mkdir(parents=True, exist_ok=True)
     (output / 'early-refresh.swift').write_text(swift)

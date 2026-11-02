@@ -88,6 +88,27 @@ def validate(candidate_root, baseline_root, output, variants=('baseline', 'candi
         for anchor in ['public enum DeviceConnectionMode:', 'public enum MinimuxerOwnedReadinessTransient:',
                        'public struct MinimuxerOwnedReadinessObservation']:
             check(block(api, anchor) in swift, variant + ': exact public transport type ' + anchor)
+        runner_source = (root / generator.EXTRA_INPUTS['runner']).read_text()
+        generator.validate_progress_contract(swift, runner_source, variant, block)
+        if variant == 'candidate':
+            # Negative extraction controls run without changing production files.
+            mutations = [
+                (swift.replace('operationProgress: Progress,', 'operationProgress: Progress? = nil,'), runner_source),
+                (swift.replace('precondition(operationProgress === progress.originals[operation.bundleIdentifier], "original owned progress reaches inert mutation")', ''), runner_source),
+                (swift.replace('operationProgress: owned.progress, operationsCount: operationsCount', 'operationProgress: Progress.discreteProgress(totalUnitCount: 100), operationsCount: operationsCount'),
+                 runner_source.replace('operationProgress: owned.progress, operationsCount: operationsCount', 'operationProgress: Progress.discreteProgress(totalUnitCount: 100), operationsCount: operationsCount')),
+                (swift.replace('operationProgress: owned.progress, operationsCount: operationsCount', 'operationProgress: self.progress.progress(for: operation)!, operationsCount: operationsCount'),
+                 runner_source.replace('operationProgress: owned.progress, operationsCount: operationsCount', 'operationProgress: self.progress.progress(for: operation)!, operationsCount: operationsCount')),
+                (swift.replace('values[operation.bundleIdentifier] = replacePublishedProgress ? Progress.discreteProgress(totalUnitCount: 100) : value', 'values[operation.bundleIdentifier] = value'), runner_source),
+                (swift.replace('if fixtureCandidate { await checkOwnedProgressForwarding() }', ''), runner_source),
+            ]
+            for mutated_swift, mutated_runner in mutations:
+                try:
+                    generator.validate_progress_contract(mutated_swift, mutated_runner, variant, block)
+                except AssertionError:
+                    pass
+                else:
+                    raise AssertionError('owned-progress negative control was accepted')
         check('refreshAdmission: (() throws -> Void)? = nil' in swift and
               'try refreshAdmission?()' in block(swift, 'func performOperation('),
               variant + ': inert mutation boundary honors owned admission')

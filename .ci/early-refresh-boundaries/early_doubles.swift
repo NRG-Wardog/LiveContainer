@@ -63,8 +63,19 @@ class BasePipelineOperation<Context: StandaloneOperationContext, Value> {
 }
 final class FixtureProgressRegistry {
     var values: [String: Progress] = [:]
+    var originals: [String: Progress] = [:]
+    var replacePublishedProgress = false
     func progress(for operation: AppOperation) -> Progress? { values[operation.bundleIdentifier] }
-    func set(_ value: Progress?, for operation: AppOperation) { values[operation.bundleIdentifier] = value }
+    func set(_ value: Progress?, for operation: AppOperation) {
+        if let value {
+            precondition(originals[operation.bundleIdentifier] == nil)
+            originals[operation.bundleIdentifier] = value
+            // Synthetic UI replacement must not transfer the transaction owner.
+            values[operation.bundleIdentifier] = replacePublishedProgress ? Progress.discreteProgress(totalUnitCount: 100) : value
+        } else {
+            values[operation.bundleIdentifier] = nil
+        }
+    }
 }
 final class FixtureRunnerContext { let isActivelyManagingAnyApp = false }
 enum FixtureVisits {

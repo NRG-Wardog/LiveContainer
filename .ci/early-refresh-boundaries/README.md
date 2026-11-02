@@ -61,3 +61,15 @@ release explicitly. Baseline must consume its actual callback while release is
 held; candidate retains its callback-after-release order. Neither adapter may
 return until explicit release and task completion. This strengthens an existing
 case: all 24 names/order and all 102 static checks remain; production is unchanged.
+
+Fixture-only owned-progress API repair: candidate inert `performOperation`
+requires the same nonoptional `Progress` parameter as the real runner; baseline
+keeps its pinned no-argument call shape. The inert mutation boundary checks
+reference identity against the original progress captured at registration. Within
+the existing success case, both normal-app and host dispatch run with deliberately
+replaced registry entries, proving forwarding does not reacquire or reconstruct
+progress. Finite extraction guards reject missing/defaulted parameters, changed
+forwarding, missing identity checks, and disabled replacement/control coverage.
+Six static mutation negatives strengthen the existing admission-boundary control;
+case names/order and static check names/count remain unchanged. This is fixture
+coverage only, not native mutation, device evidence, or local Swift execution.

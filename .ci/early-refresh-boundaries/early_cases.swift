@@ -37,6 +37,17 @@
         check(server.calls == 1 && server.runID == ChainChecks.runID, "one correlated callback")
         return (results, server)
     }
+    static func checkOwnedProgressForwarding() async {
+        reset()
+        let runner = AppManager.shared.pipelineRunner
+        runner.progress.replacePublishedProgress = true
+        let (results, _) = await run([hostID, "com.fixture.progress-normal"])
+        check(results.count == 2 && FixtureVisits.mutation == 2, "normal and host dispatch both retain owned progress")
+        for result in results.values {
+            if case .success = result {} else { preconditionFailure("owned-progress control failed") }
+        }
+        check(runner.progress.originals.count == 2, "distinct original operation progress captured")
+    }
     static func checkCallbackCompletionBarrier() async {
         reset()
         let gate = FixtureTransportReleaseGate()
@@ -245,6 +256,7 @@
             check(FixtureVisits.readiness == (cellular ? 0 : 1), "original cellular readiness policy retained")
             check(FixtureVisits.teamLookup == 1 && FixtureVisits.mutation == 1, "team guard remains on success")
             check(FixtureVisits.mismatchPrompt == 0, "refresh never gains bundle mismatch prompt")
+            if !cellular { if fixtureCandidate { await checkOwnedProgressForwarding() } }
             if !cellular { await checkCallbackCompletionBarrier() }
             pass(cellular ? "cellular_existing_policy" : "success_both_checks_retained")
         }
