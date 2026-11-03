@@ -29,6 +29,15 @@ change global provider settings. With the toggle off it preserves the existing
 `anisetteProvider = remoteMac` submit-v2 behavior. Every new prompt resets the
 selection; no implicit consent carries to another session.
 
+The sign-in form describes the existing automatic Remote Mac selection only when
+`remoteMacAnisette = submit-v2` is present and manual diagnostics are off. It does
+not claim health testing, automatic fallback, or guaranteed authentication.
+The existing provider toggle and order controls are inside **Advanced diagnostics**,
+collapsed initially. Opening or closing this disclosure does not change the
+explicit diagnostic choice or order. When diagnostics are enabled, a visible
+summary identifies that mode even while collapsed. A new prompt or dismissal
+resets the disclosure along with the existing prompt-local diagnostic selection.
+
 ## Service adapter contract
 
 - Validate the advertised capability and ordered subset again at the service
@@ -83,3 +92,16 @@ explicit skip, not a behavioral pass. The harness covers ordered first/later
 success, exhaustion, timeout, cancellation, backoff, duplicate submit, stale
 completion, cache/commit rejection and 2FA stop behavior. Full target compilation,
 service integration and physical-device tests remain necessary.
+
+The same suite extracts the actual host prompt properties, lifecycle bodies,
+button actions and disabled predicates into a Foundation-only probe. It covers
+initial/default submission, opening/closing without opting in, manual subset and
+order overrides, collapsed manual submission, disabled controls, the parent's
+submission flag, invalid/missing capabilities, replacement prompts, credential
+draft preservation, Cancel/Back cleanup, and the three new strings in all five
+supported languages (15 native renderer values). The fixture does not implement
+another routing policy. SwiftUI storage/access wrappers and the unrelated
+repair-URL task launches are excluded from that probe. This is source-bound
+policy execution, not a SwiftUI rendering or device-authentication pass. Missing
+Swift skips both native tests explicitly; source-structure and finite catalog
+checks can still run without Swift.

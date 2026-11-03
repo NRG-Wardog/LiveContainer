@@ -12554,6 +12554,7 @@ struct V3PromptSection: View {
     @State private var loadedPromptID: String?
     @State private var diagnosticProviderOrder: [String] = []
     @State private var diagnosticSequenceEnabled = false
+    @State private var advancedDiagnosticsExpanded = false
     private var kind: String { prompt["kind"] as? String ?? "" }
     private var offeredDiagnosticProviders: V3DiagnosticProviderPlan? {
         V3DiagnosticProviderPlan.offered(kind: kind,
@@ -12578,6 +12579,15 @@ struct V3PromptSection: View {
     }
     private var usesRemoteMacAnisetteForSubmit: Bool {
         kind == "credentials" && prompt["remoteMacAnisette"] as? String == "submit-v2"
+    }
+    private var providerSelectionSummary: String? {
+        if diagnosticSequenceEnabled {
+            return "Diagnostic provider sequence is enabled."
+        }
+        if usesRemoteMacAnisetteForSubmit {
+            return "Remote Mac is selected automatically for normal sign-in."
+        }
+        return nil
     }
     private var title: String { prompt["title"] as? String ?? "Input Needed" }
     private var message: String { prompt["message"] as? String ?? "" }
@@ -12726,54 +12736,62 @@ struct V3PromptSection: View {
                         .disableAutocorrection(true)
                 }
             }
+            if let summary = providerSelectionSummary {
+                V3LocalizedText(summary)
+                    .font(.caption).foregroundColor(.secondary)
+                    .accessibilityIdentifier("signin.provider-selection-summary")
+            }
             if offeredDiagnosticProviders != nil {
-                Toggle("Try providers in order", isOn: $diagnosticSequenceEnabled)
-                    .disabled(isSubmitting || isSubmissionBlocked)
-                if diagnosticSequenceEnabled {
-                    Text("Submit tries each selected provider at most once. It stops on success or an account error and pauses for verification. If cleanup is delayed, no next provider starts.")
-                        .font(.caption).foregroundColor(.secondary)
-                    if let notice = ownedODASourceNotice {
-                        V3LocalizedText(notice)
-                            .font(.caption).foregroundColor(.secondary)
-                            .accessibilityIdentifier("signin.diagnostic.on-device-source")
-                    }
-                    ForEach(Array(diagnosticProviderOrder.enumerated()), id: \.element) { index, raw in
-                        HStack {
-                            Text("\(index + 1). \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw)")
-                            Spacer()
-                            Button {
-                                guard index > 0 else { return }
-                                diagnosticProviderOrder.swapAt(index, index - 1)
-                            } label: { Image(systemName: "arrow.up") }
-                                .accessibilityLabel("Move \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) earlier")
-                                .buttonStyle(.borderless)
-                                .disabled(index == 0 || isSubmitting || isSubmissionBlocked)
-                            Button {
-                                guard index + 1 < diagnosticProviderOrder.count else { return }
-                                diagnosticProviderOrder.swapAt(index, index + 1)
-                            } label: { Image(systemName: "arrow.down") }
-                                .accessibilityLabel("Move \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) later")
-                                .buttonStyle(.borderless)
-                                .disabled(index + 1 == diagnosticProviderOrder.count || isSubmitting || isSubmissionBlocked)
-                            Button {
-                                guard diagnosticProviderOrder.count > 1 else { return }
-                                diagnosticProviderOrder.removeAll { $0 == raw }
-                            } label: { Image(systemName: "minus.circle") }
-                                .accessibilityLabel("Remove \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) from sequence")
-                                .buttonStyle(.borderless)
-                                .disabled(diagnosticProviderOrder.count == 1 || isSubmitting || isSubmissionBlocked)
-                        }
-                    }
-                    ForEach((offeredDiagnosticProviders?.providers ?? []).filter {
-                        !diagnosticProviderOrder.contains($0.rawValue)
-                    }, id: \.rawValue) { provider in
-                        Button("Add \(provider.title)", systemImage: "plus.circle") {
-                            guard !diagnosticProviderOrder.contains(provider.rawValue) else { return }
-                            diagnosticProviderOrder.append(provider.rawValue)
-                        }
+                DisclosureGroup("Advanced diagnostics", isExpanded: $advancedDiagnosticsExpanded) {
+                    Toggle("Try providers in order", isOn: $diagnosticSequenceEnabled)
                         .disabled(isSubmitting || isSubmissionBlocked)
+                    if diagnosticSequenceEnabled {
+                        Text("Submit tries each selected provider at most once. It stops on success or an account error and pauses for verification. If cleanup is delayed, no next provider starts.")
+                            .font(.caption).foregroundColor(.secondary)
+                        if let notice = ownedODASourceNotice {
+                            V3LocalizedText(notice)
+                                .font(.caption).foregroundColor(.secondary)
+                                .accessibilityIdentifier("signin.diagnostic.on-device-source")
+                        }
+                        ForEach(Array(diagnosticProviderOrder.enumerated()), id: \.element) { index, raw in
+                            HStack {
+                                Text("\(index + 1). \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw)")
+                                Spacer()
+                                Button {
+                                    guard index > 0 else { return }
+                                    diagnosticProviderOrder.swapAt(index, index - 1)
+                                } label: { Image(systemName: "arrow.up") }
+                                    .accessibilityLabel("Move \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) earlier")
+                                    .buttonStyle(.borderless)
+                                    .disabled(index == 0 || isSubmitting || isSubmissionBlocked)
+                                Button {
+                                    guard index + 1 < diagnosticProviderOrder.count else { return }
+                                    diagnosticProviderOrder.swapAt(index, index + 1)
+                                } label: { Image(systemName: "arrow.down") }
+                                    .accessibilityLabel("Move \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) later")
+                                    .buttonStyle(.borderless)
+                                    .disabled(index + 1 == diagnosticProviderOrder.count || isSubmitting || isSubmissionBlocked)
+                                Button {
+                                    guard diagnosticProviderOrder.count > 1 else { return }
+                                    diagnosticProviderOrder.removeAll { $0 == raw }
+                                } label: { Image(systemName: "minus.circle") }
+                                    .accessibilityLabel("Remove \(V3DiagnosticProvider(rawValue: raw)?.title ?? raw) from sequence")
+                                    .buttonStyle(.borderless)
+                                    .disabled(diagnosticProviderOrder.count == 1 || isSubmitting || isSubmissionBlocked)
+                            }
+                        }
+                        ForEach((offeredDiagnosticProviders?.providers ?? []).filter {
+                            !diagnosticProviderOrder.contains($0.rawValue)
+                        }, id: \.rawValue) { provider in
+                            Button("Add \(provider.title)", systemImage: "plus.circle") {
+                                guard !diagnosticProviderOrder.contains(provider.rawValue) else { return }
+                                diagnosticProviderOrder.append(provider.rawValue)
+                            }
+                            .disabled(isSubmitting || isSubmissionBlocked)
+                        }
                     }
                 }
+                .accessibilityIdentifier("signin.advanced-diagnostics")
             }
             if fieldDefs.count > 0 && options.isEmpty {
                 Button("Submit") { submit(choice: "") }
@@ -12901,6 +12919,7 @@ struct V3PromptSection: View {
             loadedPromptID = nil
             diagnosticProviderOrder = []
             diagnosticSequenceEnabled = false
+            advancedDiagnosticsExpanded = false
         }
     }
     private func copyDiagnostic(_ value: String) {
@@ -12923,6 +12942,7 @@ struct V3PromptSection: View {
             fields["password"] = draft["password"] ?? ""
         }
         diagnosticSequenceEnabled = false
+        advancedDiagnosticsExpanded = false
         diagnosticProviderOrder = offeredDiagnosticProviders?.providers.map(\.rawValue) ?? []
         loadedPromptID = prompt["id"] as? String
     }

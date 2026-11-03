@@ -309,8 +309,21 @@ def check(root, baseline, output):
     assert len(replacement_keys) == 16 and not g.catalog_missing(replacement_keys, catalog['strings'])
     replacement_source = g.block(s['ui'], 'enum V3LegacyReplacementPolicy {') + g.block(s['ui'], 'struct V3LegacyReplacementAction: View {')
     assert all(json.dumps(key, ensure_ascii=False) in replacement_source for key in replacement_keys)
+    # Three sign-in presentation strings only. These are outside the setup
+    # inventory; bind this finite addition to the actual summary and disclosure.
+    provider_prompt_keys = {
+        'Advanced diagnostics',
+        'Diagnostic provider sequence is enabled.',
+        'Remote Mac is selected automatically for normal sign-in.',
+    }
+    provider_prompt = g.block(s['ui'], 'struct V3PromptSection: View {')
+    provider_summary = g.block(provider_prompt, 'private var providerSelectionSummary: String? {')
+    actual_provider_keys = set(re.findall(r'return "([^"]+)"', provider_summary))
+    actual_provider_keys.update(re.findall(r'DisclosureGroup\("([^"]+)", isExpanded: \$advancedDiagnosticsExpanded\)', provider_prompt))
+    assert actual_provider_keys == provider_prompt_keys
+    assert not g.catalog_missing(provider_prompt_keys, catalog['strings'])
     historical_connection_keys = {'Device connection verified by the latest successful refresh. This is not a live VPN check.', 'Refresh verified; CoreDevice transport was not independently recorded.'}
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys | set(g.LOCAL_REFRESH_REPLACEMENTS) | set(g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS)
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys | set(g.LOCAL_REFRESH_REPLACEMENTS) | set(g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS) | provider_prompt_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]
@@ -418,6 +431,8 @@ def check(root, baseline, output):
         'setup_view_except_typed_titles_and_exact_connection_overlay': 'byte_for_byte_unchanged',
         'exact_connection_scope_negative_control': 'unrelated_cancel_mutation_rejected',
         'overlay_keys': sorted(overlay_keys), 'overlay_russian_values': len(overlay_keys),
+        'provider_prompt_keys': sorted(provider_prompt_keys),
+        'provider_prompt_localized_values': len(provider_prompt_keys) * len(g.LANGUAGES),
         'startup_diagnosis_card_keys': sorted(startup_card_keys),
         'startup_card_missing_translation_mutation_cases': len(startup_card_mutation_checks),
         'startup_diagnostic_keys': sorted(startup_keys),
