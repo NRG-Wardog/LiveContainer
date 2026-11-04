@@ -48,7 +48,7 @@ struct V3DiagnosticProviderPlan: Equatable, Sendable {
 // context before reporting quiescence. A timeout alone is not that evidence.
 struct V3DiagnosticProviderSequence: Equatable, Sendable {
     enum Failure: String, Sendable {
-        case providerUnavailable, transientNetwork, timedOut
+        case providerUnavailable, providerRejectedInit, transientNetwork, timedOut
         case invalidCredentials, accountRestricted, rateLimited, invalidCode
         case identityChanged, credentialStorage, unknown
     }
@@ -112,6 +112,9 @@ struct V3DiagnosticProviderSequence: Equatable, Sendable {
         guard attempt == current,
               state == .attempting(current.index) || state == .awaitingUser(current.index) else { return }
         results.append(reason)
+        // This host-only model has no source-minted pre-proof evidence, so
+        // providerRejectedInit remains fail-closed here. Only the service owns
+        // eligibility for continuing after a confirmed initialization rejection.
         // Any interactive challenge latches this attempt. Never rotate providers
         // after a 2FA challenge, even when its final request fails transiently.
         if challengeSeen || ![Failure.providerUnavailable, .transientNetwork, .timedOut].contains(reason) {
@@ -172,6 +175,7 @@ struct V3DiagnosticProviderResult: Equatable {
         case "working": return "Signing in"
         case "succeeded": return "Signed in"
         case "providerUnavailable": return "Provider unavailable"
+        case "providerRejectedInit": return "Apple rejected provider initialization"
         case "transientNetwork": return "Network unavailable"
         case "timedOut": return "Timed out"
         case "cleanupPending": return "Deadline exceeded; waiting for cleanup"
@@ -180,7 +184,7 @@ struct V3DiagnosticProviderResult: Equatable {
     }
     static func parse(_ raw: Any?, terminal: Bool = false) -> [Self] {
         guard let rows = raw as? [[String: String]], rows.count <= V3DiagnosticProviderPlan.maximumProviders else { return [] }
-        let allowed = ["working", "succeeded", "providerUnavailable", "transientNetwork", "timedOut", "cleanupPending", "stopped"]
+        let allowed = ["working", "succeeded", "providerUnavailable", "providerRejectedInit", "transientNetwork", "timedOut", "cleanupPending", "stopped"]
         var seen = Set<String>()
         var results: [Self] = []
         for row in rows {

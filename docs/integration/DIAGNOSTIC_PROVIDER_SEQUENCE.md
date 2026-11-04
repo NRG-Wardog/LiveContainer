@@ -84,6 +84,21 @@ The shared seam is `V3DiagnosticProviderPlan` and
 matching service semantics through contract tests rather than expanding
 upstream-facing UI patches.
 
+## Confirmed initialization rejection reporting
+
+The bounded service outcome `providerRejectedInit` is displayed as
+"Apple rejected provider initialization". It describes only that provider's
+failure, not a promise that another attempt has started or will succeed. A later
+provider's separate result reports actual service progress, and a terminal
+snapshot converts any remaining `working` row to `stopped`.
+
+Eligibility for continuing after an initialization rejection belongs exclusively
+to the service's source-minted, pre-proof evidence and isolation gates. The host
+does not infer it from an error number or display string. Its Foundation-only
+sequence model has no such evidence and remains fail-closed for that category.
+Normal Remote Mac selection and the explicit advanced ordered-provider mode are
+unchanged.
+
 ## Verification
 
 `python -B -m unittest discover -s tests -p test_diagnostic_provider_sequence.py -v`

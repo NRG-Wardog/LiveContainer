@@ -38,7 +38,23 @@ with tempfile.TemporaryDirectory() as d:
     for text in [generated_service, generated_host]:
         for forbidden in ['URLSession.shared', 'session.data(for:', 'SRPClient(', 'dlopen(', 'import AnisetteKit', 'import UIKit', 'import SideSign']:
             assert forbidden not in text, forbidden
+    # Every new mapper dependency is declared, but the boundary cannot create
+    # live fallback evidence. The numeric constant remains production-owned.
+    authentication = (sign/'Sources/DeveloperPortal/Authentication.swift').read_text()
+    actual_rejection = g.block(authentication, 'public struct OwnedODAInitialProviderRejection:')
+    immutable_code = re.findall(r'^    public static let serverCode = -[0-9]+$', actual_rejection, re.M)
+    assert len(immutable_code) == 1
+    boundary = g.owned_init_rejection_boundary(authentication)
+    declaration = g.block(boundary, 'enum OwnedODAInitialProviderRejection:')
+    assert declaration == 'enum OwnedODAInitialProviderRejection: Error {\n' + immutable_code[0] + '\n}'
+    assert generated_service.count(declaration) == 1
+    assert actual_rejection not in generated_service
+    assert 'OwnedODAInitialProviderRejection.confirmed(' not in generated_service
+    assert 'OwnedODAInitialProviderRejection(' not in generated_service
+    assert 'error is OwnedODAInitialProviderRejection' in g.block(service, 'func v3AccountOperationFailure(')
+    assert 'serverCode = OwnedODAInitialProviderRejection.serverCode' in generated_service
     hashes=json.loads((out/'sources.json').read_text())['input_sha256']
+    assert hashes['authentication'] == hashlib.sha256((sign/'Sources/DeveloperPortal/Authentication.swift').read_bytes()).hexdigest()
     assert hashes['service'] == hashlib.sha256((ss/'AltStore/AppDelegate.swift').read_bytes()).hexdigest()
     assert 'generated_not_compiled' in (out/'sources.json').read_text()
 # Only scoped lifecycle presentation updates; identity/retry actions unchanged.

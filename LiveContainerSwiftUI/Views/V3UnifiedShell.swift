@@ -14726,7 +14726,7 @@ struct V3SignInView: View {
                     HStack {
                         Text(result.provider.title)
                         Spacer()
-                        Text(result.title).foregroundColor(result.outcome == "succeeded" ? .green : .secondary)
+                        Text(V3Localization.string(result.title)).foregroundColor(result.outcome == "succeeded" ? .green : .secondary)
                     }
                     .font(.caption)
                 }

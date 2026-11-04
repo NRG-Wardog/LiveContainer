@@ -30,6 +30,18 @@ enum AnisetteKit { enum AnisetteError: Error {
 } }
 """
 
+def owned_init_rejection_boundary(authentication):
+    # Compile-only type closure for the actual account-error mapper. The live
+    # source type owns a native context and its response classifier; this wire
+    # harness must not mint that evidence or simulate provider authentication.
+    # A no-case enum is uninhabited: no fixture can construct this boundary.
+    actual = block(authentication, 'public struct OwnedODAInitialProviderRejection:')
+    constants = re.findall(r'^    public static let serverCode = -[0-9]+$', actual, re.M)
+    if len(constants) != 1:
+        raise ValueError('Expected exactly one immutable owned-init server code')
+    return ('// Compile-only uninhabited error boundary; never authentication evidence.\n'
+            'enum OwnedODAInitialProviderRejection: Error {\n' + constants[0] + '\n}\n')
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     for name in ['sources','sidestore-root','livecontainer-root','sidesign-root','output','auth-cases','profile-cases','registration-cases']:
@@ -41,6 +53,7 @@ def main():
            'ui':lc/'LiveContainerSwiftUI/Views/V3UnifiedShell.swift',
            'operation':ss/'SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift',
            'collector':sign/'Sources/Models/AuthenticationDiagnosticTrace.swift',
+           'authentication':sign/'Sources/DeveloperPortal/Authentication.swift',
            'provenance':sign/'Sources/Models/AuthenticationHeaderProvenance.swift','constants':sign/'Sources/Constants.swift',
            'operation_errors':ss/'SideStore/Core/Operations/Errors/OperationError.swift',
            'portal_errors':sign/'Sources/Models/Errors.swift',
@@ -88,7 +101,7 @@ def main():
                         ('remote_errors','public enum ILoaderRemoteError:')]:
         service+=block(s[key],anchor)+'\n'
     service+='enum SideSign {\n'+block(s['anisette_errors'],'public enum AnisetteError:')+'\nenum Archive {\n'+block(s['archive_errors'],'public enum Error:')+'\n}\n}\n'
-    service+=MAPPER_BOUNDARY_DOUBLES+s['registration_doubles']+'\n'
+    service+=MAPPER_BOUNDARY_DOUBLES+owned_init_rejection_boundary(s['authentication'])+s['registration_doubles']+'\n'
     service+=block(s['minimuxer_mapping'],'extension MinimuxerError {')+'\n'
     for anchor in ['enum V3AuthFailureKind:', 'struct V3ProvisioningReauthenticationIdentityError:',
                    'func v3ClassifyAuthError(', 'func v3IsAuthCancellation(', 'func v3AnisetteAttemptContext(',

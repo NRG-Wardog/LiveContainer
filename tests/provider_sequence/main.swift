@@ -45,7 +45,7 @@ expect(later.state == .attempting(1), "stale completion ignored")
 later.succeeded(next)
 expect(later.state == .succeeded(1), "later success")
 
-for failure in [V3DiagnosticProviderSequence.Failure.invalidCredentials, .accountRestricted, .rateLimited, .invalidCode, .identityChanged, .credentialStorage, .unknown] {
+for failure in [V3DiagnosticProviderSequence.Failure.providerRejectedInit, .invalidCredentials, .accountRestricted, .rateLimited, .invalidCode, .identityChanged, .credentialStorage, .unknown] {
     var sequence = V3DiagnosticProviderSequence(plan: plan)
     let current = sequence.start(now: 0)!
     sequence.failed(current, reason: failure)
@@ -93,4 +93,30 @@ expect(cancelled.state == .cancelled, "late callback cannot revive cancellation"
 var badClock = V3DiagnosticProviderSequence(plan: plan)
 expect(badClock.start(now: .nan) == nil, "invalid clock refused")
 expect(badClock.start(now: .infinity) == nil, "infinite clock refused")
+// Execute the production snapshot parser and title renderer, not a replica.
+let rejectedInit = ["provider": "onDevice", "outcome": "providerRejectedInit"]
+for nextOutcome in ["working", "succeeded", "stopped"] {
+    let rows = [rejectedInit, ["provider": "remoteMac", "outcome": nextOutcome]]
+    let parsed = V3DiagnosticProviderResult.parse(rows)
+    expect(parsed.count == 2, "confirmed rejection does not erase subsequent provider result")
+    expect(parsed.map(\.provider) == [.onDevice, .remoteMac], "result order is service order")
+    expect(parsed[0].title == "Apple rejected provider initialization", "finite rejection label")
+    expect(parsed[1].outcome == nextOutcome, "next provider outcome remains truthful")
+    let terminal = V3DiagnosticProviderResult.parse(rows, terminal: true)
+    expect(terminal[0].outcome == "providerRejectedInit", "terminal preserves failed initialization")
+    expect(terminal[1].outcome == (nextOutcome == "working" ? "stopped" : nextOutcome),
+           "terminal never claims next provider still running")
+}
+let rejectedOnly = V3DiagnosticProviderResult.parse([rejectedInit], terminal: true)
+expect(rejectedOnly.count == 1 && rejectedOnly[0].title == "Apple rejected provider initialization",
+       "last or cancelled rejection does not promise another attempt")
+for invalidRows in [
+    [["provider": "onDevice", "outcome": "providerRejectedInit: raw server error"]],
+    [["provider": "onDevice", "outcome": "providerRejectedInit", "error": "private"]],
+    [["provider": "unknown", "outcome": "providerRejectedInit"]],
+    [rejectedInit, rejectedInit],
+    [rejectedInit, ["provider": "remoteMac", "outcome": "unknown"]]
+] {
+    expect(V3DiagnosticProviderResult.parse(invalidRows).isEmpty, "reject malformed or non-finite snapshot")
+}
 print("Provider sequence: \(checks) checks passed")

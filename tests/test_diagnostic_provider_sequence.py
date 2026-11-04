@@ -177,6 +177,19 @@ class ProviderSequenceTests(unittest.TestCase):
                 else: self.assertNotEqual(unit['value'], key)
                 self.assertNotIn('\\(', unit['value'])
 
+    def test_finite_initialization_rejection_copy(self):
+        key = "Apple rejected provider initialization"
+        catalog = json.loads((ROOT / 'Resources/Localizable.xcstrings').read_text())['strings']
+        translations = catalog[key]['localizations']
+        self.assertEqual(set(translations), LANGUAGES)
+        for language, row in translations.items():
+            self.assertEqual(row['stringUnit']['state'], 'translated')
+            self.assertTrue(row['stringUnit']['value'].strip())
+            if language == 'en': self.assertEqual(row['stringUnit']['value'], key)
+            else: self.assertNotEqual(row['stringUnit']['value'], key)
+        self.assertIn('Text(V3Localization.string(result.title))', SHELL.read_text())
+        self.assertIn('case "providerRejectedInit": return "' + key + '"', POLICY.read_text())
+
     def test_production_policy(self):
         swift = shutil.which("swiftc")
         if not swift:
