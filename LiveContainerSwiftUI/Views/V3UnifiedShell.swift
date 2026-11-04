@@ -14581,6 +14581,7 @@ struct V3SignInLink: View {
 }
 
 struct V3SignInView: View {
+    @Environment(\.locale) private var displayLocale
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var status: V3SideStoreStatusStore
     @EnvironmentObject private var sharedModel: SharedModel
@@ -14726,7 +14727,7 @@ struct V3SignInView: View {
                     HStack {
                         Text(result.provider.title)
                         Spacer()
-                        Text(V3Localization.string(result.title)).foregroundColor(result.outcome == "succeeded" ? .green : .secondary)
+                        Text(V3Localization.string(result.title, language: .resolve(displayLocale.identifier))).foregroundColor(result.outcome == "succeeded" ? .green : .secondary)
                     }
                     .font(.caption)
                 }

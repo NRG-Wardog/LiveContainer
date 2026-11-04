@@ -187,7 +187,7 @@ class ProviderSequenceTests(unittest.TestCase):
             self.assertTrue(row['stringUnit']['value'].strip())
             if language == 'en': self.assertEqual(row['stringUnit']['value'], key)
             else: self.assertNotEqual(row['stringUnit']['value'], key)
-        self.assertIn('Text(V3Localization.string(result.title))', SHELL.read_text())
+        self.assertIn('Text(V3Localization.string(result.title, language: .resolve(displayLocale.identifier)))', SHELL.read_text())
         self.assertIn('case "providerRejectedInit": return "' + key + '"', POLICY.read_text())
 
     def test_production_policy(self):

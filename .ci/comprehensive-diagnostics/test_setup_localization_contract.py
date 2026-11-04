@@ -329,7 +329,7 @@ def check(root, baseline, output):
     provider_result = g.block(provider_model, 'struct V3DiagnosticProviderResult:')
     actual_rejection_keys = set(re.findall(r'case "providerRejectedInit": return "([^"]+)"', provider_result))
     assert actual_rejection_keys == provider_result_keys
-    assert 'Text(V3Localization.string(result.title))' in s['ui']
+    assert 'Text(V3Localization.string(result.title, language: .resolve(displayLocale.identifier)))' in s['ui']
     assert not g.catalog_missing(provider_result_keys, catalog['strings'])
     omitted_result_catalog = {key: value for key, value in catalog['strings'].items() if key not in provider_result_keys}
     missing_result = g.catalog_missing(provider_result_keys, omitted_result_catalog)

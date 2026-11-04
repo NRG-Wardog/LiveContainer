@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SHELL = ROOT / 'LiveContainerSwiftUI/Views/V3UnifiedShell.swift'
-VIEWS = ('V3SourcesView', 'V3CatalogView', 'V3DeveloperServicesView', 'V3AnisetteView')
+VIEWS = ('V3SourcesView', 'V3CatalogView', 'V3DeveloperServicesView', 'V3AnisetteView', 'V3SignInView')
 
 
 def view_source(source, name):
@@ -91,6 +91,17 @@ class LiveLanguageStateTests(unittest.TestCase):
             ('V3Localization.text("Sources (\\(status.sources.count))", language: .resolve(displayLocale.identifier))', 'V3Localization.text("Sources (\\(status.sources.count))")'),
         ]:
             target = view_source(source, 'V3SourcesView')
+            self.assertIn(old, target)
+            with self.assertRaises(AssertionError):
+                check_live_wiring(source.replace(target, target.replace(old, new, 1), 1))
+
+        # Provider result copy observes the same live environment as other
+        # eager view strings. Neither implicit lookup nor a cached locale passes.
+        target = view_source(source, 'V3SignInView')
+        for old, new in [
+            ('@Environment(\\.locale) private var displayLocale', 'private var displayLocale = Locale(identifier: "he")'),
+            ('V3Localization.string(result.title, language: .resolve(displayLocale.identifier))', 'V3Localization.string(result.title)'),
+        ]:
             self.assertIn(old, target)
             with self.assertRaises(AssertionError):
                 check_live_wiring(source.replace(target, target.replace(old, new, 1), 1))
