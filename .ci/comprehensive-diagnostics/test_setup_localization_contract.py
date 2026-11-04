@@ -322,8 +322,22 @@ def check(root, baseline, output):
     actual_provider_keys.update(re.findall(r'DisclosureGroup\("([^"]+)", isExpanded: \$advancedDiagnosticsExpanded\)', provider_prompt))
     assert actual_provider_keys == provider_prompt_keys
     assert not g.catalog_missing(provider_prompt_keys, catalog['strings'])
+    # One finite result title, separate from the three prompt strings and setup
+    # inventory. Bind the addition to the actual typed outcome and renderer.
+    provider_result_keys = {'Apple rejected provider initialization'}
+    provider_model = (root / 'LiveContainerSwiftUI/Models/V3DiagnosticProviderSequence.swift').read_text()
+    provider_result = g.block(provider_model, 'struct V3DiagnosticProviderResult:')
+    actual_rejection_keys = set(re.findall(r'case "providerRejectedInit": return "([^"]+)"', provider_result))
+    assert actual_rejection_keys == provider_result_keys
+    assert 'Text(V3Localization.string(result.title))' in s['ui']
+    assert not g.catalog_missing(provider_result_keys, catalog['strings'])
+    omitted_result_catalog = {key: value for key, value in catalog['strings'].items() if key not in provider_result_keys}
+    missing_result = g.catalog_missing(provider_result_keys, omitted_result_catalog)
+    assert {(row['key'], row['language']) for row in missing_result} == {
+        (key, language) for key in provider_result_keys for language in g.LANGUAGES}
+    assert len(missing_result) == len(provider_result_keys) * len(g.LANGUAGES)
     historical_connection_keys = {'Device connection verified by the latest successful refresh. This is not a live VPN check.', 'Refresh verified; CoreDevice transport was not independently recorded.'}
-    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys | set(g.LOCAL_REFRESH_REPLACEMENTS) | set(g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS) | provider_prompt_keys
+    allowed = {'JIT-Less', 'Wi-Fi', 'CoreDevice'} | set(g.PAIRING_KEYS) | identity_keys | overlay_keys | owned_oda_keys | startup_keys | startup_card_keys | truth_keys | historical_connection_keys | replacement_keys | set(g.LOCAL_REFRESH_REPLACEMENTS) | set(g.OBSERVED_CONSTRAINT_COPY_REPLACEMENTS) | provider_prompt_keys | provider_result_keys
     assert added == allowed - set(baseline_catalog['strings']), added
     negative = g.catalog_missing(current['keys'], baseline_catalog['strings'])
     historical_negative = [row for row in negative if row['language'] in g.BASELINE_LANGUAGES]
