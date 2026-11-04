@@ -96,10 +96,19 @@ def generate(root, output):
     assert 'native.code == 3 ? .unavailable' in host and 'native.code == 4 ? .timedOut' in host
     # Confirm same scheduler run may dispatch again without cached command replay.
     client_bytes = (root / CLIENT).read_bytes()
-    assert hashlib.sha1(b'blob ' + str(len(client_bytes)).encode() + b'\0' + client_bytes).hexdigest() == 'ed031c9f09879ab81f5feeacb141c72ceb076a38'
+    client_blob = hashlib.sha1(b'blob ' + str(len(client_bytes)).encode() + b'\0' + client_bytes).hexdigest()
     native_dispatch = helper.block(client_bytes.decode(), '- (void)refreshAllAppsWithIdentifier:')
-    assert '[self performRefreshForRealWithIdentifier:identifier mangledTypeName:mangledTypeName server:handler.server];' in native_dispatch
-    assert 'if (refreshRunID.length) [defaults setObject:refreshRunID' in native_dispatch
+    if client_blob == 'ed031c9f09879ab81f5feeacb141c72ceb076a38':
+        assert '[self performRefreshForRealWithIdentifier:identifier mangledTypeName:mangledTypeName server:handler.server];' in native_dispatch
+        assert 'if (refreshRunID.length) [defaults setObject:refreshRunID' in native_dispatch
+    else:
+        # Exact reviewed direct-host successor, not an arbitrary selector bypass.
+        assert client_blob == '64145fa63c5a03ca4c6a5061608bcd4fb96ca7b0'
+        assert '[service refreshForHost:runID progress:' in native_dispatch
+        assert 'NSString *runID = [refreshRunID copy];' in native_dispatch
+        assert '[server finishRefresh:error runID:runID verification:verification];' in native_dispatch
+        assert 'performRefreshForRealWithIdentifier:' not in native_dispatch
+        assert '[defaults setObject:' not in native_dispatch
     assert 'let id = UUID().uuidString' in helper.block(model, 'public func request(operation:')
     service = (root / SERVICE).read_text()
     assert 'if let previous = completed[id]' in helper.block(service, 'private func receive(')

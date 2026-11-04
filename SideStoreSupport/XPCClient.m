@@ -14,6 +14,7 @@
 - (void)performRefreshForRealWithIdentifier:(NSString*)identifier
                             mangledTypeName:(NSString*)mangledTypeName
                                      server:(id <RefreshServer> _Nonnull)server;
+- (void)reportHostRefreshUnavailable:(NSString *)runID server:(id<RefreshServer>)server;
 
 @end
 
@@ -22,6 +23,9 @@ void installSideStoreHooks(void);
 
 @protocol V3CommandService
 + (void)execute:(NSData *)request reply:(void (^)(NSData *))reply;
++ (void)refreshForHost:(NSString *)runID
+              progress:(void (^)(double))progress
+            completion:(void (^)(NSString * _Nullable, NSData * _Nullable))completion;
 @end
 
 @implementation SideStoreClient
@@ -77,32 +81,22 @@ void installSideStoreHooks(void);
     if(!handler) {
         return;
     }
-    // V3_RUNTIME_SHARED_REFRESH_STORE_V1: the run ID, the previous verification
-    // manifest and the host-handoff record form the host/service contract, so
-    // they are cleared and stamped in the one runtime App Group the host
-    // published. A fixed suite name would clear a store the embedded service
-    // never writes, leaving the previous run's manifest to match a new run.
-    // +[NSUserDefaults initWithSuiteName:] accepts any name and silently writes
-    // the process's own domain when the suite is not a group this build is
-    // entitled to, so the container is proven openable first. Otherwise the
-    // stamps would land where the service can never read them.
-    const char *runtimeAppGroup = getenv("LC_V3_INHERITED_APP_GROUP");
-    NSString *runtimeAppGroupID = (runtimeAppGroup != NULL && runtimeAppGroup[0] != '\0')
-        ? [NSString stringWithUTF8String:runtimeAppGroup] : nil;
-    BOOL runtimeAppGroupOpenable = runtimeAppGroupID.length > 0 &&
-        [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:runtimeAppGroupID] != nil;
-    NSUserDefaults *defaults = runtimeAppGroupOpenable
-        ? [[NSUserDefaults alloc] initWithSuiteName:runtimeAppGroupID] : nil;
-    if (defaults == nil) {
-        NSLog(@"[LIVE_CONTAINER_REFRESH] RESULT_STORE_UNAVAILABLE reason=runtime_app_group_unresolved");
+    // V3_DIRECT_HOST_REFRESH_V1: only the service with the explicit admission
+    // may clear state or start the canonical backend. No private AppIntent run.
+    Class<V3CommandService> service = (Class<V3CommandService>)NSClassFromString(@"V3SideStoreService");
+    if (refreshRunID.length && service &&
+        [(id)service respondsToSelector:@selector(refreshForHost:progress:completion:)]) {
+        id<RefreshServer> server = handler.server;
+        NSString *runID = [refreshRunID copy];
+        [service refreshForHost:runID progress:^(double value) {
+            [server updateProgress:value];
+        } completion:^(NSString *error, NSData *verification) {
+            [server finishRefresh:error runID:runID verification:verification];
+        }];
     } else {
-        [defaults removeObjectForKey:@"liveContainerAutoRefreshVerification"];
-        [defaults removeObjectForKey:@"liveContainerAutoRefreshHostHandoff"];
-        [defaults removeObjectForKey:@"liveContainerAutoRefreshHostHandoffRunID"];
-        if (refreshRunID.length) [defaults setObject:refreshRunID forKey:@"liveContainerAutoRefreshExpectedRunID"];
-        else [defaults removeObjectForKey:@"liveContainerAutoRefreshExpectedRunID"];
+        [self reportHostRefreshUnavailable:refreshRunID ?: @"" server:handler.server];
     }
-    [self performRefreshForRealWithIdentifier:identifier mangledTypeName:mangledTypeName server:handler.server];
 }
 
 @end
+
