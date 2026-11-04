@@ -14,6 +14,9 @@ __attribute__((swift_attr("@Sendable")))
 - (void)finish:(NSString*)error;
 // LC_REFRESH_RESULT_XPC_V1
 - (void)finishRefresh:(NSString* _Nullable)error runID:(NSString* _Nonnull)runID verification:(NSData* _Nullable)verification NS_SWIFT_NAME(finishRefresh(_:runID:verification:));
+// V3_REFRESH_CALLBACK_ADMISSION_V1
+- (void)finishHostRefresh:(NSString* _Nullable)error runID:(NSString* _Nonnull)runID admissionID:(NSString* _Nonnull)admissionID verification:(NSData* _Nullable)verification NS_SWIFT_NAME(finishHostRefresh(_:runID:admissionID:verification:));
+- (void)updateHostProgress:(double)value runID:(NSString* _Nonnull)runID admissionID:(NSString* _Nonnull)admissionID NS_SWIFT_NAME(updateHostProgress(_:runID:admissionID:));
 - (void)onConnection:(NSXPCConnection*)connection;
 - (void)finishedLaunching;
 - (void)addNotificationRequest:(UNNotificationRequest*)request;
@@ -24,6 +27,7 @@ __attribute__((swift_attr("@Sendable")))
 // V3_COMMAND_PATCH_V1: primitive NSData only; the service validates its schema.
 - (void)v3Execute:(NSData* _Nonnull)request reply:(void (^ _Nonnull)(NSData* _Nonnull))reply NS_SWIFT_NAME(v3Execute(_:reply:));
 - (void)refreshAllAppsWithIdentifier:(NSString*)identifier mangledTypeName:(NSString *)mangledTypeName refreshRunID:(NSString* _Nullable)refreshRunID;
+- (void)refreshAllAppsWithIdentifier:(NSString*)identifier mangledTypeName:(NSString *)mangledTypeName refreshRunID:(NSString* _Nonnull)refreshRunID admissionID:(NSString* _Nonnull)admissionID NS_SWIFT_NAME(refreshAllApps(withIdentifier:mangledTypeName:refreshRunID:admissionID:));
 @end
 
 @interface LiveProcessSideStoreHandler : NSObject

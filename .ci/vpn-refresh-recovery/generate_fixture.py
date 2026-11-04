@@ -97,16 +97,18 @@ def generate(root, output):
     # Confirm same scheduler run may dispatch again without cached command replay.
     client_bytes = (root / CLIENT).read_bytes()
     client_blob = hashlib.sha1(b'blob ' + str(len(client_bytes)).encode() + b'\0' + client_bytes).hexdigest()
-    native_dispatch = helper.block(client_bytes.decode(), '- (void)refreshAllAppsWithIdentifier:')
     if client_blob == 'ed031c9f09879ab81f5feeacb141c72ceb076a38':
+        native_dispatch = helper.block(client_bytes.decode(), '- (void)refreshAllAppsWithIdentifier:')
         assert '[self performRefreshForRealWithIdentifier:identifier mangledTypeName:mangledTypeName server:handler.server];' in native_dispatch
         assert 'if (refreshRunID.length) [defaults setObject:refreshRunID' in native_dispatch
     else:
         # Exact reviewed direct-host successor, not an arbitrary selector bypass.
-        assert client_blob == '64145fa63c5a03ca4c6a5061608bcd4fb96ca7b0'
-        assert '[service refreshForHost:runID progress:' in native_dispatch
+        assert client_blob == '5bf22356b3413d4377b26ed96ae8b63522855bd9'
+        native_dispatch = helper.block(client_bytes.decode(), '- (void)refreshAllAppsWithIdentifier:(NSString*)identifier mangledTypeName:(NSString *)mangledTypeName refreshRunID:(NSString* _Nonnull)refreshRunID admissionID:')
+        assert '[service refreshForHost:runID admissionID:dispatchAdmissionID progress:' in native_dispatch
         assert 'NSString *runID = [refreshRunID copy];' in native_dispatch
-        assert '[server finishRefresh:error runID:runID verification:verification];' in native_dispatch
+        assert 'NSString *dispatchAdmissionID = [admissionID copy];' in native_dispatch
+        assert '[server finishHostRefresh:error runID:runID admissionID:dispatchAdmissionID verification:verification];' in native_dispatch
         assert 'performRefreshForRealWithIdentifier:' not in native_dispatch
         assert '[defaults setObject:' not in native_dispatch
     assert 'let id = UUID().uuidString' in helper.block(model, 'public func request(operation:')

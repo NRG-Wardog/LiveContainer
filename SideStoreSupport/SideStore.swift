@@ -4904,6 +4904,16 @@ public enum V3OperationLogLoadPolicy {
     }
 }
 
+// V3_REFRESH_CALLBACK_ADMISSION_V1: a run may contain multiple safe attempts.
+enum V3RefreshCallbackIdentityPolicy {
+    static func matches(callbackRunID: String, callbackAdmissionID: String,
+                        activeRunID: String?, activeAdmissionID: String?) -> Bool {
+        guard UUID(uuidString: callbackRunID)?.uuidString == callbackRunID,
+              UUID(uuidString: callbackAdmissionID)?.uuidString == callbackAdmissionID else { return false }
+        return callbackRunID == activeRunID && callbackAdmissionID == activeAdmissionID
+    }
+}
+
 @MainActor
 class RefreshHandler: NSObject {
     static let shared = RefreshHandler()
@@ -4921,6 +4931,7 @@ class RefreshHandler: NSObject {
     private var pendingPeerConnections: [NSXPCConnection] = []
     private var launchID: UUID?
     private var refreshRunID: String?
+    private var refreshAdmissionID: String?
     private var refreshContinuation: CheckedContinuation<Void, Error>?
     private var readinessTask: Task<Void, Never>?
     private var retiringProcess: NSExtension?
@@ -5403,10 +5414,14 @@ class RefreshHandler: NSObject {
         let admission = try await V3ServiceBridge.shared.request(
             operation: "refreshAdmissionBegin", target: run)
         guard admission["runID"] as? String == run,
-              V3ServiceBridge.strictBool(admission["admitted"]) == true else {
+              V3ServiceBridge.strictBool(admission["admitted"]) == true,
+              let admissionID = admission["admissionID"] as? String,
+              UUID(uuidString: admissionID)?.uuidString == admissionID else {
             throw CombinedFailure(operation: "refresh", stage: .command,
                 code: .busy, id: run, retryable: true, safeCause: .operationInProgress)
         }
+        refreshAdmissionID = admissionID
+        defer { if refreshAdmissionID == admissionID { refreshAdmissionID = nil } }
         if let directClaimID {
             sharedDefaults.set(["run_id": directClaimID,
                 "deadline": Date().addingTimeInterval(V3RefreshAdmissionLease.lifetime)],
@@ -5437,7 +5452,7 @@ class RefreshHandler: NSObject {
                     sharedDefaults.set(run, forKey: "liveContainerAutoRefreshUncertainMutationRunID")
                     v3RefreshTerminalCallbackRunID = nil
                     v3RefreshDispatchedRunID = run
-                    client.refreshAllApps(withIdentifier: identifier, mangledTypeName: mangledName, refreshRunID: run)
+                    client.refreshAllApps(withIdentifier: identifier, mangledTypeName: mangledName, refreshRunID: run, admissionID: admissionID)
                 }
             }, onCancel: { Task { @MainActor in
                 if self.v3RefreshToken == token && self.v3RefreshDispatchedRunID == run {
@@ -5451,10 +5466,10 @@ class RefreshHandler: NSObject {
                 terminalCallbackRunID: v3RefreshTerminalCallbackRunID)
             switch resolution {
             case .releaseNotDispatched:
-                await releaseRefreshAdmission(run,
+                await releaseRefreshAdmission(run, admissionID: admissionID,
                     terminalState: "notDispatched")
             case .releaseTerminalFailure:
-                await releaseRefreshAdmission(run, terminalState: "failed")
+                await releaseRefreshAdmission(run, admissionID: admissionID, terminalState: "failed")
             case .retainUnknownOutcome:
                 // XPC loss, timeout, or cancellation after dispatch is not
                 // proof that the device-side pipeline settled. Keep the
@@ -5465,17 +5480,18 @@ class RefreshHandler: NSObject {
             throw error
         }
         timeout.cancel()
-        await releaseRefreshAdmission(run, terminalState: "completed")
+        await releaseRefreshAdmission(run, admissionID: admissionID, terminalState: "completed")
     }
-    private func releaseRefreshAdmission(_ runID: String, terminalState: String) async {
+    private func releaseRefreshAdmission(_ runID: String, admissionID: String, terminalState: String) async {
         // Run independently of a caller cancellation so a confirmed terminal
         // callback cannot strand the service's admission state.
         await Task { @MainActor in
             do {
                 let reply = try await V3ServiceBridge.shared.request(
                     operation: "refreshAdmissionEnd", target: runID,
-                    payload: ["state": terminalState])
+                    payload: ["state": terminalState, "admissionID": admissionID])
                 guard reply["runID"] as? String == runID,
+                      reply["admissionID"] as? String == admissionID,
                       V3ServiceBridge.strictBool(reply["released"]) == true else {
                     NSLog("[V3_REFRESH_ADMISSION] RELEASE_UNCONFIRMED run_id=%@", runID)
                     self.v3_stopService()
@@ -5492,10 +5508,29 @@ class RefreshHandler: NSObject {
         pending?.resume(with: result)
     }
     fileprivate func updateProgress(_ value: Double, id: UUID) {
+        guard refreshAdmissionID == nil else { return }
+        applyRefreshProgress(value, id: id)
+    }
+    fileprivate func updateHostProgress(_ value: Double, runID: String, admissionID: String, id: UUID) {
+        guard refreshRunID == runID, refreshAdmissionID == admissionID else { return }
+        applyRefreshProgress(value, id: id)
+    }
+    private func applyRefreshProgress(_ value: Double, id: UUID) {
         guard launchID == id, refreshContinuation != nil, value.isFinite else { return }
         progress?.completedUnitCount = Int64(max(0, min(1, value)) * 100)
     }
     fileprivate func completedRefresh(_ error: String?, runID: String, verification: Data?, id: UUID) {
+        // A legacy callback cannot settle a host-owned admission.
+        guard refreshAdmissionID == nil else { return }
+        acceptRefreshCompletion(error, runID: runID, verification: verification, id: id)
+    }
+    fileprivate func completedHostRefresh(_ error: String?, runID: String, admissionID: String, verification: Data?, id: UUID) {
+        guard V3RefreshCallbackIdentityPolicy.matches(
+            callbackRunID: runID, callbackAdmissionID: admissionID,
+            activeRunID: refreshRunID, activeAdmissionID: refreshAdmissionID) else { return }
+        acceptRefreshCompletion(error, runID: runID, verification: verification, id: id)
+    }
+    private func acceptRefreshCompletion(_ error: String?, runID: String, verification: Data?, id: UUID) {
         guard launchID == id, refreshContinuation != nil, refreshRunID == runID else { return }
         v3RefreshTerminalCallbackRunID = runID
         if let error {
@@ -5557,6 +5592,7 @@ class RefreshHandler: NSObject {
         finishRefreshContinuation(.success(()))
     }
     fileprivate func legacyCompletion(_ error: String?, id: UUID) {
+        guard refreshAdmissionID == nil else { return }
         guard launchID == id, refreshContinuation != nil, let run = refreshRunID else { return }
         // The legacy callback carries no run ID or verification manifest, so it
         // cannot prove which native run settled. Fail the caller conservatively;
@@ -5622,6 +5658,12 @@ private final class CombinedServiceCallbacks: NSObject, RefreshServer {
     func finish(_ error: String?) { Task { @MainActor in self.owner?.legacyCompletion(error, id: self.identity) } }
     func finishRefresh(_ error: String?, runID: String, verification: Data?) {
         Task { @MainActor in self.owner?.completedRefresh(error, runID: runID, verification: verification, id: self.identity) }
+    }
+    func finishHostRefresh(_ error: String?, runID: String, admissionID: String, verification: Data?) {
+        Task { @MainActor in self.owner?.completedHostRefresh(error, runID: runID, admissionID: admissionID, verification: verification, id: self.identity) }
+    }
+    func updateHostProgress(_ value: Double, runID: String, admissionID: String) {
+        Task { @MainActor in self.owner?.updateHostProgress(value, runID: runID, admissionID: admissionID, id: self.identity) }
     }
     func add(_ request: UNNotificationRequest) {
         Task { @MainActor in
@@ -5928,7 +5970,8 @@ enum V3WireContract {
         case "recoveryDiscardUnreadable":
             return Set(payload.keys) == Set(["userConfirmed"]) && strictBool(payload["userConfirmed"]) == true
         case "refreshAdmissionEnd":
-            return Set(payload.keys) == Set(["state"]) &&
+            return Set(payload.keys) == Set(["state", "admissionID"]) &&
+                canonicalSecretToken(payload["admissionID"]) &&
                 ["completed", "failed", "notDispatched"].contains(payload["state"] as? String ?? "")
         case "opCancel":
             return Set(payload.keys) == Set(["knownStarted"]) &&

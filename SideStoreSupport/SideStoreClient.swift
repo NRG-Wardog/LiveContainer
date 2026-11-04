@@ -119,11 +119,11 @@ struct SideStoreIntentCaller {
         }
     }
 
-    @objc(reportHostRefreshUnavailable:server:)
-    func reportHostRefreshUnavailable(_ runID: String, server: any RefreshServer) {
+    @objc(reportHostRefreshUnavailable:admissionID:server:)
+    func reportHostRefreshUnavailable(_ runID: String, admissionID: String, server: any RefreshServer) {
         let failure = CombinedFailure(operation: "refresh", stage: .serviceReadiness,
             code: .unavailable, id: runID, retryable: false)
-        server.finishRefresh(failure.encodedString, runID: runID, verification: nil)
+        server.finishHostRefresh(failure.encodedString, runID: runID, admissionID: admissionID, verification: nil)
     }
 
     @objc(performRefreshForRealWithIdentifier:mangledTypeName:server:)

@@ -14,7 +14,7 @@
 - (void)performRefreshForRealWithIdentifier:(NSString*)identifier
                             mangledTypeName:(NSString*)mangledTypeName
                                      server:(id <RefreshServer> _Nonnull)server;
-- (void)reportHostRefreshUnavailable:(NSString *)runID server:(id<RefreshServer>)server;
+- (void)reportHostRefreshUnavailable:(NSString *)runID admissionID:(NSString *)admissionID server:(id<RefreshServer>)server;
 
 @end
 
@@ -24,6 +24,7 @@ void installSideStoreHooks(void);
 @protocol V3CommandService
 + (void)execute:(NSData *)request reply:(void (^)(NSData *))reply;
 + (void)refreshForHost:(NSString *)runID
+           admissionID:(NSString *)admissionID
               progress:(void (^)(double))progress
             completion:(void (^)(NSString * _Nullable, NSData * _Nullable))completion;
 @end
@@ -78,23 +79,29 @@ void installSideStoreHooks(void);
 }
 
 - (void)refreshAllAppsWithIdentifier:(NSString*)identifier mangledTypeName:(NSString *)mangledTypeName refreshRunID:(NSString* _Nullable)refreshRunID {
+    // Uncorrelated legacy dispatch is never permitted to claim a host admission.
+    if (handler) [handler.server finish:@"Host refresh requires an admission identity."];
+}
+
+- (void)refreshAllAppsWithIdentifier:(NSString*)identifier mangledTypeName:(NSString *)mangledTypeName refreshRunID:(NSString* _Nonnull)refreshRunID admissionID:(NSString* _Nonnull)admissionID {
     if(!handler) {
         return;
     }
     // V3_DIRECT_HOST_REFRESH_V1: only the service with the explicit admission
     // may clear state or start the canonical backend. No private AppIntent run.
     Class<V3CommandService> service = (Class<V3CommandService>)NSClassFromString(@"V3SideStoreService");
-    if (refreshRunID.length && service &&
-        [(id)service respondsToSelector:@selector(refreshForHost:progress:completion:)]) {
+    if (refreshRunID.length && admissionID.length && service &&
+        [(id)service respondsToSelector:@selector(refreshForHost:admissionID:progress:completion:)]) {
         id<RefreshServer> server = handler.server;
         NSString *runID = [refreshRunID copy];
-        [service refreshForHost:runID progress:^(double value) {
-            [server updateProgress:value];
+        NSString *dispatchAdmissionID = [admissionID copy];
+        [service refreshForHost:runID admissionID:dispatchAdmissionID progress:^(double value) {
+            [server updateHostProgress:value runID:runID admissionID:dispatchAdmissionID];
         } completion:^(NSString *error, NSData *verification) {
-            [server finishRefresh:error runID:runID verification:verification];
+            [server finishHostRefresh:error runID:runID admissionID:dispatchAdmissionID verification:verification];
         }];
     } else {
-        [self reportHostRefreshUnavailable:refreshRunID ?: @"" server:handler.server];
+        [self reportHostRefreshUnavailable:refreshRunID ?: @"" admissionID:admissionID ?: @"" server:handler.server];
     }
 }
 
