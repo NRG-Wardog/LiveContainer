@@ -46,6 +46,52 @@ def load_dependency(support_root):
     module.INPUT_PATHS = INPUT_PATHS
     return module
 
+def completion_chain(host, block, doubles):
+    """Extract the actual admission gate and complete common callback consumer.
+
+    Historical variants retain their exact monolithic callback. Only inert
+    delivery scaffolding changes for the admission-correlated current source.
+    """
+    legacy = block(host, 'fileprivate func completedRefresh(')
+    if 'private func acceptRefreshCompletion(' not in host:
+        assert 'V3RefreshTerminalFailurePolicy.preservedFailure(' in legacy
+        assert 'defaults.set(preserved.manifest' in legacy
+        assert 'launchID == id, refreshContinuation != nil, refreshRunID == runID' in legacy
+        return '', legacy, doubles
+    accepted = block(host, 'private func acceptRefreshCompletion(')
+    correlated = block(host, 'fileprivate func completedHostRefresh(')
+    identity = block(host, 'enum V3RefreshCallbackIdentityPolicy {')
+    assert 'guard refreshAdmissionID == nil else { return }' in legacy
+    assert 'V3RefreshCallbackIdentityPolicy.matches(' in correlated
+    assert 'callbackRunID: runID, callbackAdmissionID: admissionID' in correlated
+    assert 'activeRunID: refreshRunID, activeAdmissionID: refreshAdmissionID' in correlated
+    assert 'acceptRefreshCompletion(error, runID: runID, verification: verification, id: id)' in correlated
+    assert 'UUID(uuidString: callbackRunID)?.uuidString == callbackRunID' in identity
+    assert 'UUID(uuidString: callbackAdmissionID)?.uuidString == callbackAdmissionID' in identity
+    assert 'callbackRunID == activeRunID && callbackAdmissionID == activeAdmissionID' in identity
+    assert 'V3RefreshTerminalFailurePolicy.preservedFailure(' in accepted
+    assert 'defaults.set(preserved.manifest' in accepted
+    assert 'launchID == id, refreshContinuation != nil, refreshRunID == runID' in accepted
+    anchor = '    var refreshRunID: String?'
+    assert doubles.count(anchor) == 1
+    doubles = doubles.replace(anchor, anchor + '\n    var refreshAdmissionID: String?')
+    anchor = '        refreshRunID = runID'
+    assert doubles.count(anchor) == 1
+    doubles = doubles.replace(anchor, anchor + '\n        let admissionID = UUID().uuidString\n        refreshAdmissionID = admissionID')
+    first = '                completedRefresh(error, runID: wrongRun ?? runID, verification: verification, id: wrongLaunch ?? launch)'
+    assert doubles.count(first) == 1
+    doubles = doubles.replace(first, '''                // Stale same-run and uncorrelated callbacks cannot settle this admission.
+                completedHostRefresh(error, runID: runID, admissionID: UUID().uuidString, verification: verification, id: launch)
+                precondition(refreshContinuation != nil && v3RefreshTerminalCallbackRunID == nil)
+                completedRefresh(error, runID: runID, verification: verification, id: launch)
+                precondition(refreshContinuation != nil && v3RefreshTerminalCallbackRunID == nil)
+                completedHostRefresh(error, runID: wrongRun ?? runID, admissionID: admissionID, verification: verification, id: wrongLaunch ?? launch)''')
+    second = '                    completedRefresh(error, runID: runID, verification: nil, id: launch)'
+    assert doubles.count(second) == 1
+    doubles = doubles.replace(second, '                    completedHostRefresh(error, runID: runID, admissionID: admissionID, verification: nil, id: launch)')
+    return identity + '\n', legacy + '\n' + correlated + '\n' + accepted, doubles
+
+
 def extract_chain(root, support_root, dependency):
     """Actual production from the variant root; inert/extraction support from candidate only."""
     block = dependency.block
@@ -96,9 +142,9 @@ struct ALTProvisioningProfile {
     swift += block(s['producer'], 'private func persistAutomaticRefreshVerification(').replace('private func', 'func', 1) + '\n}\n'
     swift += 'final class SideStoreClient {\n' + block(s['client'], 'func reportRefreshResult(') + '\n'
     swift += block(s['client'], 'func reportStructuredRefreshFailure(') + '\n}\n'
-    current = block(host, 'fileprivate func completedRefresh(')
-    assert 'V3RefreshTerminalFailurePolicy.preservedFailure(' in current
-    swift += 'final class CurrentHandler {\n' + support(SUPPORT_PATHS[2]) + '\n'
+    identity, current, handler_doubles = completion_chain(host, block, support(SUPPORT_PATHS[2]))
+    swift += identity
+    swift += 'final class CurrentHandler {\n' + handler_doubles + '\n'
     swift += block(host, 'private func finishRefreshContinuation(') + '\n' + current + '\n}\n'
     swift += 'enum FixtureScheduler {\nstatic var defaults: UserDefaults { V3SharedAppGroup.defaults }\nstatic var activeRun: UUID?\nstatic let maximumRunLedgerEntries = 32\n'
     for key in ['runLedgerKey', 'activeRunKey', 'activeManualRequestKey', 'activeManualOriginKey', 'activeManualOriginRunKey', 'expectedRunKey', 'verificationKey', 'currentRunFailureKey', 'healthStateKey', 'lastErrorKey']:
