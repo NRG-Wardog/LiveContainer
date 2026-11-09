@@ -1,0 +1,46 @@
+name: Scheduler preflight native regression
+on:
+  push:
+    branches: [fix/scheduler-preflight-retry]
+  pull_request:
+    paths:
+      - LiveContainerSwiftUI/App/AppDelegate.swift
+      - tests/scheduler/**
+      - .github/workflows/scheduler-preflight-regression.yml
+permissions:
+  contents: read
+jobs:
+  native-regression:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          path: owner
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: NRG-Wardog/sidestore-auto-refresh
+          ref: c57eac41c7c8436e1ed22bb45aa694bcde2f233c
+          persist-credentials: false
+          path: builder
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: NRG-Wardog/SideStore
+          ref: dc3f5d7ffc8a21e8ee0fbc1137572e782f0bd223
+          persist-credentials: false
+          path: sidestore
+      - name: Verify immutable harness and supporting owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C builder rev-parse HEAD)" = c57eac41c7c8436e1ed22bb45aa694bcde2f233c
+          test "$(git -C sidestore rev-parse HEAD)" = dc3f5d7ffc8a21e8ee0fbc1137572e782f0bd223
+          git -C owner rev-parse HEAD
+          swiftc --version
+      - name: Compile and execute actual candidate scheduler with OS doubles
+        shell: bash
+        run: |
+          set -euo pipefail
+          export MAINTAINED_SIDESTORE_TEST_SOURCE="$GITHUB_WORKSPACE/sidestore"
+          python3 owner/tests/scheduler/run_preflight_retry.py "$GITHUB_WORKSPACE/builder"
