@@ -67,8 +67,8 @@ mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/PlugIns/AltWidg
 mv ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/AltWidgetExtension ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension
 
 # Sign
-rm -r .zsign_cache
-find payloadlc/Payload -type d -name "_CodeSignature" -exec rm -r {} +
+if [ -d .zsign_cache ]; then rm -r .zsign_cache; fi
+find Payload -type d -name "_CodeSignature" -exec rm -r {} +
 
 ldid -S.github/sidelc/LiveWidgetExtension_adhoc.xml ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension
 
