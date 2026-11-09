@@ -1140,7 +1140,7 @@ enum LiveContainerAutoRefreshScheduler {
             return failure
         }
         let native = error as NSError
-        if native.domain == "LiveContainerRefresh.Network" {
+        if native.domain == "LiveContainerRefresh.Network", (1...4).contains(native.code) {
             let cause: CombinedFailure.SafeCause = native.code == 1 ? .wifiUnavailable : .localDevVPNUnavailable
             let code: CombinedFailure.Code = native.code == 3 ? .unavailable :
                 (native.code == 4 ? .timedOut : .failed)
@@ -1578,14 +1578,24 @@ enum LiveContainerAutoRefreshScheduler {
                     userInfo: [NSLocalizedDescriptionKey: verification.reason])
             }
         } catch {
+            // Capture ownership before claiming completion; a cancelled or replaced
+            // preflight cannot grant permission to schedule another run.
+            let ownsFailedPreflight = !Task.isCancelled && ownsNetworkPreflight(
+                runID: runID, requestID: correlatedRequestID, source: source,
+                gateFinished: gate.isFinished)
             guard gate.claim() else { return } // Expiration already recorded the outcome.
-            if runLedger()[runID.uuidString]?["network_preflight"] as? String == "pending" {
+            let preflightPending = runLedger()[runID.uuidString]?["network_preflight"] as? String == "pending"
+            if preflightPending {
                 recordNetworkPreflight("failed", runID: runID.uuidString)
             }
             let nsError = error as NSError
             let count = defaults.integer(forKey: retryCountKey) + 1
             defaults.set(count, forKey: retryCountKey)
-            let structured = error as? CombinedFailure
+            let failure = structuredRefreshFailure(error, runID: runID.uuidString)
+            // Normalize known preflight errors before deciding whether replay is safe.
+            // A matching NSError after preflight is not evidence of no mutation.
+            let knownPreflightFailure = ownsFailedPreflight && preflightPending && nsError.domain == "LiveContainerRefresh.Network" && (1...4).contains(nsError.code)
+            let structured: CombinedFailure? = (error is CombinedFailure || knownPreflightFailure) ? failure : nil
             // This is a conservative scheduling policy, not a claim that an unknown
             // authentication retryability has become false in the authoritative error.
             let terminalEvidence = V3RefreshEvidencePolicy.terminalOutcome(defaults.dictionary(forKey: verificationKey), runID: runID.uuidString)
@@ -1600,7 +1610,6 @@ enum LiveContainerAutoRefreshScheduler {
                 defaults.removeObject(forKey: nextRetryKey)
                 defaults.set(true, forKey: retryExhaustedKey)
             }
-            let failure = structuredRefreshFailure(error, runID: runID.uuidString)
             let networkState = failure.safeCause == .wifiUnavailable ? "WIFI_UNAVAILABLE" :
                 (failure.safeCause == .localDevVPNUnavailable ? "VPN_UNAVAILABLE" :
                  (failure.stage == .network ? "REFRESH_FAILED" : "REFRESH_FAILED"))
