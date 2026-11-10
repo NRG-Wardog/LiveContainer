@@ -469,6 +469,13 @@ public enum V3RefreshTargetDiagnostics {
                CombinedFailure.appleProfileOriginKinds.contains(origin) {
                 row["appleProfileOrigin"] = origin
             }
+            if selection, token == "preservationPortalIdentityUnavailable",
+               failure?.stage == .signing, failure?.sourceStep == .provisioningProfileFetch,
+               evidence?.mutationDispatched == false,
+               let reason = failure?.signingContext["preservation_portal_identity"],
+               CombinedFailure.preservationPortalIdentityKinds.contains(reason) {
+                row["preservationPortalIdentity"] = reason
+            }
             return row
         }
     }
@@ -484,7 +491,7 @@ public enum V3RefreshTargetDiagnostics {
               let rows = summary["target_diagnostics"] as? [[String: Any]], rows.count == min(expected.intValue, maximumTargets) else { return "" }
         var lines = ["transport_observation=\(V3RefreshTransportObservation.recorded(in: record, runID: runID) ? "ready_during_run_not_live" : "not_recorded")"]
         for (index, row) in rows.enumerated() {
-            guard rowKeys.isSubset(of: Set(row.keys)), Set(row.keys).isSubset(of: rowKeys.union(["preservationConflict", "cmsSignerDiagnostic", "appleProfileOrigin"])), let target = row["target"] as? NSNumber,
+            guard rowKeys.isSubset(of: Set(row.keys)), Set(row.keys).isSubset(of: rowKeys.union(["preservationConflict", "cmsSignerDiagnostic", "appleProfileOrigin", "preservationPortalIdentity"])), let target = row["target"] as? NSNumber,
                   CFGetTypeID(target) != CFBooleanGetTypeID(),
                   ["c", "s", "i", "l", "q", "C", "S", "I", "L", "Q"].contains(String(cString: target.objCType)), target.intValue == index + 1,
                   let scope = row["scope"] as? String, ["host", "nonHost", "unknown"].contains(scope),
@@ -513,7 +520,14 @@ public enum V3RefreshTargetDiagnostics {
                CombinedFailure.appleProfileOriginKinds.contains(origin) {
                 originSuffix = " apple_profile_origin=\(origin)"
             } else { originSuffix = "" }
-            lines.append("target_\(index + 1): scope=\(scope) operation_status=\(operation) selection_guard=\(token) failure_kind=\(kind) mutation_dispatched=\(dispatched) install_acknowledged=\(acknowledged) profile_store=\(store) renewal=\(renewal) certificate=\(certificate)" + conflictSuffix + signerSuffix + originSuffix)
+            let portalSuffix: String
+            if operation == "failed", scope == "nonHost", dispatched == "no",
+               token == "preservationPortalIdentityUnavailable", kind == "invalidParameters",
+               let reason = row["preservationPortalIdentity"] as? String,
+               CombinedFailure.preservationPortalIdentityKinds.contains(reason) {
+                portalSuffix = " preservation_portal_identity=\(reason)"
+            } else { portalSuffix = "" }
+            lines.append("target_\(index + 1): scope=\(scope) operation_status=\(operation) selection_guard=\(token) failure_kind=\(kind) mutation_dispatched=\(dispatched) install_acknowledged=\(acknowledged) profile_store=\(store) renewal=\(renewal) certificate=\(certificate)" + conflictSuffix + signerSuffix + originSuffix + portalSuffix)
         }
         if let count = summary["expected_count"] as? Int, count > rows.count { lines.append("target_diagnostics_truncated=yes") }
         return lines.joined(separator: "\n")
@@ -1120,6 +1134,12 @@ public struct CombinedFailure: Error, LocalizedError {
             context["local_precondition"] != "preservationEvidenceUnavailable" {
             context.removeValue(forKey: "apple_profile_origin")
         }
+        // Portal-list observations are optional and only describe this signing guard.
+        if !preservationScope ||
+            (self.safeCause != nil && self.safeCause != .unknownSigningCause) ||
+            context["local_precondition"] != "preservationPortalIdentityUnavailable" {
+            context.removeValue(forKey: "preservation_portal_identity")
+        }
         self.signingContext = context
         self.retryable = retryable ?? self.safeCause?.inferredRetryable
         let launchStages: Set<Stage> = [.extensionDiscovery, .extensionLaunch, .xpcConnection, .serviceReadiness]
@@ -1140,6 +1160,10 @@ public struct CombinedFailure: Error, LocalizedError {
     ]
     public static func validatedWireSigningContext(_ supplied: Any) -> [String: String]? {
         guard var fields = supplied as? [String: Any] else { return nil }
+        if fields["preservation_portal_identity"] != nil &&
+            (!(fields["preservation_portal_identity"] is String) || fields.count > 20) {
+            fields.removeValue(forKey: "preservation_portal_identity")
+        }
         if fields["apple_profile_origin"] != nil &&
             (!(fields["apple_profile_origin"] is String) || fields.count > 20) {
             fields.removeValue(forKey: "apple_profile_origin")
@@ -1168,12 +1192,14 @@ public struct CombinedFailure: Error, LocalizedError {
     }
     public static let refreshSelectionPreconditions: Set<String> = ["missingTargetAppBundle", "missingRefreshProfiles", "missingInstalledRecord", "missingMainProfile", "missingVerifiedCertificate", "mainProfileIdentityMismatch", "mainProfileExpired", "mainProfileCertificateMismatch", "extensionOutsideParent", "extensionProfileIdentityMismatch", "extensionProfileExpired", "extensionProfileCertificateMismatch", "extensionTeamMismatch", "legacyProofUnavailable", "legacyHostProofUnavailable", "missingExtensionProfile", "unexpectedProfileKeys", "inconsistentProfileUUID", "unexpectedProfileUUID", "preservationIdentityUnavailable", "preservationMalformedProfile", "preservationEvidenceUnavailable", "preservationAuthorityConflict", "preservationUUIDConflict", "preservationAuthorizationChanged", "preservationExpiredCertificate", "preservationNotExtended", "preservationSnapshotChanged", "preservationPortalIdentityUnavailable"]
     /// Finite Apple-origin read observations, never provider text or a trust verdict.
+    public static let preservationPortalIdentityKinds: Set<String> = ["invalidHTTPResponse", "httpFailure", "missingStatus", "unsuccessfulStatus", "missingList", "nullList", "malformedList", "malformedRecord", "conflictingRecord", "requestUnavailable", "emptyList", "noExactMatch", "ambiguousMatch", "caseOnlyMatch"]
     public static let appleProfileOriginKinds: Set<String> = ["requestUnavailable", "recordNotFound", "ambiguousRecord", "responseMismatch", "invalidResponse", "responseTooLarge", "operationCancelled", "operationExpired", "ownershipChanged"]
     public static let preservationConflictKinds: Set<String> = ["multipleIdentities", "alternateIdentity", "teamMismatch", "prefixMismatch", "signerMissing", "entitlementsDiffer", "certificatesDiffer", "devicesDiffer", "platformsDiffer", "embeddedDERDiffer", "displayMetadataDiffer", "otherAuthorityDiffer", "embeddedDERUnsupportedSigner", "embeddedDERSignerTimeInvalid", "embeddedDERVerificationFailed", "embeddedDERUnsupportedRepresentation", "embeddedDERBindingMismatch"]
     public static let preservationRefreshPreconditions: Set<String> = ["preservationIdentityUnavailable", "preservationMalformedProfile", "preservationEvidenceUnavailable", "preservationAuthorityConflict", "preservationUUIDConflict", "preservationAuthorizationChanged", "preservationExpiredCertificate", "preservationNotExtended", "preservationSnapshotChanged", "preservationPortalIdentityUnavailable"]
     private static let refreshLocalPreconditions: Set<String> = refreshSelectionPreconditions.union(["unknownTeamType", "unresolvedAppGroupPlaceholder", "missingProgressWeight", "invalidProgressReuse", "missingPipelineStepMapping"])
     public static func validatedSigningContext(_ value: [String: String]) -> [String: String]? {
         var supplied = value
+        if supplied.count > 20 { supplied.removeValue(forKey: "preservation_portal_identity") }
         if supplied.count > 20 { supplied.removeValue(forKey: "apple_profile_origin") }
         // This read-only extension never evicts existing failure facts.
         if supplied.count > 20 { supplied.removeValue(forKey: V3CMSSignerDiagnostic.contextKey) }
@@ -1205,6 +1231,13 @@ public struct CombinedFailure: Error, LocalizedError {
            fields["local_precondition"] != "preservationAuthorityConflict" ||
            fields["refresh_failure_kind"] != "invalidParameters" {
             fields.removeValue(forKey: V3CMSSignerDiagnostic.contextKey)
+        }
+        if let reason = fields["preservation_portal_identity"],
+           !Self.preservationPortalIdentityKinds.contains(reason) ||
+           fields["refresh_target_scope"] != "nonHost" ||
+           fields["local_precondition"] != "preservationPortalIdentityUnavailable" ||
+           fields["refresh_failure_kind"] != "invalidParameters" {
+            fields.removeValue(forKey: "preservation_portal_identity")
         }
         if let origin = fields["apple_profile_origin"],
            origin.utf8.count > 32 || !Self.appleProfileOriginKinds.contains(origin) ||
@@ -1299,6 +1332,11 @@ public struct CombinedFailure: Error, LocalizedError {
             case "refresh_target_scope":
                 guard ["host", "nonHost", "unknown"].contains(text),
                       Self.refreshSelectionPreconditions.contains(fields["local_precondition"] ?? "") else { return nil }
+            case "preservation_portal_identity":
+                guard Self.preservationPortalIdentityKinds.contains(text),
+                      fields["refresh_target_scope"] == "nonHost",
+                      fields["local_precondition"] == "preservationPortalIdentityUnavailable",
+                      fields["refresh_failure_kind"] == "invalidParameters" else { return nil }
             case "apple_profile_origin":
                 guard text.utf8.count <= 32, Self.appleProfileOriginKinds.contains(text),
                       fields["refresh_target_scope"] == "nonHost",

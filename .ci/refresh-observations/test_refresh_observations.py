@@ -38,7 +38,7 @@ class ObservationTests(unittest.TestCase):
         self.assertIn('expected.prefix(maximumTargets).enumerated()', rows)
         self.assertIn('failure?.stage == .signing && failure?.sourceStep == .provisioningProfileFetch', rows)
         self.assertIn('rowKeys.isSubset(of: Set(row.keys))', rows)
-        self.assertIn('rowKeys.union(["preservationConflict", "cmsSignerDiagnostic", "appleProfileOrigin"])', rows)
+        self.assertIn('rowKeys.union(["preservationConflict", "cmsSignerDiagnostic", "appleProfileOrigin", "preservationPortalIdentity"])', rows)
         import os
         peer=Path(os.environ.get('SIDESTORE_SOURCE_ROOT',str(ROOT.parent/'SideStore')))/'AltStore/AppDelegate.swift'
         self.assertEqual(failure,g.block(peer.read_text(),'public struct CombinedFailure:'))
@@ -99,6 +99,8 @@ class ObservationTests(unittest.TestCase):
         self.assertIn('CombinedFailure.capture(marked, operation: "refresh"',cases)
         self.assertIn('appleProfileOrigin: kind',cases)
         self.assertIn('origin_all_nine_actual_producer_wrapper_manifest_whole_log',cases)
+        self.assertIn('portalIdentity: kind', cases)
+        self.assertIn('portal_all_fourteen_actual_producer_wrapper_manifest_whole_log', cases)
 
 
     @unittest.skipUnless(shutil.which('swiftc'),'Actual source Swift execution requires macOS CI')

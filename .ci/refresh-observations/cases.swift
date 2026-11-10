@@ -402,3 +402,74 @@ originRows[0]["dispatched"] = "no"; originRows[0]["scope"] = "host"; originPoiso
 check(!conflictCopy(originPoisonedSummary).contains("apple_profile_origin="), "origin_target_wrong_scope_ignored")
 originRows[0]["scope"] = "nonHost"; originRows[0]["guard"] = "preservationAuthorityConflict"; originPoisonedSummary["target_diagnostics"] = originRows
 check(!conflictCopy(originPoisonedSummary).contains("apple_profile_origin="), "origin_target_wrong_guard_ignored")
+
+
+// Portal-list identity failures are finite diagnostics, not CMS trust decisions.
+let portalKey = "preservation_portal_identity"
+let portalKinds = ["invalidHTTPResponse", "httpFailure", "missingStatus", "unsuccessfulStatus", "missingList", "nullList", "malformedList", "malformedRecord", "conflictingRecord", "requestUnavailable", "emptyList", "noExactMatch", "ambiguousMatch", "caseOnlyMatch"]
+func portalFailure(_ value: String = "noExactMatch", operation: String = "refresh", stage: CombinedFailure.Stage = .signing, step: CombinedFailure.SourceStep = .provisioningProfileFetch, cause: CombinedFailure.SafeCause? = .unknownSigningCause, scope: String = "nonHost", token: String = "preservationPortalIdentityUnavailable", kind: String = "invalidParameters") -> CombinedFailure {
+ CombinedFailure(operation: operation, stage: stage, code: .failed, id: run, safeCause: cause, sourceStep: step,
+ signingContext: ["local_precondition": token, "refresh_target_scope": scope, "refresh_failure_kind": kind, portalKey: value])
+}
+check(CombinedFailure.preservationPortalIdentityKinds == Set(portalKinds), "portal_exact_finite_vocabulary")
+check(portalFailure().signingContext[portalKey] == "noExactMatch" && portalFailure().code == .failed, "portal_diagnostic_does_not_authorize_refresh")
+check(CombinedFailure.fromEncodedString(portalFailure().encodedString, expectedID: run)?.signingContext == portalFailure().signingContext, "portal_binary_roundtrip")
+check(portalFailure(stage: .command, step: .refreshApplication).signingContext[portalKey] == nil, "portal_refresh_application_scope_rejected")
+check(portalFailure(operation: "install").signingContext[portalKey] == nil, "portal_wrong_operation_dropped")
+check(portalFailure(stage: .command).signingContext[portalKey] == nil, "portal_wrong_stage_dropped")
+check(portalFailure(step: .certificateValidation).signingContext[portalKey] == nil, "portal_wrong_step_dropped")
+check(portalFailure(scope: "host").signingContext[portalKey] == nil && portalFailure(scope: "unknown").signingContext[portalKey] == nil, "portal_wrong_scope_dropped")
+check(portalFailure(token: "preservationAuthorityConflict").signingContext[portalKey] == nil, "portal_wrong_guard_dropped")
+check(portalFailure(kind: "noVPN").signingContext[portalKey] == nil, "portal_wrong_kind_dropped")
+check(portalFailure(cause: .certificateUnavailable).signingContext[portalKey] == nil && portalFailure(cause: nil).signingContext[portalKey] != nil, "portal_specific_cause_rejected_placeholder_allowed")
+check(portalFailure("SECRET_ACCOUNT_PROFILE_UUID").signingContext[portalKey] == nil && !portalFailure("SECRET_ACCOUNT_PROFILE_UUID").technicalDetails.contains("SECRET"), "portal_opaque_value_stripped")
+check(portalFailure(String(repeating: "x", count: 33)).signingContext[portalKey] == nil && portalFailure(String(repeating: "x", count: 33)).signingContext["local_precondition"] == "preservationPortalIdentityUnavailable", "portal_oversize_primary_retained")
+var portalWrongType = portalFailure().wire; var portalTypedContext = portalFailure().signingContext as [String: Any]; portalTypedContext[portalKey] = ["profile": "SECRET"]
+portalWrongType["signingContext"] = portalTypedContext
+check(CombinedFailure.decode(portalWrongType, expectedID: run)?.signingContext[portalKey] == nil && CombinedFailure.decode(portalWrongType, expectedID: run)?.signingContext["local_precondition"] == "preservationPortalIdentityUnavailable", "portal_wrong_type_primary_retained")
+var portalMissingScope = portalFailure().signingContext; portalMissingScope.removeValue(forKey: "refresh_target_scope")
+check(CombinedFailure.validatedSigningContext(portalMissingScope)?[portalKey] == nil, "portal_missing_scope_dropped")
+var portalDense = fullConflictContext; portalDense["local_precondition"] = "preservationPortalIdentityUnavailable"
+var portalOverCapacity = portalDense; portalOverCapacity[portalKey] = "noExactMatch"
+check(portalDense.count == 20 && CombinedFailure.validatedSigningContext(portalOverCapacity) == portalDense, "portal_capacity_prior_twenty_facts_preserved")
+var portalOverflowWire = portalFailure().wire; portalOverflowWire["signingContext"] = portalOverCapacity
+check(CombinedFailure.decode(portalOverflowWire, expectedID: run)?.signingContext == portalDense, "portal_wire_capacity_preserved")
+var portalWrongCode = portalFailure().wire; portalWrongCode["code"] = "cancelled"
+check(CombinedFailure.decode(portalWrongCode, expectedID: run)?.signingContext[portalKey] == nil, "portal_wrong_code_dropped")
+
+func actualPortalLog(_ kind: String) -> (CombinedFailure, String, [String: Any]) {
+ let producer = V3RefreshSelectionFailure(reason: .preservationPortalIdentityUnavailable, scope: .nonHost, portalIdentity: kind)
+ var facts = producer.facts
+ facts.merge(["extension_count": "5", "signing_certificate_present": "true", "signing_certificate_serial_sha256": String(repeating: "a", count: 64), "signing_certificate_source": "verifiedRefreshCache"]) { _, observed in observed }
+ let marked = lcStructuredSigningFailure(producer, stage: "signing", sourceStep: "provisioningProfileFetch", facts: facts)
+ precondition(marked.userInfo["LCStructuredFailureCauseV1"] as? String == "unknownSigningCause")
+ let captured = CombinedFailure.capture(marked, operation: "refresh", stage: .refreshVerification, id: run)
+ let data = try! PropertyListSerialization.data(fromPropertyList: captured.wire, format: .binary, options: 0)
+ precondition(data.count <= 4096)
+ let decoded = try! PropertyListSerialization.propertyList(from: data, format: nil) as! [String: Any]
+ let restored = CombinedFailure.decode(decoded, expectedID: run)!
+ precondition(restored.signingContext == facts && restored.safeCause == .unknownSigningCause && restored.code == .failed)
+ var batch = cmsManifest
+ batch["results"] = [["bundle_id": "private.target.one", "success": true, "verification": proof(true)], ["bundle_id": "private.target.two", "success": false, "failure": restored.wire, "verification": proof(false)]]
+ let sanitized = CombinedVerification.sanitized(["liveContainerAutoRefreshVerification": batch], runID: run)["liveContainerAutoRefreshVerification"] as! [String: Any]
+ let summary = ActualSummary.terminalManifestSummary(sanitized, runID: run, verified: false)
+ let record: [String: Any] = ["request_id": other, "run_id": run, "state": "failed", "failure": restored.wire, "manifest_summary": summary]
+ return (restored, V3RefreshAllFailureDiagnostics.text(requestID: other, runID: run, record: record)!, summary)
+}
+check(portalKinds.allSatisfy { kind in let (_,log,_) = actualPortalLog(kind); return log.components(separatedBy: "preservation_portal_identity=" + kind).count == 3 && !log.contains("cms_signer_signature=") && !log.contains("SECRET") }, "portal_all_fourteen_actual_producer_wrapper_manifest_whole_log")
+let (portalRestored,portalWholeLog,portalSummary) = actualPortalLog("noExactMatch")
+check(portalWholeLog.contains("extension_count=5") && portalWholeLog.contains("signing_certificate_source=verifiedRefreshCache") && portalRestored.stage == .signing && portalRestored.sourceStep == .provisioningProfileFetch, "portal_existing_failure_and_cache_facts_preserved")
+check(!portalWholeLog.components(separatedBy: "\n").first(where: { $0.hasPrefix("target_2:") })!.contains("preservation_portal_identity="), "portal_completed_host_never_inherits_nonhost_failure")
+var portalRows = portalSummary["target_diagnostics"] as! [[String: Any]]
+var portalPoisonedSummary = portalSummary; portalRows[0]["preservationPortalIdentity"] = ["account": "SECRET"]; portalPoisonedSummary["target_diagnostics"] = portalRows
+check(!conflictCopy(portalPoisonedSummary).contains("preservation_portal_identity=") && !conflictCopy(portalPoisonedSummary).contains("SECRET"), "portal_target_wrong_type_ignored")
+portalRows[0]["preservationPortalIdentity"] = "SECRET"; portalPoisonedSummary["target_diagnostics"] = portalRows
+check(!conflictCopy(portalPoisonedSummary).contains("SECRET"), "portal_target_unknown_value_ignored")
+portalRows[0]["preservationPortalIdentity"] = "noExactMatch"; portalRows[0]["dispatched"] = "yes"; portalPoisonedSummary["target_diagnostics"] = portalRows
+check(!conflictCopy(portalPoisonedSummary).contains("preservation_portal_identity="), "portal_target_mutation_dispatched_ignored")
+portalRows[0]["dispatched"] = "unknown"; portalPoisonedSummary["target_diagnostics"] = portalRows
+check(!conflictCopy(portalPoisonedSummary).contains("preservation_portal_identity="), "portal_target_unknown_mutation_ignored")
+portalRows[0]["dispatched"] = "no"; portalRows[0]["scope"] = "host"; portalPoisonedSummary["target_diagnostics"] = portalRows
+check(!conflictCopy(portalPoisonedSummary).contains("preservation_portal_identity="), "portal_target_wrong_scope_ignored")
+portalRows[0]["scope"] = "nonHost"; portalRows[0]["guard"] = "preservationAuthorityConflict"; portalPoisonedSummary["target_diagnostics"] = portalRows
+check(!conflictCopy(portalPoisonedSummary).contains("preservation_portal_identity="), "portal_target_wrong_guard_ignored")
