@@ -72,4 +72,71 @@ for (key, value) in [("scope", "host"), ("dispatched", "yes"), ("dispatched", "u
  check(!copyRows(changed).contains("preservation_portal_identity="), "portal_mismatched_row_does_not_manufacture_diagnosis")
 }
 
+// Local profile evidence failures are finite diagnostics, not CMS trust decisions.
+let evidenceKey = "preservation_evidence"
+let evidenceKinds = ["incompatibleMode", "missingCertificate", "missingReader", "readFailed", "emptyInventory", "noMatchingProfile", "inventoryCountLimit", "emptyProfile", "profileSizeLimit", "inventorySizeLimit", "processingTimeLimit", "missingOrigin", "candidateMismatch"]
+func evidenceFailure(_ value: String = "noMatchingProfile", operation: String = "refresh", stage: CombinedFailure.Stage = .signing, step: CombinedFailure.SourceStep = .provisioningProfileFetch, cause: CombinedFailure.SafeCause? = .unknownSigningCause, scope: String = "nonHost", token: String = "preservationEvidenceUnavailable", kind: String = "invalidParameters") -> CombinedFailure {
+ CombinedFailure(operation: operation, stage: stage, code: .failed, id: run, safeCause: cause, sourceStep: step,
+ signingContext: ["local_precondition": token, "refresh_target_scope": scope, "refresh_failure_kind": kind, evidenceKey: value])
+}
+check(CombinedFailure.preservationEvidenceKinds == Set(evidenceKinds), "evidence_exact_finite_vocabulary")
+check(evidenceFailure().signingContext[evidenceKey] == "noMatchingProfile" && evidenceFailure().code == .failed, "evidence_diagnostic_does_not_authorize_refresh")
+check(CombinedFailure.fromEncodedString(evidenceFailure().encodedString, expectedID: run)?.signingContext == evidenceFailure().signingContext, "evidence_binary_roundtrip")
+check(evidenceFailure(stage: .command, step: .refreshApplication).signingContext[evidenceKey] == nil, "evidence_refresh_application_scope_rejected")
+check(evidenceFailure(operation: "install").signingContext[evidenceKey] == nil, "evidence_wrong_operation_dropped")
+check(evidenceFailure(stage: .command).signingContext[evidenceKey] == nil, "evidence_wrong_stage_dropped")
+check(evidenceFailure(step: .certificateValidation).signingContext[evidenceKey] == nil, "evidence_wrong_step_dropped")
+check(evidenceFailure(scope: "host").signingContext[evidenceKey] == nil && evidenceFailure(scope: "unknown").signingContext[evidenceKey] == nil, "evidence_wrong_scope_dropped")
+check(evidenceFailure(token: "preservationAuthorityConflict").signingContext[evidenceKey] == nil, "evidence_wrong_guard_dropped")
+check(evidenceFailure(kind: "noVPN").signingContext[evidenceKey] == nil, "evidence_wrong_kind_dropped")
+check(evidenceFailure(cause: .certificateUnavailable).signingContext[evidenceKey] == nil && evidenceFailure(cause: nil).signingContext[evidenceKey] != nil, "evidence_specific_cause_rejected_placeholder_allowed")
+check(evidenceFailure("SECRET_ACCOUNT_PROFILE_UUID").signingContext[evidenceKey] == nil && !evidenceFailure("SECRET_ACCOUNT_PROFILE_UUID").technicalDetails.contains("SECRET"), "evidence_opaque_value_stripped")
+check(evidenceFailure(String(repeating: "x", count: 33)).signingContext[evidenceKey] == nil && evidenceFailure(String(repeating: "x", count: 33)).signingContext["local_precondition"] == "preservationEvidenceUnavailable", "evidence_oversize_primary_retained")
+var evidenceWrongType = evidenceFailure().wire; var evidenceTypedContext = evidenceFailure().signingContext as [String: Any]; evidenceTypedContext[evidenceKey] = ["profile": "SECRET"]
+evidenceWrongType["signingContext"] = evidenceTypedContext
+check(CombinedFailure.decode(evidenceWrongType, expectedID: run)?.signingContext[evidenceKey] == nil && CombinedFailure.decode(evidenceWrongType, expectedID: run)?.signingContext["local_precondition"] == "preservationEvidenceUnavailable", "evidence_wrong_type_primary_retained")
+var evidenceMissingScope = evidenceFailure().signingContext; evidenceMissingScope.removeValue(forKey: "refresh_target_scope")
+check(CombinedFailure.validatedSigningContext(evidenceMissingScope)?[evidenceKey] == nil, "evidence_missing_scope_dropped")
+var evidenceDense = fullConflictContext; evidenceDense["local_precondition"] = "preservationEvidenceUnavailable"
+var evidenceOverCapacity = evidenceDense; evidenceOverCapacity[evidenceKey] = "noMatchingProfile"
+check(evidenceDense.count == 20 && CombinedFailure.validatedSigningContext(evidenceOverCapacity) == evidenceDense, "evidence_capacity_prior_twenty_facts_preserved")
+var evidenceOverflowWire = evidenceFailure().wire; evidenceOverflowWire["signingContext"] = evidenceOverCapacity
+check(CombinedFailure.decode(evidenceOverflowWire, expectedID: run)?.signingContext == evidenceDense, "evidence_wire_capacity_preserved")
+var evidenceWrongCode = evidenceFailure().wire; evidenceWrongCode["code"] = "cancelled"
+check(CombinedFailure.decode(evidenceWrongCode, expectedID: run)?.signingContext[evidenceKey] == nil, "evidence_wrong_code_dropped")
+
+
+check(evidenceKinds.allSatisfy { value in
+ let failure = evidenceFailure(value)
+ return CombinedFailure.fromEncodedString(failure.encodedString, expectedID: run)?.signingContext[evidenceKey] == value && failure.technicalDetails.contains("preservation_evidence=" + value)
+}, "evidence_all_values_real_wire_and_full_details")
+check(CombinedFailure.validatedSigningContext([evidenceKey: "emptyInventory"])?.isEmpty == true, "evidence_optional_alone_cannot_manufacture_category")
+check(evidenceKinds.allSatisfy { value in copyRows(targetRows(evidenceFailure(value))).contains("preservation_evidence=" + value) }, "evidence_all_values_real_manifest_to_copy")
+check(targetRows(evidenceFailure(), dispatched: true).first?["preservationEvidence"] == nil, "evidence_rows_require_predispatch")
+check(!copyRows(targetRows(evidenceFailure())).contains("private.target"), "evidence_rows_no_identifiers")
+var evidenceRows = targetRows(evidenceFailure())
+precondition(evidenceRows.count == 1)
+let evidenceInvalidValues: [Any] = ["SECRET", true, ["account": "SECRET"]]
+for value in evidenceInvalidValues {
+ evidenceRows[0]["preservationEvidence"] = value
+ check(!copyRows(evidenceRows).isEmpty && !copyRows(evidenceRows).contains("preservation_evidence="), "evidence_invalid_optional_row_preserves_primary")
+}
+for (key, value) in [("scope", "host"), ("dispatched", "yes"), ("dispatched", "unknown"), ("operation", "completed"), ("guard", "preservationPortalIdentityUnavailable"), ("failureKind", "noVPN")] {
+ var changed = targetRows(evidenceFailure()); changed[0][key] = value
+ check(!copyRows(changed).contains("preservation_evidence="), "evidence_mismatched_row_does_not_manufacture_diagnosis")
+}
+
+
+var legacyEvidenceContext = evidenceFailure().signingContext
+legacyEvidenceContext.removeValue(forKey: evidenceKey)
+var legacyEvidenceWire = evidenceFailure().wire
+legacyEvidenceWire["signingContext"] = legacyEvidenceContext
+check(CombinedFailure.decode(legacyEvidenceWire, expectedID: run)?.signingContext == legacyEvidenceContext, "evidence_absent_backward_compatible")
+var withOrigin = evidenceFailure().signingContext
+withOrigin["apple_profile_origin"] = "recordNotFound"
+check(CombinedFailure.validatedSigningContext(withOrigin) == withOrigin, "evidence_origin_diagnostic_coexists")
+var crossGuard = evidenceFailure().signingContext
+crossGuard[portalKey] = "noExactMatch"
+check(CombinedFailure.validatedSigningContext(crossGuard)?[portalKey] == nil && CombinedFailure.validatedSigningContext(crossGuard)?[evidenceKey] == "noMatchingProfile", "evidence_portal_wrong_guard_dropped")
 print("PORTAL_WIRE_PASS")
+

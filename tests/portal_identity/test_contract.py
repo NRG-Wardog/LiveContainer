@@ -18,7 +18,9 @@ class PortalIdentityTests(unittest.TestCase):
         failure = g.block(source, 'public struct CombinedFailure:')
         sanitizer = g.block(failure, 'public static func validatedSigningContext(')
         self.assertLess(sanitizer.index('supplied.removeValue(forKey: "preservation_portal_identity")'), sanitizer.index('supplied.removeValue(forKey: "apple_profile_origin")'))
+        self.assertLess(sanitizer.index('supplied.removeValue(forKey: "preservation_evidence")'), sanitizer.index('supplied.removeValue(forKey: "preservation_portal_identity")'))
         self.assertIn('guard fields.count <= 20', sanitizer)
+        self.assertIn('context.removeValue(forKey: "preservation_evidence")', failure)
         self.assertIn('if !preservationScope ||', failure)
         rows = g.block(source, 'public enum V3RefreshTargetDiagnostics {')
         self.assertIn('evidence?.mutationDispatched == false', rows)
@@ -43,3 +45,4 @@ class PortalIdentityTests(unittest.TestCase):
             print(result.stdout)
 
 if __name__ == '__main__': unittest.main()
+

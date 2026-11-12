@@ -2,7 +2,7 @@ name: Portal identity diagnostic contract
 on:
   workflow_dispatch:
   push:
-    branches: [fix/portal-identity-diagnostics]
+    branches: [fix/portal-identity-diagnostics, validation/profile-evidence-diagnostics-nov12]
   pull_request:
     paths:
       - SideStoreSupport/SideStore.swift
@@ -21,3 +21,4 @@ jobs:
           persist-credentials: false
           submodules: false
       - run: python3 -B -m unittest discover -s tests/portal_identity -v
+
