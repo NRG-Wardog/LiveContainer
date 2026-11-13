@@ -1,0 +1,25 @@
+name: Extension prompt localization contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [validation/extension-prompt-copy-nov13]
+  pull_request:
+    paths:
+      - LiveContainerSwiftUI/Utilities/V3Localization.swift
+      - tests/test_extension_prompt_localization.py
+      - .github/workflows/extension-prompt-contract.yml
+permissions:
+  contents: read
+jobs:
+  prompt-copy:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Execute native prompt localization contract
+        run: |
+          command -v swiftc
+          python3 -B -m unittest discover -s tests -p test_extension_prompt_localization.py -v

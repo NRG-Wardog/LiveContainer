@@ -155,6 +155,74 @@ enum V3Localization {
         case .traditionalChinese: return "部分詳細資訊未提供所選語言的版本。"
         }
     }
+
+    // The producer is V3ReuseMainExplanation in PipelineExecutionHandler.swift.
+    // Keep this closed vocabulary in sync; no raw service errors are admitted.
+    private static let extensionFallbackReasons: Set<String> = [
+        "extension identifier is outside its container", "main signing identity is unavailable",
+        "extension application identifier does not match", "debug capability differs",
+        "keychain groups differ", "app groups differ", "required capabilities differ",
+        "main profile has expired", "custom entitlement overrides require separate profiles",
+        "compatibility could not be established"
+    ]
+    private static func extensionFallbackProse(_ value: String, language: V3AppLanguage, bundle: Bundle) -> String? {
+        func owned(_ key: String) -> String {
+            let translated = string(key, language: language, bundle: bundle)
+            return translated.isEmpty ? key : translated
+        }
+        if value == "Separate Extension Profiles Required" {
+            return owned("Experimental ReuseMain could not be used")
+        }
+        if value == "Extensions that could not qualify for ReuseMain:" {
+            return owned("A single shared profile did not pass compatibility checks for these extensions:")
+        }
+        func reasons(_ text: String) -> String? {
+            let parts = text.components(separatedBy: "; ")
+            guard !parts.isEmpty, parts.allSatisfy({ extensionFallbackReasons.contains($0) }) else { return nil }
+            return parts.map(owned).joined(separator: "; ")
+        }
+        if let summary = reasons(value) { return summary }
+        if value.hasPrefix("• "), let separator = value.range(of: ": ") {
+            let identifier = String(value[value.index(value.startIndex, offsetBy: 2)..<separator.lowerBound])
+            let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_")
+            guard identifier == "[unrecognized extension identifier]" ||
+                    (!identifier.isEmpty && identifier.utf8.count <= 255 && identifier.unicodeScalars.allSatisfy({ allowed.contains($0) })),
+                  let summary = reasons(String(value[separator.upperBound...])) else { return nil }
+            let displayedID = language.isRightToLeft ? "\u{2066}\(identifier)\u{2069}" : identifier
+            return "• " + displayedID + ": " + summary
+        }
+        // The adjacent offer is also compile-time-owned producer copy. Admit only
+        // its exact template, a bounded bundle identifier and one consistent count.
+        let offerKey = "%@ contains %@ extension(s). Experimental ReuseMain is for ordinary apps only, not host self-install or self-refresh. If all %@ extensions pass compatibility checks, ReuseMain may avoid up to %@ additional App IDs. If any extension fails, this version uses separate profiles for all %@ extensions, avoiding 0 additional App IDs. Existing App IDs may already be registered; these are estimates, not measured savings. Separate profiles require confirmation. Extension behavior still needs device validation. You can also register each extension or choose which to remove."
+        let offerParts = offerKey.components(separatedBy: "%@")
+        let pattern = "^" + offerParts.enumerated().map { index, part in
+            (index == 0 ? "" : (index == 1 ? "([A-Za-z0-9._-]{1,255})" : "([0-9]+)"))
+                + NSRegularExpression.escapedPattern(for: part)
+        }.joined() + "$"
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: value, range: NSRange(value.startIndex..., in: value)) {
+            let captures = (1..<match.numberOfRanges).compactMap { index -> String? in
+                guard let range = Range(match.range(at: index), in: value) else { return nil }
+                return String(value[range])
+            }
+            guard captures.count == 5, Set(captures.dropFirst()).count == 1,
+                  let count = Int(captures[1]), count >= 0 else { return nil }
+            let identifier = language.isRightToLeft ? "\u{2066}\(captures[0])\u{2069}" : captures[0]
+            return String(format: owned(offerKey), locale: Locale(identifier: language.rawValue),
+                          arguments: [identifier, String(count), String(count), String(count), String(count)])
+        }
+        let prefix = "This version falls back as a group: all "
+        let middle = " extensions stay installed and use separate profiles. This fallback avoids 0 additional App IDs and may require up to "
+        let suffix = " separate App IDs (some may already exist). No extension is removed and no required capability is discarded. Continue with separate provisioning?"
+        guard value.hasPrefix(prefix), value.hasSuffix(suffix) else { return nil }
+        let body = String(value.dropFirst(prefix.count).dropLast(suffix.count))
+        let counts = body.components(separatedBy: middle)
+        guard counts.count == 2, counts[0] == counts[1], !counts[0].isEmpty,
+              counts[0].utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }), let count = Int(counts[0]), count >= 0 else { return nil }
+        let key = "Keep All With Separate Profiles keeps all %@ extensions in this installation request and provisions each with a separate profile instead of reusing the main profile. No extension is removed and no required capability is discarded. Capability-preservation checks remain enabled on this fallback path. This saves 0 additional App IDs and may require up to %@ separate App IDs (some may already exist). Signing and installation still have to complete and can fail. Cancel stops this installation request."
+        return String(format: owned(key), locale: Locale(identifier: language.rawValue), arguments: [String(count), String(count)])
+    }
+
     // Exact pinned TeamType, CodeSignValidationReason and certificate-state tokens.
     private static let displayAliases: [String: String] = [
         "organization": "Organization",
@@ -175,6 +243,9 @@ enum V3Localization {
     private static func translatedProse(_ value: String, language: V3AppLanguage, bundle: Bundle, depth: Int) -> String? {
         if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return value }
         guard depth < 8 else { return nil }
+        // Reviewed SideStore-owned confirmation copy may fall back to English.
+        // Never use this path for arbitrary provider text or unknown reasons.
+        if let owned = extensionFallbackProse(value, language: language, bundle: bundle) { return owned }
         let displayKey = displayAliases[value] ?? value
         if let exact = selectedString(displayKey, language: language, bundle: bundle) { return exact }
         let marker = "\nError ID: "
